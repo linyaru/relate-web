@@ -1,0 +1,101 @@
+# CypherLite
+
+> CypherLite is a lightweight, embeddable graph database written in Rust. It
+> speaks Cypher — the most widely adopted graph query language — with
+> zero infrastructure: no server, no configuration, no clusters. Think
+> "SQLite for graphs".
+
+## Why use it
+
+- **Zero infrastructure**: an in-process embedded engine — open a path (or
+  `:memory:`) and query. No server to run, ever.
+- **Real Cypher**: 3891 of 3893 pinned openCypher TCK scenarios pass under a
+  strict harness (the rest are documented skips), plus a large slice of
+  Neo4j's post-standard Cypher 25 (GQL alignment) verified against a
+  ~200-CIP evaluation suite: label expressions, quantified path patterns,
+  path selectors, `SEARCH` (vector + full-text indexes), vector and UUID
+  types, graph types, string interpolation, map comprehensions, `GROUP BY`,
+  and more.
+- **Durable by default**: an fsync'd local WAL with Parquet (or JSON)
+  checkpoints — crash-safe single-file or directory databases.
+- **Polyglot**: the public Rust crate (`cypherlite::Database`), a C ABI
+  (FFI) wrapped by Python (DB-API + Arrow), JavaScript, Java, and Go
+  clients, a CLI shell, and a Bolt server for remote access.
+- **Fast + measurable**: in-memory graph with engine-owned indexes, frozen
+  loadtest baselines as a merge gate.
+
+## Install
+
+```bash
+curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash
+```
+
+Prebuilt binaries (incl. the `cypherlite-bolt` server) also live at
+https://neo4j-labs.github.io/cypherlite/dist/ and on the GitHub releases
+page. Build from source with `cargo build --release`; the Python package is
+`neo4j-cypherlite` (`import cypherlite`).
+
+## Quick start
+
+```bash
+cypherlite                              # interactive shell, in-memory DB
+cypherlite ./mygraph "RETURN 1 + 2"     # one-shot query
+```
+
+```cypher
+CREATE (alice:Person {name: 'Alice', age: 30})
+CREATE (bob:Person {name: 'Bob', age: 28})
+CREATE (alice)-[:FRIENDS_WITH {since: 2020}]->(bob)
+MATCH (p:Person)-[r:FRIENDS_WITH]->(friend)
+RETURN p.name, friend.name, r.since;
+```
+
+Python:
+
+```python
+import cypherlite
+db = cypherlite.connect(":memory:")
+db.execute("CREATE (p:Person {name: $name})", {"name": "Alice"})
+for row in db.execute("MATCH (p:Person) RETURN p.name"):
+    print(row["p.name"])
+```
+
+## Use it with AI agents
+
+The CLI ships an agent skill: `cypherlite skill install` (with `--agent
+claude-code|cursor|windsurf|copilot|...`) installs a skill bundle that
+teaches the agent CypherLite's CLI, Cypher dialect, and data model, so
+agents can drive a local graph database without a server.
+
+## Documentation
+
+- [Getting started](https://neo4j-labs.github.io/cypherlite/docs/getting-started):
+  install and your first queries in under 5 minutes
+- [Tutorials](https://neo4j-labs.github.io/cypherlite/docs/category/tutorial):
+  first graph, social network, vector search, Python
+- [Guides](https://neo4j-labs.github.io/cypherlite/docs/category/guides):
+  vector similarity (incl. `SEARCH` and hybrid), geospatial, CSV import,
+  backup/restore, output formats
+- [Cypher syntax reference](https://neo4j-labs.github.io/cypherlite/docs/reference/cypher-syntax):
+  every supported clause and expression
+- [Functions reference](https://neo4j-labs.github.io/cypherlite/docs/reference/functions)
+- [CLI reference](https://neo4j-labs.github.io/cypherlite/docs/reference/cli):
+  flags, dot-commands, `skill`/`upgrade` lifecycle commands
+- [Rust API](https://neo4j-labs.github.io/cypherlite/docs/reference/rust) ·
+  [Python library](https://neo4j-labs.github.io/cypherlite/docs/reference/python) ·
+  [C API](https://neo4j-labs.github.io/cypherlite/docs/reference/c) ·
+  [Bolt](https://neo4j-labs.github.io/cypherlite/docs/reference/bolt)
+- [TCK compliance](https://neo4j-labs.github.io/cypherlite/docs/reference/tck):
+  the openCypher conformance claim, methodology, and skip list
+- [Architecture](https://neo4j-labs.github.io/cypherlite/docs/explanation/architecture):
+  how the engine works (WAL, checkpoints, planner, executor)
+
+## Scope notes
+
+Single-process and single-user by design: no RBAC/users/roles, clustering,
+or multi-database administration (that Cypher surface is intentionally out
+of scope — see the per-CIP scope decisions in the repository's
+`testdata/cip-eval/MANIFEST.md`). Remote access is via the bundled Bolt
+server; language clients wrap the C ABI.
+
+Source: https://github.com/neo4j-labs/cypherlite — Apache-2.0.

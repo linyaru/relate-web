@@ -1,0 +1,126 @@
+# NOTE: This file belongs at .github/workflows/update-website.yml on the main branch.
+# Copy it there after merging. It is stored here on gh-pages for reference only.
+# A verbatim copy lives on main in the `update-website-action` branch.
+
+name: Update website
+
+# Keeps the gh-pages site (neo4j-labs.github.io/cypherlite) in sync with each
+# release: an agent scans CHANGELOG.md and the commits since the last sync
+# and surgically updates version references, quickstart, install, examples,
+# and reference tabs. Design stays untouched (contract: gh-pages/MAINTAINING.md).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: main
+          fetch-depth: 50
+
+      - name: Checkout gh-pages into subdirectory
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          fetch-depth: 1
+
+      - name: Install released cypherlite binary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          # On workflow_dispatch ref_name is a branch (e.g. "main"), not a
+          # release tag — fall back to the latest published release.
+          case "$TAG" in
+            v*) ;;
+            *) TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName -q '.[0].tagName') ;;
+          esac
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "cypherlite-linux-amd64" \
+            --dir /tmp/cypherlite-release
+          mkdir -p "$HOME/.local/bin"
+          install -m755 /tmp/cypherlite-release/cypherlite-linux-amd64 "$HOME/.local/bin/cypherlite"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          cypherlite --version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install FireConnect and route Claude Code through Fireworks
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$FIREWORKS_API_KEY" ] || { echo "FIREWORKS_API_KEY secret not set"; exit 1; }
+          echo "API key present (${#FIREWORKS_API_KEY} chars)"
+          curl -fsSL https://raw.githubusercontent.com/fw-ai/fireconnect/main/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          fireconnect claude on --non-interactive \
+            --sonnet firerouter/kimi-k3/glm-5p3/deepseek-v4p1-flash \
+            --api-key "$FIREWORKS_API_KEY"
+          fireconnect claude status
+
+      - name: Run website update
+        env:
+          ENABLE_PROMPT_CACHING_1H: "1"
+        run: |
+          cat .github/prompts/website-update.md \
+            | claude --bare \
+              -p - \
+              --output-format stream-json \
+              --verbose \
+              --include-partial-messages \
+              --no-session-persistence \
+              --exclude-dynamic-system-prompt-sections \
+              --allowedTools "Bash,Read,Edit,Write" \
+              --max-turns 50 \
+              --max-budget-usd 2.00 \
+            | stdbuf -oL tee /tmp/update-raw.jsonl \
+            | jq -r --unbuffered '
+                if .type == "assistant" then
+                  (.message.content[]? |
+                    if .type == "text" then .text
+                    elif .type == "tool_use" then
+                      "[tool] \(.name) \((.input.command // .input.file_path // "") | .[0:120])"
+                    else empty end)
+                elif .type == "stream_event" then
+                  if .event.type == "content_block_start"
+                     and .event.content_block.type == "tool_use" then
+                  "[tool] \(.event.content_block.name)"
+                  else empty end
+                else empty
+                end
+              ' \
+            | stdbuf -oL tee /tmp/update-summary.txt
+
+      - name: Commit and push
+        run: |
+          cd gh-pages
+          git add -A
+          git diff --cached --quiet && {
+            echo "No website updates needed for ${{ github.ref_name }}."
+            exit 0
+          }
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(website): sync with ${{ github.ref_name }}"
+          git push origin gh-pages

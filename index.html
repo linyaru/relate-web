@@ -1,11 +1,1964 @@
-<!doctype html><html lang=en dir=ltr class="plugin-pages plugin-id-default" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.2"><title data-rh=true>Graph data, zero infrastructure | CypherLite</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://neo4j-labs.github.io/cypherlite/img/cypherlite-social.png /><meta data-rh=true name=twitter:image content=https://neo4j-labs.github.io/cypherlite/img/cypherlite-social.png /><meta data-rh=true property=og:url content=https://neo4j-labs.github.io/cypherlite/ /><meta data-rh=true property=og:locale content=en /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docusaurus_tag content=default /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docsearch:docusaurus_tag content=default /><meta data-rh=true property=og:title content="Graph data, zero infrastructure | CypherLite"/><meta data-rh=true name=description content="CypherLite is a lightweight, embeddable graph database CLI with Cypher query support"/><meta data-rh=true property=og:description content="CypherLite is a lightweight, embeddable graph database CLI with Cypher query support"/><link data-rh=true rel=icon href=/cypherlite/img/favicon.ico /><link data-rh=true rel=canonical href=https://neo4j-labs.github.io/cypherlite/ /><link data-rh=true rel=alternate href=https://neo4j-labs.github.io/cypherlite/ hreflang=en /><link data-rh=true rel=alternate href=https://neo4j-labs.github.io/cypherlite/ hreflang=x-default /><script data-rh=true>document.addEventListener("DOMContentLoaded",function(){void 0===window.docusaurus&&insertBanner()});function insertBanner(){var n=document.createElement("div");n.id="__docusaurus-base-url-issue-banner-container",n.innerHTML='\n<div id="__docusaurus-base-url-issue-banner" style="border: thick solid red; background-color: rgb(255, 230, 179); margin: 20px; padding: 20px; font-size: 20px;">\n   <p style="font-weight: bold; font-size: 30px;">Your Docusaurus site did not load properly.</p>\n   <p>A very common reason is a wrong site <a href="https://docusaurus.io/docs/docusaurus.config.js/#baseUrl" style="font-weight: bold;">baseUrl configuration</a>.</p>\n   <p>Current configured baseUrl = <span style="font-weight: bold; color: red;">/cypherlite/</span> </p>\n   <p>We suggest trying baseUrl = <span id="__docusaurus-base-url-issue-banner-suggestion-container" style="font-weight: bold; color: green;"></span></p>\n</div>\n',document.body.prepend(n);var e=document.getElementById("__docusaurus-base-url-issue-banner-suggestion-container"),s=window.location.pathname;e.textContent="/"===s.substr(-1)?s:s+"/"}</script><link rel=stylesheet href=/cypherlite/assets/css/styles.1d9cc2bf.css /><script src=/cypherlite/assets/js/runtime~main.a47f5a42.js defer></script><script src=/cypherlite/assets/js/main.cb543de1.js defer></script></head><body><svg style="display: none;"><defs>
-<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
-</defs></svg>
-<script>!function(){var t;document.documentElement.setAttribute("data-theme",t||"light"),document.documentElement.setAttribute("data-theme-choice",t||"light")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top navbar--dark"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/cypherlite/><b class="navbar__title text--truncate">CypherLite</b></a><a class="navbar__item navbar__link" href=/cypherlite/docs/tutorials/getting-started>Tutorials</a><a class="navbar__item navbar__link" href=/cypherlite/docs/guides/import-csv>How-to Guides</a><a class="navbar__item navbar__link" href=/cypherlite/docs/reference/cypher-syntax>Reference</a><a class="navbar__item navbar__link" href=/cypherlite/docs/explanation/architecture>Explanation</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><a href=https://github.com/neo4j-labs/cypherlite target=_blank rel="noopener noreferrer" class="navbar__item navbar__link">GitHub<svg width=13.5 height=13.5 aria-label="(opens in new tab)" class=iconExternalLink_nPIU><use href=#theme-svg-external-link /></svg></a><div class=navbarSearchContainer_Bca1></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><header class=hero--retro><div class=container><div class=ascii-art>
-     ____            __             __    _ __
-    / ___\_  ______ / /_  ___  ____/ /   (_) /____
-   / /   / / / / _ / __ \/ _ \/ ___/ /   / / __/ _ \
-  / /___/ /_/ / /_/ / / /  __/ /  / /___/ / /_/  __/
-  \____/\__, /\____/_/ /_/\___/_/  /_____/_/\__/\___/
-       /____/
-</div><h1>CypherLite <span class=version-badge>v<!-- -->0.6.1</span></h1><p class=hero__subtitle>A lightweight, embeddable graph database. <br/>Cypher queries. Single-file storage. Zero infrastructure.<div class=cta-buttons><a class=cta-primary href=/cypherlite/docs/tutorials/getting-started>Get Started</a><a class=cta-secondary href=/cypherlite/docs/reference/cypher-syntax>Reference</a></div></div></header><main><div class=terminal-demo><div class=terminal-window><div class=terminal-header><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span>cypherlite ./friends</span></div><div class=terminal-body><div><span class=output>CypherLite v<!-- -->0.6.1</span></div><div><span class=output>Type .help for help, .exit to quit.</span></div><div> </div><div><span class=prompt>cypher> </span><span class=keyword>CREATE</span> (alice:<span class=keyword>Person</span> <!-- -->{<!-- -->name: 'Alice', age: 30<!-- -->}<!-- -->);</div><div><span class=stat>Nodes created: 1, Properties set: 2, Labels added: 1</span></div><div> </div><div><span class=prompt>cypher> </span><span class=keyword>CREATE</span> (bob:<span class=keyword>Person</span> <!-- -->{<!-- -->name: 'Bob', age: 28<!-- -->}<!-- -->);</div><div><span class=stat>Nodes created: 1, Properties set: 2, Labels added: 1</span></div><div> </div><div><span class=prompt>cypher> </span><span class=keyword>MATCH</span> (a:<span class=keyword>Person</span> <!-- -->{<!-- -->name: 'Alice'<!-- -->}<!-- -->), (b:<span class=keyword>Person</span> <!-- -->{<!-- -->name: 'Bob'<!-- -->}<!-- -->)</div><div><span class=prompt>   ...> </span><span class=keyword>CREATE</span> (a)-[:<span class=keyword>FRIENDS_WITH</span> <!-- -->{<!-- -->since: 2020<!-- -->}<!-- -->]->(b);</div><div><span class=stat>Relationships created: 1, Properties set: 1</span></div><div> </div><div><span class=prompt>cypher> </span><span class=keyword>MATCH</span> (p:<span class=keyword>Person</span>)-[r:<span class=keyword>FRIENDS_WITH</span>]->(friend)</div><div><span class=prompt>   ...> </span><span class=keyword>RETURN</span> p.name, friend.name, r.since;</div><div><span class=table-line>+--------+-------------+---------+</span></div><div><span class=table-line>|</span> p.name <span class=table-line>|</span> friend.name <span class=table-line>|</span> r.since <span class=table-line>|</span></div><div><span class=table-line>+--------+-------------+---------+</span></div><div><span class=table-line>|</span> Alice  <span class=table-line>|</span> Bob         <span class=table-line>|</span> 2020    <span class=table-line>|</span></div><div><span class=table-line>+--------+-------------+---------+</span></div></div></div></div><section class=features-section><h2>What's in the Box</h2><div class=features-grid><div class=feature-card><h3>Cypher Query Language</h3><p>Full openCypher support: MATCH, CREATE, MERGE, DELETE, SET, WITH, UNWIND, UNION, FOREACH, LOAD CSV. Pattern matching with variable-length paths.</div><div class=feature-card><h3>Vector Search</h3><p>Store embedding vectors as node properties. Compute cosine and euclidean similarity directly in Cypher with the vector.similarity.* functions, plus vector arithmetic and normalization.</div><div class=feature-card><h3>Geospatial</h3><p>Point type with Haversine distance calculations for geographic coordinates and cartesian distance for 2D points.</div><div class=feature-card><h3>Zero Configuration</h3><p>Single binary, single file. No server, no daemon, no config. Open a .db file and start querying. Like SQLite, but for graphs.</div><div class=feature-card><h3>Embeddable Everywhere</h3><p>Embed the engine directly: a Rust crate, a Python package (PyO3), or any language through the C ABI (JS/Java/Go). Open a store, run Cypher, get structured results — no server required.</div><div class=feature-card><h3>CSV Import / Export</h3><p>LOAD CSV directly in Cypher queries. Dot-commands for .import and .export. Bulk load data from spreadsheets and pipelines.</div></div></section><section class=quick-links><h2>Documentation</h2><div class=quick-links-grid><a class=quick-link href=/cypherlite/docs/tutorials/getting-started><div class=icon style="font-family:Courier Prime, monospace;font-weight:700">></div><div class=label>Getting Started</div></a><a class=quick-link href=/cypherlite/docs/guides/import-csv><div class=icon style="font-family:Courier Prime, monospace;font-weight:700">?</div><div class=label>How-to Guides</div></a><a class=quick-link href=/cypherlite/docs/reference/cypher-syntax><div class=icon style="font-family:Courier Prime, monospace;font-weight:700">#</div><div class=label>Reference</div></a><a class=quick-link href=/cypherlite/docs/explanation/architecture><div class=icon style="font-family:Courier Prime, monospace;font-weight:700">*</div><div class=label>Architecture</div></a></div></section></main></div><footer class="theme-layout-footer footer"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Learn</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/cypherlite/docs/tutorials/getting-started>Getting Started</a><li class=footer__item><a class=footer__link-item href=/cypherlite/docs/tutorials/first-graph>Your First Graph</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Reference</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/cypherlite/docs/reference/cypher-syntax>Cypher Syntax</a><li class=footer__item><a class=footer__link-item href=/cypherlite/docs/reference/functions>Functions</a><li class=footer__item><a class=footer__link-item href=/cypherlite/docs/reference/dot-commands>Dot-Commands</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>More</div><ul class="footer__items clean-list"><li class=footer__item><a href=https://github.com/neo4j-labs/cypherlite target=_blank rel="noopener noreferrer" class=footer__link-item>GitHub<svg width=13.5 height=13.5 aria-label="(opens in new tab)" class=iconExternalLink_nPIU><use href=#theme-svg-external-link /></svg></a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>CypherLite — Neo4j Labs.</div></div></div></footer></div></body>
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cypherlite — the agent-native graph database</title>
+<meta name="description" content="An embedded openCypher graph database in a single binary. No server, no setup — Cypher, vectors, and geospatial queries, in process.">
+
+<link rel="preload" href="fonts/public-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/fira-code-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="sitemap" type="application/xml" href="sitemap.xml">
+<link rel="canonical" href="https://neo4j-labs.github.io/cypherlite/">
+<link rel="describedby" href="llms.txt">
+<meta property="og:title" content="cypherlite — the agent-native graph database">
+<meta property="og:description" content="An embedded openCypher graph database in a single binary. No server, no setup — Cypher, vectors, and geospatial queries, in process.">
+<meta property="og:url" content="https://neo4j-labs.github.io/cypherlite/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<style>
+  /* ---------- Fonts (self-hosted Public Sans + Fira Code) ---------- */
+  @font-face {
+    font-family: 'Public Sans'; font-style: normal; font-weight: 400;
+    src: url("fonts/public-sans-400.woff2") format('woff2');
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Public Sans'; font-style: normal; font-weight: 500;
+    src: url("fonts/public-sans-500.woff2") format('woff2'); font-display: swap;
+  }
+  @font-face {
+    font-family: 'Public Sans'; font-style: normal; font-weight: 600;
+    src: url("fonts/public-sans-600.woff2") format('woff2'); font-display: swap;
+  }
+  @font-face {
+    font-family: 'Public Sans'; font-style: normal; font-weight: 700;
+    src: url("fonts/public-sans-700.woff2") format('woff2'); font-display: swap;
+  }
+  @font-face {
+    font-family: 'Fira Code'; font-style: normal; font-weight: 400;
+    src: url("fonts/fira-code-400.woff2") format('woff2'); font-display: swap;
+  }
+  @font-face {
+    font-family: 'Fira Code'; font-style: normal; font-weight: 500;
+    src: url("fonts/fira-code-500.woff2") format('woff2'); font-display: swap;
+  }
+  @font-face {
+    font-family: 'Fira Code'; font-style: normal; font-weight: 700;
+    src: url("fonts/fira-code-700.woff2") format('woff2'); font-display: swap;
+  }
+
+  /* ---------- Tokens ---------- */
+  :root {
+    --font-sans: 'Public Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Needle palette */
+    --baltic-50: #006FD6;
+    --baltic-55: #0061BD;
+    --baltic-60: #014063;
+    --baltic-70: #00253D;
+
+    --hibiscus-40: #f96746;
+    --hibiscus-50: #d43300;
+
+    --forest-50: #158838;
+    --forest-40: #1ea34a;
+
+    --lavender-40: #8B5CF6;
+    --lavender-50: #7C39C9;
+    --lavender-30: #B89AFF;
+
+    --lemon-50: #B8860B;
+
+    /* Light theme (default) */
+    --bg: #ffffff;
+    --bg-alt: #F7F8FA;
+    --bg-code: #0F141A;
+    --fg: #0A1014;
+    --fg-muted: #4A5664;
+    --fg-faint: #6B7A88;
+    --border: #E3E8EE;
+    --border-strong: #C9D2DB;
+    --accent: var(--baltic-50);
+    --accent-hover: var(--baltic-55);
+    --discovery: var(--lavender-50);
+    --success: var(--forest-50);
+    --danger: var(--hibiscus-50);
+
+    --code-bg: #0F141A;
+    --code-fg: #E3E8EE;
+    --code-comment: #6B7A88;
+    --code-keyword: #B89AFF;
+    --code-string: #6BD0A0;
+    --code-fn: #5BB7FF;
+    --code-num: #FFB060;
+    --code-flag: #F09595;
+
+    --terminal-prompt: #6BD0A0;
+    --terminal-cursor: var(--accent);
+
+    --shadow-raised: 0 1px 2px rgba(10, 16, 20, 0.06), 0 1px 3px rgba(10, 16, 20, 0.04);
+    --shadow-overlay: 0 4px 16px rgba(10, 16, 20, 0.10);
+
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0B0E12;
+    --bg-alt: #11161C;
+    --bg-code: #161B22;
+    --fg: #ECEFF3;
+    --fg-muted: #9AA8B4;
+    --fg-faint: #6B7A88;
+    --border: #1E2530;
+    --border-strong: #2A3340;
+    --accent: #4FA3F0;
+    --accent-hover: #6FB7FA;
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+
+  /* prefers-color-scheme: dark sets dark by default */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B0E12;
+      --bg-alt: #11161C;
+      --bg-code: #161B22;
+      --fg: #ECEFF3;
+      --fg-muted: #9AA8B4;
+      --fg-faint: #6B7A88;
+      --border: #1E2530;
+      --border-strong: #2A3340;
+      --accent: #4FA3F0;
+      --accent-hover: #6FB7FA;
+      --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+      --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
+    }
+  }
+
+  /* ---------- Reset ---------- */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--fg);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    overflow-x: clip;
+  }
+
+  ::selection { background: var(--accent); color: #fff; }
+
+  /* ---------- Layout ---------- */
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- Top nav ---------- */
+  header.top {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease;
+  }
+  header.top.scrolled { border-bottom-color: var(--border); }
+  header.top .inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    color: var(--fg);
+  }
+  .brand .glyph {
+    height: 28px;
+    width: auto;
+  }
+  [id] { scroll-margin-top: 72px; }
+  [data-theme="dark"] .brand .glyph path { fill: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand .glyph path { fill: #ffffff; }
+  }
+  .brand .name { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
+  .brand .name .dash { color: var(--fg-faint); }
+  .brand-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    margin-left: 4px;
+  }
+  nav.top-nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  nav.top-nav a {
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: color 0.1s, background-color 0.1s;
+  }
+  nav.top-nav a:hover { color: var(--fg); background: var(--bg-alt); }
+
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .icon-btn:hover { background: var(--bg-alt); color: var(--fg); border-color: var(--border-strong); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .theme-toggle .moon { display: none; }
+  [data-theme="dark"] .theme-toggle .sun { display: none; }
+  [data-theme="dark"] .theme-toggle .moon { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .sun { display: none; }
+    :root:not([data-theme="light"]) .theme-toggle .moon { display: block; }
+  }
+
+  /* ---------- Mobile nav ---------- */
+  .nav-toggle { display: none; }
+  .nav-toggle .close { display: none; }
+  .nav-toggle[aria-expanded="true"] .open { display: none; }
+  .nav-toggle[aria-expanded="true"] .close { display: block; }
+
+  @media (max-width: 640px) {
+    header.top .inner { gap: 8px; }
+    .brand-tag { display: none; }
+    .nav-toggle { display: inline-flex; }
+    .theme-toggle { margin-left: auto; }
+
+    nav.top-nav {
+      position: absolute;
+      top: 56px;
+      left: 16px;
+      right: 16px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+      padding: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow-overlay);
+      display: none;
+    }
+    nav.top-nav.open { display: flex; }
+    nav.top-nav a { padding: 10px 12px; font-size: 14px; }
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    padding: 52px 0 40px;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 40%),
+      radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--discovery) 8%, transparent), transparent 40%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.4;
+    mask-image: radial-gradient(ellipse at center top, black 0%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at center top, black 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero .inner { position: relative; z-index: 1; text-align: center; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 6px;
+    border-radius: 999px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-decoration: none;
+    transition: all 0.1s;
+  }
+  .pill:hover { border-color: var(--border-strong); color: var(--fg); }
+  .pill .pill-tag {
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  h1.hero-title {
+    margin: 20px 0 14px;
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+  h1.hero-title .accent {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--discovery) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  h1.hero-title .mono { font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.02em; }
+  .hero-sub {
+    max-width: 620px;
+    margin: 0 auto 28px;
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--fg-muted);
+    text-wrap: pretty;
+  }
+
+  /* ---------- Install command block ---------- */
+  .install {
+    max-width: 640px;
+    margin: 0 auto 16px;
+  }
+  .cmd-block {
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-code);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow-overlay);
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  [data-theme="dark"] .cmd-block,
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .cmd-block { border-color: var(--border); }
+  }
+  .cmd-block .cmd-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--code-fg);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .cmd-block .cmd-content::-webkit-scrollbar { display: none; }
+  .cmd-block .prompt { color: var(--terminal-prompt); user-select: none; flex-shrink: 0; }
+  .cmd-block .cmd-text { font-weight: 500; }
+  .cmd-block .cmd-text .flag { color: var(--code-flag); }
+  .cmd-block .cmd-text .pipe { color: var(--code-comment); }
+  .cmd-block .copy-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 22px;
+    background: transparent;
+    border: none;
+    border-left: 1px solid color-mix(in srgb, var(--code-fg) 12%, transparent);
+    color: var(--code-fg);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.1s, color 0.1s;
+  }
+  .cmd-block .copy-btn:hover { background: rgba(255,255,255,0.04); }
+  .cmd-block .copy-btn.copied { color: var(--terminal-prompt); }
+  .cmd-block .copy-btn svg { width: 14px; height: 14px; }
+  .cmd-hint {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--fg-faint);
+    font-family: var(--font-mono);
+  }
+  .cmd-hint a { color: var(--fg-muted); text-decoration: none; }
+  .cmd-hint a:hover { color: var(--fg); text-decoration: underline; }
+  .cmd-hint kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    background: var(--bg-alt);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+    margin: 0 1px;
+  }
+
+  .install-tabs {
+    display: inline-flex;
+    margin: 0 auto 14px;
+    padding: 4px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    gap: 2px;
+  }
+  .install-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: all 0.1s;
+    white-space: nowrap;
+  }
+  .install-tab:hover { color: var(--fg); }
+  .install-tab.active {
+    background: var(--bg);
+    color: var(--fg);
+    box-shadow: var(--shadow-raised);
+  }
+  .install-tab svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  @media (max-width: 640px) {
+    .install-tabs {
+      display: flex;
+      width: 100%;
+      flex-wrap: wrap;
+      margin: 0 0 14px;
+    }
+    .install-tab {
+      flex: 1 1 calc(33.333% - 2px);
+      justify-content: center;
+      padding: 10px 12px;
+    }
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--fg);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: var(--shadow-overlay);
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s cubic-bezier(0.42, 0, 0.58, 1);
+    pointer-events: none;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast svg { width: 14px; height: 14px; color: var(--forest-40); }
+
+  /* ---------- Section ---------- */
+  section { padding: 40px 0; }
+  section.alt { background: var(--bg-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .section-header { text-align: center; margin-bottom: 32px; }
+  .section-eyebrow {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 12px;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+  .section-eyebrow::before { content: '// '; color: var(--fg-faint); }
+  h2.section-title {
+    margin: 0 0 10px;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .section-sub {
+    max-width: 560px;
+    margin: 0 auto;
+    font-size: 17px;
+    color: var(--fg-muted);
+    text-wrap: pretty;
+  }
+
+  /* ---------- Code examples grid ---------- */
+  .examples {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    column-gap: 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-raised);
+  }
+  @media (max-width: 720px) {
+    .examples { grid-template-columns: 1fr; }
+  }
+  .example-tabs {
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (max-width: 720px) {
+    .example-tabs {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+  }
+  .example-tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: transparent;
+    border: 0;
+    border-left: 2px solid transparent;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.1s;
+  }
+  @media (max-width: 720px) {
+    .example-tab {
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-size: 12px;
+    }
+  }
+  .example-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  .example-tab.active {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-left-color: var(--accent);
+  }
+  @media (max-width: 720px) {
+    .example-tab.active {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+      color: var(--fg);
+    }
+  }
+  .example-tab .label-tag {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--fg-faint);
+    font-weight: 500;
+  }
+  @media (max-width: 720px) { .example-tab .label-tag { display: none; } }
+
+  .example-pane {
+    display: none;
+    padding: 0;
+    background: var(--bg-code);
+    color: var(--code-fg);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.7;
+    min-width: 0;
+    overflow-x: auto;
+    position: relative;
+    min-height: 400px;
+  }
+  .example-pane.active { display: block; }
+  .example-pane .example-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--code-fg) 8%, transparent);
+    font-size: 12px;
+    color: var(--fg-faint);
+  }
+  .example-pane .example-header .desc { color: color-mix(in srgb, var(--code-fg) 70%, transparent); }
+  .example-pane .copy-mini {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--code-fg) 15%, transparent);
+    color: color-mix(in srgb, var(--code-fg) 70%, transparent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.1s;
+  }
+  .example-pane .copy-mini:hover { background: color-mix(in srgb, var(--code-fg) 8%, transparent); color: var(--code-fg); }
+  .example-pane .copy-mini.copied { color: var(--terminal-prompt); border-color: color-mix(in srgb, var(--terminal-prompt) 40%, transparent); }
+  .example-pane .copy-mini svg { width: 11px; height: 11px; }
+  .example-pane pre {
+    margin: 0;
+    padding: 20px 24px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .example-pane .prompt { color: var(--terminal-prompt); user-select: none; }
+  .example-pane .comment { color: var(--code-comment); font-style: italic; }
+  .example-pane .keyword { color: var(--code-keyword); }
+  .example-pane .string { color: var(--code-string); }
+  .example-pane .num { color: var(--code-num); }
+  .example-pane .flag { color: var(--code-flag); }
+  .example-pane .fn { color: var(--code-fn); }
+  .example-pane .out { color: color-mix(in srgb, var(--code-fg) 75%, transparent); }
+  .example-pane .ok { color: var(--terminal-prompt); }
+  .example-pane .info { color: var(--code-fn); }
+
+  /* ---------- Human / Agent mode toggle ---------- */
+  .mode-btn {
+    padding: 3px 11px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.1s;
+    line-height: 1.6;
+  }
+  .mode-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .mode-btn.active {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  }
+  .mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 9px 14px;
+  }
+  .mode-bar .mode-label {
+    color: var(--fg-faint);
+    font-size: 11px;
+    margin-right: 4px;
+    font-family: var(--font-mono);
+    user-select: none;
+  }
+  /* examples mode bar: first child inside the grid, spans both cols */
+  .examples > .mode-bar {
+    grid-column: 1 / -1;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  /* quickstart mode bar: sits above .steps, centered */
+  .quickstart-mode-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 2px 0 14px;
+    font-family: var(--font-mono);
+  }
+  .quickstart-mode-bar .mode-label {
+    color: var(--fg-faint);
+    font-size: 11px;
+    margin-right: 4px;
+    user-select: none;
+  }
+  /* Unified agentic/cli toggle — agentic mode by default */
+  .agentic-comment { color: var(--terminal-prompt); }
+  .examples.cli-mode .agentic-line { display: none; }
+  #quickstartSteps.cli-mode .agentic-line { display: none; }
+
+  /* Agent prompt loading cue — one per .agentic-line, faint italic block.
+     Sits immediately under the green `> ...` prompt and above the dim
+     `$ ...` command block. Hidden in cli-mode via the .agentic-line rules above. */
+  .agentic-loading {
+    display: block;
+    color: var(--fg-faint);
+    font-style: italic;
+    opacity: 0.85;
+  }
+
+  /* Agent-side result/summary line. Sits inside an .agentic-line wrapper
+     (so the dim sweep skips it and cli-mode hides it). Green like the
+     opening prompt to read as "the agent talking back". */
+  .agentic-result {
+    display: block;
+    color: var(--terminal-prompt);
+  }
+
+  /* Dim-sweep: in agentic mode, every command/flag/string/keyword under the
+     agent prompt renders in a single low-contrast grey. The .agentic-line
+     content (green `> ...` prompt + faint loading cue) stays visible, the
+     .out blocks keep their table-art token colors, and the quickstart
+     .copy-icon affordance keeps its hover state. .cli-mode rules below
+     override this and restore full syntax highlighting.
+     Scoped with :has(.agentic-line) so blocks WITHOUT an agent prompt
+     (e.g. install commands in Quickstart steps 1–2) keep full color. */
+  #quickstartSteps:not(.cli-mode) .step-cmd:has(.agentic-line),
+  #quickstartSteps:not(.cli-mode) .step-cmd:has(.agentic-line) *:not(.agentic-line):not(.agentic-line *):not(.copy-icon) {
+    color: var(--fg-faint) !important;
+  }
+
+  /* #examplesSection IS the .examples element (id+class on same div), so the
+     :not(.cli-mode) check goes on the id selector directly — not a descendant
+     match. Earlier `#examplesSection .examples` looked for a child and never fired. */
+  #examplesSection:not(.cli-mode) .example-pane pre:has(.agentic-line),
+  #examplesSection:not(.cli-mode) .example-pane pre:has(.agentic-line) *:not(.agentic-line):not(.agentic-line *):not(.out):not(.out *) {
+    color: var(--fg-faint) !important;
+  }
+
+  /* ---------- Quickstart ---------- */
+  .steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 4px;
+  }
+  @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: var(--shadow-raised);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .step .step-num {
+    position: absolute;
+    top: -14px;
+    left: 24px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    border-radius: 6px;
+    box-shadow: var(--shadow-raised);
+  }
+  .step h3 {
+    margin: 4px 0 6px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .step p {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--fg-muted);
+    line-height: 1.55;
+  }
+  .step p a { text-decoration: none; }
+  .step p a:hover { text-decoration: underline; }
+  .step-link { color: var(--accent); font-weight: 500; }
+  .step .step-cmd {
+    display: block;
+    background: var(--bg-code);
+    color: var(--code-fg);
+    padding: 10px 36px 10px 14px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre;
+    cursor: pointer;
+    transition: background-color 0.1s;
+    position: relative;
+    margin-top: auto;
+  }
+  .step .step-cmd::-webkit-scrollbar { display: none; }
+  /* Adjacent step-cmd boxes merge into one visual block */
+  .step .step-cmd + .step-cmd { margin-top: 1px; border-radius: 0 0 6px 6px; }
+  .step .step-cmd:has(+ .step-cmd) { border-radius: 6px 6px 0 0; }
+  .step .step-cmd:hover { background: #1a212a; }
+  .step .step-cmd .prompt { color: var(--terminal-prompt); }
+  .step .step-cmd .copy-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--fg-faint);
+    background: var(--bg-code);
+    padding: 4px;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .step .step-cmd:hover .copy-icon { opacity: 1; }
+  .step .step-cmd .copy-icon svg { width: 12px; height: 12px; display: block; }
+  /* Step 3 full-width "Get a database" card */
+  .step-full { grid-column: 1 / -1; }
+  .step-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 2px;
+  }
+  .step-top h3 { margin-bottom: 0; }
+  .db-panel { display: flex; flex-direction: column; gap: 10px; }
+  .db-panel-hidden { display: none !important; }
+  @media (min-width: 720px) {
+    .step-full .db-panel[data-db-panel="aura"] {
+      flex-direction: row;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .step-full .db-panel[data-db-panel="aura"] > div {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .step-full .db-panel[data-db-panel="aura"] > div p { margin-top: 0; }
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0 24px;
+    color: var(--fg-faint);
+    font-size: 13px;
+  }
+  footer .inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer a { color: var(--fg-muted); text-decoration: none; transition: color 0.1s; }
+  footer a:hover { color: var(--fg); }
+  footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
+  footer .meta { font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+  footer .meta a { text-decoration: underline; }
+
+  /* ---------- Cursor ---------- */
+  .cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.05em;
+    vertical-align: text-bottom;
+    background: var(--terminal-cursor);
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+
+
+  /* ---------- Noscript: show everything, hide JS-only chrome ---------- */
+  noscript + .noscript-info { display: block; }
+  .noscript-info {
+    display: none;
+    max-width: 640px;
+    margin: 0 auto 16px;
+    padding: 12px 18px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+  }
+  /* ---------- Reduced motion ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ---------- Reference section ---------- */
+  #refSection .example-pane { max-height: 560px; overflow-y: auto; }
+  /* Full-width sections — no nested boxes, just horizontal dividers */
+  .ref-accordion { padding: 0; display: flex; flex-direction: column; }
+  details.ref-section {
+    border-bottom: 1px solid color-mix(in srgb, var(--code-fg) 10%, transparent);
+  }
+  details.ref-section:last-child { border-bottom: none; }
+  summary.ref-title {
+    cursor: pointer;
+    padding: 11px 22px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--code-fn);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.1s;
+    user-select: none;
+  }
+  summary.ref-title::-webkit-details-marker { display: none; }
+  summary.ref-title::before {
+    content: '▶';
+    font-size: 9px;
+    color: var(--fg-faint);
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  details.ref-section[open] summary.ref-title::before { transform: rotate(90deg); }
+  summary.ref-title:hover { background: rgba(255,255,255,0.04); }
+  .ref-body {
+    padding: 4px 22px 18px;
+  }
+  .ref-body p {
+    margin: 0 0 9px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: color-mix(in srgb, var(--code-fg) 72%, transparent);
+    line-height: 1.6;
+  }
+  .ref-body p:last-child { margin-bottom: 0; }
+  .ref-body ul {
+    margin: 0 0 9px 18px;
+    padding: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: color-mix(in srgb, var(--code-fg) 72%, transparent);
+    line-height: 1.6;
+  }
+  .ref-body li { margin-bottom: 2px; }
+  .ref-body code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--code-keyword);
+  }
+  .ref-body a { color: var(--code-fn); text-decoration: none; }
+  .ref-body a:hover { text-decoration: underline; }
+  /* pre: only one level of inset — border-left accent, no background box */
+  .ref-body pre {
+    margin: 8px 0 12px;
+    padding: 10px 14px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+    overflow-x: auto;
+    white-space: pre;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--code-fg);
+  }
+  .ref-body .ref-sub { margin-bottom: 5px !important; }
+</style>
+</head>
+<body>
+
+<!-- ============== TOP NAV ============== -->
+<header class="top" id="top">
+  <div class="container inner">
+    <a href="#top" class="brand">
+      <svg class="glyph" viewBox="0 0 86 79" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" aria-hidden="true"><path d="M57.3779 0C40.5967 0 29.3328 9.8948 29.3328 28.9973V42.5747C30.9412 41.7692 32.7812 41.3085 34.7344 41.3085C36.6877 41.3085 38.5277 41.7692 40.2519 42.5747V28.8815C40.2519 16.4545 47.0328 10.1264 57.3779 10.1264C67.7231 10.1264 74.504 16.4545 74.504 28.8815V58.6843H85.423V28.8815C85.5388 9.6658 74.1592 0 57.3779 0Z" fill="#1A1B1D"></path><path d="M4.73608 32.7957C3.35676 33.4854 2.09321 34.6358 1.17192 36.1335C0.253212 37.6287 -0.0916182 39.2395 0.0216118 40.8505C0.137412 43.7276 1.7458 46.373 4.38868 47.8682C6.80258 49.2475 9.56128 48.9028 12.2042 48.3288C15.4235 47.5233 18.1822 47.1785 21.0542 48.9053H21.17C26.1135 51.7824 26.1135 59.0317 21.17 61.9062H21.0542C18.1797 63.6327 15.421 63.2877 12.2042 62.4827C9.67448 61.793 6.91578 61.4481 4.38868 62.9436C1.7458 64.4386 0.250642 67.1996 0.0216118 69.9606C-0.0941982 71.5716 0.250642 73.1827 1.17192 74.6777C2.09063 76.1736 3.24095 77.3236 4.73608 78.0156C7.26578 79.2816 10.3693 79.2817 13.0122 77.7867C15.4261 76.4076 16.5764 73.7596 17.2661 71.2266C18.1848 68.0056 19.2193 65.4726 22.2096 63.8616C25.0841 62.1352 27.8428 62.4827 31.0596 63.2877C33.5893 63.9776 36.348 64.3227 38.8751 62.8277C41.518 61.3324 43.0131 58.571 43.2422 55.8097V54.6594C43.1264 51.7823 41.518 49.1369 38.8751 47.6417C36.4612 46.2598 33.7025 46.6073 31.0596 47.1812C27.8403 47.9867 25.0816 48.3315 22.2096 46.6047C19.3351 44.878 18.1874 42.4614 17.2661 39.2395C16.5764 36.7073 15.4261 34.1776 13.0122 32.6799C10.3693 31.5296 7.26578 31.5296 4.73608 32.7957Z" fill="#014063"></path></svg>
+      <span class="name">cypherlite</span>
+      <span class="brand-tag">labs</span>
+    </a>
+    <nav class="top-nav" id="topNav">
+      <a href="#examples">Examples</a>
+      <a href="#reference">Reference</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+    <button class="icon-btn nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="topNav" aria-expanded="false">
+      <svg class="open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18M3 12h18M3 18h18"></path>
+      </svg>
+      <svg class="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 6l12 12M6 18L18 6"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============== MAIN ============== -->
+<main>
+
+<!-- ============== HERO ============== -->
+<section class="hero">
+  <div class="container inner">
+    <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
+      <span class="pill-tag" style="text-transform:none">v0.6.1</span>
+      <span>open source · neo4j-labs</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
+        <path d="M5 12h14M13 6l6 6-6 6"></path>
+      </svg>
+    </a>
+
+    <h1 class="hero-title">
+      The agent-native<br>
+      <span class="accent">graph database.</span>
+    </h1>
+
+    <p class="hero-sub">
+      CypherLite is an embedded openCypher graph database in a single binary.
+      No server, no setup, full TCK coverage — one file on disk, Cypher and
+      vectors in process, and a CLI your AI agents can drive blind.
+    </p>
+
+    <div class="install" id="install">
+      <div class="install-tabs" role="tablist" aria-label="Installer for your OS">
+        <button class="install-tab" data-os="macos" role="tab">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 1.5a4 4 0 0 0-3 1.6 3.6 3.6 0 0 0-.9 3 3.7 3.7 0 0 0 3-1.5 3.7 3.7 0 0 0 .9-3.1zM20 17.4a8.6 8.6 0 0 1-1.2 2.2c-.7 1-1.6 2.3-2.8 2.3-1 0-1.3-.7-2.7-.7s-1.7.7-2.7.7c-1.2 0-2.2-1.3-2.9-2.4-1.9-2.7-3.4-7.7-1.4-11 .9-1.6 2.5-2.6 4.3-2.6 1.1 0 2.2.7 2.9.7.7 0 2-.9 3.4-.7a4.4 4.4 0 0 1 3.5 1.9 4.3 4.3 0 0 0-2 3.6 4.2 4.2 0 0 0 1.6 4z"></path></svg>
+          <span>macOS</span>
+        </button>
+        <button class="install-tab" data-os="linux" role="tab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 0-4 4v3l-2 4 2 2v4a3 3 0 0 0 3 3h2a3 3 0 0 0 3-3v-4l2-2-2-4V6a4 4 0 0 0-4-4z"></path><circle cx="10" cy="7" r=".7" fill="currentColor"></circle><circle cx="14" cy="7" r=".7" fill="currentColor"></circle></svg>
+          <span>Linux</span>
+        </button>
+        <button class="install-tab" data-os="windows" role="tab">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 11 4v8H3V5.5zM12 4l9-1.4V12h-9V4zM3 13h8v7L3 18.5V13zm9 0h9v8.4L12 20v-7z"></path></svg>
+          <span>Windows</span>
+        </button>
+        <button class="install-tab" data-os="pip" role="tab">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path></svg>
+          <span>Python</span>
+        </button>
+      </div>
+
+      <div class="cmd-block" id="installBlock">
+        <div class="cmd-content">
+          <span class="prompt" id="installPrompt">$</span>
+          <span class="cmd-text" id="installCmd"></span>
+        </div>
+        <button class="copy-btn" id="copyInstall" aria-label="Copy install command">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="copyIconMain">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copyText">copy</span>
+        </button>
+      </div>
+      <div class="cmd-hint">
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.6.1</a> · <span id="osDetected">detected your OS</span> · install script verifies SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== QUICKSTART ============== -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">quickstart</span>
+      <h2 class="section-title">From zero to graph in 30 seconds.</h2>
+      <p class="section-sub">
+        No server to start, no credentials, no config. One binary, one file.
+      </p>
+    </div>
+
+    <div class="quickstart-mode-bar">
+      <button class="mode-btn" data-qs-mode="cli">cli</button>
+      <button class="mode-btn active" data-qs-mode="agentic">agentic</button>
+    </div>
+
+    <div class="steps" id="quickstartSteps">
+      <!-- Step 1: always CLI -->
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Install the binary</h3>
+        <p>Pick your platform from the <a href="#install" class="step-link">install tabs</a> above, or see <a href="#tab-install" class="step-link">install ↓</a>. The script verifies the SHA256 checksum before installing.</p>
+        <div class="step-cmd" id="quickstartInstallCmd" data-copy="curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash"><span class="prompt" id="quickstartPrompt">$</span> <span id="quickstartCmdText">curl <span class="flag">-sSfL</span> https://neo4j-labs.github.io/cypherlite/install.sh | bash</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+      </div>
+
+      <!-- Step 2: always CLI -->
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Install the agent skill</h3>
+        <p>Teach your AI agents the CLI, the Cypher dialect, vector and spatial queries — one command, every detected agent. <a href="#tab-skill" class="step-link">↓</a></p>
+        <div class="step-cmd" data-copy="cypherlite skill install"><span class="prompt">$</span><span> cypherlite skill install</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        <div class="step-cmd" data-copy="cypherlite skill install --agent claude-code"><span class="prompt">$</span><span> cypherlite skill install <span class="flag">--agent</span> claude-code</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+      </div>
+
+      <!-- Step 3: pick a storage format -->
+      <div class="step step-full">
+        <div class="step-num">3</div>
+        <div class="step-top">
+          <h3>Pick a database format <a href="#tab-database" class="step-link" style="font-weight:400">↓</a></h3>
+          <div class="db-toggle">
+            <button class="mode-btn db-btn" data-db="memory">in-memory</button>
+            <button class="mode-btn db-btn active" data-db="dir">directory</button>
+            <button class="mode-btn db-btn" data-db="bundle">single file</button>
+          </div>
+        </div>
+
+        <div class="db-panel db-panel-hidden" data-db-panel="memory">
+          <p>No persistence — everything lives in RAM. Fastest option; ideal for tests, demos, and throwaway exploration.</p>
+          <div class="step-cmd" data-copy="cypherlite :memory: 'RETURN 1 AS ok'"><span class="prompt">$</span> cypherlite <span style="color:var(--code-keyword)">:memory:</span> <span style="color:var(--code-string)">'RETURN 1 AS ok'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        </div>
+
+        <div class="db-panel" data-db-panel="dir">
+          <p>A durable directory: fsync'd WAL plus Parquet snapshots (default). Open or create — same command. Checkpoint to <code style="font-size:12px">graph.json</code> instead with <code style="font-size:12px">--snapshot-format json</code>.</p>
+          <div class="step-cmd" data-copy="cypherlite ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Create a local graph database in ./mydata and open a shell</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite ./mydata<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        </div>
+
+        <div class="db-panel db-panel-hidden" data-db-panel="bundle">
+          <p>A <code style="font-size:12px">.cl</code> bundle packs WAL, snapshots, and catalog into one host file — no sidecar files. Great for shipping a database with an app or agent.</p>
+          <div class="step-cmd" data-copy="cypherlite ./mydata.cl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.cl</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite ./mydata.cl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Create data</h3>
+        <p>One-shot write with typed parameters — or <code style="font-size:12px">LOAD CSV</code>, or pipe a <code style="font-size:12px">.cypher</code> file. <a href="#tab-create" class="step-link">↓</a></p>
+        <div class="step-cmd" data-copy="cypherlite ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name, age: p.age})' --param 'people=[{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30},{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:28}]'"><span class="agentic-line"><span class="agentic-comment">&gt; Create Person nodes for Alice (30) and Bob (28)</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'UNWIND $people AS p CREATE (:Person {…})'</span> <span style="color:var(--code-keyword)">--param</span> <span style="color:var(--code-string)">'people=[…]'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step">
+        <div class="step-num">5</div>
+        <h3>Query it</h3>
+        <p>Same binary, <span class="dbarg-text">same file</span> — Cypher with a pretty table by default, JSON for pipes and agents. <a href="#tab-query" class="step-link">↓</a></p>
+        <div class="step-cmd" data-db-aware data-copy="cypherlite ./mydata 'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'"><span class="agentic-line"><span class="agentic-comment">&gt; List everyone in the database, youngest first, as JSON</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== WASM MEMORY CONSOLE (PLACEHOLDER) ============== -->
+<section class="alt" id="console">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">memory console</span>
+      <h2 class="section-title">Try it right here.</h2>
+      <p class="section-sub">
+        A live, in-browser CypherLite — compiled to WASM, running in this page.
+        No install, no server, your data never leaves the tab.
+      </p>
+    </div>
+    <div class="examples" id="consolePlaceholder" style="grid-template-columns:1fr;" aria-label="Live memory console placeholder">
+      <div class="example-pane active" style="min-height:220px; display:block;">
+        <div class="example-header">
+          <span class="desc">cypherlite · :memory: · wasm</span>
+          <span class="label-tag" style="margin-left:auto; font-size:10px; color:var(--fg-faint);">coming soon</span>
+        </div>
+<pre><span class="comment">// the live memory console lands here: create, query, checkpoint — all in your browser</span>
+<span class="prompt">cypher&gt;</span> <span class="cursor"></span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== EXAMPLES ============== -->
+<section id="examples">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">examples</span>
+      <h2 class="section-title">Built for the prompt.</h2>
+      <p class="section-sub">
+        The quickstart, expanded — install, agent skill, database formats,
+        creating data, querying it. Humans get a shell, agents get one-shot
+        invocations with JSON out.
+      </p>
+    </div>
+
+    <div class="examples" id="examplesSection">
+      <!-- mode bar spans both grid columns -->
+      <div class="mode-bar">
+        <span class="mode-label">view as</span>
+        <button class="mode-btn" data-ex-mode="cli">cli</button>
+        <button class="mode-btn active" data-ex-mode="agentic">agentic</button>
+      </div>
+
+      <div class="example-tabs" role="tablist">
+        <button class="example-tab active" data-tab="install" role="tab">
+          <span>install</span>
+          <span class="label-tag">setup</span>
+        </button>
+        <button class="example-tab" data-tab="skill" role="tab">
+          <span>skill</span>
+          <span class="label-tag">agents</span>
+        </button>
+        <button class="example-tab" data-tab="database" role="tab">
+          <span>database</span>
+          <span class="label-tag">formats</span>
+        </button>
+        <button class="example-tab" data-tab="create" role="tab">
+          <span>create</span>
+          <span class="label-tag">cypher</span>
+        </button>
+        <button class="example-tab" data-tab="query" role="tab">
+          <span>query</span>
+          <span class="label-tag">json</span>
+        </button>
+      </div>
+
+      <!-- install -->
+      <div class="example-pane active" data-pane="install">
+        <div class="example-header">
+          <span class="desc">Install and update the binary</span>
+          <button class="copy-mini" data-copy-pane="install">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="agentic-line"><span class="agentic-comment">&gt; Install cypherlite and tell me which version I have</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
+<span class="comment"># macOS / Linux — verifies SHA256SUMS, installs to ~/.local/bin</span>
+<span class="prompt">$</span> curl <span class="flag">-sSfL</span> https://neo4j-labs.github.io/cypherlite/install.sh | bash
+
+<span class="comment"># Windows: download cypherlite-windows-amd64.exe from the releases page</span>
+<span class="comment"># Python:  pip install neo4j-cypherlite   ·   from source: cargo build --release</span>
+
+<span class="prompt">$</span> cypherlite --version
+
+<span class="comment"># self-update from GitHub releases (alias: update)</span>
+<span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
+<span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
+
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.6.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+      </div>
+
+      <!-- skill -->
+      <div class="example-pane" data-pane="skill">
+        <div class="example-header">
+          <span class="desc">Give your AI agents the CLI, Cypher, vector and spatial references</span>
+          <button class="copy-mini" data-copy-pane="skill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="agentic-line"><span class="agentic-comment">&gt; Install the cypherlite skill for all my agents, then confirm it is current</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
+<span class="comment"># detect every agent and install the embedded skill bundle into each</span>
+<span class="prompt">$</span> cypherlite skill install
+
+<span class="ok">✓</span> claude-code · cursor · windsurf · copilot · antigravity · gemini-cli
+<span class="ok">✓</span> cline · codex · pi · opencode · junie   <span class="out">(11 agents detected)</span>
+
+<span class="comment"># scope to one agent (case-insensitive)</span>
+<span class="prompt">$</span> cypherlite skill install <span class="flag">--agent</span> claude-code
+
+<span class="comment"># remove again — idempotent</span>
+<span class="prompt">$</span> cypherlite skill remove
+
+<span class="agentic-line"><span class="agentic-result">Installed into 11 agents. The bundle is version-stamped; `cypherlite upgrade` offers a refresh, and unknown agent names list the valid ones.</span></span></pre>
+      </div>
+
+      <!-- database -->
+      <div class="example-pane" data-pane="database">
+        <div class="example-header">
+          <span class="desc">Pick a format — memory, directory, or one file</span>
+          <button class="copy-mini" data-copy-pane="database">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="agentic-line"><span class="agentic-comment">&gt; Create a durable graph database in ./mydata, then run a count against it</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
+<span class="comment"># in-memory — nothing written to disk (also `:memory:`)</span>
+<span class="prompt">$</span> cypherlite
+
+<span class="comment"># durable directory — WAL + Parquet snapshots (the default)</span>
+<span class="prompt">$</span> cypherlite ./mydata
+
+<span class="comment"># one host file — WAL, snapshot and catalog packed into a .cl bundle</span>
+<span class="prompt">$</span> cypherlite ./mydata.cl
+
+<span class="comment"># JSON snapshot codec instead of Parquet shards (empty directory only)</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--snapshot-format</span> json ./mydata-json
+
+<span class="comment"># one-shot and piped scripts against any of them</span>
+<span class="prompt">$</span> cypherlite ./mydata <span class="string">"MATCH (n) RETURN count(n) AS n"</span>
+<span class="prompt">$</span> cypherlite ./mydata &lt; setup.cypher
+
+<span class="agentic-line"><span class="agentic-result">Created ./mydata (parquet codec, WAL in ./mydata/wal). One codec per directory — mixing parquet shards and graph.json is an error.</span></span></pre>
+      </div>
+
+      <!-- create -->
+      <div class="example-pane" data-pane="create">
+        <div class="example-header">
+          <span class="desc">Create data — Cypher, typed params, CSV</span>
+          <button class="copy-mini" data-copy-pane="create">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="agentic-line"><span class="agentic-comment">&gt; Model a movie graph in ./movies: Person and Movie nodes, ACTED_IN relationships, unique Person names — then import extra people from CSV</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
+<span class="comment"># schema first: constraint + index</span>
+<span class="prompt">$</span> cypherlite ./movies <span class="string">'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE'</span>
+
+<span class="comment"># write Cypher — MERGE keeps it idempotent</span>
+<span class="prompt">$</span> cypherlite ./movies <span class="string">'MERGE (m:Movie {title: "The Matrix"})
+MERGE (p:Person {name: "Keanu"})
+CREATE (p)-[:ACTED_IN {role: "Neo"}]->(m)'</span>
+
+<span class="comment"># batch-create from a typed parameter (JSON scalars, repeatable)</span>
+<span class="prompt">$</span> cypherlite ./movies <span class="string">'UNWIND $cast AS c
+MATCH (m:Movie {title: c.movie})
+MERGE (p:Person {name: c.name})
+CREATE (p)-[:ACTED_IN]->(m)'</span> <span class="flag">--param</span> <span class="string">'cast=[{"movie":"The Matrix","name":"Carrie-Anne"}]'</span>
+
+<span class="comment"># import a CSV file (values arrive as strings — coerce them)</span>
+<span class="prompt">$</span> cypherlite ./movies <span class="string">'LOAD CSV WITH HEADERS FROM "data/people.csv" AS row
+CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
+
+<span class="agentic-line"><span class="agentic-result">Created 1 constraint, 1 Movie, 3 Person nodes, 2 ACTED_IN relationships; imported 3 CSV rows.</span></span></pre>
+      </div>
+
+      <!-- query -->
+      <div class="example-pane" data-pane="query">
+        <div class="example-header">
+          <span class="desc">Query it — table for humans, JSON for pipes and agents</span>
+          <button class="copy-mini" data-copy-pane="query">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="agentic-line"><span class="agentic-comment">&gt; Who acted in The Matrix? Return name and role as JSON.</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
+<span class="comment"># interactive shell — statements end with ;  (.help, .checkpoint, .quit)</span>
+<span class="prompt">$</span> cypherlite ./movies
+<span class="prompt">cypher&gt;</span> <span class="keyword">MATCH</span> (p:Person)-[r:ACTED_IN]-&gt;(m:Movie) <span class="keyword">RETURN</span> p.name, r.role;
+
+<span class="out">+--------------+---------+
+| p.name       | r.role  |
++--------------+---------+
+| "Keanu"      | "Neo"   |
+| "Carrie-Anne"| null    |
++--------------+---------+</span>
+
+<span class="comment"># one-shot, JSON for scripts and agents</span>
+<span class="prompt">$</span> cypherlite <span class="flag">-json</span> ./movies <span class="string">'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name'</span>
+
+<span class="out">[{"p.name": "Keanu"}, {"p.name": "Carrie-Anne"}]</span>
+
+<span class="comment"># other formats: -csv, -markdown, --mode jsonl · pipe-friendly, noheader optional</span>
+<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> ./movies <span class="string">'MATCH (p:Person) RETURN p.name, p.age'</span> &gt; people.csv
+
+<span class="agentic-line"><span class="agentic-result">Keanu (role "Neo") and Carrie-Anne acted in The Matrix.</span></span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== REFERENCE ============== -->
+<section class="alt" id="reference">
+  <div class="container inner">
+    <div class="section-header">
+      <span class="section-eyebrow">reference</span>
+      <h2 class="section-title">The concise reference.</h2>
+    </div>
+    <div class="examples" id="refSection">
+
+      <div class="example-tabs" role="tablist">
+        <button class="example-tab active" data-ref-tab="cli" role="tab">
+          <span>cli</span>
+          <span class="label-tag">flags</span>
+        </button>
+        <button class="example-tab" data-ref-tab="dot" role="tab">
+          <span>dot-cmds</span>
+          <span class="label-tag">shell</span>
+        </button>
+        <button class="example-tab" data-ref-tab="output" role="tab">
+          <span>output</span>
+          <span class="label-tag">format</span>
+        </button>
+        <button class="example-tab" data-ref-tab="cypher" role="tab">
+          <span>cypher</span>
+          <span class="label-tag">tck</span>
+        </button>
+        <button class="example-tab" data-ref-tab="vector" role="tab">
+          <span>vector</span>
+          <span class="label-tag">search</span>
+        </button>
+        <button class="example-tab" data-ref-tab="spatial" role="tab">
+          <span>spatial</span>
+          <span class="label-tag">geo</span>
+        </button>
+        <button class="example-tab" data-ref-tab="storage" role="tab">
+          <span>storage</span>
+          <span class="label-tag">wal</span>
+        </button>
+        <button class="example-tab" data-ref-tab="clients" role="tab">
+          <span>clients</span>
+          <span class="label-tag">embed</span>
+        </button>
+      </div>
+
+      <!-- cli -->
+      <div class="example-pane active" data-ref-pane="cli">
+        <div class="example-header">
+          <span class="desc">CLI — flags, commands, exit codes</span>
+        </div>
+        <div class="ref-body">
+          <p><code>cypherlite [FLAGS] [DATABASE] [QUERY|-c QUERY]</code> — the database path is optional (<code>:memory:</code> by default); a positional query runs once and exits.</p>
+          <pre><span class="prompt">$</span> cypherlite                                    <span class="comment"># in-memory interactive shell</span>
+<span class="prompt">$</span> cypherlite ./mydata                           <span class="comment"># durable directory, interactive</span>
+<span class="prompt">$</span> cypherlite ./mydata.cl "RETURN 1"             <span class="comment"># single-file bundle, one-shot</span>
+<span class="prompt">$</span> cypherlite :memory: "RETURN 1 + 2 AS sum"     <span class="comment"># one-shot, no files</span>
+<span class="prompt">$</span> cypherlite ./mydata &lt; setup.cypher            <span class="comment"># pipe a script</span></pre>
+          <p class="ref-sub"><span class="keyword">Flags</span> — single- and double-dash both accepted; <code>--</code> ends flag parsing:</p>
+          <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
+<span class="flag">--version</span>         version
+<span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span>    output format shortcuts
+<span class="flag">--mode</span> M          table | csv | json | jsonl | markdown | cypher
+<span class="flag">--noheader</span>        drop column headers
+<span class="flag">--param</span> N=V       bind a Cypher parameter (repeatable, JSON scalar)
+<span class="flag">-c</span>, <span class="flag">--command</span> Q   one-shot query
+<span class="flag">--snapshot-format</span> F           parquet | json (empty directory only)
+<span class="flag">--wal-dir</span> DIR               WAL directory (default &lt;DATABASE&gt;/wal)
+<span class="flag">--checkpoint-interval-secs</span> N  timed checkpoint period, 0 disables
+<span class="flag">--memory-limit</span> SIZE          live graph + index cap (bytes, mb/mib/gb/gib)</pre>
+          <p class="ref-sub"><span class="keyword">Lifecycle commands</span> — positional, first argument only:</p>
+          <pre><span class="prompt">$</span> cypherlite skill install [--agent NAME]   <span class="comment"># agent skill bundle</span>
+<span class="prompt">$</span> cypherlite skill remove  [--agent NAME]
+<span class="prompt">$</span> cypherlite upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
+<span class="prompt">$</span> cypherlite telemetry off | status</pre>
+          <p>Exit codes: <code>2</code> usage error (unknown flag, bad <code>--mode</code>), <code>1</code> runtime failure (open/query error), <code>0</code> success. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
+          <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
+<span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
+<span class="keyword">CYPHERLITE_MEMORY_LIMIT</span>=4gb             <span class="comment"># live graph + index cap</span>
+<span class="keyword">CYPHERLITE_TELEMETRY</span>=0 · <span class="keyword">DO_NOT_TRACK</span>=1   <span class="comment"># opt out of CLI metrics</span></pre>
+          <p>Telemetry is anonymous — command shapes, feature flags, an anonymous install id, a coarse environment tag. It never sends query text, file paths, or data, defaults to on, and only the standalone CLI collects it (not the embedded Rust, Python, or WASM APIs).</p>
+        </div>
+      </div>
+
+      <!-- dot -->
+      <div class="example-pane" data-ref-pane="dot">
+        <div class="example-header">
+          <span class="desc">Shell dot-commands</span>
+        </div>
+        <div class="ref-body">
+          <p>Inside the interactive shell, dot-commands submit on Enter (Cypher statements end with <code>;</code>):</p>
+          <pre>cypher&gt; .help          <span class="comment"># command summary</span>
+cypher&gt; .quit          <span class="comment"># exit (alias: .exit; Ctrl-D works too)</span>
+cypher&gt; .begin         <span class="comment"># explicit transaction</span>
+cypher&gt; .commit        <span class="comment"># append combined redo once</span>
+cypher&gt; .rollback      <span class="comment"># discard the transaction</span>
+cypher&gt; .checkpoint    <span class="comment"># pin LSN, dump snapshot, recycle WAL</span>
+cypher&gt; .timer on      <span class="comment"># per-statement timing</span></pre>
+          <p>Default is auto-commit: one statement, one durable WAL commit. Explicit transactions share one snapshot; a dropped connection rolls back. Ctrl-C cancels the current buffer.</p>
+        </div>
+      </div>
+
+      <!-- output -->
+      <div class="example-pane" data-ref-pane="output">
+        <div class="example-header">
+          <span class="desc">Output formats</span>
+        </div>
+        <div class="ref-body">
+          <p>Six formats, selected by flags — no in-session <code>.mode</code> command:</p>
+          <pre><span class="prompt">$</span> cypherlite ./mydata "MATCH (p:Person) RETURN p.name, p.age"      <span class="comment"># table (default)</span>
+<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> --noheader ./mydata "…" &gt; people.csv
+<span class="prompt">$</span> cypherlite <span class="flag">-json</span> ./mydata "…" &gt; people.json
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> jsonl ./mydata "…" | jq .          <span class="comment"># one object per line</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
+          <p>Flags work in one-shot mode, pipe mode, and the interactive shell.</p>
+        </div>
+      </div>
+
+      <!-- cypher -->
+      <div class="example-pane" data-ref-pane="cypher">
+        <div class="example-header">
+          <span class="desc">Cypher — full openCypher TCK coverage + GQL alignment</span>
+        </div>
+        <div class="ref-body">
+          <p>CypherLite passes the full pinned openCypher TCK 2024.3 corpus (strict run: error class, error phase, side effects; enforced in CI) and implements a large slice of Neo4j's post-standard Cypher.</p>
+          <p class="ref-sub"><span class="keyword">Read &amp; write</span>:</p>
+          <pre>MATCH (p:Person)-[:FRIENDS_WITH*1..3]->(f) WHERE p.name STARTS WITH 'A' RETURN f
+OPTIONAL MATCH, CREATE, MERGE, SET, REMOVE, DELETE, FOREACH, INSERT</pre>
+          <p class="ref-sub"><span class="keyword">Compose</span>:</p>
+          <pre>WITH, UNWIND, UNION, CALL { … } subqueries, subquery expressions,
+list/map comprehensions, quantified path patterns, path selectors</pre>
+          <p class="ref-sub"><span class="keyword">Schema DDL</span>:</p>
+          <pre>CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE
+CREATE INDEX name_idx FOR (p:Person) ON (p.name)
+SHOW CONSTRAINTS · SHOW INDEXES</pre>
+          <p>100+ built-in functions; <code>CYPHER 5</code> / <code>CYPHER 25</code> version prefixing; label expressions and GQL/GPM pattern matching.</p>
+        </div>
+      </div>
+
+      <!-- vector -->
+      <div class="example-pane" data-ref-pane="vector">
+        <div class="example-header">
+          <span class="desc">Vector search</span>
+        </div>
+        <div class="ref-body">
+          <p>First-class <code>vector()</code> values, HNSW index top-k search (brute-force cosine fallback), similarity functions, and hybrid vector + graph queries in a single statement.</p>
+          <pre>RETURN vector([0.1, 0.2, 0.3], 3, FLOAT32)               <span class="comment"># typed vector</span>
+CREATE VECTOR INDEX idx FOR (a:Article) ON (a.embedding)
+  OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}
+CALL db.index.vector.queryNodes('idx', 5, $q) YIELD node, score RETURN node, score
+vector.cosineSimilarity(a, b) · vector.euclideanDistance · vector.dotProduct · vector.manhattan
+vector.normalize · vector.add · vector.subtract · vector.dimensions</pre>
+        </div>
+      </div>
+
+      <!-- spatial -->
+      <div class="example-pane" data-ref-pane="spatial">
+        <div class="example-header">
+          <span class="desc">Geospatial</span>
+        </div>
+        <div class="ref-body">
+          <p>WGS-84 and Cartesian points (2D and 3D), LineString/Polygon geometries, R-tree point index, and WKT/GeoJSON conversion.</p>
+          <pre>point({latitude: 40.71, longitude: -74.01})       <span class="comment"># geographic</span>
+point({x: 10, y: 20, z: 5})                      <span class="comment"># cartesian 3D</span>
+point.distance(a.location, b.location)            <span class="comment"># meters (Haversine) / Euclidean</span>
+point.withinBBox(p, cornerA, cornerB) · point.withinDistance(p, center, meters)
+CREATE POINT INDEX city_locations FOR (c:City) ON (c.location)   <span class="comment"># R-tree</span>
+linestring([…]) · polygon([…]) · spatial.area · spatial.length · spatial.centroid
+spatial.contains · within · intersects · overlaps · crosses · touches
+spatial.fromWKT / toWKT · spatial.fromGeoJSON / toGeoJSON</pre>
+        </div>
+      </div>
+
+      <!-- storage -->
+      <div class="example-pane" data-ref-pane="storage">
+        <div class="example-header">
+          <span class="desc">Storage — WAL + one snapshot codec</span>
+        </div>
+        <div class="ref-body">
+          <p>The matcher runs on an in-memory graph; disk is for crash recovery. One write path: append redo to the fsync'd WAL, then apply. Snapshots capture already-committed state.</p>
+          <p class="ref-sub"><span class="keyword">Shapes</span>:</p>
+          <pre>cypherlite :memory:                      <span class="comment"># RAM only, nothing written</span>
+cypherlite ./mydata                      <span class="comment"># dir: WAL + Parquet shards (default)</span>
+cypherlite --snapshot-format json ./d    <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
+cypherlite ./mydata.cl                   <span class="comment"># one host file: WAL + snapshot + catalog</span></pre>
+          <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
+          <pre>&lt;dir&gt;/manifest.json
+&lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
+&lt;dir&gt;/relationships/{lo}-{hi}.parquet
+&lt;dir&gt;/wal/NNNNNNNN.log</pre>
+          <p>One codec per directory — mixing Parquet shards and <code>graph.json</code> is an error. Checkpoints rotate at 64 MiB WAL, 10 000 commits, or a timer (default 300 s, <code>--checkpoint-interval-secs</code>). Crash recovery = load snapshot, replay WAL. <code>--memory-limit</code> caps the live graph (logical, not RSS) — the working set must fit in RAM. Optional CDC slots hold WAL recycle until acked.</p>
+        </div>
+      </div>
+
+      <!-- clients -->
+      <div class="example-pane" data-ref-pane="clients">
+        <div class="example-header">
+          <span class="desc">Embedding &amp; remote access</span>
+        </div>
+        <div class="ref-body">
+          <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols.</p>
+          <p class="ref-sub"><span class="keyword">Rust</span> — the public crate:</p>
+          <pre>use cypherlite::Database;
+let db = Database::open("./graph.cl")?;
+let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
+          <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>).</p>
+          <p class="ref-sub"><span class="keyword">JavaScript / Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
+          <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server.</p>
+          <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============== FOOTER ============== -->
+<footer>
+  <div class="container inner">
+    <div class="meta">
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.6.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+    </div>
+    <div class="links">
+      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/neo4j-labs/cypherlite/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="llms.txt">llms.txt</a>
+      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
+      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ============== TOAST ============== -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  <span id="toastText">Copied to clipboard</span>
+</div>
+
+<script>
+  // ---------- Theme ----------
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const stored = localStorage.getItem('theme');
+  if (stored === 'light' || stored === 'dark') {
+    root.setAttribute('data-theme', stored);
+  }
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let next;
+    if (current === 'dark') next = 'light';
+    else if (current === 'light') next = 'dark';
+    else next = sysDark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+
+  // ---------- Sticky header shadow ----------
+  const header = document.getElementById('top');
+  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ---------- Mobile nav toggle ----------
+  const navToggle = document.getElementById('navToggle');
+  const topNav = document.getElementById('topNav');
+  if (navToggle && topNav) {
+    const closeNav = () => {
+      topNav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+      navToggle.setAttribute('aria-label', 'Open menu');
+    };
+    navToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = topNav.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    });
+    topNav.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') closeNav();
+    });
+    document.addEventListener('click', (e) => {
+      if (!topNav.contains(e.target) && !navToggle.contains(e.target)) closeNav();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeNav();
+    });
+  }
+
+  // ---------- Toast ----------
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+  let toastTimer;
+  function showToast(msg) {
+    toastText.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  // ---------- Copy helper ----------
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); document.body.removeChild(ta); return true; }
+      catch (e2) { document.body.removeChild(ta); return false; }
+    }
+  }
+
+  // ---------- OS detection + install tabs ----------
+  const INSTALL_URL = 'https://neo4j-labs.github.io/cypherlite/install.sh';
+  const installers = {
+    macos: {
+      prompt: '$',
+      html: 'curl <span class="flag">-sSfL</span> ' + INSTALL_URL + ' | bash',
+      raw: 'curl -sSfL ' + INSTALL_URL + ' | bash',
+      label: 'detected macOS',
+    },
+    linux: {
+      prompt: '$',
+      html: 'curl <span class="flag">-sSfL</span> ' + INSTALL_URL + ' | bash',
+      raw: 'curl -sSfL ' + INSTALL_URL + ' | bash',
+      label: 'detected Linux',
+    },
+    windows: {
+      prompt: '#',
+      html: 'download cypherlite-windows-amd64.exe from the releases page',
+      raw: 'https://github.com/neo4j-labs/cypherlite/releases/latest',
+      label: 'Windows: release .exe',
+    },
+    pip: {
+      prompt: '$',
+      html: 'pip install <span class="flag">neo4j-cypherlite</span>',
+      raw: 'pip install neo4j-cypherlite',
+      label: 'Python package (PyPI)',
+    },
+  };
+
+  function detectOS() {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const plat = (navigator.platform || '').toLowerCase();
+    if (/win/.test(plat) || /windows/.test(ua)) return 'windows';
+    if (/mac/.test(plat) || /darwin|mac os/.test(ua)) return 'macos';
+    if (/linux|x11/.test(plat) || /linux/.test(ua)) return 'linux';
+    return 'macos';
+  }
+
+  const installCmdEl = document.getElementById('installCmd');
+  const installPromptEl = document.getElementById('installPrompt');
+  const osDetectedEl = document.getElementById('osDetected');
+  const copyInstallBtn = document.getElementById('copyInstall');
+  const copyTextLabel = document.getElementById('copyText');
+  const installTabs = document.querySelectorAll('.install-tab');
+  let currentOS = detectOS();
+
+  const qsPromptEl = document.getElementById('quickstartPrompt');
+  const qsCmdEl = document.getElementById('quickstartCmdText');
+  const qsCmdBox = document.getElementById('quickstartInstallCmd');
+
+  function setOS(os, userPicked) {
+    currentOS = os;
+    const i = installers[os];
+    installCmdEl.innerHTML = i.html;
+    installPromptEl.innerHTML = i.prompt;
+    osDetectedEl.textContent = userPicked ? i.label.replace('detected ', '') : i.label;
+    installTabs.forEach(t => t.classList.toggle('active', t.dataset.os === os));
+    if (qsPromptEl) qsPromptEl.textContent = i.prompt;
+    if (qsCmdEl) qsCmdEl.innerHTML = i.html;
+    if (qsCmdBox) qsCmdBox.dataset.copy = i.raw;
+  }
+
+  installTabs.forEach(tab => {
+    tab.addEventListener('click', () => setOS(tab.dataset.os, true));
+  });
+  setOS(currentOS, false);
+
+  async function copyInstall() {
+    const ok = await copyText(installers[currentOS].raw);
+    if (ok) {
+      copyInstallBtn.classList.add('copied');
+      copyTextLabel.textContent = 'copied!';
+      showToast('Install command copied');
+      setTimeout(() => {
+        copyInstallBtn.classList.remove('copied');
+        copyTextLabel.textContent = 'copy';
+      }, 1600);
+    }
+  }
+  copyInstallBtn.addEventListener('click', copyInstall);
+
+  // ---------- ⌘C / Ctrl+C anywhere ----------
+  document.addEventListener('keydown', (e) => {
+    const isCopy = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c';
+    if (!isCopy) return;
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+    copyInstall();
+  });
+
+  // ---------- Examples tabs ----------
+  const exSect = document.getElementById('examplesSection');
+  const tabs = exSect.querySelectorAll('.example-tab');
+  const panes = exSect.querySelectorAll('.example-pane');
+  const validTabIds = new Set([...tabs].map(t => t.dataset.tab));
+
+  function activateExampleTab(id) {
+    if (!validTabIds.has(id)) return;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+    panes.forEach(p => p.classList.toggle('active', p.dataset.pane === id));
+    history.replaceState(null, '', '#tab-' + id);
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => activateExampleTab(tab.dataset.tab)));
+
+  function restoreTabFromHash() {
+    const m = location.hash.match(/^#tab-(.+)$/);
+    if (!m || !validTabIds.has(m[1])) return;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === m[1]));
+    panes.forEach(p => p.classList.toggle('active', p.dataset.pane === m[1]));
+    requestAnimationFrame(() =>
+      document.getElementById('examples').scrollIntoView({ block: 'start' })
+    );
+  }
+  restoreTabFromHash();
+  window.addEventListener('hashchange', restoreTabFromHash);
+
+  // ---------- Reference tabs ----------
+  const refSect = document.getElementById('refSection');
+  const refTabs = refSect.querySelectorAll('.example-tab');
+  const refPanes = refSect.querySelectorAll('.example-pane');
+  const validRefTabIds = new Set([...refTabs].map(t => t.dataset.refTab));
+
+  function activateRefTab(id) {
+    if (!validRefTabIds.has(id)) return;
+    refTabs.forEach(t => t.classList.toggle('active', t.dataset.refTab === id));
+    refPanes.forEach(p => p.classList.toggle('active', p.dataset.refPane === id));
+  }
+
+  refTabs.forEach(tab => tab.addEventListener('click', () => activateRefTab(tab.dataset.refTab)));
+
+  // ---------- cli / agentic mode — global state ----------
+  let viewMode = 'agentic';
+  const examplesEl = document.getElementById('examplesSection');
+  const quickstartStepsEl = document.getElementById('quickstartSteps');
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    examplesEl.classList.toggle('cli-mode', mode === 'cli');
+    quickstartStepsEl.classList.toggle('cli-mode', mode === 'cli');
+    document.querySelectorAll('[data-ex-mode]').forEach(b =>
+      b.classList.toggle('active', b.dataset.exMode === mode));
+    document.querySelectorAll('[data-qs-mode]').forEach(b =>
+      b.classList.toggle('active', b.dataset.qsMode === mode));
+  }
+
+  document.querySelectorAll('[data-ex-mode]').forEach(btn =>
+    btn.addEventListener('click', () => setViewMode(btn.dataset.exMode)));
+  document.querySelectorAll('[data-qs-mode]').forEach(btn =>
+    btn.addEventListener('click', () => setViewMode(btn.dataset.qsMode)));
+
+  // ---------- Per-pane copy (mode-aware) ----------
+  const paneCommands = {
+    install: 'curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash',
+    skill: 'cypherlite skill install',
+    database: 'cypherlite ./mydata',
+    create: 'cypherlite ./movies \'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE\'',
+    query: 'cypherlite -json ./movies \'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name\'',
+  };
+  const panePrompts = {
+    install: 'Install cypherlite and tell me which version I have',
+    skill: 'Install the cypherlite skill for all my agents, then confirm it is current',
+    database: 'Create a durable graph database in ./mydata, then run a count against it',
+    create: 'Model a movie graph in ./movies: Person and Movie nodes, ACTED_IN relationships, unique Person names — then import extra people from CSV',
+    query: 'Who acted in The Matrix? Return name and role as JSON.',
+  };
+  document.querySelectorAll('.copy-mini').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.copyPane;
+      const text = viewMode === 'agentic' ? panePrompts[id] : paneCommands[id];
+      const ok = await copyText(text);
+      if (ok) {
+        btn.classList.add('copied');
+        const original = btn.innerHTML;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> copied';
+        showToast('Copied');
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1600);
+      }
+    });
+  });
+
+  // ---------- DB format toggle (memory / directory / bundle) in step 3 ----------
+  // Switching the format also rewrites the database argument in steps 4-5
+  // (visible token, copy payload, and the "same file" wording).
+  const DB_ARGS = { memory: ':memory:', dir: './mydata', bundle: './mydata.cl' };
+  let currentDbFmt = 'dir';
+  document.querySelectorAll('.db-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.db;
+      if (mode === currentDbFmt) return;
+      const oldArg = DB_ARGS[currentDbFmt], newArg = DB_ARGS[mode];
+      currentDbFmt = mode;
+      document.querySelectorAll('.db-btn').forEach(b => b.classList.toggle('active', b.dataset.db === mode));
+      document.querySelectorAll('.db-panel').forEach(p => {
+        p.classList.toggle('db-panel-hidden', p.dataset.dbPanel !== mode);
+      });
+      document.querySelectorAll('.dbarg').forEach(el => { el.textContent = newArg; });
+      document.querySelectorAll('.dbarg-text').forEach(el => {
+        el.textContent = mode === 'memory' ? 'same in-memory database (gone when the process exits)' : 'same file';
+      });
+      document.querySelectorAll('.step-cmd[data-db-aware]').forEach(el => {
+        if (el.dataset.copy) {
+          el.dataset.copy = el.dataset.copy.replace('cypherlite ' + oldArg + ' ', 'cypherlite ' + newArg + ' ');
+        }
+      });
+    });
+  });
+
+  // ---------- Step copy (mode-aware) ----------
+  document.querySelectorAll('.step-cmd').forEach(el => {
+    el.addEventListener('click', async () => {
+      let cmd = el.dataset.copy;
+      if (viewMode === 'agentic') {
+        const agentText = el.querySelector('.agentic-comment')?.textContent.trim();
+        if (agentText) cmd = agentText.replace(/^>\s*/, '');
+      }
+      if (!cmd) return;
+      const ok = await copyText(cmd);
+      if (ok) showToast('Copied: ' + cmd.slice(0, 40) + (cmd.length > 40 ? '…' : ''));
+    });
+  });
+</script>
+
+
+</body></html>

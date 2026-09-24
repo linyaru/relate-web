@@ -1,6 +1,6 @@
 # NOTE: This file belongs at .github/workflows/update-website.yml on the main branch.
 # Copy it there after merging. It is stored here on gh-pages for reference only.
-# A verbatim copy lives on main in the `update-website-action` branch.
+# (fix-website-fireconnect branch carries the v0.9.7 --model fix, PR #90)
 
 name: Update website
 
@@ -75,7 +75,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
           fireconnect claude on --non-interactive \
-            --sonnet firerouter/kimi-k3/glm-5p3/deepseek-v4p1-flash \
+            --model firerouter/kimi-k3/glm-5p3/deepseek-v4p1-flash \
             --api-key "$FIREWORKS_API_KEY"
           fireconnect claude status
 

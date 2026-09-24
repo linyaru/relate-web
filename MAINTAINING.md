@@ -17,7 +17,7 @@ Page structure, top to bottom:
 | Section | id | Contents |
 |---|---|---|
 | Hero | — | version pill, tagline, OS install tabs (macOS/Linux/Windows/Python) |
-| Quickstart | `#quickstart` | 5 steps: install, skill, database format, create, query; the format toggle rewrites the db argument in steps 4-5 |
+| Quickstart | `#quickstart` | 4 steps: skill, database format, create (typed params / LOAD CSV / pipe / `pull` from Neo4j/Aura), query; the format toggle rewrites the db argument in steps 3-4 |
 | Memory console | `#console` | **placeholder** for a future live WASM console — keep it until WASM ships |
 | Examples | `#examples` | 5 panes mirroring the quickstart: `install`, `skill`, `database`, `create`, `query` (tab ids `data-tab`/`data-pane`) |
 | Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients` (`data-ref-tab`/`data-ref-pane`) |

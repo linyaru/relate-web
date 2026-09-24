@@ -1,8 +1,8 @@
 # cypherlite
 
-> An embedded openCypher graph database in a single binary. No server, no setup — full TCK coverage.
+> An embedded openCypher graph database in a single binary. No server, no setup — full openCypher, GQL and Cypher 25 coverage.
 
-CypherLite is an open-source, embeddable, in-memory property graph engine written in Rust. It speaks Cypher (full openCypher TCK 2024.3 coverage, plus a large slice of Neo4j's post-standard Cypher with GQL alignment), persists through an fsync'd WAL plus one snapshot codec (Parquet or JSON) as a directory or a single `.cl` file, supports vector similarity search and geospatial queries, and installs an agent skill bundle that teaches AI assistants how to drive it.
+CypherLite is an embeddable, in-memory property graph engine written in Rust. It speaks Cypher (3891 of 3893 pinned openCypher TCK 2024.3 scenarios (2 documented skips), plus a large slice of Neo4j's post-standard Cypher with GQL alignment), persists through an fsync'd WAL plus one snapshot codec (Parquet or JSON) as a directory or a single `.cl` file, supports vector similarity search and geospatial queries, and installs an agent skill bundle that teaches AI assistants how to drive it.
 
 ## Installation
 
@@ -66,7 +66,7 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 
 - Rust: the `cypherlite` crate — `Database::open("./graph.cl")`, `db.execute(query)`
 - Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC
-- JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (prebuilt tarballs on the releases page)
+- JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
 - Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients
 
 ## Links

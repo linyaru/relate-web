@@ -1546,7 +1546,9 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
 OPTIONAL MATCH, CREATE, MERGE, SET, REMOVE, DELETE, FOREACH, INSERT</pre>
           <p class="ref-sub"><span class="keyword">Compose</span>:</p>
           <pre>WITH, UNWIND, UNION, CALL { … } subqueries, subquery expressions,
-list/map comprehensions, quantified path patterns, path selectors</pre>
+list/map comprehensions, quantified path patterns, path selectors,
+string interpolation (s'…'), GROUP BY, label expressions,
+SEARCH over vector and full-text indexes (hybrid: chain via WITH)</pre>
           <p class="ref-sub"><span class="keyword">Schema DDL</span>:</p>
           <pre>CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE
 CREATE INDEX name_idx FOR (p:Person) ON (p.name)
@@ -1566,6 +1568,8 @@ SHOW CONSTRAINTS · SHOW INDEXES</pre>
 CREATE VECTOR INDEX idx FOR (a:Article) ON (a.embedding)
   OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}
 CALL db.index.vector.queryNodes('idx', 5, $q) YIELD node, score RETURN node, score
+MATCH (a) SEARCH a IN (VECTOR INDEX idx FOR $q WHERE a.topic = 'graph' LIMIT 10)   <span class="comment"># Cypher 25 SEARCH: top-k + pre-rank filter</span>
+CREATE FULLTEXT INDEX text_idx FOR (a:Article) ON (a.text)                        <span class="comment"># keyword side of hybrid</span>
 vector.cosineSimilarity(a, b) · vector.euclideanDistance · vector.dotProduct · vector.manhattan
 vector.normalize · vector.add · vector.subtract · vector.dimensions</pre>
         </div>

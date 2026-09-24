@@ -37,13 +37,16 @@ Prebuilt binaries ship for macOS (amd64/arm64), Linux (amd64/arm64), and Windows
 
 ## Cypher
 
-Full pinned openCypher TCK 2024.3 coverage (strict run — error class, error phase, side effects — enforced in CI) plus: reading/writing clauses (`MATCH`, `OPTIONAL MATCH`, `WHERE`, `CREATE`, `MERGE`, `SET`, `REMOVE`, `DELETE`, `FOREACH`, `INSERT`), composition (`WITH`, `UNWIND`, `UNION`, `CALL {}` subqueries, subquery expressions, comprehensions), quantified path patterns and path selectors, label expressions, schema DDL (indexes, constraints, `CREATE/SHOW`), 100+ built-in functions, `CYPHER 5`/`CYPHER 25` prefixing.
+Full pinned openCypher TCK 2024.3 coverage (strict run — error class, error phase, side effects — enforced in CI) plus: reading/writing clauses (`MATCH`, `OPTIONAL MATCH`, `WHERE`, `CREATE`, `MERGE`, `SET`, `REMOVE`, `DELETE`, `FOREACH`, `INSERT`), composition (`WITH`, `UNWIND`, `UNION`, `CALL {}` subqueries, subquery expressions, map/list comprehensions), quantified path patterns and path selectors, label expressions, string interpolation (`s'…'`), `GROUP BY` subclause, UUID and graph value types, schema DDL (indexes, constraints, `CREATE/SHOW`), 100+ built-in functions, `CYPHER 5`/`CYPHER 25` prefixing.
 
 ## Vector search
 
 - `vector([0.1, 0.2, 0.3], 3, FLOAT32)` — first-class vector values (FLOAT32, INT8/16/32)
 - `CREATE VECTOR INDEX name FOR (a:Label) ON (a.embedding) OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}` — HNSW top-k
 - `CALL db.index.vector.queryNodes('name', k, $queryVector) YIELD node, score` — kNN search; brute-force cosine similarity without an index
+- `MATCH (a) SEARCH a IN (VECTOR INDEX name FOR $q WHERE a.topic = 'graph' LIMIT 10)` — the Cypher 25 `SEARCH` clause: engine-side top-k with pre-rank property filtering (filter props must be declared in the index's `WITH [...]`)
+- `CREATE FULLTEXT INDEX …` + `SEARCH … IN (FULLTEXT INDEX … FOR 'terms')` — keyword search over text properties
+- Hybrid: chain `MATCH … SEARCH` clauses through `WITH` (vector then full-text, or reverse) — each search intersects with the already-bound candidates
 - `vector.cosineSimilarity`, `vector.euclideanDistance`, `vector.dotProduct`, `vector.manhattan`, `vector.normalize`, `vector.add`, `vector.subtract`, `vector.dimensions`
 - Hybrid retrieval: vector search + graph traversal in one statement
 

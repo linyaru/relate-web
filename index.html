@@ -229,6 +229,13 @@
     transition: color 0.1s, background-color 0.1s;
   }
   nav.top-nav a:hover { color: var(--fg); background: var(--bg-alt); }
+  nav.top-nav a.nav-external { display: inline-flex; align-items: center; gap: 4px; }
+  nav.top-nav a.nav-external .ext-icon {
+    width: 12px; height: 12px;
+    color: var(--fg-faint);
+    transition: color 0.1s;
+  }
+  nav.top-nav a.nav-external:hover .ext-icon { color: var(--fg-muted); }
 
   .icon-btn {
     width: 32px; height: 32px;
@@ -1037,6 +1044,7 @@
       <a href="#reference">Reference</a>
       <a href="#quickstart">Quickstart</a>
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
+      <a href="/cypherlite/playground/" target="_blank" rel="noopener" class="nav-external">Playground<svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
     </nav>
     <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1133,14 +1141,21 @@
         Live, in-browser CypherLite (WASM) — no install, no server, your data never leaves the tab.
       </p>
     </div>
-    <div class="examples" id="consolePlaceholder" style="grid-template-columns:1fr;" aria-label="Live memory console placeholder">
-      <div class="example-pane active" style="min-height:150px; display:block;">
+    <div class="examples" id="wasmConsole" style="grid-template-columns:1fr;" aria-label="Live in-browser CypherLite memory console">
+      <div class="example-pane active" style="display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; overflow:visible;">
         <div class="example-header">
           <span class="desc">cypherlite · :memory: · wasm</span>
-          <span class="label-tag" style="margin-left:auto; font-size:10px; color:var(--fg-faint);">coming soon</span>
+          <span id="consoleStatus" class="label-tag" style="margin-left:auto; font-size:10px; color:var(--fg-faint);">ready</span>
         </div>
-<pre><span class="comment">// the live memory console lands here: create, query, checkpoint — all in your browser</span>
-<span class="prompt">cypher&gt;</span> <span class="cursor"></span></pre>
+<pre id="consoleOutput" style="min-height:220px; max-height:360px; overflow:auto;"></pre>
+        <div id="consoleSuggestions" style="display:flex; padding:8px 24px 0; flex-wrap:wrap; gap:6px;" aria-label="Query suggestions"></div>
+        <div class="console-inputline" style="display:flex; align-items:center; gap:8px; padding:10px 24px 16px; border-top:1px solid var(--border);">
+          <span class="prompt" style="color:var(--terminal-prompt); font-family:var(--font-mono); user-select:none;">cypher&gt;</span>
+          <input id="consoleInput" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
+                 placeholder="type a Cypher query and press Enter"
+                 aria-label="Cypher query input"
+                 style="flex:1; background:transparent; border:0; outline:0; color:var(--code-fg); font-family:var(--font-mono); font-size:13px; padding:2px 0;" />
+        </div>
       </div>
     </div>
   </div>
@@ -1952,6 +1967,197 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       if (ok) showToast('Copied: ' + cmd.slice(0, 40) + (cmd.length > 40 ? '…' : ''));
     });
   });
+</script>
+
+<!-- ============== WASM MEMORY CONSOLE (LIVE) ============== -->
+<script type="module">
+  // Lazy-loaded in-browser CypherLite. The wasm bundle in ./wasm/ is only
+  // fetched after the first click/focus on the console input, so users who
+  // never interact with it pay zero bytes.
+  const outputEl = document.getElementById('consoleOutput');
+  const inputEl  = document.getElementById('consoleInput');
+  const suggEl   = document.getElementById('consoleSuggestions');
+  const statusEl = document.getElementById('consoleStatus');
+  if (!outputEl || !inputEl || !suggEl || !statusEl) { /* noop if section removed */ }
+  else {
+    const SEED = `
+      CREATE
+        (ada:Person {name:'Ada'}),
+        (bob:Person {name:'Bob'}),
+        (cy:Person  {name:'Cy'}),
+        (dee:Person {name:'Dee'}),
+        (eve:Person {name:'Eve'}),
+        (ada)-[:FOLLOWS]->(bob),
+        (ada)-[:FOLLOWS]->(cy),
+        (bob)-[:FOLLOWS]->(cy),
+        (bob)-[:FOLLOWS]->(dee),
+        (cy)-[:FOLLOWS]->(dee),
+        (cy)-[:FOLLOWS]->(eve),
+        (dee)-[:FOLLOWS]->(eve),
+        (eve)-[:FOLLOWS]->(ada),
+        (bob)-[:FOLLOWS]->(ada),
+        (p1:Post {id:1, title:'graphs in the browser'}),
+        (p2:Post {id:2, title:'wasm is not that scary'}),
+        (p3:Post {id:3, title:'cypher for the weekend'}),
+        (p4:Post {id:4, title:'why memory-first?'}),
+        (p5:Post {id:5, title:'openCypher, three years in'}),
+        (ada)-[:CREATES]->(p1),
+        (bob)-[:CREATES]->(p2),
+        (cy)-[:CREATES]->(p3),
+        (dee)-[:CREATES]->(p4),
+        (eve)-[:CREATES]->(p5),
+        (ada)-[:LIKES]->(p2),
+        (ada)-[:LIKES]->(p3),
+        (bob)-[:LIKES]->(p3),
+        (bob)-[:LIKES]->(p5),
+        (cy)-[:LIKES]->(p1),
+        (cy)-[:LIKES]->(p4),
+        (dee)-[:LIKES]->(p1),
+        (dee)-[:LIKES]->(p5),
+        (eve)-[:LIKES]->(p2),
+        (eve)-[:LIKES]->(p4)`;
+
+    const DEMOS = [
+      {
+        name: 'friends-of-friends',
+        query:
+          "MATCH (a:Person {name:'Ada'})-[:FOLLOWS]->()-[:FOLLOWS]->(b:Person)\n " +
+          "RETURN b.name AS friend_of_friend"
+      },
+      {
+        name: 'most followers',
+        query:
+          "MATCH (p:Person)<-[:FOLLOWS]-(f:Person)\n " +
+          "RETURN p.name AS person, count(f) AS followers \n" +
+          "ORDER BY followers DESC, person"
+      },
+      {
+        name: 'post recommendations',
+        query:
+          "MATCH (ada:Person {name:'Ada'})-[:FOLLOWS]->(friend:Person)-[:LIKES]->(post:Post) \n" +
+          "RETURN post.title AS post, count(friend) AS friends_who_liked\n" 
+      }
+    ];
+
+    // ---- rendering ----
+    function escape(s) {
+      return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    }
+    function setStatus(text, color) {
+      statusEl.textContent = text;
+      statusEl.style.color = color || 'var(--fg-faint)';
+    }
+    function append(html) {
+      outputEl.insertAdjacentHTML('beforeend', html);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+    function tableFromWire(wire) {
+      const cols = wire.columns || [];
+      if (!cols.length) return '(empty result)';
+      const rows = (wire.rows || []).map(r => cols.map(c => formatValue(r[c])));
+      const widths = cols.map((c, i) =>
+        Math.max(c.length, ...rows.map(r => (r[i] || '').length)));
+      const line = '+' + widths.map(w => '-'.repeat(w + 2)).join('+') + '+';
+      const header = '| ' + cols.map((c, i) => c.padEnd(widths[i])).join(' | ') + ' |';
+      const body = rows.map(r =>
+        '| ' + r.map((v, i) => v.padEnd(widths[i])).join(' | ') + ' |');
+      return [line, header, line, ...body, line, `${rows.length} row${rows.length === 1 ? '' : 's'}`].join('\n');
+    }
+    function formatValue(v) {
+      if (v === null || v === undefined) return 'null';
+      if (typeof v === 'string') return v;
+      if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+      return JSON.stringify(v);
+    }
+
+    // ---- suggestion pills ----
+    function renderSuggestions() {
+      suggEl.innerHTML = '<span style="color:var(--fg-faint); font-family:var(--font-mono); font-size:11px; margin-right:4px; align-self:center;">try:</span>';
+      DEMOS.forEach((d, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = d.name;
+        b.title = d.query;
+        b.setAttribute('data-suggest', String(i));
+        b.style.cssText = 'background:transparent; border:1px solid color-mix(in srgb, var(--code-fg) 15%, transparent); color:color-mix(in srgb, var(--code-fg) 80%, transparent); padding:4px 10px; border-radius:4px; font-family:var(--font-mono); font-size:11px; cursor:pointer;';
+        b.addEventListener('mouseenter', () => { b.style.color = 'var(--code-fg)'; b.style.background = 'color-mix(in srgb, var(--code-fg) 8%, transparent)'; });
+        b.addEventListener('mouseleave', () => { b.style.color = 'color-mix(in srgb, var(--code-fg) 80%, transparent)'; b.style.background = 'transparent'; });
+        b.addEventListener('click', () => {
+          inputEl.value = d.query.replace(/\s*\n\s*/g, ' ').trim();
+          inputEl.focus();
+        });
+        suggEl.appendChild(b);
+      });
+    }
+
+    // ---- lazy load ----
+    let db = null;
+    let bootPromise = null;
+
+    // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
+    // Version tracks the site's release pill (updated by the docs pipeline).
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.7.0').trim();
+
+    // Show the banner + suggestions from the first paint so the console looks
+    // like a live REPL immediately. The wasm module is only fetched on the
+    // first focus / first Enter.
+    outputEl.innerHTML =
+      `CypherLite ${escape(CLI_VERSION)}. End statements with ;\n\n`;
+    renderSuggestions();
+    setStatus('ready', 'var(--terminal-prompt)');
+
+    async function boot() {
+      if (bootPromise) return bootPromise;
+      bootPromise = (async () => {
+        try {
+          const mod = await import('./wasm/cypherlite.js');
+          await mod.default();
+          db = new mod.CypherliteDb();
+          const seed = JSON.parse(db.execute(SEED, null));
+          if (seed.error) throw new Error(seed.error);
+        } catch (err) {
+          append(`<span style="color:var(--danger)">error: ${escape(err.message || err)}</span>\n`);
+          setStatus('error', 'var(--danger)');
+          throw err;
+        }
+      })();
+      return bootPromise;
+    }
+
+    function runQuery(query) {
+      const compact = query.replace(/\s+/g, ' ').trim();
+      const withSemi = compact.endsWith(';') ? compact : compact + ';';
+      append(`<span class="prompt">cypher&gt;</span> ${escape(withSemi)}\n`);
+      let wire;
+      try {
+        wire = JSON.parse(db.execute(query, null));
+      } catch (err) {
+        append(`<span style="color:var(--danger)">error: ${escape(err.message || err)}</span>\n\n`);
+        return;
+      }
+      if (wire.error) {
+        append(`<span style="color:var(--danger)">error: ${escape(wire.error)}</span>\n\n`);
+        return;
+      }
+      append(`${escape(tableFromWire(wire))}\n\n`);
+    }
+
+    // First focus/click loads the wasm; subsequent Enters run queries.
+    inputEl.addEventListener('focus', boot, { once: false });
+    inputEl.addEventListener('keydown', async (ev) => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      const q = inputEl.value.trim();
+      if (!q) return;
+      await boot();
+      if (!db) return;
+      inputEl.value = '';
+      runQuery(q);
+    });
+
+    // Also boot on click anywhere in the output panel — nicer UX.
+    outputEl.addEventListener('click', () => { boot(); inputEl.focus(); }, { once: true });
+  }
 </script>
 
 

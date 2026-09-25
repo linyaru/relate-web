@@ -12,12 +12,34 @@ the default). Plus `llms.txt` for AI agents, `install.sh` (the documented
 install entry point — never delete or rewrite it by hand; it is preserved by
 the docs deploy workflow), `fonts/`, `robots.txt`, `sitemap.xml`.
 
+The playground SPA lives at `/cypherlite/playground/` and is built from
+`examples/wasm-playground/` on `main`. Its files are never committed to
+this branch.
+
+## How the site is deployed
+
+`.github/workflows/deploy-pages.yml` (on `main`) assembles the live site
+from two sources — this `gh-pages` branch as the base tree, and the
+playground `dist/` layered under `playground/` — then publishes via
+`actions/deploy-pages`. Triggers:
+
+- pushes to `main` (playground / wasm changes rebuild the site);
+- completion of `update-website.yml` (picks up the auto-updater's
+  push to this branch);
+- manual `workflow_dispatch` from the Actions tab (for hand-edits to
+  this branch — direct pushes here do **not** auto-trigger, because
+  the workflow file lives on `main`).
+
+Repo Settings → Pages → Source must be **GitHub Actions** for the
+workflow's deploy to be live; until then it builds but does not
+publish.
+
 Page structure, top to bottom:
 
 | Section | id | Contents |
 |---|---|---|
 | Hero | — | version pill, tagline, OS install tabs (macOS/Linux/Windows/Python) |
-| Memory console | `#console` | **placeholder** for a future live WASM console, directly below the hero — keep it above the fold and keep it until WASM ships |
+| Memory console | `#console` | live in-browser CypherLite (WASM), seeded with a 5-person social graph, three clickable query suggestions, user types + submits; lazy-loaded on first click/focus — keep it above the fold |
 | Quickstart | `#quickstart` | 4 steps: skill, database format, create (typed params / LOAD CSV / pipe / `pull` from Neo4j/Aura), query; the format toggle rewrites the db argument in steps 3-4 |
 | Examples | `#examples` | 5 panes mirroring the quickstart: `install`, `skill`, `database`, `create`, `query` (tab ids `data-tab`/`data-pane`) |
 | Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients` (`data-ref-tab`/`data-ref-pane`) |
@@ -29,7 +51,28 @@ Page structure, top to bottom:
 - The `cli | agentic` toggle behaviour and the four agentic invariants
   (below).
 - `install.sh` is owned by the release pipeline, not by site edits.
-- The WASM console placeholder section stays until the real console replaces it.
+- `wasm/` (`cypherlite.js`, `cypherlite.d.ts`, `cypherlite_bg.wasm`,
+  `cypherlite_bg.wasm.d.ts`) is owned by the build pipeline. To refresh
+  it, run `bash scripts/build-wasm.sh --mode release` on `main` and copy
+  the four files out of `crates/cypherlite-wasm/pkg/` into `wasm/`. Never
+  hand-edit these files.
+- The `#console` live console stays. Its seed graph
+  (`(:Person)-[:FOLLOWS|CREATES|LIKES]->…`) and its three suggestion
+  queries (friend-of-friend, most-followed aggregation, post
+  recommendation) are part of the site's contract; changes go in the
+  same pass as this file. The console must stay user-driven — no
+  auto-typing or auto-cycling; suggestions only populate the input,
+  they never execute on their own.
+- The top-nav `Playground` link stays as the **last** item in
+  `#topNav` (after `GitHub`), with `href="/cypherlite/playground/"`,
+  `target="_blank"`, `class="nav-external"`, and the inline `.ext-icon`
+  SVG indicating an external destination. It points at the playground
+  SPA built by `.github/workflows/deploy-pages.yml` on `main`. Never
+  rewrite the href, reorder, or drop the icon.
+- Never commit files under `playground/` on this branch. That path on
+  the live site is layered in by the deploy workflow from
+  `examples/wasm-playground/dist/`. Any `playground/` directory pushed
+  to `gh-pages` will be silently overwritten on the next deploy.
 - Tone: concise, friendly, no marketing fluff, no "revolutionary" language.
   Say what the thing does and show a command.
 

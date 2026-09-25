@@ -1,6 +1,6 @@
 # NOTE: This file belongs at .github/workflows/update-website.yml on the main branch.
 # Copy it there after merging. It is stored here on gh-pages for reference only.
-# (fix-website-fireconnect branch carries the v0.9.7 --model fix, PR #90)
+# (fix-website-bare branch carries the --bare removal + no-op guard, PR #99)
 
 name: Update website
 
@@ -74,17 +74,23 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/fw-ai/fireconnect/main/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
+          # FIREWORKS_API_KEY is already in the step env; fireconnect refuses
+          # --api-key when the env var is set ("will use it without storing
+          # another key"), so rely on the environment value.
           fireconnect claude on --non-interactive \
-            --model firerouter/kimi-k3/glm-5p3/deepseek-v4p1-flash \
-            --api-key "$FIREWORKS_API_KEY"
+            --model firerouter/kimi-k3/glm-5p3/deepseek-v4p1-flash
           fireconnect claude status
 
       - name: Run website update
         env:
           ENABLE_PROMPT_CACHING_1H: "1"
         run: |
+          # NOT --bare: bare mode skips ~/.claude/settings.json, which is where
+          # FireConnect writes the routing env (ANTHROPIC_BASE_URL + the
+          # X-Fireworks-Api-Key custom header). With --bare the agent runs
+          # unauthenticated ("Not logged in") and silently updates nothing.
           cat .github/prompts/website-update.md \
-            | claude --bare \
+            | claude \
               -p - \
               --output-format stream-json \
               --verbose \
@@ -111,6 +117,22 @@ jobs:
                 end
               ' \
             | stdbuf -oL tee /tmp/update-summary.txt
+
+      - name: Verify the update ran
+        run: |
+          set -euo pipefail
+          # The commit step treats an unchanged tree as success, so a silently
+          # unauthenticated or crashed agent must fail here instead.
+          if grep -q "Not logged in" /tmp/update-summary.txt 2>/dev/null; then
+            echo "::error::Claude Code did not authenticate — FireConnect settings were not applied"
+            tail -5 /tmp/update-summary.txt || true
+            exit 1
+          fi
+          if ! grep -q "SUMMARY_START" /tmp/update-summary.txt 2>/dev/null; then
+            echo "::error::the agent produced no summary marker; the update did not run to completion"
+            tail -20 /tmp/update-summary.txt 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Commit and push
         run: |

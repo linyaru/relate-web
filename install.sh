@@ -8,6 +8,11 @@ ASSET_PREFIX=cypherlite
 BIN_NAME=cypherlite
 INSTALL_DIR="$HOME/.local/bin"
 
+# Pinned release signing public key (ADR-0115). Verification never fetches the
+# key from the release. The signer identity and the SSH signature namespace are
+# both `cypherlite-release`; changing either, or this key, requires a new ADR.
+SIGNING_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK cypherlite-release'
+
 die() {
 	echo "install.sh: $1" >&2
 	exit 1
@@ -31,6 +36,9 @@ esac
 
 command -v curl >/dev/null 2>&1 ||
 	die "curl is required. Install it and retry."
+
+command -v ssh-keygen >/dev/null 2>&1 ||
+	die "ssh-keygen (openssh-client) is required to verify release signatures; install openssh-client and retry."
 
 tmp=$(mktemp -d)
 tmp_out=""
@@ -100,18 +108,37 @@ tag=$(printf '%s\n' "$release_json" |
 
 echo "Installing cypherlite $tag ($os/$arch) to $INSTALL_DIR"
 
-# Resolve both asset ids from the release JSON we already have, and die on an
-# empty id rather than downloading the wrong thing.
+# Resolve the asset ids (binary, manifest, signature) from the release JSON we
+# already have, and die on an empty id rather than downloading the wrong thing.
 asset_id=$(printf '%s\n' "$release_json" | asset_id_for "$asset")
 sums_id=$(printf '%s\n' "$release_json" | asset_id_for SHA256SUMS)
+sig_id=$(printf '%s\n' "$release_json" | asset_id_for SHA256SUMS.sig)
 [ -n "$asset_id" ] ||
 	die "release $tag from $REPO API has no asset named $asset"
 [ -n "$sums_id" ] ||
 	die "release $tag from $REPO API has no asset named SHA256SUMS"
-download_asset "$asset_id" >"$tmp/$asset" ||
-	die "failed to download $asset via API asset $asset_id"
+[ -n "$sig_id" ] ||
+	die "release $tag from $REPO API has no asset named SHA256SUMS.sig"
+# Cheap first: the manifest and its signature are small; the binary is the
+# large download and must not start until the manifest is authenticated.
 download_asset "$sums_id" >"$tmp/SHA256SUMS" ||
 	die "failed to download SHA256SUMS via API asset $sums_id"
+download_asset "$sig_id" >"$tmp/SHA256SUMS.sig" ||
+	die "failed to download SHA256SUMS.sig via API asset $sig_id"
+
+# Authenticate the manifest before trusting any checksum it carries (ADR-0115).
+# The pinned key is written in the identity form ssh-keygen's allowed_signers
+# expects, and SHA256SUMS is fed on stdin. Fail closed: a missing, invalid or
+# wrong-key signature installs nothing — and never downloads the binary.
+printf 'cypherlite-release %s\n' "$SIGNING_KEY" >"$tmp/allowed_signers"
+ssh-keygen -Y verify -f "$tmp/allowed_signers" -I cypherlite-release \
+	-n cypherlite-release -s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" ||
+	die "SHA256SUMS signature verification failed for $tag; installing nothing"
+
+# The manifest is authenticated; only now is the binary download worth
+# paying for.
+download_asset "$asset_id" >"$tmp/$asset" ||
+	die "failed to download $asset via API asset $asset_id"
 
 # SHA256SUMS lines are "<64-hex>  <name>" (shasum -a 256, two spaces, no
 # binary-mode asterisk).

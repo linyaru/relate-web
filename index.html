@@ -1073,7 +1073,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.7.0</span>
+      <span class="pill-tag" style="text-transform:none">v0.9.1</span>
       <span>open source · neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1125,7 +1125,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.7.0</a> · <span id="osDetected">detected your OS</span> · install script verifies SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1301,7 +1301,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.7.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.9.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1326,7 +1326,7 @@
 <span class="comment"># remove again — idempotent</span>
 <span class="prompt">$</span> cypherlite skill remove
 
-<span class="agentic-line"><span class="agentic-result">Installed into 11 agents. The bundle is version-stamped; `cypherlite upgrade` offers a refresh, and unknown agent names list the valid ones.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed into 11 agents. The bundle is version-stamped; `cypherlite upgrade` refreshes it automatically, and unknown agent names list the valid ones.</span></span></pre>
       </div>
 
       <!-- database -->
@@ -1622,7 +1622,7 @@ cypherlite ./mydata.cl                   <span class="comment"># one host file: 
 &lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
 &lt;dir&gt;/relationships/{lo}-{hi}.parquet
 &lt;dir&gt;/wal/NNNNNNNN.log</pre>
-          <p>One codec per directory — mixing Parquet shards and <code>graph.json</code> is an error. Checkpoints rotate at 64 MiB WAL, 10 000 commits, or a timer (default 300 s, <code>--checkpoint-interval-secs</code>). Crash recovery = load snapshot, replay WAL. <code>--memory-limit</code> caps the live graph (logical, not RSS) — the working set must fit in RAM. Optional CDC slots hold WAL recycle until acked.</p>
+          <p>One codec per directory — mixing Parquet shards and <code>graph.json</code> is an error. Checkpoints rotate at 64 MiB WAL, 10 000 commits, or a timer (default 300 s, <code>--checkpoint-interval-secs</code>). Crash recovery = load snapshot, replay WAL. <code>--memory-limit</code> caps the live graph (logical, not RSS) — the working set must fit in RAM. Optional CDC slots hold WAL recycle until acked. Stores carry a format version — opening an older store migrates it in place, hands-off.</p>
         </div>
       </div>
 
@@ -1639,7 +1639,7 @@ let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>).</p>
           <p class="ref-sub"><span class="keyword">JavaScript / Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
-          <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server.</p>
+          <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
         </div>
       </div>
@@ -1653,7 +1653,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.7.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2096,7 +2096,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.7.0').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.9.1').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

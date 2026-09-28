@@ -2,7 +2,7 @@
 
 > An embedded openCypher graph database in a single binary. No server, no setup — full openCypher, GQL and Cypher 25 coverage.
 
-CypherLite is an embeddable, in-memory property graph engine written in Rust. It speaks Cypher (3891 of 3893 pinned openCypher TCK 2024.3 scenarios (2 documented skips), plus a large slice of Neo4j's post-standard Cypher with GQL alignment), persists through an fsync'd WAL plus one snapshot codec (Parquet or JSON) as a directory or a single `.cl` file, supports vector similarity search and geospatial queries, and installs an agent skill bundle that teaches AI assistants how to drive it.
+CypherLite is an embeddable, in-memory property graph engine written in Rust. It speaks Cypher (full pinned openCypher TCK 2024.3 coverage, plus a large slice of Neo4j's post-standard Cypher with GQL alignment), persists through an fsync'd WAL plus one snapshot codec (Parquet or JSON) as a directory or a single `.cl` file, supports vector similarity search and geospatial queries, and installs an agent skill bundle that teaches AI assistants how to drive it.
 
 ## Installation
 
@@ -10,7 +10,7 @@ CypherLite is an embeddable, in-memory property graph engine written in Rust. It
 curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash
 ```
 
-Prebuilt binaries ship for macOS (amd64/arm64), Linux (amd64/arm64), and Windows. Windows: download `cypherlite-windows-amd64.exe` from the releases page. Python package: `pip install neo4j-cypherlite` (import as `import cypherlite`).
+The install script verifies the pinned-key release signature (SSHSIG) and SHA256SUMS before installing. Prebuilt binaries ship for macOS (amd64/arm64, Developer-ID signed and notarized), Linux (amd64/arm64), and Windows. Windows: download `cypherlite-windows-amd64.exe` from the releases page. Python package: `pip install neo4j-cypherlite` (import as `import cypherlite`).
 
 ## Usage
 
@@ -25,7 +25,7 @@ Prebuilt binaries ship for macOS (amd64/arm64), Linux (amd64/arm64), and Windows
 - `cypherlite -json ./mydata "MATCH (n) RETURN n"` — JSON output for pipes and agents (also `-csv`, `--mode jsonl|markdown|cypher|table`)
 - `cypherlite --param 'people=[{"name":"Alice"}]' ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name})'` — bind typed Cypher parameters
 - `cypherlite skill install [--agent NAME]` — install the agent skill bundle (CLI, Cypher, vector, spatial references) into every detected AI agent (claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie); `skill remove` is idempotent
-- `cypherlite upgrade [--yes] [--check]` — self-update from GitHub releases (alias: `update`)
+- `cypherlite upgrade [--yes] [--check]` — self-update from GitHub releases (alias: `update`); a successful upgrade also refreshes the installed skill bundle automatically
 - `cypherlite telemetry off` — disable anonymous CLI usage metrics (`DO_NOT_TRACK=1` / `CYPHERLITE_TELEMETRY=0` also work)
 
 ## Key flags
@@ -61,14 +61,14 @@ Full pinned openCypher TCK 2024.3 coverage (strict run — error class, error ph
 
 ## Storage
 
-One write path: commit appends physical redo to the fsync'd WAL, then applies it to the in-memory graph; checkpoints snapshot committed state. One codec per directory (mixing Parquet shards and `graph.json` is an error). Layout: `manifest.json`, `nodes/*.parquet` + `relationships/*.parquet` (or `graph.json`), `wal/*.log`; a `.cl` path packs the same tree into one host file. Checkpoint at 64 MiB WAL / 10 000 commits / timer (`--checkpoint-interval-secs`, default 300). `--memory-limit` caps the live graph — the working set must fit in RAM. Import/export: `LOAD CSV` (+ `FIELDTERMINATOR`), output flags for CSV/JSON/JSONL export.
+One write path: commit appends physical redo to the fsync'd WAL, then applies it to the in-memory graph; checkpoints snapshot committed state. One codec per directory (mixing Parquet shards and `graph.json` is an error). Layout: `manifest.json`, `nodes/*.parquet` + `relationships/*.parquet` (or `graph.json`), `wal/*.log`; a `.cl` path packs the same tree into one host file. Checkpoint at 64 MiB WAL / 10 000 commits / timer (`--checkpoint-interval-secs`, default 300). `--memory-limit` caps the live graph — the working set must fit in RAM. Import/export: `LOAD CSV` (+ `FIELDTERMINATOR`), output flags for CSV/JSON/JSONL export. Stores carry a format version; opening an older store migrates it in place, hands-off.
 
 ## Embedding and remote access
 
 - Rust: the `cypherlite` crate — `Database::open("./graph.cl")`, `db.execute(query)`
 - Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC
 - JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
-- Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients
+- Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable
 
 ## Links
 

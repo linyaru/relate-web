@@ -70,6 +70,41 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 - JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
 - Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable
 
+## Docker
+
+`make docker` builds the cypherlite-bolt server image (multi-stage: a
+musl-native Alpine Rust build, a FROM scratch runtime with three static
+binaries and the CA bundle — 65 MB, USER 1000, VOLUME /data, EXPOSE
+7687/7474). `make docker-run` runs it with Bolt on 7687 and a data volume:
+
+```bash
+make docker          # docker build -t cypherlite-bolt:<version> .
+make docker-run      # -p 7687:7687, data in ./target/docker-data:/data
+```
+
+Config resolution, most to least canonical: container args pass straight to
+the server; a mounted `/config/seed.json` (path override CYPHERLITE_CONFIG)
+drives seeding with ordered steps (query, load+query, pull+query); env
+one-liners (CYPHERLITE_QUERY, CYPHERLITE_LOAD + CYPHERLITE_LOAD_QUERY,
+CYPHERLITE_PULL_FROM + CYPHERLITE_PULL_QUERY). INSTANCES=N runs a fleet of
+N servers on consecutive ports from the base --bind port; Ctrl-C and
+docker stop stop it (PID 1 handles SIGINT/SIGTERM). The scratch runtime has
+no shell — the entrypoint is a tiny Rust binary.
+
+## Bolt auth
+
+`cypherlite-bolt` authenticates by default (basic auth on the HELLO token,
+Bolt 4.4): a 128-bit generated token (user `cypherlite`) is printed in the
+startup banner — `docker logs` for the container — and persisted next to a
+persistent database (`<dir>.auth-token`, `<bundle>.cl.auth-token`, mode
+0600, reused across restarts; `:memory:` generates fresh every start).
+`--auth user:password` / `CYPHERLITE_AUTH=user:password` presets a
+credential; `--auth none` disables validation. Wrong or missing
+credentials get `Neo.ClientError.Security.Unauthorized` and the connection
+closes; no message runs before a validated HELLO. TLS (server cert, mTLS)
+and connection caps/timeouts are also available — see
+`docs/api/bolt/spec.md`.
+
 ## Links
 
 - Homepage: https://neo4j-labs.github.io/cypherlite/

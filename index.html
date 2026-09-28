@@ -1424,6 +1424,69 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
   </div>
 </section>
 
+<!-- ============== DOCKER ============== -->
+<section id="docker">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">docker</span>
+      <h2 class="section-title">One image, one command.</h2>
+      <p class="section-sub">
+        A multi-stage FROM scratch image: musl-native Alpine build, a
+        runtime of three static binaries and the CA bundle. 65 MB, non-root,
+        Bolt on 7687, auth on by default.
+      </p>
+    </div>
+    <div class="examples" id="dockerSection" style="grid-template-columns:1fr;">
+      <div class="mode-bar">
+        <span class="mode-label">run</span>
+      </div>
+      <div class="example-pane active">
+        <div class="example-header">
+          <span class="desc">make docker builds it; the run publishes Bolt and seeds data on first boot</span>
+          <button class="copy-mini" data-copy-pane="docker">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            copy
+          </button>
+        </div>
+<pre><span class="comment"># build the image and run it: Bolt on 7687, data in ./target/docker-data</span>
+<span class="prompt">$</span> make docker
+<span class="prompt">$</span> make docker-run
+
+<span class="comment"># a one-off container with a preset credential and a seed query</span>
+<span class="prompt">$</span> docker run -p 7687:7687 -v "$PWD/data:/data" \
+    -e CYPHERLITE_AUTH=cypherlite/secret \
+    -e CYPHERLITE_QUERY="UNWIND range(1,100) AS i CREATE (:Person {id: i})" \
+    cypherlite-bolt:0.9.1
+
+<span class="comment"># auth is on by default: the generated token is in the startup banner</span>
+<span class="prompt">$</span> docker logs &lt;container&gt; 2&gt;&amp;1 | grep "generated token"
+<span class="out">auth: generated token for user cypherlite: 081024fbd538d05dbd177e0bb5e9808b</span>
+<span class="comment"># persisted next to the database — the same token across restarts</span></pre>
+      </div>
+    </div>
+    <p class="section-sub" style="max-width:720px;margin:24px auto 0">
+      Config resolution, most to least canonical: container args pass
+      straight to the server (<code style="font-family:var(--font-mono);font-size:14px">--bind</code>,
+      <code style="font-family:var(--font-mono);font-size:14px">--auth</code>, TLS flags);
+      a mounted <code style="font-family:var(--font-mono);font-size:14px">/config/seed.json</code>
+      drives seeding (ordered steps:
+      <code style="font-family:var(--font-mono;font-size:14px">query</code>,
+      <code style="font-family:var(--font-mono;font-size:14px">load</code>+query,
+      <code style="font-family:var(--font-mono);font-size:14px">pull</code>+query);
+      env one-liners (<code style="font-family:var(--font-mono);font-size:14px">CYPHERLITE_QUERY</code>,
+      <code style="font-family:var(--font-mono);font-size:14px">CYPHERLITE_LOAD</code>,
+      <code style="font-family:var(---mono);font-size:14px">CYPHERLITE_AUTH</code>).
+      <code style="font-family:var(--font-mono);font-size:14px">INSTANCES=N</code> runs a
+      test fleet — N servers, ports stepping from the base
+      <code style="font-family:var(--font-mono);font-size:14px">--bind</code> port
+      (<code style="font-family:var(--font-mono);font-size:14px">-p 7687-7689:7687-7689</code>
+      publishes the range). Ctrl-C and docker stop work. See the
+      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0128-docker-bolt-server-image.md" target="_blank" rel="noopener">ADR</a>
+      and the README Docker section for the full contract.
+    </p>
+  </div>
+</section>
+
 <!-- ============== REFERENCE ============== -->
 <section class="alt" id="reference">
   <div class="container inner">

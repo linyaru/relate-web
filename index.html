@@ -943,6 +943,12 @@
     color: var(--fg-muted);
     font-family: var(--font-mono);
   }
+  /* Console + mini-map stack on narrow screens */
+  @media (max-width: 860px) {
+    #consoleMinimapGrid { grid-template-columns: 1fr !important; }
+    #miniViz { height: 260px; }
+  }
+
   /* ---------- Reduced motion ---------- */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1141,6 +1147,7 @@
         Live, in-browser CypherLite (WASM) — no install, no server, your data never leaves the tab.
       </p>
     </div>
+    <div id="consoleMinimapGrid" style="display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:16px; align-items:stretch; margin:0 auto; max-width:1080px; padding:0 24px;">
     <div class="examples" id="wasmConsole" style="grid-template-columns:1fr;" aria-label="Live in-browser CypherLite memory console">
       <div class="example-pane active" style="display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; overflow:visible;">
         <div class="example-header">
@@ -1157,7 +1164,23 @@
                  style="flex:1; background:transparent; border:0; outline:0; color:var(--code-fg); font-family:var(--font-mono); font-size:13px; padding:2px 0;" />
         </div>
       </div>
+
     </div>
+      <!-- graph mini-map (NVL 2.0) -->
+      <div id="miniMap" style="display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:var(--shadow-raised); background:var(--bg-code);">
+        <div class="example-header">
+          <span class="desc">graph · NVL</span>
+          <span id="miniStatus" class="label-tag" style="margin-left:auto; font-size:10px; color:var(--fg-faint);">idle</span>
+        </div>
+        <div role="tablist" style="display:flex; gap:2px; padding:4px 12px; border-bottom:1px solid var(--border);">
+          <button type="button" data-mini-tab="schema" style="background:transparent;border:0;border-radius:4px;padding:4px 12px;font-family:var(--font-mono);font-size:11px;cursor:pointer;color:var(--fg-muted);">schema</button>
+          <button type="button" data-mini-tab="graph" style="background:transparent;border:0;border-radius:4px;padding:4px 12px;font-family:var(--font-mono);font-size:11px;cursor:pointer;color:var(--fg-muted);">graph</button>
+          <button type="button" data-mini-tab="results" style="background:transparent;border:0;border-radius:4px;padding:4px 12px;font-family:var(--font-mono);font-size:11px;cursor:pointer;color:var(--fg-muted);">results</button>
+        </div>
+        <div id="miniViz" style="width:100%; height:340px; position:relative;"></div>
+        <div id="miniHint" style="padding:6px 12px 10px; font-family:var(--font-mono); font-size:10px; color:var(--fg-faint);">queries that return nodes, rels, or paths update the results view</div>
+      </div>
+  </div>
   </div>
 </section>
 
@@ -2192,6 +2215,8 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           db = new mod.CypherliteDb();
           const seed = JSON.parse(db.execute(SEED, null));
           if (seed.error) throw new Error(seed.error);
+          // mini-map: load NVL in parallel, then render the default tab
+          loadNvl().then(() => runMini(miniTab, {})).catch(() => miniSetStatus('map unavailable'));
         } catch (err) {
           // file:// blocks dynamic import() in every major browser (CORS):
           // point at the fix instead of the raw fetch error.
@@ -2225,6 +2250,9 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         return;
       }
       append(`${escape(tableFromWire(wire))}\n\n`);
+      // graph elements in the result? update the results mini-map tab
+      const ids = resultIdsFrom(wire);
+      if (ids.length && nvl) { lastResultIds = ids; runMini('results', { ids }); }
     }
 
     // ---- input history (arrow-up/down, like the real REPL) ----
@@ -2278,6 +2306,111 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       HISTORY.unshift(q);
       runQuery(q);
     });
+
+
+    // ---- graph mini-map (NVL 2.0, lazy) ----
+    const NVL_URL = 'https://cdn.jsdelivr.net/npm/@neo4j-nvl/base@2.0.0/+esm';
+    const miniViz = document.getElementById('miniViz');
+    const miniStatus = document.getElementById('miniStatus');
+    const miniTabs = document.querySelectorAll('[data-mini-tab]');
+    let nvl = null, miniTab = 'graph';
+
+    const GRAPH_Q =
+      'MATCH (n) WITH n LIMIT 100 ' +
+      'OPTIONAL MATCH (n)-[r]-(m) WITH n, r, m LIMIT 100 ' +
+      "RETURN id(n) AS nid, labels(n) AS nlabels, coalesce(n.name, toString(id(n))) AS nname, " +
+             "id(m) AS mid, labels(m) AS mlabels, coalesce(m.name, toString(id(m))) AS mname, " +
+             "id(r) AS rid, type(r) AS rtype, id(startNode(r)) AS rstart, id(endNode(r)) AS rend";
+    const RESULT_Q = (ids) =>
+      'MATCH (n) WHERE id(n) IN $ids ' +
+      'OPTIONAL MATCH (n)-[r]-(m) WHERE id(m) IN $ids ' +
+      "RETURN id(n) AS nid, labels(n) AS nlabels, coalesce(n.name, toString(id(n))) AS nname, " +
+             "id(m) AS mid, labels(m) AS mlabels, coalesce(m.name, toString(id(m))) AS mname, " +
+             "id(r) AS rid, type(r) AS rtype, id(startNode(r)) AS rstart, id(endNode(r)) AS rend";
+
+    async function loadNvl() {
+      if (nvl) return nvl;
+      const mod = await import(NVL_URL);
+      nvl = new mod.NVL(miniViz, [], [], {
+        renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
+      }, { onLayoutDone: () => nvl.fit([]) });
+      return nvl;
+    }
+
+    function miniSetStatus(text) { if (miniStatus) miniStatus.textContent = text; }
+
+    function fromRows(rows) {
+      const nodes = new Map(), rels = [];
+      const node = (id, labels, name) => {
+        if (id === null || id === undefined || nodes.has(String(id))) return;
+        nodes.set(String(id), { id: String(id), caption: String(name ?? id), subcaption: labels ? labels.join(',') : '' });
+      };
+      for (const r of rows || []) {
+        if (r.nid !== null && r.nid !== undefined) node(r.nid, r.nlabels, r.nname);
+        if (r.mid !== null && r.mid !== undefined) node(r.mid, r.mlabels, r.mname);
+        if (r.rid !== null && r.rid !== undefined) {
+          rels.push({ id: 'r' + r.rid, from: String(r.rstart), to: String(r.rend), type: r.rtype });
+        }
+      }
+      return { nodes: [...nodes.values()], rels };
+    }
+
+    function schemaFrom(graph) {
+      const labels = new Map(), seen = new Set();
+      for (const r of graph.rels) {
+        const key = r.type;
+        if (!seen.has(key)) { seen.add(key); }
+      }
+      for (const n of graph.nodes) {
+        const l = n.subcaption || '?';
+        if (!labels.has(l)) labels.set(l, { id: ':' + l, caption: l });
+      }
+      // one edge per rel type between the first node pair that has it
+      const edges = new Map();
+      for (const r of graph.rels) if (!edges.has(r.type)) edges.set(r.type, { id: 's:' + r.type, from: r.from, to: r.to, type: r.type });
+      return { nodes: [...labels.values()], rels: [...edges.values()] };
+    }
+
+    function renderMini(data, label) {
+      if (!nvl) return;
+      nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
+      miniSetStatus(label + ' · ' + data.nodes.length + ' nodes / ' + data.rels.length + ' rels');
+    }
+
+    async function runMini(tab, params) {
+      try {
+        const q = tab === 'schema' ? GRAPH_Q : (tab === 'graph' ? GRAPH_Q : RESULT_Q(params.ids));
+        const pj = tab === 'results' ? JSON.stringify({ ids: params.ids }) : null;
+        const wire = JSON.parse(db.execute(q, pj));
+        if (wire.error) throw new Error(wire.error);
+        const graph = fromRows(wire.rows);
+        renderMini(tab === 'schema' ? schemaFrom(graph) : graph, tab);
+      } catch (err) {
+        miniSetStatus('error');
+      }
+    }
+
+    miniTabs.forEach(b => b.addEventListener('click', () => {
+      miniTab = b.dataset.miniTab;
+      miniTabs.forEach(x => { x.style.background = x === b ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent'; x.style.color = x === b ? 'var(--fg)' : 'var(--fg-muted)'; });
+      if (db) runMini(miniTab, miniTab === 'results' ? { ids: lastResultIds || [] } : {});
+    }));
+    // default active tab styling
+    document.querySelector('[data-mini-tab="graph"]').style.background = 'color-mix(in srgb, var(--accent) 12%, transparent)';
+
+    // graph-element detection in query results: display strings like `… [id=N]`
+    let lastResultIds = null;
+    function resultIdsFrom(wire) {
+      const ids = new Set();
+      for (const row of (wire && wire.rows) || []) {
+        for (const v of Object.values(row)) {
+          if (typeof v !== 'string') continue;
+          let m; const re = /\[id=(\d+)\]/g;
+          while ((m = re.exec(v))) ids.add(Number(m[1]));
+        }
+      }
+      return [...ids];
+    }
 
     // Also boot on click anywhere in the output panel — nicer UX.
     outputEl.addEventListener('click', () => { boot(); inputEl.focus(); }, { once: true });

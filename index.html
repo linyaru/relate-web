@@ -2426,8 +2426,27 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       return [...ids];
     }
 
+    // Auto-boot when the console section scrolls into view: the engine
+    // and NVL load and the mini-map renders (schema/graph tabs) without
+    // waiting for a click or focus — but visitors who never scroll here
+    // still pay zero bytes.
+    const consoleSection = document.getElementById('console') || document.getElementById('wasmConsole');
+    if ('IntersectionObserver' in window && consoleSection) {
+      let autoBooted = false;
+      const io = new IntersectionObserver((entries) => {
+        if (entries.some(e => e.isIntersecting) && !autoBooted) {
+          autoBooted = true;
+          io.disconnect();
+          boot();
+        }
+      }, { rootMargin: '200px' });
+      io.observe(consoleSection);
+    } else {
+      boot();
+    }
+
     // Also boot on click anywhere in the output panel — nicer UX.
-    outputEl.addEventListener('click', () => { boot(); inputEl.focus(); }, { once: true });
+    outputEl.addEventListener('click', () => { boot(); inputEl.focus(); });
   }
 </script>
 

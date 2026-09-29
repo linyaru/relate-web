@@ -2179,7 +2179,15 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           const seed = JSON.parse(db.execute(SEED, null));
           if (seed.error) throw new Error(seed.error);
         } catch (err) {
-          append(`<span style="color:var(--danger)">error: ${escape(err.message || err)}</span>\n`);
+          // file:// blocks dynamic import() in every major browser (CORS):
+          // point at the fix instead of the raw fetch error.
+          if (location.protocol === 'file:') {
+            append(`<span style="color:var(--danger)">error: the browser blocks the wasm module from file://</span>\n`);
+            append(`<span class="comment"># serve the directory and reload, e.g.:</span>\n`);
+            append(`<span class="prompt">$</span> python3 -m http.server\n`);
+          } else {
+            append(`<span style="color:var(--danger)">error: ${escape(err.message || err)}</span>\n`);
+          }
           setStatus('error', 'var(--danger)');
           throw err;
         }

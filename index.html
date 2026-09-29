@@ -962,9 +962,10 @@
   }
   .mini-tab:hover { background: color-mix(in srgb, var(--code-fg) 8%, transparent); }
 
-  /* Console + mini-map stack on narrow screens */
+  /* Console + mini-map stack on narrow screens — graph on top, console below */
   @media (max-width: 860px) {
     #consoleMinimapGrid { grid-template-columns: 1fr !important; }
+    #miniMap { order: -1; }
     #miniViz { height: 260px; }
   }
 
@@ -1158,7 +1159,7 @@
 
 <!-- ============== WASM MEMORY CONSOLE (PLACEHOLDER) ============== -->
 <section class="alt" id="console" style="padding:28px 0 32px;">
-  <div class="container">
+  <div class="container" style="max-width:1328px;">
     <div class="section-header" style="margin-bottom:20px">
       <span class="section-eyebrow">memory console</span>
       <h2 class="section-title" style="font-size:clamp(22px,3vw,30px)">Try it right here.</h2>
@@ -1166,7 +1167,7 @@
         Live, in-browser CypherLite (WASM) — no install, no server, your data never leaves the tab.
       </p>
     </div>
-    <div id="consoleMinimapGrid" style="display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; align-items:stretch; margin:0 auto; max-width:1080px; padding:0 24px;">
+    <div id="consoleMinimapGrid" style="display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; align-items:stretch; margin:0 auto; max-width:1280px; padding:0 24px;">
     <div class="examples" id="wasmConsole" style="grid-template-columns:1fr;" aria-label="Live in-browser CypherLite memory console">
       <div class="example-pane active" style="display:flex; flex-direction:column; min-height:0; height:100%; max-height:none; overflow:visible;">
         <div class="example-header" style="border-bottom-color: color-mix(in srgb, var(--code-fg) 10%, transparent);">
@@ -1175,12 +1176,16 @@
         </div>
 <pre id="consoleOutput" style="flex:1 1 auto; min-height:220px; max-height:360px; overflow:auto;"></pre>
         <div id="consoleSuggestions" style="display:flex; padding:8px 24px 0; flex-wrap:wrap; gap:6px;" aria-label="Query suggestions"></div>
-        <div class="console-inputline" style="display:flex; align-items:center; gap:8px; padding:10px 24px 16px; border-top:1px solid var(--border);">
+        <div class="console-inputline" style="position:relative; display:flex; align-items:center; gap:8px; padding:10px 24px 16px; border-top:1px solid var(--border);">
           <span class="prompt" style="color:var(--terminal-prompt); font-family:var(--font-mono); user-select:none;">cypher&gt;</span>
           <input id="consoleInput" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
                  placeholder="type a Cypher query and press Enter"
                  aria-label="Cypher query input"
                  style="flex:1; background:transparent; border:0; outline:0; color:var(--code-fg); font-family:var(--font-mono); font-size:13px; padding:2px 0;" />
+          <button id="historyBtn" type="button" aria-haspopup="listbox" aria-expanded="false" title="statement history (↑/↓ in the input works too)"
+                  style="background:transparent; border:1px solid color-mix(in srgb, var(--code-fg) 28%, transparent); color:color-mix(in srgb, var(--code-fg) 92%, transparent); padding:4px 10px; border-radius:4px; font-family:var(--font-mono); font-size:11px; cursor:pointer; flex-shrink:0;">history</button>
+          <div id="historyPop" role="listbox" aria-label="Statement history"
+               style="display:none; position:absolute; right:16px; bottom:calc(100% - 6px); z-index:30; min-width:280px; max-width:min(560px, 90vw); max-height:260px; overflow:auto; background:var(--bg-code); border:1px solid color-mix(in srgb, var(--code-fg) 20%, transparent); border-radius:8px; box-shadow:var(--shadow-raised);"></div>
         </div>
       </div>
 
@@ -2307,6 +2312,42 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       inputEl.value = HISTORY[i] || '';
     }
 
+    // ---- history popup (same pill styling as the try: buttons) ----
+    const histBtn = document.getElementById('historyBtn');
+    const histPop = document.getElementById('historyPop');
+    function closeHistPop() { histPop.style.display = 'none'; histBtn.setAttribute('aria-expanded', 'false'); }
+    function openHistPop() {
+      histPop.innerHTML = '';
+      HISTORY.forEach((q, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.role = 'option';
+        b.textContent = q.length > 90 ? q.slice(0, 88) + '…' : q;
+        b.title = q;
+        b.style.cssText = 'display:block; width:100%; text-align:left; background:transparent; border:0; border-bottom:1px solid color-mix(in srgb, var(--code-fg) 8%, transparent); color:color-mix(in srgb, var(--code-fg) 92%, transparent); padding:8px 12px; font-family:var(--font-mono); font-size:11px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        b.addEventListener('mouseenter', () => { b.style.background = 'color-mix(in srgb, var(--code-fg) 10%, transparent)'; b.style.color = 'var(--code-fg)'; });
+        b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; b.style.color = 'color-mix(in srgb, var(--code-fg) 92%, transparent)'; });
+        b.addEventListener('click', () => {
+          inputEl.value = q;
+          histIndex = i;
+          closeHistPop();
+          inputEl.focus();
+          inputEl.setSelectionRange(q.length, q.length);
+        });
+        histPop.appendChild(b);
+      });
+      histPop.style.display = 'block';
+      histBtn.setAttribute('aria-expanded', 'true');
+    }
+    histBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      histPop.style.display === 'none' ? openHistPop() : closeHistPop();
+    });
+    document.addEventListener('click', (ev) => {
+      if (histPop.style.display !== 'none' && !histPop.contains(ev.target)) closeHistPop();
+    });
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeHistPop(); });
+
     // First focus/click loads the wasm; subsequent Enters run queries.
     inputEl.addEventListener('focus', boot, { once: false });
     inputEl.addEventListener('keydown', async (ev) => {
@@ -2465,7 +2506,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         const from = labelId.get(r.from), to = labelId.get(r.to);
         if (!from || !to) continue;
         const key = r.type + ':' + from + '-' + to;
-        if (!edges.has(key)) edges.set(key, { id: 's:' + key, from, to, type: r.type });
+        if (!edges.has(key)) edges.set(key, { id: 's:' + key, from, to, type: r.type, caption: r.type });
       }
       return { nodes: [...labelNodes.values()], rels: [...edges.values()] };
     }

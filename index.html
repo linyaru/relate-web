@@ -2213,9 +2213,41 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       append(`${escape(tableFromWire(wire))}\n\n`);
     }
 
+    // ---- input history (arrow-up/down, like the real REPL) ----
+    // Pre-seeded with the suggested demo queries so arrow-up always has
+    // something useful; executed queries are appended at the front.
+    const HISTORY = [
+      'MATCH (n) RETURN labels(n), count(*) ORDER BY count(*) DESC;',
+      'MATCH (n) WITH n LIMIT 20 OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 20;',
+      'MATCH (p:Person) RETURN p.name ORDER BY p.name;',
+      'MATCH (a:Person {name: \'Ada\'})-[:FOLLOWS]->(who:Person) RETURN who.name;',
+      'MATCH (p:Person)-[:FOLLOWS]->(who:Person) RETURN p.name, who.name ORDER BY p.name;',
+      'MATCH (a:Person)-[:FOLLOWS*1..3]->(b:Person {name: \'Eve\'}) RETURN DISTINCT a.name, size(collect(DISTINCT a)) AS hops;',
+      'MATCH (p:Post) WHERE p.title CONTAINS \'wasm\' RETURN p.title;',
+    ];
+    let histIndex = -1;   // -1 = live edit, 0.. = browsing HISTORY
+
+    function showHist(i) {
+      histIndex = i;
+      inputEl.value = HISTORY[i] || '';
+    }
+
     // First focus/click loads the wasm; subsequent Enters run queries.
     inputEl.addEventListener('focus', boot, { once: false });
     inputEl.addEventListener('keydown', async (ev) => {
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        showHist(histIndex < 0 ? 0 : Math.min(histIndex + 1, HISTORY.length - 1));
+        // cursor to the end so a long statement is easy to edit
+        requestAnimationFrame(() => inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length));
+        return;
+      }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        if (histIndex <= 0) { histIndex = -1; return; }   // back to a blank line
+        showHist(histIndex - 1);
+        return;
+      }
       if (ev.key !== 'Enter') return;
       ev.preventDefault();
       const q = inputEl.value.trim();
@@ -2223,6 +2255,11 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       await boot();
       if (!db) return;
       inputEl.value = '';
+      histIndex = -1;
+      // Most-recent first: unshift and drop an exact duplicate.
+      const at = HISTORY.indexOf(q);
+      if (at >= 0) HISTORY.splice(at, 1);
+      HISTORY.unshift(q);
       runQuery(q);
     });
 

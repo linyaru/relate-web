@@ -2339,11 +2339,24 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     function miniSetStatus(text) { if (miniStatus) miniStatus.textContent = text; }
 
+    // stable label palette (NVL default node colors 1-10, cycled)
+    const LABEL_COLORS = ['#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#E8684A', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99', '#FF99C3'];
+    function labelColor(labels, i) {
+      const l = labels && labels.length ? labels[0] : '?';
+      if (!labelColor.map) labelColor.map = new Map();
+      if (!labelColor.map.has(l)) labelColor.map.set(l, LABEL_COLORS[labelColor.map.size % LABEL_COLORS.length]);
+      return labelColor.map.get(l);
+    }
+
     function fromRows(rows) {
       const nodes = new Map(), rels = [];
       const node = (id, labels, name) => {
         if (id === null || id === undefined || nodes.has(String(id))) return;
-        nodes.set(String(id), { id: String(id), caption: String(name ?? id), subcaption: labels ? labels.join(',') : '' });
+        nodes.set(String(id), {
+          id: String(id), caption: String(name ?? id),
+          subcaption: labels ? labels.join(',') : '',
+          color: labelColor(labels),
+        });
       };
       for (const r of rows || []) {
         if (r.nid !== null && r.nid !== undefined) node(r.nid, r.nlabels, r.nname);
@@ -2374,6 +2387,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
     function renderMini(data, label) {
       if (!nvl) return;
       nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
+      nvl.fit([]);   // zoom to fit the whole view after every update
       miniSetStatus(label + ' · ' + data.nodes.length + ' nodes / ' + data.rels.length + ' rels');
     }
 

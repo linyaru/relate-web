@@ -1196,7 +1196,13 @@
           <button type="button" data-mini-tab="graph" class="mini-tab">graph</button>
           <button type="button" data-mini-tab="results" class="mini-tab">results</button>
         </div>
-        <div id="miniViz" style="width:100%; height:340px; flex:1 1 auto; position:relative;"></div>
+        <!-- one pane per tab: each keeps its own NVL instance, so zoom,
+             center, and node positions survive tab switches -->
+        <div id="miniViz" style="width:100%; height:340px; flex:1 1 auto; position:relative;">
+          <div data-mini-pane="schema" style="position:absolute; inset:0;"></div>
+          <div data-mini-pane="graph" style="position:absolute; inset:0;"></div>
+          <div data-mini-pane="results" style="position:absolute; inset:0;"></div>
+        </div>
         <div id="miniHint" style="padding:6px 12px 10px; font-family:var(--font-mono); font-size:10px; color:color-mix(in srgb, var(--code-fg) 60%, transparent);">queries that return nodes, rels, or paths update the results view</div>
       </div>
   </div>
@@ -2271,7 +2277,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       append(`${escape(tableFromWire(wire))}\n\n`);
       // graph elements in the result? update the results mini-map tab
       const ids = resultIdsFrom(wire);
-      if (ids.length && nvl) { lastResultIds = ids; runMini('results', { ids }); }
+      if (ids.length && db) { lastResultIds = ids; runMini('results', { ids }); }
     }
 
     // ---- input history (arrow-up/down, like the real REPL) ----
@@ -2328,11 +2334,19 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
 
     // ---- graph mini-map (NVL 2.0, lazy) ----
-    const NVL_URL = 'https://cdn.jsdelivr.net/npm/@neo4j-nvl/base@2.0.0/+esm';
+    // esm.sh serves both: jsdelivr's +esm transform of the interaction
+    // handlers breaks on their lodash dep (no `throttle` export).
+    // Both from the same CDN so the handlers share the base module identity.
+    const NVL_URL = 'https://esm.sh/@neo4j-nvl/base@2.0.0';
+    const NVL_IH_URL = 'https://esm.sh/@neo4j-nvl/interaction-handlers@2.0.0';
     const miniViz = document.getElementById('miniViz');
     const miniStatus = document.getElementById('miniStatus');
     const miniTabs = document.querySelectorAll('[data-mini-tab]');
-    let nvl = null, miniTab = 'graph';
+    const miniPanes = document.querySelectorAll('[data-mini-pane]');
+    // one lazily-created NVL instance per tab: every pane keeps its own zoom,
+    // center and node positions across tab switches
+    const nvls = {};
+    let miniTab = 'graph';
 
     const GRAPH_Q =
       'MATCH (n) WITH n LIMIT 100 ' +
@@ -2347,12 +2361,31 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
              "id(m) AS mid, labels(m) AS mlabels, coalesce(m.name, toString(id(m))) AS mname, " +
              "id(r) AS rid, type(r) AS rtype, id(startNode(r)) AS rstart, id(endNode(r)) AS rend";
 
+    // Modules load once; a fresh NVL instance is created lazily per tab pane.
+    let nvlMods = null;
     async function loadNvl() {
-      if (nvl) return nvl;
-      const mod = await import(NVL_URL);
-      nvl = new mod.NVL(miniViz, [], [], {
+      if (!nvlMods) {
+        // base NVL ships no interactions: wheel zoom, pan and node drag
+        // come from the interaction-handlers package.
+        const [mod, ih] = await Promise.all([import(NVL_URL), import(NVL_IH_URL)]);
+        nvlMods = { NVL: mod.NVL, handlers: ih };
+      }
+      return nvlMods;
+    }
+
+    const miniPane = (tab) => document.querySelector(`[data-mini-pane="${tab}"]`);
+    async function getNvl(tab) {
+      if (nvls[tab]) return nvls[tab];
+      await loadNvl();
+      const pane = miniPane(tab);
+      const nvl = new nvlMods.NVL(pane, [], [], {
         renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
       }, { onLayoutDone: () => nvl.fit([]) });
+      // wheel zoom, drag-pan, node drag — per pane
+      new nvlMods.handlers.ZoomInteraction(nvl);
+      new nvlMods.handlers.PanInteraction(nvl);
+      new nvlMods.handlers.DragNodeInteraction(nvl);
+      nvls[tab] = nvl;
       return nvl;
     }
 
@@ -2395,32 +2428,47 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         if (!labelNodes.has(l)) labelNodes.set(l, { id: ':' + l, caption: l });
         labelId.set(n.id, ':' + l);
       }
-      // one edge per rel type, between the label nodes its endpoints map to
+      // one edge per rel type between a given label pair — same type between
+      // different label pairs is a separate schema edge
       const edges = new Map();
       for (const r of graph.rels) {
         const from = labelId.get(r.from), to = labelId.get(r.to);
-        if (from && to && !edges.has(r.type)) {
-          edges.set(r.type, { id: 's:' + r.type, from, to, type: r.type });
-        }
+        if (!from || !to) continue;
+        const key = r.type + ':' + from + '-' + to;
+        if (!edges.has(key)) edges.set(key, { id: 's:' + key, from, to, type: r.type });
       }
       return { nodes: [...labelNodes.values()], rels: [...edges.values()] };
     }
 
-    function renderMini(data, label) {
-      if (!nvl) return;
-      nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
-      nvl.fit([]);   // zoom to fit the whole view after every update
+    // Per-tab elements currently in the pane. Only a changed element set
+    // rebuilds the pane; an unchanged one keeps zoom, center, and node
+    // positions (the data is still re-queried on every activation).
+    const miniElements = {};
+    async function renderMini(tab, data, label) {
+      const pane = miniPane(tab);
+      if (pane) miniPanes.forEach(p => { p.style.display = (p === pane) ? '' : 'none'; });
       miniSetStatus(label + ' · ' + data.nodes.length + ' nodes / ' + data.rels.length + ' rels');
+      const prev = miniElements[tab] || { nodes: [], rels: [] };
+      const same = prev.nodes.length === data.nodes.length && prev.rels.length === data.rels.length
+        && prev.nodes.every(n => data.nodes.some(d => d.id === n.id))
+        && prev.rels.every(r => data.rels.some(d => d.id === r.id));
+      if (same) return;
+      const nvl = await getNvl(tab);
+      if (prev.rels.length) nvl.removeRelationshipsWithIds(prev.rels.map(r => r.id));
+      if (prev.nodes.length) nvl.removeNodesWithIds(prev.nodes.map(n => n.id));
+      miniElements[tab] = data;
+      nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
+      nvl.fit([]);   // zoom to fit after a rebuild of the view
     }
 
     async function runMini(tab, params) {
       try {
-        const q = tab === 'schema' ? GRAPH_Q : (tab === 'graph' ? GRAPH_Q : RESULT_Q(params.ids));
+        const q = tab === 'results' ? RESULT_Q(params.ids) : GRAPH_Q;
         const pj = tab === 'results' ? JSON.stringify({ ids: params.ids }) : null;
         const wire = JSON.parse(db.execute(q, pj));
         if (wire.error) throw new Error(wire.error);
         const graph = fromRows(wire.rows);
-        renderMini(tab === 'schema' ? schemaFrom(graph) : graph, tab);
+        await renderMini(tab, tab === 'schema' ? schemaFrom(graph) : graph, tab);
       } catch (err) {
         miniSetStatus('error');
       }

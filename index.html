@@ -2275,9 +2275,15 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         return;
       }
       append(`${escape(tableFromWire(wire))}\n\n`);
-      // graph elements in the result? update the results mini-map tab
+      // graph elements in the result? switch the mini-map to the results
+      // tab and render the returned subgraph there
       const ids = resultIdsFrom(wire);
-      if (ids.length && db) { lastResultIds = ids; runMini('results', { ids }); }
+      if (ids.length && db) {
+        lastResultIds = ids;
+        miniTab = 'results';
+        styleMiniTabs('results');
+        runMini('results', { ids });
+      }
     }
 
     // ---- input history (arrow-up/down, like the real REPL) ----
@@ -2368,7 +2374,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         // base NVL ships no interactions: wheel zoom, pan and node drag
         // come from the interaction-handlers package.
         const [mod, ih] = await Promise.all([import(NVL_URL), import(NVL_IH_URL)]);
-        nvlMods = { NVL: mod.NVL, handlers: ih };
+        nvlMods = { NVL: mod.NVL, handlers: ih, getZoomTarget: mod.getZoomTargetForNodePositions };
       }
       return nvlMods;
     }
@@ -2380,16 +2386,40 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       const pane = miniPane(tab);
       const nvl = new nvlMods.NVL(pane, [], [], {
         renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
-      }, { onLayoutDone: () => nvl.fit([]) });
-      // wheel zoom, drag-pan, node drag — per pane
+      });
+      // wheel zoom, drag-pan, node drag — per pane; any of them means the
+      // user owns the camera now (auto-fit stands down)
       new nvlMods.handlers.ZoomInteraction(nvl);
       new nvlMods.handlers.PanInteraction(nvl);
       new nvlMods.handlers.DragNodeInteraction(nvl);
+      const markMoved = () => { pane.dataset.userMoved = '1'; };
+      pane.addEventListener('pointerdown', markMoved);
+      pane.addEventListener('wheel', markMoved, { passive: true });
       nvls[tab] = nvl;
       return nvl;
     }
 
     function miniSetStatus(text) { if (miniStatus) miniStatus.textContent = text; }
+
+    // fit right after adding elements frames whatever the layout simulation
+    // looks like at that instant — it reports "not moving" before the async
+    // layout worker has even spread the nodes, so a single fit frames stale
+    // compact positions and the graph ends up cropped and off-center.
+    // Refit on a poll until the layout stays still across two checks, and
+    // stop touching the camera as soon as the user pans/zooms themselves.
+    function applyFit(nvl, pane) {
+      const pos = nvl.getNodePositions();
+      if (!pos.length || !nvlMods) return;
+      const { zoom, panX, panY } = nvlMods.getZoomTarget(pos, pane.clientWidth, pane.clientHeight);
+      nvl.setZoomAndPan(zoom * 0.95, panX, panY);   // small margin for captions
+    }
+    function fitWhileSettling(nvl, pane, idle = 0, tries = 20) {
+      if (pane.dataset.userMoved || tries <= 0) return;
+      applyFit(nvl, pane);
+      const moving = nvl.isLayoutMoving();
+      if (!moving && idle >= 1) return;
+      setTimeout(() => fitWhileSettling(nvl, pane, moving ? 0 : idle + 1, tries - 1), 300);
+    }
 
     // stable label palette (NVL default node colors 1-10, cycled)
     const LABEL_COLORS = ['#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#E8684A', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99', '#FF99C3'];
@@ -2414,7 +2444,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         if (r.nid !== null && r.nid !== undefined) node(r.nid, r.nlabels, r.nname);
         if (r.mid !== null && r.mid !== undefined) node(r.mid, r.mlabels, r.mname);
         if (r.rid !== null && r.rid !== undefined) {
-          rels.push({ id: 'r' + r.rid, from: String(r.rstart), to: String(r.rend), type: r.rtype });
+          rels.push({ id: 'r' + r.rid, from: String(r.rstart), to: String(r.rend), type: r.rtype, caption: r.rtype });
         }
       }
       return { nodes: [...nodes.values()], rels };
@@ -2425,7 +2455,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       const labelNodes = new Map();   // label name -> schema node
       for (const n of graph.nodes) {
         const l = n.subcaption || '?';
-        if (!labelNodes.has(l)) labelNodes.set(l, { id: ':' + l, caption: l });
+        if (!labelNodes.has(l)) labelNodes.set(l, { id: ':' + l, caption: l, color: labelColor([l]) });
         labelId.set(n.id, ':' + l);
       }
       // one edge per rel type between a given label pair — same type between
@@ -2458,7 +2488,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       if (prev.nodes.length) nvl.removeNodesWithIds(prev.nodes.map(n => n.id));
       miniElements[tab] = data;
       nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
-      nvl.fit([]);   // zoom to fit after a rebuild of the view
+      fitWhileSettling(nvl, miniPane(tab));   // keep fitting until the layout settles
     }
 
     async function runMini(tab, params) {
@@ -2490,16 +2520,25 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
     // default active tab styling
     styleMiniTabs('graph');
 
-    // graph-element detection in query results: display strings like `… [id=N]`
+    // graph-element detection in query results: the wire has no column type
+    // annotations, but graph values arrive as typed JSON — nodes are objects
+    // with `labels` + `id`, rels with `start_node`/`end_node` + `id`.
     let lastResultIds = null;
     function resultIdsFrom(wire) {
       const ids = new Set();
-      for (const row of (wire && wire.rows) || []) {
-        for (const v of Object.values(row)) {
-          if (typeof v !== 'string') continue;
-          let m; const re = /\[id=(\d+)\]/g;
-          while ((m = re.exec(v))) ids.add(Number(m[1]));
+      const visit = (v) => {
+        if (Array.isArray(v)) { v.forEach(visit); return; }
+        if (!v || typeof v !== 'object') return;
+        if (Array.isArray(v.labels) && typeof v.id === 'number') { ids.add(v.id); return; }
+        if (typeof v.start_node === 'number') {   // rel: the endpoint node ids
+          ids.add(v.start_node);
+          if (typeof v.end_node === 'number') ids.add(v.end_node);
+          return;
         }
+        Object.values(v).forEach(visit);   // paths / nested values
+      };
+      for (const row of (wire && wire.rows) || []) {
+        for (const v of Object.values(row)) visit(v);
       }
       return [...ids];
     }

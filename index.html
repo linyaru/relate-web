@@ -1069,6 +1069,7 @@
       <a href="#examples">Examples</a>
       <a href="#reference">Reference</a>
       <a href="#quickstart">Quickstart</a>
+      <a href="/cypherlite/cookbook/">Cookbook</a>
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
       <a href="/cypherlite/playground/" target="_blank" rel="noopener" class="nav-external">Playground<svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
     </nav>
@@ -1099,7 +1100,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.9.1</span>
+      <span class="pill-tag" style="text-transform:none">v0.9.2</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1151,7 +1152,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.2</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1355,7 +1356,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.9.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.9.2 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1510,7 +1511,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> docker run -p 7687:7687 -v "$PWD/data:/data" \
     -e CYPHERLITE_AUTH=cypherlite/secret \
     -e CYPHERLITE_QUERY="UNWIND range(1,100) AS i CREATE (:Person {id: i})" \
-    cypherlite-bolt:0.9.1
+    cypherlite-bolt:0.9.2
 
 <span class="comment"># auth is on by default: the generated token is in the startup banner</span>
 <span class="prompt">$</span> docker logs &lt;container&gt; 2&gt;&amp;1 | grep "generated token"
@@ -1604,6 +1605,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--mode</span> M          table | csv | json | jsonl | markdown | cypher
 <span class="flag">--noheader</span>        drop column headers
 <span class="flag">--param</span> N=V       bind a Cypher parameter (repeatable, JSON scalar)
+<span class="flag">--fetch-params</span> N=SRC  fetch a URL or read a file, bind its JSON as $N (repeatable)
 <span class="flag">-c</span>, <span class="flag">--command</span> Q   one-shot query
 <span class="flag">--snapshot-format</span> F           parquet | json (empty directory only)
 <span class="flag">--wal-dir</span> DIR               WAL directory (default &lt;DATABASE&gt;/wal)
@@ -1756,7 +1758,7 @@ let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>).</p>
           <p class="ref-sub"><span class="keyword">JavaScript / Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
-          <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables.</p>
+          <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
         </div>
       </div>
@@ -1770,7 +1772,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.2</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2227,7 +2229,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.9.1').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.9.2').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

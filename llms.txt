@@ -24,13 +24,14 @@ The install script verifies the pinned-key release signature (SSHSIG) and SHA256
 - `cypherlite pull --from neo4j.env --query 'MATCH (p:Person) RETURN p' ./mydata` — pull a Neo4j/Aura subgraph (HTTP Query API v2) into a local database; source-scoped upsert on remote `elementId`, then checkpoint. `--from` is a KEY=VALUE env file (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, optional `NEO4J_DATABASE`) or those process env vars; `DATABASE` must be a directory or `.cl` bundle
 - `cypherlite -json ./mydata "MATCH (n) RETURN n"` — JSON output for pipes and agents (also `-csv`, `--mode jsonl|markdown|cypher|table`)
 - `cypherlite --param 'people=[{"name":"Alice"}]' ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name})'` — bind typed Cypher parameters
+- `cypherlite --fetch-params 'value=https://api.example.com/data.json' ./mydata 'UNWIND $value.items AS x CREATE (:Item {id: x.id})'` — fetch an http(s) URL or read a file, parse it as JSON, and bind it as a parameter (repeatable; 64 MiB cap, 60 s timeout)
 - `cypherlite skill install [--agent NAME]` — install the agent skill bundle (CLI, Cypher, vector, spatial references) into every detected AI agent (claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie); `skill remove` is idempotent
 - `cypherlite upgrade [--yes] [--check]` — self-update from GitHub releases (alias: `update`); a successful upgrade also refreshes the installed skill bundle automatically
 - `cypherlite telemetry off` — disable anonymous CLI usage metrics (`DO_NOT_TRACK=1` / `CYPHERLITE_TELEMETRY=0` also work)
 
 ## Key flags
 
-`-h/--help`, `--version`, `--json`, `--csv`, `--markdown`, `--noheader`, `--mode M` (table|csv|json|jsonl|markdown|cypher), `--param N=V` (repeatable, JSON scalars), `-c/--command Q`, `--snapshot-format F` (parquet|json), `--wal-dir DIR`, `--checkpoint-interval-secs N`, `--memory-limit SIZE`. Flags accept single- and double-dash; `--` ends flag parsing. Exit codes: 2 usage error, 1 runtime failure.
+`-h/--help`, `--version`, `--json`, `--csv`, `--markdown`, `--noheader`, `--mode M` (table|csv|json|jsonl|markdown|cypher), `--param N=V` (repeatable, JSON scalars), `--fetch-params N=SRC` (fetch URL / read file, bind JSON as `$N`, repeatable), `-c/--command Q`, `--snapshot-format F` (parquet|json), `--wal-dir DIR`, `--checkpoint-interval-secs N`, `--memory-limit SIZE`. Flags accept single- and double-dash; `--` ends flag parsing. Exit codes: 2 usage error, 1 runtime failure.
 
 ## Shell dot-commands
 
@@ -68,7 +69,7 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 - Rust: the `cypherlite` crate — `Database::open("./graph.cl")`, `db.execute(query)`
 - Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC
 - JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
-- Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable
+- Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable. Bolt-over-WebSocket is served on the same `--bind` (on by default; `--no-websocket` opts out, `--ws-allow-origin ORIGIN` widens the auth-dependent Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box
 
 ## Docker
 
@@ -104,6 +105,15 @@ credentials get `Neo.ClientError.Security.Unauthorized` and the connection
 closes; no message runs before a validated HELLO. TLS (server cert, mTLS)
 and connection caps/timeouts are also available — see
 `docs/api/bolt/spec.md`.
+
+## Cookbook
+
+Task-shaped, tested recipes — entity resolution, nearby places, dependency
+blast radius, hybrid recall (vector + full-text + RRF), long-term agent
+memory, and more — each step runnable in the browser:
+
+- Cookbook: https://neo4j-labs.github.io/cypherlite/cookbook/
+- Cookbook llms.txt: https://neo4j-labs.github.io/cypherlite/cookbook/llms.txt
 
 ## Links
 

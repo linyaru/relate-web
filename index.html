@@ -1100,7 +1100,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.9.2</span>
+      <span class="pill-tag" style="text-transform:none">v0.10.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1152,7 +1152,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.2</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.10.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1356,7 +1356,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.9.2 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.10.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1610,7 +1610,12 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--snapshot-format</span> F           parquet | json (empty directory only)
 <span class="flag">--wal-dir</span> DIR               WAL directory (default &lt;DATABASE&gt;/wal)
 <span class="flag">--checkpoint-interval-secs</span> N  timed checkpoint period, 0 disables
-<span class="flag">--memory-limit</span> SIZE          live graph + index cap (bytes, mb/mib/gb/gib)</pre>
+<span class="flag">--memory-limit</span> SIZE          live graph + index cap (bytes, mb/mib/gb/gib)
+<span class="flag">--durability-mode</span> M         WAL durability (full|everysecond|snapshot; default full)
+<span class="flag">--load-csv-dir</span> PATH         allow local LOAD CSV under this directory (default denied)
+<span class="flag">--read-only</span>                 open an existing database without writing or checkpointing
+<span class="flag">--follow</span>                   tail the WAL of a native database (implies --read-only)
+<span class="flag">--namespace</span> NAME            session namespace (neo4j|system|system_ontologies)</pre>
           <p class="ref-sub"><span class="keyword">Lifecycle commands</span> — positional, first argument only:</p>
           <pre><span class="prompt">$</span> cypherlite skill install [--agent NAME]   <span class="comment"># agent skill bundle</span>
 <span class="prompt">$</span> cypherlite skill remove  [--agent NAME]
@@ -1684,6 +1689,9 @@ SEARCH over vector and full-text indexes (hybrid: chain via WITH)</pre>
           <pre>CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE
 CREATE INDEX name_idx FOR (p:Person) ON (p.name)
 SHOW CONSTRAINTS · SHOW INDEXES</pre>
+          <p class="ref-sub"><span class="keyword">Namespaces</span> — three fixed per store:</p>
+          <pre>USE system_ontologies    <span class="comment"># route a statement: neo4j | system | system_ontologies</span>
+SHOW DATABASES           <span class="comment"># three fixed rows; other admin commands fail (51N27)</span></pre>
           <p>100+ built-in functions; <code>CYPHER 5</code> / <code>CYPHER 25</code> version prefixing; label expressions and GQL/GPM pattern matching.</p>
         </div>
       </div>
@@ -1735,7 +1743,9 @@ spatial.fromWKT / toWKT · spatial.fromGeoJSON / toGeoJSON</pre>
           <pre>cypherlite :memory:                      <span class="comment"># RAM only, nothing written</span>
 cypherlite ./mydata                      <span class="comment"># dir: WAL + Parquet shards (default)</span>
 cypherlite --snapshot-format json ./d    <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
-cypherlite ./mydata.cl                   <span class="comment"># one host file: WAL + snapshot + catalog</span></pre>
+cypherlite ./mydata.cl                   <span class="comment"># one host file: WAL + snapshot + catalog</span>
+cypherlite --read-only ./mydata          <span class="comment"># open existing store, no writes or checkpoints</span>
+cypherlite --follow ./mydata             <span class="comment"># tail the WAL live (implies --read-only)</span></pre>
           <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
           <pre>&lt;dir&gt;/manifest.json
 &lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
@@ -1772,7 +1782,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.9.2</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.10.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2229,7 +2239,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.9.2').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.10.0').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

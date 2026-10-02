@@ -30,6 +30,8 @@ The install script verifies the pinned-key release signature (SSHSIG) and SHA256
 - `cypherlite skill install [--agent NAME]` — install the agent skill bundle (CLI, Cypher, vector, spatial references) into every detected AI agent (claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie); `skill remove` is idempotent
 - `cypherlite upgrade [--yes] [--check]` — self-update from GitHub releases (alias: `update`); a successful upgrade also refreshes the installed skill bundle automatically
 - `cypherlite telemetry off` — disable anonymous CLI usage metrics (`DO_NOT_TRACK=1` / `CYPHERLITE_TELEMETRY=0` also work)
+- `cypherlite clone [--wal-dir DIR] SOURCE DEST` — copy a native directory database into a new directory and exit; reads the LSN visible on open and never writes the source (refused for `.cl` and `:memory:`); the clone uses the source snapshot codec and gets its own WAL at `<DEST>/wal`
+- `cypherlite lab fs-to-graph [DIR] [--db PATH] [--max-content-bytes N] [--include-hidden] [--ignore-patterns PAT]` — experimental: import a directory tree into a graph; every directory becomes `(:Folder {path, name, depth})`, every file `(:File {path, name, extension, size_bytes, content?})`, children linked `(:Folder)-[:CONTAINS]->(:Folder|:File)`; nodes `MERGE`d on `path` so re-imports are idempotent; content captured only up to 65536 bytes per file by default; database defaults to `:memory:`
 
 ## Key flags
 
@@ -72,7 +74,9 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 
 - Rust: the `cypherlite` crate — `Database::open("./graph.cl")`, `db.execute(query)`
 - Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC
-- JavaScript / Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
+- JavaScript (Node): `npm install @neo4j-labs/cypherlite` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@neo4j-labs/cypherlite-<platform>-<arch>`) is an auto-selected optional dependency
+- JavaScript (browser): `npm install @neo4j-labs/cypherlite-wasm` — `new CypherliteDb()` for in-memory, `await CypherliteDb.open("opfs://<name>")` for the durable OPFS store (dedicated worker only)
+- Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
 - Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable. Bolt-over-WebSocket is served on the same `--bind` (on by default; `--no-websocket` opts out, `--ws-allow-origin ORIGIN` widens the auth-dependent Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box
 
 ## Docker

@@ -1100,7 +1100,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.10.1</span>
+      <span class="pill-tag" style="text-transform:none">v0.11.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1152,7 +1152,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.10.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1356,7 +1356,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.10.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1621,8 +1621,12 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite skill remove  [--agent NAME]
 <span class="prompt">$</span> cypherlite upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
 <span class="prompt">$</span> cypherlite telemetry off | status
+<span class="prompt">$</span> cypherlite clone SOURCE DEST              <span class="comment"># copy a native directory; never writes SOURCE</span>
 <span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' ./mydata
-<span class="comment"># pull: Neo4j/Aura subgraph → local db (HTTP Query API v2, source-scoped upsert, then checkpoint)</span></pre>
+<span class="comment"># pull: Neo4j/Aura subgraph → local db (HTTP Query API v2, source-scoped upsert, then checkpoint)</span>
+<span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
+<span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
+<span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
           <p>Exit codes: <code>2</code> usage error (unknown flag, bad <code>--mode</code>), <code>1</code> runtime failure (open/query error), <code>0</code> success. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
@@ -1768,7 +1772,8 @@ cypherlite --follow ./mydata             <span class="comment"># tail the WAL li
 let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>).</p>
-          <p class="ref-sub"><span class="keyword">JavaScript / Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
+          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/cypherlite</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency). Browser: <code>npm install @neo4j-labs/cypherlite-wasm</code> — in-memory, or durable OPFS via <code>await CypherliteDb.open("opfs://name")</code> in a dedicated worker.</p>
+          <p class="ref-sub"><span class="keyword">Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
         </div>
@@ -1783,7 +1788,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.10.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2240,7 +2245,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.10.1').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.0').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

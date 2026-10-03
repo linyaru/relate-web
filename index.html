@@ -1100,7 +1100,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.11.1</span>
+      <span class="pill-tag" style="text-transform:none">v0.11.2</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1152,7 +1152,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.2</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1356,7 +1356,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.2 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1622,6 +1622,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
 <span class="prompt">$</span> cypherlite telemetry off | status
 <span class="prompt">$</span> cypherlite clone SOURCE DEST              <span class="comment"># copy a native directory; never writes SOURCE</span>
+<span class="prompt">$</span> cypherlite snapshot ./mydata --to ./backup.cl <span class="comment"># dir ↔ .cl round trip; --from restores</span>
 <span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' ./mydata
 <span class="comment"># pull: Neo4j/Aura subgraph → new local db (HTTP Query API v2, streamed, one checkpoint;</span>
 <span class="comment"># --query takes inline Cypher, a ;-list, a file, or - for stdin; refuses a non-empty db)</span>
@@ -1751,7 +1752,8 @@ cypherlite ./mydata                      <span class="comment"># dir: WAL + Parq
 cypherlite --snapshot-format json ./d    <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
 cypherlite ./mydata.cl                   <span class="comment"># one host file: WAL + snapshot + catalog</span>
 cypherlite --read-only ./mydata          <span class="comment"># open existing store, no writes or checkpoints</span>
-cypherlite --follow ./mydata             <span class="comment"># tail the WAL live (implies --read-only)</span></pre>
+cypherlite --follow ./mydata             <span class="comment"># tail the WAL live (implies --read-only)</span>
+cypherlite snapshot ./mydata --to ./backup.cl <span class="comment"># dir → .cl file (reverse: --from); never writes source</span></pre>
           <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
           <pre>&lt;dir&gt;/manifest.json
 &lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
@@ -1789,7 +1791,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.2</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2246,7 +2248,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.1').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.2').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

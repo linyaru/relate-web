@@ -1100,7 +1100,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.11.3</span>
+      <span class="pill-tag" style="text-transform:none">v0.11.4</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1152,7 +1152,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.3</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.4</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1356,7 +1356,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.3 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.4 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1623,6 +1623,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite telemetry off | status
 <span class="prompt">$</span> cypherlite clone SOURCE DEST              <span class="comment"># copy any db — dir ↔ .cl matrix; never writes SOURCE</span>
 <span class="prompt">$</span> cypherlite clone ./mydata ./backup.cl <span class="flag">--to-snapshot-format</span> parquet <span class="comment"># .cl suffix picks the format; flag transcodes</span>
+<span class="prompt">$</span> cypherlite info ./mydata [<span class="flag">--json</span>]     <span class="comment"># store metadata: layout, codec, checkpoint, counts — no open, no lock</span>
 <span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' ./mydata
 <span class="comment"># pull: Neo4j/Aura subgraph → new local db (HTTP Query API v2, streamed, one checkpoint;</span>
 <span class="comment"># --query takes inline Cypher, a ;-list, a file, or - for stdin; refuses a non-empty db)</span>
@@ -1654,8 +1655,9 @@ cypher&gt; .begin         <span class="comment"># explicit transaction</span>
 cypher&gt; .commit        <span class="comment"># append combined redo once</span>
 cypher&gt; .rollback      <span class="comment"># discard the transaction</span>
 cypher&gt; .checkpoint    <span class="comment"># pin LSN, dump snapshot, recycle WAL</span>
+cypher&gt; .info          <span class="comment"># store metadata + live counts + catalog</span>
 cypher&gt; .timer on      <span class="comment"># per-statement timing</span></pre>
-          <p>Default is auto-commit: one statement, one durable WAL commit. Explicit transactions share one snapshot; a dropped connection rolls back. Ctrl-C cancels the current buffer.</p>
+          <p>Default is auto-commit: one statement, one durable WAL commit. Explicit transactions share one snapshot; a dropped connection rolls back. Exiting with an open transaction rolls it back with a warning (batch modes exit 1). Ctrl-C cancels the current buffer.</p>
         </div>
       </div>
 
@@ -1769,7 +1771,7 @@ cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl f
           <span class="desc">Embedding &amp; remote access</span>
         </div>
         <div class="ref-body">
-          <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols.</p>
+          <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols. Query results carry the same metadata everywhere: the resolved namespace and the query type (<code>r</code>/<code>w</code>/<code>rw</code>/<code>s</code>), from the Rust API through the C ABI to every client.</p>
           <p class="ref-sub"><span class="keyword">Rust</span> — the public crate:</p>
           <pre>use cypherlite::Database;
 let db = Database::open("./graph.cl")?;
@@ -1791,7 +1793,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.3</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.4</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2248,7 +2250,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.3').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.4').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

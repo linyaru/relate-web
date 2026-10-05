@@ -31,6 +31,7 @@ The install script verifies the pinned-key release signature (SSHSIG) and SHA256
 - `cypherlite upgrade [--yes] [--check]` — self-update from GitHub releases (alias: `update`); a successful upgrade also refreshes the installed skill bundle automatically
 - `cypherlite telemetry off` — disable anonymous CLI usage metrics (`DO_NOT_TRACK=1` / `CYPHERLITE_TELEMETRY=0` also work)
 - `cypherlite clone [--wal-dir DIR] [--to-snapshot-format F] SOURCE DEST` — copy a database into a new store and exit, covering the full dir/`.cl` matrix: each side's format is inferred from its path (a `.cl` suffix names a single-file bundle), so dir → dir, dir → `.cl`, `.cl` → dir, and `.cl` → `.cl` all work with no direction flag. The source is opened read-only and never written (`--wal-dir` refused with a `.cl` source, `:memory:` refused on both sides), an existing destination is refused, the destination keeps the source snapshot codec unless `--to-snapshot-format parquet|json` transcodes it, and success prints nothing
+- `cypherlite info DATABASE [--json]` — print store metadata from a cold, bounded read (no open, no lock, no WAL replay — safe beside a live writer) and exit: layout (native directory or `.cl` bundle), snapshot codec and format version, checkpoint LSN and commit timestamp, total size on disk, WAL segments past the checkpoint, checkpoint-time node/rel counts, and the index/constraint catalog; `--json` prints one object
 - `cypherlite lab fs-to-graph [DIR] [--db PATH] [--max-content-bytes N] [--include-hidden] [--ignore-patterns PAT]` — experimental: import a directory tree into a graph; every directory becomes `(:Folder {path, name, depth})`, every file `(:File {path, name, extension, size_bytes, content?})`, children linked `(:Folder)-[:CONTAINS]->(:Folder|:File)`; nodes `MERGE`d on `path` so re-imports are idempotent; content captured only up to 65536 bytes per file by default; database defaults to `:memory:`
 
 ## Key flags
@@ -39,7 +40,7 @@ The install script verifies the pinned-key release signature (SSHSIG) and SHA256
 
 ## Shell dot-commands
 
-`.help`, `.quit`/`.exit`, `.begin`/`.commit`/`.rollback` (explicit transactions; default is auto-commit), `.checkpoint`, `.timer on|off`.
+`.help`, `.quit`/`.exit`, `.begin`/`.commit`/`.rollback` (explicit transactions; default is auto-commit; exiting with one open rolls it back with a warning — batch modes exit 1), `.checkpoint`, `.info` (store metadata plus exact live node/rel counts and the index/constraint catalog), `.timer on|off`.
 
 ## Cypher
 
@@ -77,6 +78,7 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 - JavaScript (Node): `npm install @neo4j-labs/cypherlite` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@neo4j-labs/cypherlite-<platform>-<arch>`) is an auto-selected optional dependency
 - JavaScript (browser): `npm install @neo4j-labs/cypherlite-wasm` — `new CypherliteDb()` for in-memory, `await CypherliteDb.open("opfs://<name>")` for the durable OPFS store (dedicated worker only)
 - Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
+- Result metadata: query results expose the resolved namespace and the query type (`r`/`w`/`rw`/`s`) on every surface — Rust `QueryResult`, the C ABI, Python, JavaScript, Java, Go, and Bolt.
 - Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable. Bolt-over-WebSocket is served on the same `--bind` (on by default; `--no-websocket` opts out, `--ws-allow-origin ORIGIN` widens the auth-dependent Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box
 
 ## Docker

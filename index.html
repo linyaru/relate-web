@@ -2683,9 +2683,13 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       });
     });
 
-    // Mobile pinch/pan — ported from the playground's useNvlTouch hook. NVL
-    // base ships no touch handler, so one-finger drag → pan,
-    // two-finger pinch → zoom around the pinch midpoint.
+    // Mobile pinch/pan — mirrors the playground's useNvlTouch hook (base
+    // NVL ships no touch handler). Critical for Android Chrome: only
+    // preventDefault when the touch is on the canvas surface (not the
+    // overlaid buttons/caption), and only set touch-action:none on the
+    // inner .ndl-graph-visualization element — not the pane itself.
+    // Setting it on the pane kills page scroll past the viz on Android,
+    // and the canceled touch pipeline leaves NVL with a dead canvas.
     function attachTouchGestures(pane, nvl) {
       let startPan = { x: 0, y: 0 };
       let startZoom = 1;
@@ -2712,11 +2716,19 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           startMid = mid(startTouches[0], startTouches[1]);
         }
       };
-      pane.style.touchAction = 'none';
+      const onCanvas = (ev) => {
+        const t = ev.target;
+        if (!(t instanceof Element)) return false;
+        // overlaid controls, corners, caption, hint — never gesture targets
+        if (t.closest('.console-viz-controls')) return false;
+        if (t.closest('.console-viz-corner')) return false;
+        if (t.closest('.console-viz-caption')) return false;
+        if (t.closest('.console-viz-hint')) return false;
+        return true;
+      };
       pane.addEventListener('touchstart', (ev) => {
+        if (!onCanvas(ev)) return;
         active = true;
-        pane.dataset.userMoved = '1';
-        setVizFocus(pane, true);
         baseline(ev.touches);
         ev.preventDefault();
       }, { passive: false });
@@ -2731,10 +2743,12 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           const worldY = (startMid.y - startPan.y) / startZoom;
           const panX = curMid.x - worldX * scale;
           const panY = curMid.y - worldY * scale;
+          pane.dataset.userMoved = '1';
           if (nvl.setZoomAndPan) nvl.setZoomAndPan(scale, panX, panY);
         } else if (t.length === 1 && startTouches.length >= 1) {
           const dx = t[0].x - startTouches[0].x;
           const dy = t[0].y - startTouches[0].y;
+          if (dx * dx + dy * dy > 16) pane.dataset.userMoved = '1';
           if (nvl.setPan) nvl.setPan(startPan.x + dx, startPan.y + dy);
         }
         ev.preventDefault();
@@ -2746,6 +2760,19 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       };
       pane.addEventListener('touchend', end, { passive: false });
       pane.addEventListener('touchcancel', end, { passive: false });
+
+      // Suppress browser pinch/pan only on the NVL canvas surface, not the
+      // whole pane. NVL mounts the surface asynchronously, so watch for it.
+      let vizEl = null;
+      const applyTouchAction = () => {
+        const el = pane.querySelector('.ndl-graph-visualization')
+          || pane.querySelector('canvas');
+        if (!el || el === vizEl) return;
+        vizEl = el;
+        el.style.touchAction = 'none';
+      };
+      applyTouchAction();
+      new MutationObserver(applyTouchAction).observe(pane, { childList: true, subtree: true });
     }
 
     function addFocusHint(pane) {
@@ -2784,21 +2811,45 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         + ' · ' + data.rels.length + ' rel' + (data.rels.length === 1 ? '' : 's');
       pane.appendChild(caption);
       // Size the viz to fill the visible output pane minus the preceding
-      // `cypher>` line and the trailing blank line. On mobile the output
-      // pane is already a 70vh box, so this gives the viz a solid 55-65vh;
-      // a readable floor keeps split-screen / landscape phones usable.
-      const floor = Math.min(340, Math.round(window.innerHeight * 0.42));
-      const avail = Math.max(floor, outputEl.clientHeight - 56);
+      // `cypher>` line and the trailing blank line. The reserved space has
+      // to cover both lines plus the output pane's own vertical padding
+      // (12 top + 4 bottom) or the viz pushes a scrollbar in; mobile needs
+      // more slack because the input line and pill row sit below.
+      const narrow = window.innerWidth <= 860;
+      const reserve = narrow ? 80 : 56;
+      const floor = Math.min(300, Math.round(window.innerHeight * 0.38));
+      const avail = Math.max(floor, outputEl.clientHeight - reserve);
       pane.style.height = avail + 'px';
       outputEl.appendChild(pane);
       // trailing blank line keeps subsequent prompts visually separated
       outputEl.insertAdjacentHTML('beforeend', '\n');
-      outputEl.scrollTop = outputEl.scrollHeight;
+      // Defer the scroll so Android Chrome gets to lay out the pane first;
+      // scrolling synchronously here races NVL's first canvas measurement.
+      requestAnimationFrame(() => { outputEl.scrollTop = outputEl.scrollHeight; });
       try {
         await loadNvl();
+        // Wait for the pane to have a nonzero size before NVL measures it.
+        // Android Chrome lays out the output pane one frame after insertion;
+        // constructing NVL against a 0×0 pane spawns a dead canvas.
+        await new Promise((r) => {
+          if (pane.clientWidth > 0 && pane.clientHeight > 0) return r();
+          const ro = new ResizeObserver(() => {
+            if (pane.clientWidth > 0 && pane.clientHeight > 0) { ro.disconnect(); r(); }
+          });
+          ro.observe(pane);
+          setTimeout(() => { ro.disconnect(); r(); }, 500);  // safety fallback
+        });
         const nvl = new nvlMods.NVL(pane, data.nodes, data.rels, {
           renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
         });
+        // Keep the viz centered when the pane resizes — mobile browsers
+        // resize when the URL bar hides/shows, which would otherwise leave
+        // the graph cropped and off-center.
+        const ro = new ResizeObserver(() => {
+          if (pane.dataset.userMoved) return;
+          applyFit(nvl, pane);
+        });
+        ro.observe(pane);
         new nvlMods.handlers.PanInteraction(nvl);
         new nvlMods.handlers.DragNodeInteraction(nvl);
         // NVL's own wheel zoom — same algorithm the playground ships. It

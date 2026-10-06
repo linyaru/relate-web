@@ -962,11 +962,170 @@
   }
   .mini-tab:hover { background: color-mix(in srgb, var(--code-fg) 8%, transparent); }
 
-  /* Console + mini-map stack on narrow screens — graph on top, console below */
+  /* Console: fixed-height output pane on every resolution so adding new
+     query output doesn't make the box (or each new inline viz) grow. */
   @media (max-width: 860px) {
-    #consoleMinimapGrid { grid-template-columns: 1fr !important; }
-    #miniMap { order: -1; }
-    #miniViz { height: 260px; }
+    #consoleOutput { height: 60vh !important; min-height: 420px !important; max-height: 70vh !important; }
+    #consoleFullscreenBtn { display: inline-flex !important; }
+  }
+  @media (max-width: 540px) {
+    #consoleOutput { height: 62vh !important; min-height: 440px !important; max-height: 72vh !important; padding: 10px 14px !important; }
+    #consoleSuggestions { padding-left: 12px !important; padding-right: 12px !important; }
+    .console-inputline { padding-left: 12px !important; padding-right: 12px !important; }
+    #runBtn { padding: 6px 10px !important; }
+  }
+  /* Fullscreen mode: pin the console to the viewport so only the output pane
+     scrolls — no outer page scrollbar inside an inner scrollbar. */
+  #consoleFullscreenBtn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    margin-left: 8px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--code-fg) 25%, transparent);
+    border-radius: 4px;
+    color: color-mix(in srgb, var(--code-fg) 80%, transparent);
+    font-family: var(--font-mono); font-size: 14px; line-height: 1;
+    cursor: pointer;
+  }
+  #consoleFullscreenBtn:hover { color: var(--code-fg); background: color-mix(in srgb, var(--code-fg) 10%, transparent); }
+  body.console-fullscreen { overflow: hidden; }
+  body.console-fullscreen #console {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    padding: 0 !important;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+  body.console-fullscreen #console > .container {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+    max-width: none !important;
+  }
+  body.console-fullscreen #console .section-header { display: none; }
+  body.console-fullscreen #wasmConsole {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-width: none !important;
+    display: flex;
+    flex-direction: column;
+  }
+  body.console-fullscreen #wasmConsole > .example-pane {
+    flex: 1 1 auto;
+    min-height: 0;
+    border-radius: 0 !important;
+  }
+  body.console-fullscreen #consoleOutput {
+    flex: 1 1 auto;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+  /* Inline NVL blocks inside the console stream — kept short so the
+     `cypher>` line above stays on screen. The dashed border + `+` corners
+     echo the ASCII frames the real `cypherlite` CLI draws around tables. */
+  .console-viz {
+    position: relative;
+    width: 100%;
+    height: 130px;
+    margin: 4px 0 6px;
+    border: 1px dashed color-mix(in srgb, var(--code-fg) 35%, transparent);
+    border-radius: 0;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--code-fg) 3%, transparent);
+  }
+  .console-viz-corner {
+    position: absolute;
+    width: 12px; height: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1;
+    color: color-mix(in srgb, var(--code-fg) 60%, transparent);
+    background: var(--bg-code);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .console-viz-corner.tl { top: 0; left: 0; }
+  .console-viz-corner.tr { top: 0; right: 0; }
+  .console-viz-corner.bl { bottom: 0; left: 0; }
+  .console-viz-corner.br { bottom: 0; right: 0; }
+  .console-viz.is-focused { border-color: var(--accent); border-style: dashed; box-shadow: none; }
+  .console-viz.is-focused .console-viz-corner { color: var(--accent); }
+  .console-viz-caption {
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: color-mix(in srgb, var(--code-fg) 55%, transparent);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .console-viz-controls {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 3;
+  }
+  .console-viz.is-focused {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  /* Transient pill shown over the viz when the user wheels on it while it
+     isn't focused — explains the click-to-zoom gate */
+  .console-viz-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--code-fg);
+    background: color-mix(in srgb, var(--bg-code) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--code-fg) 25%, transparent);
+    padding: 8px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+  .console-viz-hint.show { opacity: 1; }
+  .console-viz-btn {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-code) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--code-fg) 20%, transparent);
+    border-radius: 4px;
+    color: color-mix(in srgb, var(--code-fg) 80%, transparent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+  .console-viz-btn:hover {
+    background: color-mix(in srgb, var(--code-fg) 12%, transparent);
+    color: var(--code-fg);
+  }
+  .console-viz-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+    outline-offset: 1px;
   }
 
   /* ---------- Reduced motion ---------- */
@@ -1169,50 +1328,29 @@
         <a href="/cypherlite/playground/" target="_blank" rel="noopener">Open fullscreen playground&nbsp;↗</a>
       </p>
     </div>
-    <div id="consoleMinimapGrid" style="display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; align-items:stretch; margin:0 auto; max-width:1280px; padding:0 24px;">
-    <div class="examples" id="wasmConsole" style="grid-template-columns:1fr;" aria-label="Live in-browser CypherLite memory console">
+    <div class="examples" id="wasmConsole" style="grid-template-columns:1fr; margin:0 auto; max-width:1024px;" aria-label="Live in-browser CypherLite memory console">
       <div class="example-pane active" style="display:flex; flex-direction:column; min-height:0; height:100%; max-height:none; overflow:visible;">
         <div class="example-header" style="border-bottom-color: color-mix(in srgb, var(--code-fg) 10%, transparent);">
           <span class="desc" style="color:color-mix(in srgb, var(--code-fg) 78%, transparent);">cypherlite · :memory: · wasm</span>
           <span id="consoleStatus" class="label-tag" style="margin-left:auto; font-size:10px; color:color-mix(in srgb, var(--code-fg) 62%, transparent);">ready</span>
+          <button id="consoleFullscreenBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">⤢</button>
         </div>
-<pre id="consoleOutput" style="flex:1 1 auto; min-height:220px; max-height:360px; overflow:auto;"></pre>
-        <div id="consoleSuggestions" style="display:flex; padding:8px 24px 0; flex-wrap:wrap; gap:6px;" aria-label="Query suggestions"></div>
-        <div class="console-inputline" style="position:relative; display:flex; align-items:center; gap:8px; padding:10px 24px 16px; border-top:1px solid var(--border);">
-          <span class="prompt" style="color:var(--terminal-prompt); font-family:var(--font-mono); user-select:none;">cypher&gt;</span>
+        <!-- scrollable output: text blocks + inline graph viz blocks share
+             the stream, like a terminal with graphical attachments -->
+        <div id="consoleOutput" role="log" aria-live="polite"
+             style="flex:1 1 auto; height:420px; overflow:auto; padding:12px 24px 4px; font-family:var(--font-mono); font-size:13px; line-height:1.45; white-space:pre-wrap; color:var(--code-fg);"></div>
+        <div id="consoleSuggestions" style="display:flex; padding:4px 24px 4px; flex-wrap:wrap; gap:6px; border-top:1px solid color-mix(in srgb, var(--code-fg) 8%, transparent);" aria-label="Query suggestions"></div>
+        <div class="console-inputline" style="position:relative; display:flex; align-items:center; gap:8px; padding:6px 16px 12px; border-top:1px solid var(--border); flex-wrap:nowrap;">
+          <span class="prompt" style="color:var(--terminal-prompt); font-family:var(--font-mono); user-select:none; flex-shrink:0;">cypher&gt;</span>
           <input id="consoleInput" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
                  placeholder="type a Cypher query and press Enter"
                  aria-label="Cypher query input"
-                 style="flex:1; background:transparent; border:0; outline:0; color:var(--code-fg); font-family:var(--font-mono); font-size:13px; padding:2px 0;" />
-          <button id="historyBtn" type="button" aria-haspopup="listbox" aria-expanded="false" title="statement history (↑/↓ in the input works too)"
-                  style="background:transparent; border:1px solid color-mix(in srgb, var(--code-fg) 28%, transparent); color:color-mix(in srgb, var(--code-fg) 92%, transparent); padding:4px 10px; border-radius:4px; font-family:var(--font-mono); font-size:11px; cursor:pointer; flex-shrink:0;">history</button>
-          <div id="historyPop" role="listbox" aria-label="Statement history"
-               style="display:none; position:absolute; right:16px; bottom:calc(100% - 6px); z-index:30; min-width:280px; max-width:min(560px, 90vw); max-height:260px; overflow:auto; background:var(--bg-code); border:1px solid color-mix(in srgb, var(--code-fg) 20%, transparent); border-radius:8px; box-shadow:var(--shadow-raised);"></div>
+                 style="flex:1 1 0; min-width:0; background:transparent; border:0; outline:0; color:var(--code-fg); font-family:var(--font-mono); font-size:13px; padding:2px 0;" />
+          <button id="runBtn" type="button" title="Run (Enter)"
+                  style="background:color-mix(in srgb, var(--accent) 18%, transparent); border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); color:var(--code-fg); padding:6px 14px; border-radius:4px; font-family:var(--font-mono); font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;">Run ▶</button>
         </div>
       </div>
-
     </div>
-      <!-- graph mini-map (NVL 2.0) -->
-      <div id="miniMap" style="display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:var(--shadow-raised); background:var(--bg-code);">
-        <div class="example-header" style="border-bottom-color: color-mix(in srgb, var(--code-fg) 10%, transparent);">
-          <span class="desc" style="color:color-mix(in srgb, var(--code-fg) 78%, transparent);"></span>
-          <span id="miniStatus" class="label-tag" style="margin-left:auto; font-size:10px; color:color-mix(in srgb, var(--code-fg) 62%, transparent);">idle</span>
-        </div>
-        <div role="tablist" style="display:flex; gap:2px; padding:4px 12px; border-bottom:1px solid color-mix(in srgb, var(--code-fg) 10%, transparent);">
-          <button type="button" data-mini-tab="schema" class="mini-tab">schema</button>
-          <button type="button" data-mini-tab="graph" class="mini-tab">graph</button>
-          <button type="button" data-mini-tab="results" class="mini-tab">results</button>
-        </div>
-        <!-- one pane per tab: each keeps its own NVL instance, so zoom,
-             center, and node positions survive tab switches -->
-        <div id="miniViz" style="width:100%; height:340px; flex:1 1 auto; position:relative;">
-          <div data-mini-pane="schema" style="position:absolute; inset:0;"></div>
-          <div data-mini-pane="graph" style="position:absolute; inset:0;"></div>
-          <div data-mini-pane="results" style="position:absolute; inset:0;"></div>
-        </div>
-        <div id="miniHint" style="padding:6px 12px 10px; font-family:var(--font-mono); font-size:10px; color:color-mix(in srgb, var(--code-fg) 60%, transparent);">queries that return nodes, rels, or paths update the results view</div>
-      </div>
-  </div>
   </div>
 </section>
 
@@ -2118,7 +2256,8 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   const inputEl  = document.getElementById('consoleInput');
   const suggEl   = document.getElementById('consoleSuggestions');
   const statusEl = document.getElementById('consoleStatus');
-  if (!outputEl || !inputEl || !suggEl || !statusEl) { /* noop if section removed */ }
+  const runBtn   = document.getElementById('runBtn');
+  if (!outputEl || !inputEl || !suggEl || !statusEl || !runBtn) { /* noop if section removed */ }
   else {
     const SEED = `
       CREATE
@@ -2173,23 +2312,34 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     const DEMOS = [
       {
+        name: 'schema',
+        query: 'CALL db.schema.visualization()'
+      },
+      {
+        name: 'all nodes & rels',
+        query:
+          'MATCH (n) WITH n LIMIT 50\n' +
+          'OPTIONAL MATCH (n)-[r]-(m)\n' +
+          'RETURN n, r, m'
+      },
+      {
         name: 'friends-of-friends',
         query:
-          "MATCH (a:Person {name:'Ada'})-[:FOLLOWS]->()-[:FOLLOWS]->(b:Person)\n " +
-          "RETURN b.name AS friend_of_friend"
+          "MATCH (a:Person {name:'Ada'})-[r1:FOLLOWS]->(f)-[r2:FOLLOWS]->(b:Person)\n" +
+          'RETURN a, r1, f, r2, b'
       },
       {
         name: 'most followers',
         query:
-          "MATCH (p:Person)<-[:FOLLOWS]-(f:Person)\n " +
-          "RETURN p.name AS person, count(f) AS followers \n" +
-          "ORDER BY followers DESC, person"
+          'MATCH (p:Person)<-[:FOLLOWS]-(f:Person)\n' +
+          'RETURN p.name AS person, count(f) AS followers\n' +
+          'ORDER BY followers DESC, person'
       },
       {
         name: 'post recommendations',
         query:
-          "MATCH (ada:Person {name:'Ada'})-[:FOLLOWS]->(friend:Person)-[:LIKES]->(post:Post) \n" +
-          "RETURN post.title AS post, count(friend) AS friends_who_liked\n" 
+          "MATCH (ada:Person {name:'Ada'})-[:FOLLOWS]->(friend:Person)-[:LIKES]->(post:Post)\n" +
+          'RETURN post.title AS post, count(friend) AS friends_who_liked'
       }
     ];
 
@@ -2221,6 +2371,20 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       if (v === null || v === undefined) return 'null';
       if (typeof v === 'string') return v;
       if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+      // Compact rendering for graph entities so a graph-returning query
+      // doesn't produce a wall of JSON next to the inline viz.
+      if (v && typeof v === 'object' && Array.isArray(v.labels) && typeof v.id === 'number') {
+        const name = v.properties && (v.properties.name || v.properties.title || v.properties.id);
+        return '(' + v.labels.map(l => ':' + l).join('') + (name ? ' {' + name + '}' : '') + ')';
+      }
+      if (v && typeof v === 'object' && typeof v.start_node === 'number' && typeof v.end_node === 'number' && typeof v.id === 'number') {
+        return '[:' + v.type + ']';
+      }
+      if (Array.isArray(v)) {
+        if (v.length === 0) return '[]';
+        if (v.length <= 6) return '[' + v.map(formatValue).join(', ') + ']';
+        return '[' + v.slice(0, 4).map(formatValue).join(', ') + ', …' + (v.length - 4) + ' more]';
+      }
       return JSON.stringify(v);
     }
 
@@ -2269,8 +2433,9 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           db = new mod.CypherliteDb();
           const seed = JSON.parse(db.execute(SEED, null));
           if (seed.error) throw new Error(seed.error);
-          // mini-map: load NVL in parallel, then render the default tab
-          loadNvl().then(() => runMini(miniTab, {})).catch(() => miniSetStatus('map unavailable'));
+          // viz: load NVL in parallel so the first graph-returning query
+          // renders fast; no block is appended until a query returns one
+          loadNvl().catch(() => setStatus('viz unavailable', 'var(--fg-faint)'));
         } catch (err) {
           // file:// blocks dynamic import() in every major browser (CORS):
           // point at the fix instead of the raw fetch error.
@@ -2303,32 +2468,19 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         append(`<span style="color:var(--danger)">error: ${escape(wire.error)}</span>\n\n`);
         return;
       }
-      append(`${escape(tableFromWire(wire))}\n\n`);
-      // graph elements in the result? switch the mini-map to the results
-      // tab and render the returned subgraph there
-      const ids = resultIdsFrom(wire);
-      if (ids.length && db) {
-        lastResultIds = ids;
-        miniTab = 'results';
-        styleMiniTabs('results');
-        runMini('results', { ids });
+      const g = graphFromWire(wire);
+      if (g.nodes.length) {
+        // Graph result: inline viz only — the table of raw node/rel values
+        // adds no information the picture doesn't already carry.
+        void appendVizBlock(g);
+      } else {
+        append(`${escape(tableFromWire(wire))}\n\n`);
       }
     }
 
-    // ---- input history (arrow-up/down, like the real REPL) ----
-    // Pre-seeded with the suggested demo queries so arrow-up always has
-    // something useful; executed queries are appended at the front.
-    const HISTORY = [
-      'MATCH (n) RETURN labels(n), count(*) ORDER BY count(*) DESC;',
-      'MATCH (n) WITH n LIMIT 20 OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 10;',
-      'MATCH (p:Person) RETURN p.name ORDER BY p.name;',
-      'MATCH (a:Person {name: \'Ada\'})-[:FOLLOWS]->(who:Person) RETURN who.name;',
-      'MATCH (p:Person)-[:FOLLOWS]->(who:Person) RETURN p.name, who.name ORDER BY p.name;',
-      'MATCH (a:Person)-[:FOLLOWS*1..3]->(b:Person {name: \'Eve\'}) RETURN DISTINCT a.name, size(collect(DISTINCT a)) AS hops;',
-      'MATCH (p:Post) WHERE p.title CONTAINS \'wasm\' RETURN p.title;',
-      'MATCH (who:Person)<-[:FOLLOWS]-(follower:Person) RETURN who.name, count(follower) AS followers ORDER BY followers DESC, who.name;',
-      'MATCH (a:Person)-[:FOLLOWS]->(b:Person)-[:FOLLOWS]->(a:Person) RETURN a.name, b.name;',
-    ];
+    // ---- input history (arrow-up/down) — pre-seeded with sample demos so
+    // arrow-up always finds something useful, executed queries unshift.
+    const HISTORY = DEMOS.map(d => d.query.replace(/\s+/g, ' ').trim());
     let histIndex = -1;   // -1 = live edit, 0.. = browsing HISTORY
 
     function showHist(i) {
@@ -2336,60 +2488,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       inputEl.value = HISTORY[i] || '';
     }
 
-    // ---- history popup (same pill styling as the try: buttons) ----
-    const histBtn = document.getElementById('historyBtn');
-    const histPop = document.getElementById('historyPop');
-    function closeHistPop() { histPop.style.display = 'none'; histBtn.setAttribute('aria-expanded', 'false'); }
-    function openHistPop() {
-      histPop.innerHTML = '';
-      HISTORY.forEach((q, i) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.role = 'option';
-        b.textContent = q.length > 90 ? q.slice(0, 88) + '…' : q;
-        b.title = q;
-        b.style.cssText = 'display:block; width:100%; text-align:left; background:transparent; border:0; border-bottom:1px solid color-mix(in srgb, var(--code-fg) 8%, transparent); color:color-mix(in srgb, var(--code-fg) 92%, transparent); padding:8px 12px; font-family:var(--font-mono); font-size:11px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
-        b.addEventListener('mouseenter', () => { b.style.background = 'color-mix(in srgb, var(--code-fg) 10%, transparent)'; b.style.color = 'var(--code-fg)'; });
-        b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; b.style.color = 'color-mix(in srgb, var(--code-fg) 92%, transparent)'; });
-        b.addEventListener('click', () => {
-          inputEl.value = q;
-          histIndex = i;
-          closeHistPop();
-          inputEl.focus();
-          inputEl.setSelectionRange(q.length, q.length);
-        });
-        histPop.appendChild(b);
-      });
-      histPop.style.display = 'block';
-      histBtn.setAttribute('aria-expanded', 'true');
-    }
-    histBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      histPop.style.display === 'none' ? openHistPop() : closeHistPop();
-    });
-    document.addEventListener('click', (ev) => {
-      if (histPop.style.display !== 'none' && !histPop.contains(ev.target)) closeHistPop();
-    });
-    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeHistPop(); });
-
-    // First focus/click loads the wasm; subsequent Enters run queries.
-    inputEl.addEventListener('focus', boot, { once: false });
-    inputEl.addEventListener('keydown', async (ev) => {
-      if (ev.key === 'ArrowUp') {
-        ev.preventDefault();
-        showHist(histIndex < 0 ? 0 : Math.min(histIndex + 1, HISTORY.length - 1));
-        // cursor to the end so a long statement is easy to edit
-        requestAnimationFrame(() => inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length));
-        return;
-      }
-      if (ev.key === 'ArrowDown') {
-        ev.preventDefault();
-        if (histIndex <= 0) { histIndex = -1; return; }   // back to a blank line
-        showHist(histIndex - 1);
-        return;
-      }
-      if (ev.key !== 'Enter') return;
-      ev.preventDefault();
+    async function submit() {
       const q = inputEl.value.trim();
       if (!q) return;
       await boot();
@@ -2401,82 +2500,75 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       if (at >= 0) HISTORY.splice(at, 1);
       HISTORY.unshift(q);
       runQuery(q);
+    }
+
+    runBtn.addEventListener('click', () => void submit());
+
+    // Mobile fullscreen toggle: pin the console to the viewport so only the
+    // output pane scrolls (no nested scrollbars). The button is CSS-hidden
+    // on desktop. ESC exits.
+    const fsBtn = document.getElementById('consoleFullscreenBtn');
+    const toggleFullscreen = (on) => {
+      const next = on ?? !document.body.classList.contains('console-fullscreen');
+      document.body.classList.toggle('console-fullscreen', next);
+      fsBtn.textContent = next ? '⤡' : '⤢';
+      fsBtn.title = next ? 'Exit fullscreen' : 'Fullscreen';
+      // let any newly-inserted viz block re-measure against the new pane size
+      requestAnimationFrame(() => outputEl.scrollTop = outputEl.scrollHeight);
+    };
+    if (fsBtn) {
+      fsBtn.addEventListener('click', () => toggleFullscreen());
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && document.body.classList.contains('console-fullscreen')) {
+          toggleFullscreen(false);
+        }
+      });
+    }
+
+    // First focus/click loads the wasm; subsequent Enters run queries.
+    inputEl.addEventListener('focus', boot, { once: false });
+    inputEl.addEventListener('keydown', async (ev) => {
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        showHist(histIndex < 0 ? 0 : Math.min(histIndex + 1, HISTORY.length - 1));
+        requestAnimationFrame(() => inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length));
+        return;
+      }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        if (histIndex <= 0) { histIndex = -1; return; }
+        showHist(histIndex - 1);
+        return;
+      }
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      await submit();
     });
 
 
-    // ---- graph mini-map (NVL 2.0, lazy) ----
+    // ---- graph viz (NVL 2.0, lazy, inline blocks in the output stream) ----
     // esm.sh serves both: jsdelivr's +esm transform of the interaction
     // handlers breaks on their lodash dep (no `throttle` export).
-    // Both from the same CDN so the handlers share the base module identity.
     const NVL_URL = 'https://esm.sh/@neo4j-nvl/base@2.0.0';
     const NVL_IH_URL = 'https://esm.sh/@neo4j-nvl/interaction-handlers@2.0.0';
-    const miniViz = document.getElementById('miniViz');
-    const miniStatus = document.getElementById('miniStatus');
-    const miniTabs = document.querySelectorAll('[data-mini-tab]');
-    const miniPanes = document.querySelectorAll('[data-mini-pane]');
-    // one lazily-created NVL instance per tab: every pane keeps its own zoom,
-    // center and node positions across tab switches
-    const nvls = {};
-    let miniTab = 'graph';
 
-    const GRAPH_Q =
-      'MATCH (n) WITH n LIMIT 100 ' +
-      'OPTIONAL MATCH (n)-[r]-(m) WITH n, r, m LIMIT 100 ' +
-      "RETURN id(n) AS nid, labels(n) AS nlabels, coalesce(n.name, toString(id(n))) AS nname, " +
-             "id(m) AS mid, labels(m) AS mlabels, coalesce(m.name, toString(id(m))) AS mname, " +
-             "id(r) AS rid, type(r) AS rtype, id(startNode(r)) AS rstart, id(endNode(r)) AS rend";
-    const RESULT_Q = (ids) =>
-      'MATCH (n) WHERE id(n) IN $ids ' +
-      'OPTIONAL MATCH (n)-[r]-(m) WHERE id(m) IN $ids ' +
-      "RETURN id(n) AS nid, labels(n) AS nlabels, coalesce(n.name, toString(id(n))) AS nname, " +
-             "id(m) AS mid, labels(m) AS mlabels, coalesce(m.name, toString(id(m))) AS mname, " +
-             "id(r) AS rid, type(r) AS rtype, id(startNode(r)) AS rstart, id(endNode(r)) AS rend";
-
-    // Modules load once; a fresh NVL instance is created lazily per tab pane.
+    // Modules load once; each result gets its own NVL instance in an inline
+    // block so the terminal history remains truthful (scrolling back shows
+    // the exact result of each query).
     let nvlMods = null;
     async function loadNvl() {
       if (!nvlMods) {
-        // base NVL ships no interactions: wheel zoom, pan and node drag
-        // come from the interaction-handlers package.
         const [mod, ih] = await Promise.all([import(NVL_URL), import(NVL_IH_URL)]);
         nvlMods = { NVL: mod.NVL, handlers: ih, getZoomTarget: mod.getZoomTargetForNodePositions };
       }
       return nvlMods;
     }
 
-    const miniPane = (tab) => document.querySelector(`[data-mini-pane="${tab}"]`);
-    async function getNvl(tab) {
-      if (nvls[tab]) return nvls[tab];
-      await loadNvl();
-      const pane = miniPane(tab);
-      const nvl = new nvlMods.NVL(pane, [], [], {
-        renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
-      });
-      // wheel zoom, drag-pan, node drag — per pane; any of them means the
-      // user owns the camera now (auto-fit stands down)
-      new nvlMods.handlers.ZoomInteraction(nvl);
-      new nvlMods.handlers.PanInteraction(nvl);
-      new nvlMods.handlers.DragNodeInteraction(nvl);
-      const markMoved = () => { pane.dataset.userMoved = '1'; };
-      pane.addEventListener('pointerdown', markMoved);
-      pane.addEventListener('wheel', markMoved, { passive: true });
-      nvls[tab] = nvl;
-      return nvl;
-    }
-
-    function miniSetStatus(text) { if (miniStatus) miniStatus.textContent = text; }
-
-    // fit right after adding elements frames whatever the layout simulation
-    // looks like at that instant — it reports "not moving" before the async
-    // layout worker has even spread the nodes, so a single fit frames stale
-    // compact positions and the graph ends up cropped and off-center.
-    // Refit on a poll until the layout stays still across two checks, and
-    // stop touching the camera as soon as the user pans/zooms themselves.
     function applyFit(nvl, pane) {
       const pos = nvl.getNodePositions();
       if (!pos.length || !nvlMods) return;
       const { zoom, panX, panY } = nvlMods.getZoomTarget(pos, pane.clientWidth, pane.clientHeight);
-      nvl.setZoomAndPan(zoom * 0.95, panX, panY);   // small margin for captions
+      nvl.setZoomAndPan(zoom * 0.95, panX, panY);
     }
     function fitWhileSettling(nvl, pane, idle = 0, tries = 20) {
       if (pane.dataset.userMoved || tries <= 0) return;
@@ -2488,130 +2580,274 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // stable label palette (NVL default node colors 1-10, cycled)
     const LABEL_COLORS = ['#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#E8684A', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99', '#FF99C3'];
-    function labelColor(labels, i) {
+    function labelColor(labels) {
       const l = labels && labels.length ? labels[0] : '?';
       if (!labelColor.map) labelColor.map = new Map();
       if (!labelColor.map.has(l)) labelColor.map.set(l, LABEL_COLORS[labelColor.map.size % LABEL_COLORS.length]);
       return labelColor.map.get(l);
     }
 
-    function fromRows(rows) {
-      const nodes = new Map(), rels = [];
-      const node = (id, labels, name) => {
-        if (id === null || id === undefined || nodes.has(String(id))) return;
-        nodes.set(String(id), {
-          id: String(id), caption: String(name ?? id),
-          subcaption: labels ? labels.join(',') : '',
-          color: labelColor(labels),
+    // Walk any wire-format value tree and collect nodes and relationships.
+    // Nodes: objects with `labels` array + numeric `id`; rels: objects with
+    // numeric `start_node`/`end_node` + numeric `id` + `type`.
+    function graphFromWire(wire) {
+      const nodes = new Map();
+      const rels = new Map();
+      const node = (v) => {
+        const id = String(v.id);
+        if (nodes.has(id)) return;
+        const name = (v.properties && (v.properties.name || v.properties.title || v.properties.id))
+          ?? v.id;
+        nodes.set(id, {
+          id, caption: String(name),
+          subcaption: (v.labels || []).join(','),
+          color: labelColor(v.labels),
         });
       };
-      for (const r of rows || []) {
-        if (r.nid !== null && r.nid !== undefined) node(r.nid, r.nlabels, r.nname);
-        if (r.mid !== null && r.mid !== undefined) node(r.mid, r.mlabels, r.mname);
-        if (r.rid !== null && r.rid !== undefined) {
-          rels.push({ id: 'r' + r.rid, from: String(r.rstart), to: String(r.rend), type: r.rtype, caption: r.rtype });
-        }
-      }
-      return { nodes: [...nodes.values()], rels };
-    }
-
-    function schemaFrom(graph) {
-      const labelId = new Map();      // node id -> its label's schema id
-      const labelNodes = new Map();   // label name -> schema node
-      for (const n of graph.nodes) {
-        const l = n.subcaption || '?';
-        if (!labelNodes.has(l)) labelNodes.set(l, { id: ':' + l, caption: l, color: labelColor([l]) });
-        labelId.set(n.id, ':' + l);
-      }
-      // one edge per rel type between a given label pair — same type between
-      // different label pairs is a separate schema edge
-      const edges = new Map();
-      for (const r of graph.rels) {
-        const from = labelId.get(r.from), to = labelId.get(r.to);
-        if (!from || !to) continue;
-        const key = r.type + ':' + from + '-' + to;
-        if (!edges.has(key)) edges.set(key, { id: 's:' + key, from, to, type: r.type, caption: r.type });
-      }
-      return { nodes: [...labelNodes.values()], rels: [...edges.values()] };
-    }
-
-    // Per-tab elements currently in the pane. Only a changed element set
-    // rebuilds the pane; an unchanged one keeps zoom, center, and node
-    // positions (the data is still re-queried on every activation).
-    const miniElements = {};
-    async function renderMini(tab, data, label) {
-      const pane = miniPane(tab);
-      if (pane) miniPanes.forEach(p => { p.style.display = (p === pane) ? '' : 'none'; });
-      miniSetStatus(label + ' · ' + data.nodes.length + ' nodes / ' + data.rels.length + ' rels');
-      const prev = miniElements[tab] || { nodes: [], rels: [] };
-      const same = prev.nodes.length === data.nodes.length && prev.rels.length === data.rels.length
-        && prev.nodes.every(n => data.nodes.some(d => d.id === n.id))
-        && prev.rels.every(r => data.rels.some(d => d.id === r.id));
-      if (same) return;
-      const nvl = await getNvl(tab);
-      if (prev.rels.length) nvl.removeRelationshipsWithIds(prev.rels.map(r => r.id));
-      if (prev.nodes.length) nvl.removeNodesWithIds(prev.nodes.map(n => n.id));
-      miniElements[tab] = data;
-      nvl.addAndUpdateElementsInGraph(data.nodes, data.rels);
-      fitWhileSettling(nvl, miniPane(tab));   // keep fitting until the layout settles
-    }
-
-    async function runMini(tab, params) {
-      try {
-        const q = tab === 'results' ? RESULT_Q(params.ids) : GRAPH_Q;
-        const pj = tab === 'results' ? JSON.stringify({ ids: params.ids }) : null;
-        const wire = JSON.parse(db.execute(q, pj));
-        if (wire.error) throw new Error(wire.error);
-        const graph = fromRows(wire.rows);
-        await renderMini(tab, tab === 'schema' ? schemaFrom(graph) : graph, tab);
-      } catch (err) {
-        miniSetStatus('error');
-      }
-    }
-
-    function styleMiniTabs(active) {
-      miniTabs.forEach(x => {
-        const on = x.dataset.miniTab === active;
-        x.style.background = on ? 'color-mix(in srgb, var(--accent) 18%, transparent)' : 'transparent';
-        x.style.borderColor = on ? 'color-mix(in srgb, var(--accent) 45%, transparent)' : 'transparent';
-        x.style.color = on ? 'var(--code-fg)' : 'color-mix(in srgb, var(--code-fg) 85%, transparent)';
-      });
-    }
-    miniTabs.forEach(b => b.addEventListener('click', () => {
-      miniTab = b.dataset.miniTab;
-      styleMiniTabs(miniTab);
-      if (db) runMini(miniTab, miniTab === 'results' ? { ids: lastResultIds || [] } : {});
-    }));
-    // default active tab styling
-    styleMiniTabs('graph');
-
-    // graph-element detection in query results: the wire has no column type
-    // annotations, but graph values arrive as typed JSON — nodes are objects
-    // with `labels` + `id`, rels with `start_node`/`end_node` + `id`.
-    let lastResultIds = null;
-    function resultIdsFrom(wire) {
-      const ids = new Set();
+      const rel = (v) => {
+        const id = 'r' + v.id;
+        if (rels.has(id)) return;
+        rels.set(id, {
+          id, from: String(v.start_node), to: String(v.end_node),
+          type: v.type, caption: v.type,
+        });
+      };
       const visit = (v) => {
         if (Array.isArray(v)) { v.forEach(visit); return; }
         if (!v || typeof v !== 'object') return;
-        if (Array.isArray(v.labels) && typeof v.id === 'number') { ids.add(v.id); return; }
-        if (typeof v.start_node === 'number') {   // rel: the endpoint node ids
-          ids.add(v.start_node);
-          if (typeof v.end_node === 'number') ids.add(v.end_node);
-          return;
+        if (Array.isArray(v.labels) && typeof v.id === 'number') { node(v); return; }
+        if (typeof v.start_node === 'number' && typeof v.end_node === 'number' && typeof v.id === 'number') {
+          rel(v); return;
         }
-        Object.values(v).forEach(visit);   // paths / nested values
+        Object.values(v).forEach(visit);
       };
       for (const row of (wire && wire.rows) || []) {
         for (const v of Object.values(row)) visit(v);
       }
-      return [...ids];
+      // Drop rels whose endpoints are not in the node set so NVL does not
+      // synthesize ghost nodes.
+      const relList = [...rels.values()].filter(r => nodes.has(r.from) && nodes.has(r.to));
+      return { nodes: [...nodes.values()], rels: relList };
+    }
+
+    // Zoom in / zoom out / fit controls, overlaid on an inline viz block.
+    function addVizControls(pane, nvl, nodeIds) {
+      const bar = document.createElement('div');
+      bar.className = 'console-viz-controls';
+      const mk = (label, title, onClick) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'console-viz-btn';
+        b.setAttribute('aria-label', title);
+        b.title = title;
+        b.textContent = label;
+        b.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          pane.dataset.userMoved = '1';
+          try { onClick(); } catch {}
+        });
+        return b;
+      };
+      const stepZoom = (factor) => {
+        const t = (nvl.getScale && nvl.getScale()) || 1;
+        const pan = (nvl.getPan && nvl.getPan()) || { x: 0, y: 0 };
+        const r = Math.max(0.05, Math.min(20, t * factor));
+        // Zoom toward the pane center (same pan correction as the wheel).
+        const cx = pane.clientWidth / 2;
+        const cy = pane.clientHeight / 2;
+        const newPanX = pan.x + (cx / t - cx / r);
+        const newPanY = pan.y + (cy / t - cy / r);
+        if (nvl.setZoomAndPan) nvl.setZoomAndPan(r, newPanX, newPanY);
+        else if (nvl.setZoom) nvl.setZoom(r);
+      };
+      bar.appendChild(mk('+', 'Zoom in', () => stepZoom(1.2)));
+      bar.appendChild(mk('−', 'Zoom out', () => stepZoom(1 / 1.2)));
+      bar.appendChild(mk('⤢', 'Fit to view', () => {
+        delete pane.dataset.userMoved;
+        if (nvl.fit) nvl.fit(nodeIds, { animated: false });
+        else applyFit(nvl, pane);
+      }));
+      pane.appendChild(bar);
+    }
+
+    // Click to focus the viz; clicks elsewhere unfocus it. While focused the
+    // wheel zooms the graph; otherwise the wheel scrolls the page.
+    const focusedVizSet = new WeakSet();
+    function setVizFocus(pane, on) {
+      pane.classList.toggle('is-focused', on);
+      if (on) focusedVizSet.add(pane); else focusedVizSet.delete(pane);
+    }
+    document.addEventListener('pointerdown', (ev) => {
+      document.querySelectorAll('.console-viz.is-focused').forEach(p => {
+        if (!p.contains(ev.target)) setVizFocus(p, false);
+      });
+    });
+
+    // Mobile pinch/pan — ported from the playground's useNvlTouch hook. NVL
+    // base ships no touch handler, so one-finger drag → pan,
+    // two-finger pinch → zoom around the pinch midpoint.
+    function attachTouchGestures(pane, nvl) {
+      let startPan = { x: 0, y: 0 };
+      let startZoom = 1;
+      let startTouches = [];
+      let startDist = 0;
+      let startMid = { x: 0, y: 0 };
+      let active = false;
+      const toLocal = (touches) => {
+        const rect = pane.getBoundingClientRect();
+        const out = [];
+        for (let i = 0; i < touches.length; i++) {
+          out.push({ x: touches[i].clientX - rect.left, y: touches[i].clientY - rect.top });
+        }
+        return out;
+      };
+      const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      const baseline = (touches) => {
+        startTouches = toLocal(touches);
+        startPan = (nvl.getPan && nvl.getPan()) || { x: 0, y: 0 };
+        startZoom = (nvl.getScale && nvl.getScale()) || 1;
+        if (startTouches.length >= 2) {
+          startDist = d(startTouches[0], startTouches[1]);
+          startMid = mid(startTouches[0], startTouches[1]);
+        }
+      };
+      pane.style.touchAction = 'none';
+      pane.addEventListener('touchstart', (ev) => {
+        active = true;
+        pane.dataset.userMoved = '1';
+        setVizFocus(pane, true);
+        baseline(ev.touches);
+        ev.preventDefault();
+      }, { passive: false });
+      pane.addEventListener('touchmove', (ev) => {
+        if (!active) return;
+        const t = toLocal(ev.touches);
+        if (t.length >= 2 && startTouches.length >= 2 && startDist > 0) {
+          const curDist = d(t[0], t[1]);
+          const scale = startZoom * (curDist / startDist);
+          const curMid = mid(t[0], t[1]);
+          const worldX = (startMid.x - startPan.x) / startZoom;
+          const worldY = (startMid.y - startPan.y) / startZoom;
+          const panX = curMid.x - worldX * scale;
+          const panY = curMid.y - worldY * scale;
+          if (nvl.setZoomAndPan) nvl.setZoomAndPan(scale, panX, panY);
+        } else if (t.length === 1 && startTouches.length >= 1) {
+          const dx = t[0].x - startTouches[0].x;
+          const dy = t[0].y - startTouches[0].y;
+          if (nvl.setPan) nvl.setPan(startPan.x + dx, startPan.y + dy);
+        }
+        ev.preventDefault();
+      }, { passive: false });
+      const end = (ev) => {
+        if (!active) return;
+        if (ev.touches && ev.touches.length > 0) { baseline(ev.touches); return; }
+        active = false;
+      };
+      pane.addEventListener('touchend', end, { passive: false });
+      pane.addEventListener('touchcancel', end, { passive: false });
+    }
+
+    function addFocusHint(pane) {
+      const hint = document.createElement('span');
+      hint.className = 'console-viz-hint';
+      hint.textContent = 'click to zoom';
+      pane.appendChild(hint);
+      pane._focusHint = hint;
+    }
+    // Flash the hint pill when the user wheels on a non-focused viz, so the
+    // click-to-focus requirement doesn't look like a bug.
+    function flashFocusHint(pane) {
+      const hint = pane._focusHint;
+      if (!hint) return;
+      hint.classList.add('show');
+      clearTimeout(pane._hintTimer);
+      pane._hintTimer = setTimeout(() => hint.classList.remove('show'), 1200);
+    }
+
+    // Append a fresh inline NVL block to the output stream and populate it
+    // with `data` once NVL loads. Each query that returns graph elements
+    // gets its own block; scrolling back shows the exact result of each run.
+    async function appendVizBlock(data) {
+      const pane = document.createElement('div');
+      pane.className = 'console-viz';
+      // Four `+` corners so the frame reads like the CLI's ASCII table.
+      for (const spot of ['tl', 'tr', 'bl', 'br']) {
+        const c = document.createElement('span');
+        c.className = 'console-viz-corner ' + spot;
+        c.textContent = '+';
+        pane.appendChild(c);
+      }
+      const caption = document.createElement('span');
+      caption.className = 'console-viz-caption';
+      caption.textContent = data.nodes.length + ' node' + (data.nodes.length === 1 ? '' : 's')
+        + ' · ' + data.rels.length + ' rel' + (data.rels.length === 1 ? '' : 's');
+      pane.appendChild(caption);
+      // Size the viz to fill the visible output pane minus the preceding
+      // `cypher>` line and the trailing blank line. On mobile the output
+      // pane is already a 70vh box, so this gives the viz a solid 55-65vh;
+      // a readable floor keeps split-screen / landscape phones usable.
+      const floor = Math.min(340, Math.round(window.innerHeight * 0.42));
+      const avail = Math.max(floor, outputEl.clientHeight - 56);
+      pane.style.height = avail + 'px';
+      outputEl.appendChild(pane);
+      // trailing blank line keeps subsequent prompts visually separated
+      outputEl.insertAdjacentHTML('beforeend', '\n');
+      outputEl.scrollTop = outputEl.scrollHeight;
+      try {
+        await loadNvl();
+        const nvl = new nvlMods.NVL(pane, data.nodes, data.rels, {
+          renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
+        });
+        new nvlMods.handlers.PanInteraction(nvl);
+        new nvlMods.handlers.DragNodeInteraction(nvl);
+        // NVL's own wheel zoom — same algorithm the playground ships. It
+        // listens on the pane in the bubble phase; our capture-phase gate
+        // below swallows wheel events when the viz isn't focused.
+        new nvlMods.handlers.ZoomInteraction(nvl);
+        // Mark the pane as user-moved on first interaction so autofit stands
+        // down. Focus toggles on a stationary tap only; any pointer movement
+        // between down and up is treated as a pan and leaves focus alone.
+        let downX = 0, downY = 0, downIn = false, dragged = false;
+        pane.addEventListener('pointerdown', (ev) => {
+          pane.dataset.userMoved = '1';
+          downX = ev.clientX;
+          downY = ev.clientY;
+          dragged = false;
+          downIn = !(ev.target.closest && ev.target.closest('.console-viz-controls'));
+        });
+        pane.addEventListener('pointermove', (ev) => {
+          if (!downIn || dragged) return;
+          const dx = ev.clientX - downX;
+          const dy = ev.clientY - downY;
+          if (dx * dx + dy * dy > 16) dragged = true;   // 4px of movement = pan
+        });
+        pane.addEventListener('click', () => {
+          if (!downIn || dragged) return;
+          setVizFocus(pane, !pane.classList.contains('is-focused'));
+        });
+        // Capture-phase gate: when unfocused, hide the wheel from NVL and
+        // flash the hint; the page scrolls as normal.
+        pane.addEventListener('wheel', (ev) => {
+          if (!pane.classList.contains('is-focused')) {
+            ev.stopImmediatePropagation();
+            flashFocusHint(pane);
+          } else {
+            pane.dataset.userMoved = '1';
+          }
+        }, { capture: true, passive: false });
+        attachTouchGestures(pane, nvl);
+        addVizControls(pane, nvl, data.nodes.map(n => n.id));
+        addFocusHint(pane);
+        fitWhileSettling(nvl, pane);
+      } catch (err) {
+        caption.textContent = 'viz unavailable';
+      }
     }
 
     // Auto-boot when the console section scrolls into view: the engine
-    // and NVL load and the mini-map renders (schema/graph tabs) without
-    // waiting for a click or focus — but visitors who never scroll here
-    // still pay zero bytes.
+    // and NVL load and the viz renders without waiting for a click or
+    // focus — visitors who never scroll here still pay zero bytes.
     const consoleSection = document.getElementById('console') || document.getElementById('wasmConsole');
     if ('IntersectionObserver' in window && consoleSection) {
       let autoBooted = false;
@@ -2628,7 +2864,11 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
     }
 
     // Also boot on click anywhere in the output panel — nicer UX.
-    outputEl.addEventListener('click', () => { boot(); inputEl.focus(); });
+    // Clicks inside an inline viz are left alone so pan/drag isn't stolen.
+    outputEl.addEventListener('click', (ev) => {
+      if (ev.target.closest && ev.target.closest('.console-viz')) return;
+      boot(); inputEl.focus();
+    });
   }
 </script>
 

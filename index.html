@@ -2564,20 +2564,6 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       return nvlMods;
     }
 
-    function applyFit(nvl, pane) {
-      const pos = nvl.getNodePositions();
-      if (!pos.length || !nvlMods) return;
-      const { zoom, panX, panY } = nvlMods.getZoomTarget(pos, pane.clientWidth, pane.clientHeight);
-      nvl.setZoomAndPan(zoom * 0.95, panX, panY);
-    }
-    function fitWhileSettling(nvl, pane, idle = 0, tries = 20) {
-      if (pane.dataset.userMoved || tries <= 0) return;
-      applyFit(nvl, pane);
-      const moving = nvl.isLayoutMoving();
-      if (!moving && idle >= 1) return;
-      setTimeout(() => fitWhileSettling(nvl, pane, moving ? 0 : idle + 1, tries - 1), 300);
-    }
-
     // stable label palette (NVL default node colors 1-10, cycled)
     const LABEL_COLORS = ['#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#E8684A', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99', '#FF99C3'];
     function labelColor(labels) {
@@ -2665,7 +2651,6 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       bar.appendChild(mk('⤢', 'Fit to view', () => {
         delete pane.dataset.userMoved;
         if (nvl.fit) nvl.fit(nodeIds, { animated: false });
-        else applyFit(nvl, pane);
       }));
       pane.appendChild(bar);
     }
@@ -2842,14 +2827,6 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         const nvl = new nvlMods.NVL(pane, data.nodes, data.rels, {
           renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
         });
-        // Keep the viz centered when the pane resizes — mobile browsers
-        // resize when the URL bar hides/shows, which would otherwise leave
-        // the graph cropped and off-center.
-        const ro = new ResizeObserver(() => {
-          if (pane.dataset.userMoved) return;
-          applyFit(nvl, pane);
-        });
-        ro.observe(pane);
         new nvlMods.handlers.PanInteraction(nvl);
         new nvlMods.handlers.DragNodeInteraction(nvl);
         // NVL's own wheel zoom — same algorithm the playground ships. It
@@ -2888,9 +2865,17 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           }
         }, { capture: true, passive: false });
         attachTouchGestures(pane, nvl);
-        addVizControls(pane, nvl, data.nodes.map(n => n.id));
+        const nodeIds = data.nodes.map(n => n.id);
+        addVizControls(pane, nvl, nodeIds);
         addFocusHint(pane);
-        fitWhileSettling(nvl, pane);
+        // Single delayed fit, same as the playground. Previous approach
+        // (poll-fit until layout settles, plus a ResizeObserver re-fit on
+        // every pane change) created a feedback loop on slower devices
+        // where the layout never stopped moving — nodes drifted forever.
+        setTimeout(() => {
+          if (pane.dataset.userMoved) return;
+          if (nvl.fit) nvl.fit(nodeIds, { animated: false });
+        }, 600);
       } catch (err) {
         caption.textContent = 'viz unavailable';
       }

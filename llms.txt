@@ -61,7 +61,7 @@ Every store has three fixed namespaces — `neo4j` (user data), `system` (no gra
 
 ## Geospatial
 
-- `point({latitude:, longitude:})` (WGS-84, optional `height`), `point({x:, y:})` (Cartesian, optional `z`)
+- `point({latitude:, longitude:})` (WGS-84, optional `height`), `point({x:, y:})` (Cartesian, optional `z`); `point()` also accepts a node or relationship, read as its property map
 - `point.distance()` (meters, Haversine / Euclidean), `point.withinBBox()`, `point.withinDistance()`
 - `linestring()`, `polygon()`, `spatial.area/length/centroid`, predicates `spatial.contains/within/intersects/overlaps/crosses/touches`
 - `CREATE POINT INDEX name FOR (c:Label) ON (c.location)` — R-tree acceleration

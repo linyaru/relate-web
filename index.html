@@ -1259,7 +1259,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.11.5</span>
+      <span class="pill-tag" style="text-transform:none">v0.11.6</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1311,7 +1311,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.5</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.6</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1494,7 +1494,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.5 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.6 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1768,7 +1768,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
 <span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
 <span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
-          <p>Exit codes: <code>2</code> usage error (unknown flag, bad <code>--mode</code>), <code>1</code> runtime failure (open/query error), <code>0</code> success. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short). Exit codes: <code>2</code> usage error (unknown flag, bad <code>--mode</code>), <code>1</code> runtime failure (open/query error), <code>0</code> success. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
 <span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
@@ -1840,6 +1840,8 @@ CALL db.schema.visualization()  <span class="comment"># inferred schema graph fo
           <pre>USE system_ontologies    <span class="comment"># route a statement: neo4j | system | system_ontologies</span>
 SHOW DATABASES           <span class="comment"># three fixed rows; other admin commands fail (51N27)</span></pre>
           <p>100+ built-in functions; <code>CYPHER 5</code> / <code>CYPHER 25</code> version prefixing; label expressions and GQL/GPM pattern matching.</p>
+          <p class="ref-sub"><span class="keyword">Identifiers</span> — unquoted Unicode (CYPHER 25):</p>
+          <pre>RETURN 1 AS café    MATCH (n:Ärzte)-[:BESCHÄFTIGT]->(a) RETURN n.Größe  <span class="comment"># non-ASCII, no backticks</span></pre>
         </div>
       </div>
 
@@ -1910,7 +1912,7 @@ cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl f
           <span class="desc">Embedding &amp; remote access</span>
         </div>
         <div class="ref-body">
-          <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols. Query results carry the same metadata everywhere: the resolved namespace and the query type (<code>r</code>/<code>w</code>/<code>rw</code>/<code>s</code>), from the Rust API through the C ABI to every client.</p>
+          <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols. Query results carry the same metadata everywhere: the resolved namespace and the query type (<code>r</code>/<code>w</code>/<code>rw</code>/<code>s</code>), from the Rust API through the C ABI to every client. Read-only open is available on every surface — Rust, Bolt, Python, C, JavaScript, Java, Go, and WASM — alongside the CLI's <code>--read-only</code>.</p>
           <p class="ref-sub"><span class="keyword">Rust</span> — the public crate:</p>
           <pre>use cypherlite::Database;
 let db = Database::open("./graph.cl")?;
@@ -1932,7 +1934,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.5</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.6</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2415,7 +2417,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.5').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.6').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

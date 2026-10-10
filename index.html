@@ -1259,7 +1259,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.11.7</span>
+      <span class="pill-tag" style="text-transform:none">v0.11.8</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1311,7 +1311,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.7</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.8</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1494,7 +1494,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.7 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.8 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1740,8 +1740,9 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
 <span class="flag">--version</span>         version
 <span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span>    output format shortcuts
-<span class="flag">--mode</span> M          table | csv | json | jsonl | markdown | cypher
+<span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher
 <span class="flag">--noheader</span>        drop column headers
+<span class="flag">--max-rows</span> N     rows printed per statement; 0 unlimited (agent default 100)
 <span class="flag">--param</span> N=V       bind a Cypher parameter (repeatable, JSON scalar)
 <span class="flag">--fetch-params</span> N=SRC  fetch a URL or read a file, bind its JSON as $N (repeatable)
 <span class="flag">-c</span>, <span class="flag">--command</span> Q   one-shot query
@@ -1768,12 +1769,13 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
 <span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
 <span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
-          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short). Exit codes: <code>2</code> usage error (unknown flag, bad <code>--mode</code>), <code>1</code> runtime failure (open/query error), <code>0</code> success. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
 <span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
 <span class="keyword">CYPHERLITE_MEMORY_LIMIT</span>=4gb             <span class="comment"># live graph + index cap</span>
 <span class="keyword">CYPHERLITE_TELEMETRY</span>=0 · <span class="keyword">DO_NOT_TRACK</span>=1   <span class="comment"># opt out of CLI metrics</span>
+<span class="keyword">CYPHERLITE_MAX_ROWS</span>=0 · <span class="keyword">CYPHERLITE_HELP_EXAMPLES</span>=0  <span class="comment"># lift the agent row cap / hide help examples</span>
 <span class="keyword">NEO4J_URI</span>=… <span class="keyword">NEO4J_USERNAME</span>=… <span class="keyword">NEO4J_PASSWORD</span>=…  <span class="comment"># pull source when --from is omitted</span>
 <span class="keyword">CYPHERLITE_LOAD_CSV_DIR</span>=…             <span class="comment"># allowed LOAD CSV directory</span></pre>
           <p>Telemetry is anonymous — command shapes, feature flags, an anonymous install id, a coarse environment tag. It never sends query text, file paths, or data, defaults to on, and only the standalone CLI collects it (not the embedded Rust, Python, or WASM APIs).</p>
@@ -1805,14 +1807,15 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
           <span class="desc">Output formats</span>
         </div>
         <div class="ref-body">
-          <p>Six formats, selected by flags — no in-session <code>.mode</code> command:</p>
+          <p>Seven formats, selected by flags — no in-session <code>.mode</code> command:</p>
           <pre><span class="prompt">$</span> cypherlite ./mydata "MATCH (p:Person) RETURN p.name, p.age"      <span class="comment"># table (default)</span>
 <span class="prompt">$</span> cypherlite <span class="flag">-csv</span> --noheader ./mydata "…" &gt; people.csv
 <span class="prompt">$</span> cypherlite <span class="flag">-json</span> ./mydata "…" &gt; people.json
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> jsonl ./mydata "…" | jq .          <span class="comment"># one object per line</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope ./mydata "…"            <span class="comment"># {columns, rows, truncated} per result set</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
-          <p>Flags work in one-shot mode, pipe mode, and the interactive shell.</p>
+          <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it) and <code>envelope</code> reports <code>"truncated": true</code>.</p>
         </div>
       </div>
 
@@ -1935,7 +1938,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.7</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.8</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2418,7 +2421,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.7').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.8').trim();
 
     // Show the banner + suggestions from the first paint so the console looks
     // like a live REPL immediately. The wasm module is only fetched on the

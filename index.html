@@ -3,7 +3,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>cypherlite — the agent-native graph database</title>
-<meta name="description" content="An embedded openCypher graph database in a single binary. No server, no setup — Cypher, vectors, and geospatial queries, in process.">
+<meta name="description" content="The agent-native graph database. Make sense of connected data in milliseconds — on a graph you can see, in process, with no graph service to run. Embedded openCypher engine in one binary; 100% openCypher TCK 2024.3.">
 
 <link rel="preload" href="fonts/public-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/fira-code-400.woff2" as="font" type="font/woff2" crossorigin>
@@ -12,7 +12,7 @@
 <link rel="canonical" href="https://neo4j-labs.github.io/cypherlite/">
 <link rel="describedby" href="llms.txt">
 <meta property="og:title" content="cypherlite — the agent-native graph database">
-<meta property="og:description" content="An embedded openCypher graph database in a single binary. No server, no setup — Cypher, vectors, and geospatial queries, in process.">
+<meta property="og:description" content="The agent-native graph database. Make sense of connected data in milliseconds — on a graph you can see, in process, with no graph service to run. Embedded openCypher engine in one binary; 100% openCypher TCK 2024.3.">
 <meta property="og:url" content="https://neo4j-labs.github.io/cypherlite/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
@@ -360,12 +360,44 @@
   }
   h1.hero-title .mono { font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.02em; }
   .hero-sub {
-    max-width: 620px;
-    margin: 0 auto 28px;
+    max-width: 640px;
+    margin: 0 auto 20px;
     font-size: 19px;
     line-height: 1.55;
     color: var(--fg-muted);
     text-wrap: pretty;
+  }
+  .hero-badges {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0 auto 26px;
+    max-width: 720px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 12px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--fg-muted);
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .hero-badge:hover { border-color: var(--border-strong); color: var(--fg); }
+  .hero-badge-k {
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: -0.005em;
+  }
+  .hero-badge-v { font-family: var(--font-mono); font-size: 11.5px; }
+  @media (max-width: 520px) {
+    .hero-badges { flex-direction: column; align-items: center; }
+    .hero-badge { width: fit-content; }
   }
 
   /* ---------- Install command block ---------- */
@@ -1272,10 +1304,21 @@
     </h1>
 
     <p class="hero-sub">
-      An embedded openCypher engine in one binary: full TCK coverage,
-      vectors, geo — all in process. One file, one CLI, zero
-      infrastructure, agent-native by default.
+      Make sense of connected data in milliseconds. Let your agent
+      explore the relationships in code, behavior, and events on a graph
+      you can see, in process, with no graph service to run. One binary,
+      one file, full openCypher coverage.
     </p>
+    <div class="hero-badges" aria-label="Substantiated claims">
+      <a class="hero-badge" href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">
+        <span class="hero-badge-k">openCypher TCK 2024.3</span>
+        <span class="hero-badge-v">100% — 3,893 / 3,893, strict run in CI</span>
+      </a>
+      <a class="hero-badge" href="#console">
+        <span class="hero-badge-k">live demo</span>
+        <span class="hero-badge-v">Explore a graph now ↓</span>
+      </a>
+    </div>
 
     <div class="install" id="install">
       <div class="install-tabs" role="tablist" aria-label="Installer for your OS">
@@ -1722,6 +1765,10 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <span>clients</span>
           <span class="label-tag">embed</span>
         </button>
+        <button class="example-tab" data-ref-tab="fit" role="tab">
+          <span>fit</span>
+          <span class="label-tag">where</span>
+        </button>
       </div>
 
       <!-- cli -->
@@ -1822,10 +1869,10 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
       <!-- cypher -->
       <div class="example-pane" data-ref-pane="cypher">
         <div class="example-header">
-          <span class="desc">Cypher — full openCypher TCK coverage + GQL alignment</span>
+          <span class="desc">Cypher — 100% openCypher TCK 2024.3 + GQL alignment</span>
         </div>
         <div class="ref-body">
-          <p>CypherLite passes the full pinned openCypher TCK 2024.3 corpus (strict run: error class, error phase, side effects; enforced in CI) and implements a large slice of Neo4j's post-standard Cypher.</p>
+          <p><strong>100% openCypher TCK 2024.3 — 3,893 / 3,893 scenarios pass, strict run (error class, error phase, side effects) enforced in CI.</strong> See the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">compliance report</a>. On top of that, CypherLite ships full GQL alignment and the Cypher 25 feature set.</p>
           <p class="ref-sub"><span class="keyword">Read &amp; write</span>:</p>
           <pre>MATCH (p:Person)-[:FRIENDS_WITH*1..3]->(f) WHERE p.name STARTS WITH 'A' RETURN f
 OPTIONAL MATCH, CREATE, MERGE, SET, REMOVE, DELETE, FOREACH, INSERT</pre>
@@ -1926,6 +1973,24 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
+        </div>
+      </div>
+
+      <!-- fit -->
+      <div class="example-pane" data-ref-pane="fit">
+        <div class="example-header">
+          <span class="desc">Where CypherLite fits</span>
+        </div>
+        <div class="ref-body">
+          <p>CypherLite is sharpest when the graph lives next to the code that uses it:</p>
+          <ul class="fit-list">
+            <li><strong>Agent context &amp; memory</strong> — give an agent a durable, queryable graph in one <code>.cl</code> file; recall is a <code>MATCH</code>.</li>
+            <li><strong>Embedded in an app</strong> — one dependency across Rust, Python, JavaScript, Java, and Go; no sidecar service.</li>
+            <li><strong>Sandbox analytics</strong> — fetch a dataset, load it into <code>:memory:</code>, traverse it, print JSON, exit.</li>
+            <li><strong>Test fixtures &amp; golden graphs</strong> — <code>cypherlite pull</code> a slice of Neo4j/Aura into a <code>.cl</code> file, commit it, test offline.</li>
+            <li><strong>Local-first &amp; edge</strong> — ship a graph with a CLI, a notebook, a WASM app, or a desktop binary; same engine everywhere.</li>
+          </ul>
+          <p class="ref-sub">The shape of that fit: a single-process, memory-resident engine with one WAL writer. Graphs larger than RAM, distributed scale-out, or many simultaneous writers are the job of a different database — CypherLite is intentionally the one you reach for first.</p>
         </div>
       </div>
     </div>

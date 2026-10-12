@@ -38,11 +38,11 @@ Page structure, top to bottom:
 
 | Section | id | Contents |
 |---|---|---|
-| Hero | — | version pill, tagline, OS install tabs (macOS/Linux/Windows/Python) |
+| Hero | — | version pill, outcome-led tagline, substantiation badges (TCK 100% + live-demo link to `#console`), OS install tabs (macOS/Linux/Windows/Python) |
 | Memory console | `#console` | live in-browser CypherLite (WASM), seeded with a 5-person social graph, three clickable query suggestions, user types + submits; lazy-loaded on first click/focus — keep it above the fold |
 | Quickstart | `#quickstart` | 4 steps: skill, database format, create (typed params / LOAD CSV / pipe / `pull` from Neo4j/Aura), query; the format toggle rewrites the db argument in steps 3-4 |
 | Examples | `#examples` | 5 panes mirroring the quickstart: `install`, `skill`, `database`, `create`, `query` (tab ids `data-tab`/`data-pane`) |
-| Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients` (`data-ref-tab`/`data-ref-pane`) |
+| Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients`, `fit` (`data-ref-tab`/`data-ref-pane`). The `fit` tab is a positively-framed "Where CypherLite fits" block — good fits plus a one-line shape note on the single-process, memory-resident model. |
 
 ## What must never change
 
@@ -89,7 +89,9 @@ footer meta). The authoritative source is the latest GitHub release tag.
 | Install commands, supported platforms | `README.md`, `install.sh` |
 | CLI flags, commands, exit codes, env vars | `docs/api/cli/spec.md` (kept in sync with hand-written `--help`) |
 | Dot-commands | `docs/api/cli/spec.md` / `docs/reference/dot-commands.md` |
-| Cypher coverage wording | Say "full openCypher TCK coverage" — **no numeric pass/skip counts on the site** |
+| Cypher coverage wording | "100% openCypher TCK 2024.3 — 3,893 / 3,893 scenarios pass, strict run in CI" — cite the exact counts, link `docs/tck/compliance.md`. GQL alignment and Cypher 25 feature coverage are claimed on the same evidence standard. |
+| "In milliseconds" / latency wording | Backed by the frozen baseline loadtests on `main` (ADR-0046, ADR-0070, ADR-0071, `baselines/`). Any new latency phrasing on the site must trace to that artefact — not to a dev-machine run. |
+| Where CypherLite fits | `docs/guides/storage-engine.md`, ADR-0116 (namespaces), ADR-0119 (admin scope). Frame positively (good fits + a one-line shape note); no bulleted "not for" lists on the site. |
 | Vector / spatial APIs | `docs/guides/vector-similarity.md`, `docs/guides/geospatial-queries.md` |
 | Storage formats (memory / directory / `.cl`, codecs) | `README.md`, `docs/guides/storage-engine.md` |
 | Python API | `README.md`, `docs/reference/python-library.md` |
@@ -98,6 +100,24 @@ footer meta). The authoritative source is the latest GitHub release tag.
 
 Only document **shipped** behavior. Nothing from open PRs, unreleased flags,
 or plans.
+
+## Tone contract
+
+- **Lede is "the agent-native graph database."** That is the product
+  category we claim. The outcome ("make sense of connected data — in
+  milliseconds") is the first sentence underneath, not the H1. Cypher,
+  embedding, the `.cl` file, and the WAL are proof, not headline.
+- **"Agent-native" means something concrete.** Skill install for every
+  detected agent, JSON / JSONL / envelope output, typed errors on exit
+  code 6, the `pull` command, the `--max-rows` agent default, the
+  in-browser demo. Keep the word connected to those features; do not
+  use it as a decoration.
+- **No marketing fluff.** No "revolutionary", no "fastest", no superlatives.
+  Numeric claims (TCK counts, latency) must trace to a current, in-repo
+  artefact and link it. "Full" is a reserved word — use it only where
+  "100%" is accurate (TCK, GQL alignment, Cypher 25 features).
+- **No competitive comparisons on the site.** Positioning memos belong on
+  `main`; the homepage is audience content only.
 
 ## The four agentic invariants
 

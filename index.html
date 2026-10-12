@@ -3303,6 +3303,16 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       pane.style.height = pxH;
       pane.style.minHeight = pxH;
       pane.style.maxHeight = pxH;
+      // Pin the pane's width to a *pixel* value measured right now, instead of
+      // leaving it at `width:100%`. On mobile, the output stream grows every
+      // time a new result is appended; even a one-pixel change in the content
+      // area (e.g. an overlay scrollbar flipping as the URL bar hides) retriggers
+      // NVL's internal ResizeObserver and the force layout drifts. A fixed px
+      // width breaks that loop entirely. The pane will not auto-resize on
+      // orientation change — that's an acceptable trade for a stable graph.
+      const availW = Math.max(240, outputEl.clientWidth - 1);
+      pane.style.width = availW + 'px';
+      pane.style.maxWidth = availW + 'px';
       outputEl.appendChild(pane);
       // trailing blank line keeps subsequent prompts visually separated
       outputEl.insertAdjacentHTML('beforeend', '\n');

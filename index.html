@@ -1362,7 +1362,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.11.8</span>
+      <span class="pill-tag" style="text-transform:none">v0.12.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1420,7 +1420,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.8</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1617,7 +1617,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.11.8 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1655,21 +1655,21 @@
           </button>
         </div>
 <pre><span class="agentic-line"><span class="agentic-comment">&gt; Create a durable graph database in ./mydata, then run a count against it</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
-<span class="comment"># in-memory — nothing written to disk (also `:memory:`)</span>
-<span class="prompt">$</span> cypherlite
+<span class="comment"># in-memory — nothing written to disk (also `--database :memory:`)</span>
+<span class="prompt">$</span> cypherlite query
 
 <span class="comment"># durable directory — WAL + Parquet snapshots (the default)</span>
-<span class="prompt">$</span> cypherlite ./mydata
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata
 
 <span class="comment"># one host file — WAL, snapshot and catalog packed into a .cl bundle</span>
-<span class="prompt">$</span> cypherlite ./mydata.cl
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata.cl
 
 <span class="comment"># JSON snapshot codec instead of Parquet shards (empty directory only)</span>
-<span class="prompt">$</span> cypherlite <span class="flag">--snapshot-format</span> json ./mydata-json
+<span class="prompt">$</span> cypherlite <span class="flag">--snapshot-format</span> json <span class="flag">--database</span> ./mydata-json
 
 <span class="comment"># one-shot and piped scripts against any of them</span>
-<span class="prompt">$</span> cypherlite ./mydata <span class="string">"MATCH (n) RETURN count(n) AS n"</span>
-<span class="prompt">$</span> cypherlite ./mydata &lt; setup.cypher
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata <span class="string">"MATCH (n) RETURN count(n) AS n"</span>
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata &lt; setup.cypher
 
 <span class="agentic-line"><span class="agentic-result">Created ./mydata (parquet codec, WAL in ./mydata/wal). One codec per directory — mixing parquet shards and graph.json is an error.</span></span></pre>
       </div>
@@ -1685,21 +1685,21 @@
         </div>
 <pre><span class="agentic-line"><span class="agentic-comment">&gt; Model a movie graph in ./movies: Person and Movie nodes, ACTED_IN relationships, unique Person names — then import extra people from CSV</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
 <span class="comment"># schema first: constraint + index</span>
-<span class="prompt">$</span> cypherlite ./movies <span class="string">'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE'</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./movies <span class="string">'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE'</span>
 
 <span class="comment"># write Cypher — MERGE keeps it idempotent</span>
-<span class="prompt">$</span> cypherlite ./movies <span class="string">'MERGE (m:Movie {title: "The Matrix"})
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./movies <span class="string">'MERGE (m:Movie {title: "The Matrix"})
 MERGE (p:Person {name: "Keanu"})
 CREATE (p)-[:ACTED_IN {role: "Neo"}]->(m)'</span>
 
 <span class="comment"># batch-create from a typed parameter (JSON scalars, repeatable)</span>
-<span class="prompt">$</span> cypherlite ./movies <span class="string">'UNWIND $cast AS c
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./movies <span class="string">'UNWIND $cast AS c
 MATCH (m:Movie {title: c.movie})
 MERGE (p:Person {name: c.name})
 CREATE (p)-[:ACTED_IN]->(m)'</span> <span class="flag">--param</span> <span class="string">'cast=[{"movie":"The Matrix","name":"Carrie-Anne"}]'</span>
 
 <span class="comment"># import a CSV file (values arrive as strings — coerce them)</span>
-<span class="prompt">$</span> cypherlite ./movies <span class="string">'LOAD CSV WITH HEADERS FROM "data/people.csv" AS row
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./movies <span class="string">'LOAD CSV WITH HEADERS FROM "data/people.csv" AS row
 CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 
 <span class="agentic-line"><span class="agentic-result">Created 1 constraint, 1 Movie, 3 Person nodes, 2 ACTED_IN relationships; imported 3 CSV rows.</span></span></pre>
@@ -1716,7 +1716,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         </div>
 <pre><span class="agentic-line"><span class="agentic-comment">&gt; Who acted in The Matrix? Return name and role as JSON.</span><span class="agentic-loading">→ loading skill cypherlite</span></span>
 <span class="comment"># interactive shell — statements end with ;  (.help, .checkpoint, .quit)</span>
-<span class="prompt">$</span> cypherlite ./movies
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./movies
 <span class="prompt">cypher&gt;</span> <span class="keyword">MATCH</span> (p:Person)-[r:ACTED_IN]-&gt;(m:Movie) <span class="keyword">RETURN</span> p.name, r.role;
 
 <span class="out">+--------------+---------+
@@ -1727,12 +1727,12 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 +--------------+---------+</span>
 
 <span class="comment"># one-shot, JSON for scripts and agents</span>
-<span class="prompt">$</span> cypherlite <span class="flag">-json</span> ./movies <span class="string">'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name'</span>
+<span class="prompt">$</span> cypherlite <span class="flag">-json</span> <span class="flag">--database</span> ./movies <span class="string">'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name'</span>
 
 <span class="out">[{"p.name": "Keanu"}, {"p.name": "Carrie-Anne"}]</span>
 
 <span class="comment"># other formats: -csv, -markdown, --mode jsonl · pipe-friendly, noheader optional</span>
-<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> ./movies <span class="string">'MATCH (p:Person) RETURN p.name, p.age'</span> &gt; people.csv
+<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> <span class="flag">--database</span> ./movies <span class="string">'MATCH (p:Person) RETURN p.name, p.age'</span> &gt; people.csv
 
 <span class="agentic-line"><span class="agentic-result">Keanu (role "Neo") and Carrie-Anne acted in The Matrix.</span></span></pre>
       </div>
@@ -1853,15 +1853,16 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <span class="desc">CLI — flags, commands, exit codes</span>
         </div>
         <div class="ref-body">
-          <p><code>cypherlite [FLAGS] [DATABASE] [QUERY|-c QUERY]</code> — the database path is optional (<code>:memory:</code> by default); a positional query runs once and exits.</p>
-          <pre><span class="prompt">$</span> cypherlite                                    <span class="comment"># in-memory interactive shell</span>
-<span class="prompt">$</span> cypherlite ./mydata                           <span class="comment"># durable directory, interactive</span>
-<span class="prompt">$</span> cypherlite ./mydata.cl "RETURN 1"             <span class="comment"># single-file bundle, one-shot</span>
-<span class="prompt">$</span> cypherlite :memory: "RETURN 1 + 2 AS sum"     <span class="comment"># one-shot, no files</span>
-<span class="prompt">$</span> cypherlite ./mydata &lt; setup.cypher            <span class="comment"># pipe a script</span></pre>
+          <p><code>cypherlite [OPTIONS] [--database PATH] [QUERY|-c QUERY]</code> — the store is <code>--database</code> / <code>-d</code> (<code>:memory:</code> by default); the first positional is the statement. <code>cypherlite query [STATEMENT] [--database PATH]</code> is the statement-session verb: with a statement it runs once, without one it reads a stdin script or opens the interactive shell on a terminal. No statement and no <code>query</code> verb prints help and exits.</p>
+          <pre><span class="prompt">$</span> cypherlite query                              <span class="comment"># in-memory interactive shell</span>
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata    <span class="comment"># durable directory, interactive</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata.cl "RETURN 1"      <span class="comment"># single-file bundle, one-shot</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--database</span> :memory: "RETURN 1 + 2 AS sum"  <span class="comment"># one-shot, no files</span>
+<span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata &lt; setup.cypher  <span class="comment"># pipe a script</span></pre>
           <p class="ref-sub"><span class="keyword">Flags</span> — single- and double-dash both accepted; <code>--</code> ends flag parsing:</p>
           <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
 <span class="flag">--version</span>         version
+<span class="flag">-d</span>, <span class="flag">--database</span> PATH   database directory, .cl bundle, or :memory: (default :memory:)
 <span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span>    output format shortcuts
 <span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher
 <span class="flag">--noheader</span>        drop column headers
@@ -1879,14 +1880,15 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--follow</span>                   tail the WAL of a native database (implies --read-only)
 <span class="flag">--namespace</span> NAME            session namespace (neo4j|system|system_ontologies)</pre>
           <p class="ref-sub"><span class="keyword">Lifecycle commands</span> — positional, first argument only:</p>
-          <pre><span class="prompt">$</span> cypherlite skill install [--agent NAME]   <span class="comment"># agent skill bundle</span>
+          <pre><span class="prompt">$</span> cypherlite query [STATEMENT] [--database PATH]  <span class="comment"># statement session: oneshot, stdin script, or shell</span>
+<span class="prompt">$</span> cypherlite skill install [--agent NAME]   <span class="comment"># agent skill bundle</span>
 <span class="prompt">$</span> cypherlite skill remove  [--agent NAME]
 <span class="prompt">$</span> cypherlite upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
 <span class="prompt">$</span> cypherlite telemetry off | status
 <span class="prompt">$</span> cypherlite clone SOURCE DEST              <span class="comment"># copy any db — dir ↔ .cl matrix; never writes SOURCE</span>
 <span class="prompt">$</span> cypherlite clone ./mydata ./backup.cl <span class="flag">--to-snapshot-format</span> parquet <span class="comment"># .cl suffix picks the format; flag transcodes</span>
-<span class="prompt">$</span> cypherlite info ./mydata [<span class="flag">--json</span>]     <span class="comment"># store metadata: layout, codec, checkpoint, counts — no open, no lock</span>
-<span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' ./mydata
+<span class="prompt">$</span> cypherlite info <span class="flag">--database</span> ./mydata [<span class="flag">--json</span>]  <span class="comment"># store metadata: layout, codec, checkpoint, counts — no open, no lock</span>
+<span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' <span class="flag">--database</span> ./mydata
 <span class="comment"># pull: Neo4j/Aura subgraph → new local db (HTTP Query API v2, streamed, one checkpoint;</span>
 <span class="comment"># --query takes inline Cypher, a ;-list, a file, or - for stdin; refuses a non-empty db)</span>
 <span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
@@ -1931,13 +1933,13 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
         </div>
         <div class="ref-body">
           <p>Seven formats, selected by flags — no in-session <code>.mode</code> command:</p>
-          <pre><span class="prompt">$</span> cypherlite ./mydata "MATCH (p:Person) RETURN p.name, p.age"      <span class="comment"># table (default)</span>
-<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> --noheader ./mydata "…" &gt; people.csv
-<span class="prompt">$</span> cypherlite <span class="flag">-json</span> ./mydata "…" &gt; people.json
-<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> jsonl ./mydata "…" | jq .          <span class="comment"># one object per line</span>
-<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope ./mydata "…"            <span class="comment"># {columns, rows, truncated} per result set</span>
-<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
-<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
+          <pre><span class="prompt">$</span> cypherlite --database ./mydata "MATCH (p:Person) RETURN p.name, p.age"      <span class="comment"># table (default)</span>
+<span class="prompt">$</span> cypherlite <span class="flag">-csv</span> --noheader <span class="flag">--database</span> ./mydata "…" &gt; people.csv
+<span class="prompt">$</span> cypherlite <span class="flag">-json</span> <span class="flag">--database</span> ./mydata "…" &gt; people.json
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> jsonl <span class="flag">--database</span> ./mydata "…" | jq .          <span class="comment"># one object per line</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope <span class="flag">--database</span> ./mydata "…"            <span class="comment"># {columns, rows, truncated} per result set</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown <span class="flag">--database</span> ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher <span class="flag">--database</span> ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
           <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it) and <code>envelope</code> reports <code>"truncated": true</code>.</p>
         </div>
       </div>
@@ -2017,12 +2019,12 @@ spatial.fromWKT / toWKT · spatial.fromGeoJSON / toGeoJSON</pre>
         <div class="ref-body">
           <p>The matcher runs on an in-memory graph; disk is for crash recovery. One write path: append redo to the fsync'd WAL, then apply. Snapshots capture already-committed state.</p>
           <p class="ref-sub"><span class="keyword">Shapes</span>:</p>
-          <pre>cypherlite :memory:                      <span class="comment"># RAM only, nothing written</span>
-cypherlite ./mydata                      <span class="comment"># dir: WAL + Parquet shards (default)</span>
-cypherlite --snapshot-format json ./d    <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
-cypherlite ./mydata.cl                   <span class="comment"># one host file: WAL + snapshot + catalog</span>
-cypherlite --read-only ./mydata          <span class="comment"># open existing store, no writes or checkpoints</span>
-cypherlite --follow ./mydata             <span class="comment"># tail the WAL live (implies --read-only)</span>
+          <pre>cypherlite --database :memory:              <span class="comment"># RAM only, nothing written</span>
+cypherlite --database ./mydata              <span class="comment"># dir: WAL + Parquet shards (default)</span>
+cypherlite --snapshot-format json --database ./d  <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
+cypherlite --database ./mydata.cl             <span class="comment"># one host file: WAL + snapshot + catalog</span>
+cypherlite --read-only --database ./mydata    <span class="comment"># open existing store, no writes or checkpoints</span>
+cypherlite --follow --database ./mydata       <span class="comment"># tail the WAL live (implies --read-only)</span>
 cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file (reverse: clone ./backup.cl ./d); never writes source</span></pre>
           <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
           <pre>&lt;dir&gt;/manifest.json
@@ -2061,7 +2063,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.11.8</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2309,9 +2311,9 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   const paneCommands = {
     install: 'curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash',
     skill: 'cypherlite skill install',
-    database: 'cypherlite ./mydata',
-    create: 'cypherlite ./movies \'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE\'',
-    query: 'cypherlite -json ./movies \'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name\'',
+    database: 'cypherlite query --database ./mydata',
+    create: 'cypherlite --database ./movies \'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE\'',
+    query: 'cypherlite -json --database ./movies \'MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: "The Matrix"}) RETURN p.name\'',
   };
   const panePrompts = {
     install: 'Install cypherlite and tell me which version I have',
@@ -2845,7 +2847,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.11.8').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.0').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

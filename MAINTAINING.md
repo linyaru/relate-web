@@ -56,13 +56,18 @@ Page structure, top to bottom:
   it, run `bash scripts/build-wasm.sh --mode release` on `main` and copy
   the four files out of `crates/cypherlite-wasm/pkg/` into `wasm/`. Never
   hand-edit these files.
-- The `#console` live console stays. Its seed graph
-  (`(:Person)-[:FOLLOWS|CREATES|LIKES]->…`) and its three suggestion
-  queries (friend-of-friend, most-followed aggregation, post
-  recommendation) are part of the site's contract; changes go in the
-  same pass as this file. The console must stay user-driven — no
-  auto-typing or auto-cycling; suggestions only populate the input,
-  they never execute on their own.
+- The `#console` live console stays. It is a scenario workbench with
+  three tabs — `agent-memory`, `codebase`, `deps` — defined by the
+  `SCENARIOS` object in `index.html`. Each scenario carries its own
+  seed statements and 4–5 demo queries that correspond to a cookbook
+  recipe on `main`. Switching scenario drops the current in-memory db
+  and reboots cleanly; the Reset (↺) button in the console header does
+  the same for the active scenario. Changes to scenario data or demo
+  queries go in the same pass as this file.
+- Console suggestions **click-to-run**. The scenarios exist to show
+  CypherLite solving a real problem, so a single click on a suggestion
+  pill both populates the input and executes the query. Arrow-up still
+  browses history; nothing auto-types or auto-cycles.
 - The top-nav `Playground` link stays as the **last** item in
   `#topNav` (after `GitHub`), with `href="/cypherlite/playground/"`,
   `target="_blank"`, `class="nav-external"`, and the inline `.ext-icon`

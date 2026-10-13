@@ -1362,7 +1362,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.12.0</span>
+      <span class="pill-tag" style="text-transform:none">v0.12.1</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1420,7 +1420,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1617,7 +1617,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -2046,8 +2046,8 @@ cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl f
           <pre>use cypherlite::Database;
 let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
-          <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>).</p>
-          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/cypherlite</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency). Browser: <code>npm install @neo4j-labs/cypherlite-wasm</code> — in-memory, or durable OPFS via <code>await CypherliteDb.open("opfs://name")</code> in a dedicated worker.</p>
+          <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>). Cursor rows are <code>Record</code>s (dicts with attribute access) and cursors carry driver-style conveniences — <code>single()</code>, <code>peek()</code>, <code>graph()</code>, <code>to_df()</code>, <code>to_arrow()</code>.</p>
+          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/cypherlite</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @neo4j-labs/cypherlite-wasm</code> — in-memory, or durable OPFS via <code>await CypherliteDb.open("opfs://name")</code> in a dedicated worker.</p>
           <p class="ref-sub"><span class="keyword">Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
@@ -2063,7 +2063,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2847,7 +2847,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.0').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.1').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

@@ -80,8 +80,8 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 ## Embedding and remote access
 
 - Rust: the `cypherlite` crate — `Database::open("./graph.cl")`, `db.execute(query)`
-- Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC
-- JavaScript (Node): `npm install @neo4j-labs/cypherlite` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@neo4j-labs/cypherlite-<platform>-<arch>`) is an auto-selected optional dependency
+- Python: `pip install neo4j-cypherlite` — `cypherlite.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC. Cursor rows are `Record`s (dicts with attribute access); cursors carry driver-style conveniences: `data()`, `fetch(n)`, `peek()`, `single()`, `keys()`, `graph()`, `to_df()`, `to_arrow()`. Params accept `uuid.UUID`, `bytes`/`bytearray`, and `tuple`
+- JavaScript (Node): `npm install @neo4j-labs/cypherlite` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@neo4j-labs/cypherlite-<platform>-<arch>`) is an auto-selected optional dependency; TypeScript types included. `conn.query(cypher, params?)` returns a `Result` with object rows, `stats`, `single()`, `consume()`, and `graph()`; `conn.query` also works as a tagged template — interpolated values become auto-named parameters
 - JavaScript (browser): `npm install @neo4j-labs/cypherlite-wasm` — `new CypherliteDb()` for in-memory, `await CypherliteDb.open("opfs://<name>")` for the durable OPFS store (dedicated worker only)
 - Java / Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
 - Result metadata: query results expose the resolved namespace and the query type (`r`/`w`/`rw`/`s`) on every surface — Rust `QueryResult`, the C ABI, Python, JavaScript, Java, Go, and Bolt.

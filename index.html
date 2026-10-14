@@ -1362,7 +1362,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.12.1</span>
+      <span class="pill-tag" style="text-transform:none">v0.12.2</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1420,7 +1420,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.2</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1617,7 +1617,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.1 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.2 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1845,6 +1845,10 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <span>clients</span>
           <span class="label-tag">embed</span>
         </button>
+        <button class="example-tab" data-ref-tab="serve" role="tab">
+          <span>serve</span>
+          <span class="label-tag">http·mcp·bolt</span>
+        </button>
       </div>
 
       <!-- cli -->
@@ -1863,10 +1867,13 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
 <span class="flag">--version</span>         version
 <span class="flag">-d</span>, <span class="flag">--database</span> PATH   database directory, .cl bundle, or :memory: (default :memory:)
-<span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span>    output format shortcuts
-<span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher
+<span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span> / <span class="flag">--toon</span>    output format shortcuts
+<span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher | toon
+<span class="flag">--format</span> M        alias of --mode (the neo4j-cli spelling)
+<span class="flag">--pretty</span>          indent JSON even when piped (piped JSON is compact by default)
 <span class="flag">--noheader</span>        drop column headers
 <span class="flag">--max-rows</span> N     rows printed per statement; 0 unlimited (agent default 100)
+<span class="flag">--timeout</span> DURATION  cancel a long statement (500ms, 10s, 2m; 0 disables; exit 7)
 <span class="flag">--param</span> N=V       bind a Cypher parameter (repeatable, JSON scalar)
 <span class="flag">--fetch-params</span> N=SRC  fetch a URL or read a file, bind its JSON as $N (repeatable)
 <span class="flag">-c</span>, <span class="flag">--command</span> Q   one-shot query
@@ -1883,6 +1890,9 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <pre><span class="prompt">$</span> cypherlite query [STATEMENT] [--database PATH]  <span class="comment"># statement session: oneshot, stdin script, or shell</span>
 <span class="prompt">$</span> cypherlite skill install [--agent NAME]   <span class="comment"># agent skill bundle</span>
 <span class="prompt">$</span> cypherlite skill remove  [--agent NAME]
+<span class="prompt">$</span> cypherlite skill list · skill check       <span class="comment"># install state · verify bundles, exit 1 on drift</span>
+<span class="prompt">$</span> cypherlite agent-context [COMMAND]        <span class="comment"># compact agent briefing: commands, flags, exit codes</span>
+<span class="prompt">$</span> cypherlite serve <span class="flag">--database</span> ./mydata <span class="flag">--http</span> 7474 <span class="flag">--mcp</span> 8000 <span class="flag">--bolt</span> 7687  <span class="comment"># network surfaces (below)</span>
 <span class="prompt">$</span> cypherlite upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
 <span class="prompt">$</span> cypherlite telemetry off | status
 <span class="prompt">$</span> cypherlite clone SOURCE DEST              <span class="comment"># copy any db — dir ↔ .cl matrix; never writes SOURCE</span>
@@ -1894,7 +1904,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
 <span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
 <span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
-          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>7</code> statement timed out (<code>--timeout</code>), <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
 <span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
@@ -1932,11 +1942,12 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
           <span class="desc">Output formats</span>
         </div>
         <div class="ref-body">
-          <p>Seven formats, selected by flags — no in-session <code>.mode</code> command:</p>
+          <p>Eight formats, selected by flags — no in-session <code>.mode</code> command:</p>
           <pre><span class="prompt">$</span> cypherlite --database ./mydata "MATCH (p:Person) RETURN p.name, p.age"      <span class="comment"># table (default)</span>
 <span class="prompt">$</span> cypherlite <span class="flag">-csv</span> --noheader <span class="flag">--database</span> ./mydata "…" &gt; people.csv
-<span class="prompt">$</span> cypherlite <span class="flag">-json</span> <span class="flag">--database</span> ./mydata "…" &gt; people.json
+<span class="prompt">$</span> cypherlite <span class="flag">-json</span> <span class="flag">--database</span> ./mydata "…" &gt; people.json   <span class="comment"># compact when piped; --pretty forces indent</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> jsonl <span class="flag">--database</span> ./mydata "…" | jq .          <span class="comment"># one object per line</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--toon</span> <span class="flag">--database</span> ./mydata "…"                 <span class="comment"># rows[N]{col,…}: header, one line per row</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope <span class="flag">--database</span> ./mydata "…"            <span class="comment"># {columns, rows, truncated} per result set</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown <span class="flag">--database</span> ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher <span class="flag">--database</span> ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
@@ -2053,6 +2064,21 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
         </div>
       </div>
+
+      <!-- serve -->
+      <div class="example-pane" data-ref-pane="serve">
+        <div class="example-header">
+          <span class="desc">Serve — HTTP Query API, MCP, Bolt on one store</span>
+        </div>
+        <div class="ref-body">
+          <p><code>cypherlite serve</code> hosts the network surfaces on one open database until SIGINT/SIGTERM. Each surface gets its own flag and port (loopback only, no defaults; a taken port is a startup error): <code>--http PORT</code> serves the HTTP Query API v2 (<code>POST /db/&lt;name&gt;/query/v2</code> plus a public <code>GET /</code> discovery document), <code>--mcp PORT</code> the MCP server on its streamable-HTTP transport, and <code>--bolt PORT</code> the Bolt server (Bolt + Bolt-over-WebSocket).</p>
+          <pre><span class="prompt">$</span> cypherlite serve <span class="flag">--database</span> ./mydata <span class="flag">--http</span> 7474 <span class="flag">--mcp</span> 8000 <span class="flag">--bolt</span> 7687
+<span class="prompt">$</span> curl -s -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
+    -u cypherlite:&lt;token&gt; -H 'Content-Type: application/json' \
+    -d '{"statement": "MATCH (n) RETURN count(n)"}'</pre>
+          <p>Basic auth is shared by every served surface: by default a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>, mode 0600); <code>--auth user:password</code> (or <code>CYPHERLITE_AUTH</code>) presets a credential, <code>--auth none</code> disables. <code>--origin ORIGIN</code> widens the browser Origin policy on the HTTP surface (repeatable; default loopback origins plus <code>https://browser.neo4j.io</code>).</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -2063,7 +2089,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.2</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2847,7 +2873,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.1').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.2').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

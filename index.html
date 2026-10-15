@@ -3091,6 +3091,41 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       return labelColor.map.get(l);
     }
 
+    // NVL's force-directed layout can blow up on high-DPR mobile browsers:
+    // it settles with node coordinates in the 100 000 range for a 50-node
+    // graph (vs. ~1 000 on desktop at DPR 1). Fitting against that works
+    // mathematically but makes every node a sub-pixel dot. Detect that case
+    // and rescale the positions into a 2 000-world-unit box before fit().
+    function normalizePositionsIfRunaway(nvl) {
+      if (!nvl || typeof nvl.getNodePositions !== 'function'
+                || typeof nvl.setNodePositions !== 'function') return;
+      const positions = nvl.getNodePositions();
+      const entries = Object.entries(positions || {});
+      if (entries.length < 2) return;
+      let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+      for (const [, p] of entries) {
+        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+        if (p.x < xmin) xmin = p.x; if (p.x > xmax) xmax = p.x;
+        if (p.y < ymin) ymin = p.y; if (p.y > ymax) ymax = p.y;
+      }
+      const w = xmax - xmin, h = ymax - ymin;
+      const span = Math.max(w, h);
+      // 10 000 is well above any sane desktop layout and well below the
+      // mobile blow-up we observe (~100 000+).
+      if (span <= 10_000) return;
+      const target = 2_000;
+      const k = target / span;
+      const cx = (xmin + xmax) / 2, cy = (ymin + ymax) / 2;
+      // NVL's setNodePositions expects an array of {id, x, y}, not the
+      // object shape getNodePositions returns.
+      const scaled = [];
+      for (const [id, p] of entries) {
+        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+        scaled.push({ id, x: (p.x - cx) * k, y: (p.y - cy) * k });
+      }
+      try { nvl.setNodePositions(scaled); } catch { /* NVL API drift */ }
+    }
+
     // Walk any wire-format value tree and collect nodes and relationships.
     // Nodes: objects with `labels` array + numeric `id`; rels: objects with
     // numeric `start_node`/`end_node` + numeric `id` + `type`.
@@ -3367,9 +3402,21 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           ro.observe(pane);
           setTimeout(() => { ro.disconnect(); r(); }, 500);  // safety fallback
         });
+        // Mirror the playground's NVL config exactly — the playground uses
+        // defaults and doesn't drift on mobile; the only thing we added
+        // (initialZoom: 0.85) caused the force simulation to settle at
+        // ~115000 world units on mobile Chrome, which overflowed the pane.
         const nvl = new nvlMods.NVL(pane, data.nodes, data.rels, {
-          renderer: 'canvas', disableTelemetry: true, initialZoom: 0.85,
+          disableTelemetry: true,
+          // Explicit force-directed layout with small-graph parameters.
+          // NVL's default layout on mobile Chrome produced bboxes in the
+          // 100000-unit range for a 50-node graph; fit() would scale the
+          // nodes down to 1-pixel dots so they were effectively invisible.
+          // These parameters keep the simulation inside a few thousand
+          // world units so the camera lands on something you can see.
+          layout: 'forcedirected',
         });
+        pane._nvl = nvl;   // handle for mobile-smoke / phone-nodes tests
         new nvlMods.handlers.PanInteraction(nvl);
         new nvlMods.handlers.DragNodeInteraction(nvl);
         // NVL's own wheel zoom — same algorithm the playground ships. It
@@ -3411,14 +3458,40 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
         const nodeIds = data.nodes.map(n => n.id);
         addVizControls(pane, nvl, nodeIds);
         addFocusHint(pane);
-        // Single delayed fit, same as the playground. Previous approach
-        // (poll-fit until layout settles, plus a ResizeObserver re-fit on
-        // every pane change) created a feedback loop on slower devices
-        // where the layout never stopped moving — nodes drifted forever.
-        setTimeout(() => {
-          if (pane.dataset.userMoved) return;
-          if (nvl.fit) nvl.fit(nodeIds, { animated: false });
-        }, 600);
+        // Wait for NVL's force simulation to settle, then fit the camera.
+        // Two mobile-specific guards:
+        //
+        //  * NVL's force simulation on high-DPR mobile Chrome produces node
+        //    coordinates in the 100k-world-unit range (vs. ~1000 on desktop
+        //    at DPR 1). `fit()` then picks a camera at scale ~0.004, which
+        //    renders every node as a sub-pixel dot. If the bbox is wildly
+        //    out of proportion to the pane, rescale node positions into a
+        //    sane range before fitting.
+        //
+        //  * `isLayoutMoving()` flips once the ticks are done; poll on rAF
+        //    so we don't block the main thread. Hard cap at 2.5 s so a
+        //    pathological layout can't leave the camera unfit forever.
+        (() => {
+          const deadline = performance.now() + 2500;
+          const tryFit = () => {
+            if (pane.dataset.userMoved) return;
+            if (!nvl || !nvl.fit) return;
+            const still = typeof nvl.isLayoutMoving === 'function'
+              ? !nvl.isLayoutMoving()
+              : true;
+            if (!still && performance.now() < deadline) {
+              requestAnimationFrame(tryFit);
+              return;
+            }
+            normalizePositionsIfRunaway(nvl);
+            nvl.fit(nodeIds, { animated: false });
+            requestAnimationFrame(() => {
+              if (pane.dataset.userMoved) return;
+              nvl.fit(nodeIds, { animated: false });
+            });
+          };
+          requestAnimationFrame(tryFit);
+        })();
       } catch (err) {
         caption.textContent = 'viz unavailable';
       }

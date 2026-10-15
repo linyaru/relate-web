@@ -1362,7 +1362,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.12.2</span>
+      <span class="pill-tag" style="text-transform:none">v0.12.3</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1420,7 +1420,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.2</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.3</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1617,7 +1617,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.2 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.3 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1857,7 +1857,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <span class="desc">CLI — flags, commands, exit codes</span>
         </div>
         <div class="ref-body">
-          <p><code>cypherlite [OPTIONS] [--database PATH] [QUERY|-c QUERY]</code> — the store is <code>--database</code> / <code>-d</code> (<code>:memory:</code> by default); the first positional is the statement. <code>cypherlite query [STATEMENT] [--database PATH]</code> is the statement-session verb: with a statement it runs once, without one it reads a stdin script or opens the interactive shell on a terminal. No statement and no <code>query</code> verb prints help and exits.</p>
+          <p><code>cypherlite [OPTIONS] [--database PATH] [QUERY|-c QUERY]</code> — the store is <code>--database</code> / <code>-d</code> (<code>:memory:</code> by default); the first positional is the statement. <code>cypherlite query [STATEMENT] [--database PATH]</code> is the statement-session verb: with a statement it runs once, without one it reads a stdin script or opens the interactive shell on a terminal. No statement and no <code>query</code> verb opens the interactive shell on a terminal; piped or redirected stdin prints help and exits.</p>
           <pre><span class="prompt">$</span> cypherlite query                              <span class="comment"># in-memory interactive shell</span>
 <span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata    <span class="comment"># durable directory, interactive</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata.cl "RETURN 1"      <span class="comment"># single-file bundle, one-shot</span>
@@ -1904,7 +1904,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--db</span> ./code-graph   <span class="comment"># experimental</span>
 <span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
 <span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
-          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>7</code> statement timed out (<code>--timeout</code>), <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line; a parse error whose first word is a near-miss of a command gains a <code>did you mean "query"?</code> line under the error. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>7</code> statement timed out (<code>--timeout</code>), <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
 <span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
@@ -2089,7 +2089,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.2</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.3</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2873,7 +2873,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.2').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.3').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

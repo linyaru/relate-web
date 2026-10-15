@@ -3331,14 +3331,21 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       pane.style.height = pxH;
       pane.style.minHeight = pxH;
       pane.style.maxHeight = pxH;
-      // Pin the pane's width to a *pixel* value measured right now, instead of
-      // leaving it at `width:100%`. On mobile, the output stream grows every
-      // time a new result is appended; even a one-pixel change in the content
-      // area (e.g. an overlay scrollbar flipping as the URL bar hides) retriggers
-      // NVL's internal ResizeObserver and the force layout drifts. A fixed px
-      // width breaks that loop entirely. The pane will not auto-resize on
-      // orientation change — that's an acceptable trade for a stable graph.
-      const availW = Math.max(240, outputEl.clientWidth - 1);
+      // Pin the pane's width to a *pixel* value measured right now against
+      // the output pane's **content box** (clientWidth minus horizontal
+      // padding), not `clientWidth` itself — otherwise the pane is wider
+      // than the content area and the output pane grows a horizontal
+      // scrollbar on mobile. Reason to pin at all: on mobile the output
+      // stream grows every time a new result is appended; even a one-pixel
+      // change in the content area (overlay scrollbar flipping as the URL
+      // bar hides, DPR snap, …) retriggers NVL's internal ResizeObserver
+      // and the force layout drifts. A fixed px width breaks that loop
+      // entirely. The pane will not auto-resize on orientation change —
+      // acceptable trade for a stable graph.
+      const outStyle = getComputedStyle(outputEl);
+      const padL = parseFloat(outStyle.paddingLeft) || 0;
+      const padR = parseFloat(outStyle.paddingRight) || 0;
+      const availW = Math.max(240, outputEl.clientWidth - padL - padR);
       pane.style.width = availW + 'px';
       pane.style.maxWidth = availW + 'px';
       outputEl.appendChild(pane);

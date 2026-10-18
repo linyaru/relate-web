@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-18T17:48:25Z",
+  "generated_at": "2026-10-18T22:24:21Z",
   "latest": {
-    "tag": "v0.12.5",
-    "published_at": "2026-10-18T17:38:01Z",
-    "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **Breaking: `PROFILE` returns the wrapped statement's rows, not `_profile_*` columns** — the deprecated `_profile_plan`/`_profile_time`/`_profile_rows`/`_profile_mutations` columns are gone; the plan tree now rides beside the result carrying per-operator Rows, Time, Db Hits and Memory, an Est/Actual ratio column, and typed warnings (`CartesianProduct`, `AllNodesScan`, `EstimationMiss`) that name the operator worth a second look (ADR-0344/0345, ADR-0348). Example:\n  ```\n  cypherlite \"PROFILE MATCH (n) RETURN n\"\n  ```\n\n- **Speedscope export for `PROFILE` plans** — `--mode speedscope` writes a PROFILE's plan tree as one speedscope evented-profile JSON document, so a slow query can be admired properly at speedscope.app (ADR-0349). Example:\n  ```\n  cypherlite --database ./graph --mode speedscope \"PROFILE MATCH (p:Person) RETURN p.name\" > plan.json\n  ```\n\n- **Bolt now matches Neo4j 2026.09 at Bolt 4.4** — the server was probed message-by-message against the latest Neo4j (125 findings, 73 fixed): FAILUREs carry proper `Neo.*` status codes so drivers retry what is retryable, transactions get bookmarks and `qid`-addressed results, and temporal and point values round-trip as PackStream structures, `utc` patch included. Example:\n  ```\n  cypherlite serve --database ./graph --bolt 7687\n  ```\n\n### Other changes\n\n- `cypherlite serve --read-only` / `--follow` serve a store without taking the writer lease — read-only beside a live writer, or following the writer's commits as they land (ADR-0306).\n- A Bolt `EXPLAIN`/`PROFILE` plan deeper than PackStream's 128-level nesting limit now answers `planTruncated: true` in the RUN summary instead of silently dropping the plan (ADR-0353).\n- Fixed: a unique constraint's backing index never materialized its seek postings, so `MERGE`/`MATCH` on the constrained key label-scanned — a 5k-row MERGE went from 5.5 s to 0.047 s.\n- Executor speed-ups: interned-domain candidate reads, a bound-node pivot for multi-pattern path expansion, and one shared execution for import-invariant `CALL {}` bodies.\n- Table mode no longer panics on `PROFILE RETURN 1`; the plan table now renders from the tree for PROFILE exactly as for EXPLAIN.\n\n<!-- release-notes:end -->\n## What's Changed\n* docs(skill): point the query section at db.ontology.get() (LABS-324) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/319\n* ci(release): rebase gh-pages pushes and deploy Pages from the release run (LABS-325, ADR-0330) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/320\n* refactor(executor): path fold split — agg_fold plan module + shape walkers (LABS-161 round 16) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/317\n* ci: replace the unsound mtime normalization with content-addressed sccache (ADR-0331) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/321\n* docs(agents): mint ADR numbers late, never speculatively by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/324\n* feat(cli): serve a store read-only or following (LABS-319, ADR-0306) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/323\n* perf(executor): share one execution for import-invariant CALL {} bodies (LABS-198) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/325\n* feat(engine): EXPLAIN plan node tree + renderer, explain_plan API (LABS-163, ADR-0344/0345) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/326\n* Re-freeze loadtest baselines (CI envelope) by @github-actions[bot] in https://github.com/neo4j-labs/cypherlite/pull/328\n* ci(nightshift): active = non-draft PRs with activity in the last 24h (LABS-311) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/330\n* fix(bolt): relax trickled-message elapsed bound for loaded runners (Linear 3f4abce4) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/331\n* fix(stellar): context-unit findings are night-shift backlog, not PR verdict blockers (ADR-0346) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/332\n* fix(stellar): one canonical on-diff predicate — full range intersection (ADR-0346 follow-up) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/333\n* test(graph-examples): per-query engine timings in the differential report by @jexp in https://github.com/neo4j-labs/cypherlite/pull/334\n* refactor(graph-examples): stellar round-1 fixes for the timings change (#334) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/336\n* fix(stellar): degraded rounds keep the context section; the open count names its arithmetic by @jexp in https://github.com/neo4j-labs/cypherlite/pull/335\n* feat(engine): PROFILE per-operator metrics, _profile_* removal (LABS-163 phase 2, ADR-0344/0345) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/329\n* refactor(engine): PROFILE phase-2 review follow-up (LABS-163) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/340\n* fix(ci): opencode summaries must post file content, never a file mention by @jexp in https://github.com/neo4j-labs/cypherlite/pull/342\n* feat(stellar): round-1 scope intersects the diff hunks (ADR-0347) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/338\n* refactor(graph-examples): stellar round-2 fixes (record model extraction, one derivation/fixture/construction) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/337\n* fix(executor): materialize the constraint backing index's seek postings (LABS-328) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/339\n* ci(draft): draft PRs run the fast gate only; full suite on ready-for-review by @jexp in https://github.com/neo4j-labs/cypherlite/pull/343\n* docs(agents): cross-session messaging workaround note (claude-code#103057) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/345\n* feat(engine): rich EXPLAIN/PROFILE plan - subjects, estimates, metrics, warnings, passthrough, speedscope (LABS-163) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/344\n* feat(stellar): prevention distillation loop — nightly recurrence report (LABS-311) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/348\n* ci: cancel in-flight check runs when a PR merges by @jexp in https://github.com/neo4j-labs/cypherlite/pull/351\n* perf(executor): bound-node pivot for multi-pattern path expansion (LABS-330, ADR-0350) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/346\n* feat(stellar): nits never open inline threads; collapsed Low appendix (ADR-0354) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/349\n* fix(nightshift): fix step timed out mid-verify — scoped check only, 75 min by @jexp in https://github.com/neo4j-labs/cypherlite/pull/355\n* fix(nightshift): fast-tier failure is a soft discard, not a red run by @jexp in https://github.com/neo4j-labs/cypherlite/pull/357\n* docs: CONTRIBUTING.md — draft-PR workflow, CI build split, night-shift for deferred fixes by @jexp in https://github.com/neo4j-labs/cypherlite/pull/358\n* fix(plan): LABS-346 fix round — bolt pack marker, ProfileTick sink, vocabulary dedup, PROFILE table panic by @jexp in https://github.com/neo4j-labs/cypherlite/pull/350\n* perf(executor): interned-domain candidate reads, reused fold buffers, FxHash core maps (LABS-337/LABS-347, ADR-0355) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/359\n* Run Linux CI through GoSonic by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/322\n* fix(ci): cancel-on-merge failed on success — the empty-check's exit code by @jexp in https://github.com/neo4j-labs/cypherlite/pull/362\n* fix(nightshift): Linear review-tasks are an input stream, not 1:1 execution by @jexp in https://github.com/neo4j-labs/cypherlite/pull/360\n* feat(bolt): match latest Neo4j at Bolt 4.4 — probe, fixes, and pinned compat tests (LABS-323) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/327\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.12.4...v0.12.5\n",
+    "tag": "v0.12.6",
+    "published_at": "2026-10-18T22:19:50Z",
+    "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **Self-update, un-404'd** — against the internal repository the direct release-download route ignores tokens and answered 404 for every asset, so `cypherlite upgrade` (and its `update` alias) never got past the `SHA256SUMS` fetch; the download now probes that route and falls back to the authenticated GitHub API asset route when `GITHUB_TOKEN` is set, and fails with one actionable line when it isn't. Example:\n  ```\n  cypherlite upgrade\n  ```\n\n<!-- release-notes:end -->\n## What's Changed\n* feat(stellar): unit-granular dependency-dirty expansion (ADR-0356) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/361\n* fix(cli): fall back to the authenticated API asset route when the release download 404s (ADR-0358) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/365\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.12.5...v0.12.6\n",
     "prerelease": false,
     "assets": [
       "cypherlite-darwin-amd64",
@@ -17,18 +17,44 @@
       "cypherlite-linux-amd64",
       "cypherlite-linux-arm64",
       "cypherlite-windows-amd64.exe",
-      "neo4j_cypherlite-0.12.5-cp39-abi3-macosx_10_12_x86_64.whl",
-      "neo4j_cypherlite-0.12.5-cp39-abi3-macosx_11_0_arm64.whl",
-      "neo4j_cypherlite-0.12.5-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
-      "neo4j_cypherlite-0.12.5-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-      "neo4j_cypherlite-0.12.5-cp39-abi3-win_amd64.whl",
-      "neo4j_cypherlite-0.12.5.tar.gz",
+      "neo4j_cypherlite-0.12.6-cp39-abi3-macosx_10_12_x86_64.whl",
+      "neo4j_cypherlite-0.12.6-cp39-abi3-macosx_11_0_arm64.whl",
+      "neo4j_cypherlite-0.12.6-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+      "neo4j_cypherlite-0.12.6-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "neo4j_cypherlite-0.12.6-cp39-abi3-win_amd64.whl",
+      "neo4j_cypherlite-0.12.6.tar.gz",
       "SHA256SUMS",
       "SHA256SUMS.sig"
     ]
   },
   "latest_prerelease": null,
   "releases": [
+    {
+      "tag": "v0.12.6",
+      "published_at": "2026-10-18T22:19:50Z",
+      "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **Self-update, un-404'd** — against the internal repository the direct release-download route ignores tokens and answered 404 for every asset, so `cypherlite upgrade` (and its `update` alias) never got past the `SHA256SUMS` fetch; the download now probes that route and falls back to the authenticated GitHub API asset route when `GITHUB_TOKEN` is set, and fails with one actionable line when it isn't. Example:\n  ```\n  cypherlite upgrade\n  ```\n\n<!-- release-notes:end -->\n## What's Changed\n* feat(stellar): unit-granular dependency-dirty expansion (ADR-0356) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/361\n* fix(cli): fall back to the authenticated API asset route when the release download 404s (ADR-0358) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/365\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.12.5...v0.12.6\n",
+      "prerelease": false,
+      "assets": [
+        "cypherlite-darwin-amd64",
+        "cypherlite-darwin-arm64",
+        "cypherlite-ffi-aarch64-apple-darwin.tar.gz",
+        "cypherlite-ffi-aarch64-unknown-linux-gnu.tar.gz",
+        "cypherlite-ffi-x86_64-apple-darwin.tar.gz",
+        "cypherlite-ffi-x86_64-pc-windows-msvc.tar.gz",
+        "cypherlite-ffi-x86_64-unknown-linux-gnu.tar.gz",
+        "cypherlite-linux-amd64",
+        "cypherlite-linux-arm64",
+        "cypherlite-windows-amd64.exe",
+        "neo4j_cypherlite-0.12.6-cp39-abi3-macosx_10_12_x86_64.whl",
+        "neo4j_cypherlite-0.12.6-cp39-abi3-macosx_11_0_arm64.whl",
+        "neo4j_cypherlite-0.12.6-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "neo4j_cypherlite-0.12.6-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "neo4j_cypherlite-0.12.6-cp39-abi3-win_amd64.whl",
+        "neo4j_cypherlite-0.12.6.tar.gz",
+        "SHA256SUMS",
+        "SHA256SUMS.sig"
+      ]
+    },
     {
       "tag": "v0.12.5",
       "published_at": "2026-10-18T17:38:01Z",
@@ -259,32 +285,6 @@
         "neo4j_cypherlite-0.11.6-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "neo4j_cypherlite-0.11.6-cp39-abi3-win_amd64.whl",
         "neo4j_cypherlite-0.11.6.tar.gz",
-        "SHA256SUMS",
-        "SHA256SUMS.sig"
-      ]
-    },
-    {
-      "tag": "v0.11.5",
-      "published_at": "2026-10-07T14:21:41Z",
-      "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **Keywords are valid label and relationship-type names, as in Neo4j** — `MATCH (o:Order)` used to fail with `expected a label name, got \"Order\"`; now any keyword is accepted in patterns, label predicates, `SET`/`REMOVE` labels and label expressions, kept exactly as written, so Neo4j-written Cypher (the northwind walkthrough included) parses unedited. Example:\n  ```\n  cypherlite :memory: \"MATCH (o:Order) RETURN o\"\n  ```\n\n- **Number conversions now follow Neo4j to the last digit** — `toInteger()`, `toFloat()` and the remaining float-to-integer sites were re-grounded against a live Neo4j:\n  - NaN and Infinity saturate (`toInteger(1.0/0.0)` is `9223372036854775807`); numeric strings are judged by exact decimal value, so out-of-range input raises `NumberOutOfRange` (or `null` from the `OrNull` forms) instead of silently saturating, and in-range input converts without `f64` rounding.\n  - List elements convert independently, and the string parsers accept Java's forms: surrounding whitespace, `f`/`d` suffixes, hex floats, `0x1F`, `1_000`.\n  - `range()`, `substring()` and slice bounds coerce float arguments; `SKIP`/`LIMIT` and list indexing reject every float, `1.0` included; `(-9223372036854775807 - 1) / -1` wraps instead of erroring, replicating Neo4j's unchecked Java operators.\n\n- **`cypherlite::Value` shares its payloads behind `Arc` (breaking Rust change)** — cloning a String, List, Map or Vector value is now O(1), which removes the quadratic cost of queries that index into a large collected list once per row:\n  - Rust code constructs the four variants with `.into()` / `Arc::new(..)` and takes payloads back with `Arc::unwrap_or_clone`; the C ABI, Bolt, every language client and the persisted WAL/JSON/Parquet bytes are unchanged.\n  - Bolt's `--max-result-bytes` check stops at the first row past the limit and runs on the engine blocking pool, so one enormous result fails fast instead of stalling the async workers.\n\n### Other changes\n\n- `point()` accepts node and relationship arguments (read as their property maps) and its map rules now match Neo4j: cartesian iff `x` and `y` are present, else geographic iff `latitude` and `longitude` are, with `srid` validated and longitude wrapping into [-180, 180].\n- `cypherlite lab fs-to-graph DIR --db PATH` prints the import summary and exits instead of dropping into the `cypher>` prompt; omit `--db` to keep the shell.\n- A non-literal `LOAD CSV … FIELDTERMINATOR` is now a syntax error instead of being silently ignored — the terminator must be a string literal, e.g. `FIELDTERMINATOR '\\t'`.\n\n<!-- release-notes:end -->\n## What's Changed\n* feat(executor): use TEXT, RANGE, and POINT indexes, including OR unions by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/179\n* fix(cli): exit after fs-to-graph when --db is set by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/170\n* fix(executor): populate db.schema.visualization() indexes/constraints from the catalog (LABS-172) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/183\n* fix(storage): omit Parquet page statistics so large properties fit the header window by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/184\n* feat(testing): graph-examples differential suite (ADR-0144) — streaming pull, per-query timeboxes, parallel datasets by @jexp in https://github.com/neo4j-labs/cypherlite/pull/174\n* fix(storage): enable serde_json float_roundtrip — bit-exact f64 across WAL/checkpoint (LABS-134) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/185\n* fix(executor): point() accepts node and relationship arguments (ADR-0167, LABS-169) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/186\n* fix(executor): toInteger()/toFloat() NaN, Infinity and out-of-range conversions follow Neo4j (ADR-0168, LABS-177) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/189\n* fix(parser): accept keywords as unquoted label and relationship-type names (LABS-154) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/187\n* fix(executor): align numeric conversions with Neo4j 2026.09 (ADR-0175, LABS-178) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/194\n* perf(executor): lazy per-label probe + incremental constraint validation — pull scales linearly (ADR-0171..0174, LABS-155) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/193\n* fix(storage): stream checkpoint shards and copy clean rows by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/195\n* perf(engine): constant-time variable reads via Arc-shared Value payloads (LABS-156) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/192\n* fix(executor): schema and admin DDL return zero records (LABS-184) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/197\n* perf(executor): drop an unwound list from rows that do not read it by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/196\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.11.4...v0.11.5\n",
-      "prerelease": false,
-      "assets": [
-        "cypherlite-darwin-amd64",
-        "cypherlite-darwin-arm64",
-        "cypherlite-ffi-aarch64-apple-darwin.tar.gz",
-        "cypherlite-ffi-aarch64-unknown-linux-gnu.tar.gz",
-        "cypherlite-ffi-x86_64-apple-darwin.tar.gz",
-        "cypherlite-ffi-x86_64-pc-windows-msvc.tar.gz",
-        "cypherlite-ffi-x86_64-unknown-linux-gnu.tar.gz",
-        "cypherlite-linux-amd64",
-        "cypherlite-linux-arm64",
-        "cypherlite-windows-amd64.exe",
-        "neo4j_cypherlite-0.11.5-cp39-abi3-macosx_10_12_x86_64.whl",
-        "neo4j_cypherlite-0.11.5-cp39-abi3-macosx_11_0_arm64.whl",
-        "neo4j_cypherlite-0.11.5-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
-        "neo4j_cypherlite-0.11.5-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-        "neo4j_cypherlite-0.11.5-cp39-abi3-win_amd64.whl",
-        "neo4j_cypherlite-0.11.5.tar.gz",
         "SHA256SUMS",
         "SHA256SUMS.sig"
       ]

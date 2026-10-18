@@ -1362,7 +1362,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.12.4</span>
+      <span class="pill-tag" style="text-transform:none">v0.12.5</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1420,7 +1420,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.4</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.5</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1517,17 +1517,17 @@
 
         <div class="db-panel db-panel-hidden" data-db-panel="memory">
           <p>No persistence — everything lives in RAM. Fastest option; ideal for tests, demos, and throwaway exploration.</p>
-          <div class="step-cmd" data-copy="cypherlite :memory: 'RETURN 1 AS ok'"><span class="prompt">$</span> cypherlite <span style="color:var(--code-keyword)">:memory:</span> <span style="color:var(--code-string)">'RETURN 1 AS ok'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+          <div class="step-cmd" data-copy="cypherlite --database :memory: 'RETURN 1 AS ok'"><span class="prompt">$</span> cypherlite <span class="flag">--database</span> <span style="color:var(--code-keyword)">:memory:</span> <span style="color:var(--code-string)">'RETURN 1 AS ok'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
         </div>
 
         <div class="db-panel" data-db-panel="dir">
           <p>A durable directory: fsync'd WAL plus Parquet snapshots (default). Open or create — same command. Checkpoint to <code style="font-size:12px">graph.json</code> instead with <code style="font-size:12px">--snapshot-format json</code>.</p>
-          <div class="step-cmd" data-copy="cypherlite ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Create a local graph database in ./mydata and open a shell</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite ./mydata<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+          <div class="step-cmd" data-copy="cypherlite --database ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Create a local graph database in ./mydata and open a shell</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
         </div>
 
         <div class="db-panel db-panel-hidden" data-db-panel="bundle">
           <p>A <code style="font-size:12px">.cl</code> bundle packs WAL, snapshots, and catalog into one host file — no sidecar files. Great for shipping a database with an app or agent.</p>
-          <div class="step-cmd" data-copy="cypherlite ./mydata.cl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.cl</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite ./mydata.cl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+          <div class="step-cmd" data-copy="cypherlite --database ./mydata.cl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.cl</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata.cl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
         </div>
       </div>
 
@@ -1536,8 +1536,8 @@
         <div class="step-num">3</div>
         <h3>Create data</h3>
         <p>One-shot write with typed parameters — or <code style="font-size:12px">LOAD CSV</code>, pipe a <code style="font-size:12px">.cypher</code> file, or pull a subgraph from Neo4j/Aura. <a href="#tab-create" class="step-link">↓</a></p>
-        <div class="step-cmd" data-copy="cypherlite ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name, age: p.age})' --param 'people=[{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30},{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:28}]'"><span class="agentic-line"><span class="agentic-comment">&gt; Create Person nodes for Alice (30) and Bob (28)</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'UNWIND $people AS p CREATE (:Person {…})'</span> <span style="color:var(--code-keyword)">--param</span> <span style="color:var(--code-string)">'people=[…]'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        <div class="step-cmd" data-copy="cypherlite pull --from neo4j.env --query 'MATCH (p:Person) RETURN p' ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Mirror the Person nodes from my Aura database into ./mydata</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span style="color:var(--code-keyword)">pull</span> <span style="color:var(--code-keyword)">--from</span> <span style="color:var(--code-string)">neo4j.env</span> <span style="color:var(--code-keyword)">--query</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p'</span> ./mydata <span class="comment"># durable path required</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        <div class="step-cmd" data-copy="cypherlite --database ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name, age: p.age})' --param 'people=[{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30},{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:28}]'"><span class="agentic-line"><span class="agentic-comment">&gt; Create Person nodes for Alice (30) and Bob (28)</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="flag">--database</span> <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'UNWIND $people AS p CREATE (:Person {…})'</span> <span style="color:var(--code-keyword)">--param</span> <span style="color:var(--code-string)">'people=[…]'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        <div class="step-cmd" data-copy="cypherlite pull --from neo4j.env --query 'MATCH (p:Person) RETURN p' --database ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Mirror the Person nodes from my Aura database into ./mydata</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span style="color:var(--code-keyword)">pull</span> <span style="color:var(--code-keyword)">--from</span> <span style="color:var(--code-string)">neo4j.env</span> <span style="color:var(--code-keyword)">--query</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p'</span> <span style="color:var(--code-keyword)">--database</span> ./mydata <span class="comment"># durable path required</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
       </div>
 
       <!-- Step 4 -->
@@ -1545,7 +1545,7 @@
         <div class="step-num">4</div>
         <h3>Query it</h3>
         <p>Same binary, <span class="dbarg-text">same file</span> — Cypher with a pretty table by default, JSON for pipes and agents. <a href="#tab-query" class="step-link">↓</a></p>
-        <div class="step-cmd" data-db-aware data-copy="cypherlite ./mydata 'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'"><span class="agentic-line"><span class="agentic-comment">&gt; List everyone in the database, youngest first, as JSON</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+        <div class="step-cmd" data-db-aware data-copy="cypherlite --database ./mydata 'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'"><span class="agentic-line"><span class="agentic-comment">&gt; List everyone in the database, youngest first, as JSON</span><span class="agentic-loading">→ loading skill cypherlite</span></span><span class="prompt">$</span> cypherlite <span class="flag">--database</span> <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
       </div>
     </div>
   </div>
@@ -1617,7 +1617,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.4 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.12.5 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1868,7 +1868,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--version</span>         version
 <span class="flag">-d</span>, <span class="flag">--database</span> PATH   database directory, .cl bundle, or :memory: (default :memory:)
 <span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span> / <span class="flag">--toon</span>    output format shortcuts
-<span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher | toon
+<span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher | toon | speedscope
 <span class="flag">--format</span> M        alias of --mode (the neo4j-cli spelling)
 <span class="flag">--pretty</span>          indent JSON even when piped (piped JSON is compact by default)
 <span class="flag">--noheader</span>        drop column headers
@@ -1951,6 +1951,8 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope <span class="flag">--database</span> ./mydata "…"            <span class="comment"># {columns, rows, truncated} per result set</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown <span class="flag">--database</span> ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher <span class="flag">--database</span> ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
+          <p><code>EXPLAIN</code> and <code>PROFILE</code> render the query's plan tree — operators with row estimates; PROFILE adds measured rows, time, db hits, and memory per operator, and flags typed warnings (cartesian product, label-less scan while a label index exists, a 10× estimate overshoot). One more mode exports that tree:</p>
+          <pre><span class="prompt">$</span> cypherlite <span class="flag">--mode</span> speedscope <span class="flag">--database</span> ./mydata "PROFILE …" &gt; plan.json   <span class="comment"># load at speedscope.app</span></pre>
           <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it) and <code>envelope</code> reports <code>"truncated": true</code>.</p>
         </div>
       </div>
@@ -2076,7 +2078,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <span class="prompt">$</span> curl -s -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
     -u cypherlite:&lt;token&gt; -H 'Content-Type: application/json' \
     -d '{"statement": "MATCH (n) RETURN count(n)"}'</pre>
-          <p>Basic auth is shared by every served surface: by default a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>, mode 0600); <code>--auth user:password</code> (or <code>CYPHERLITE_AUTH</code>) presets a credential, <code>--auth none</code> disables. <code>--origin ORIGIN</code> widens the browser Origin policy on the HTTP surface (repeatable; default loopback origins plus <code>https://browser.neo4j.io</code>).</p>
+          <p>Basic auth is shared by every served surface: by default a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>, mode 0600); <code>--auth user:password</code> (or <code>CYPHERLITE_AUTH</code>) presets a credential, <code>--auth none</code> disables. <code>--origin ORIGIN</code> widens the browser Origin policy on the HTTP surface (repeatable; default loopback origins plus <code>https://browser.neo4j.io</code>). <code>--read-only</code> serves an existing store without the writer lease, so another process can keep writing it; <code>--follow</code> (implies <code>--read-only</code>, native directories only) tails the WAL and keeps showing the writer's commits.</p>
         </div>
       </div>
     </div>
@@ -2089,7 +2091,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.4</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.12.5</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2384,7 +2386,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       });
       document.querySelectorAll('.step-cmd[data-db-aware]').forEach(el => {
         if (el.dataset.copy) {
-          el.dataset.copy = el.dataset.copy.replace('cypherlite ' + oldArg + ' ', 'cypherlite ' + newArg + ' ');
+          el.dataset.copy = el.dataset.copy.replace('cypherlite --database ' + oldArg + ' ', 'cypherlite --database ' + newArg + ' ');
         }
       });
     });
@@ -2873,7 +2875,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.4').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.12.5').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

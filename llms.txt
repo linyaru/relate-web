@@ -95,6 +95,27 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 - Serve: `cypherlite serve --database PATH --http PORT [--mcp PORT] [--bolt PORT] [--read-only | --follow]` embeds the network surfaces in the CLI — HTTP Query API v2, MCP (streamable HTTP), and Bolt on one open store, with shared basic auth (generated token by default, `--auth user:password`, `--auth none`); `--read-only` serves beside the process writing the store, `--follow` (implies `--read-only`, native directories only) tails the WAL and keeps showing its commits; `--max-connections N` / `--max-active-queries N` cap shared sessions and concurrent queries (0/omit unlimited)
 - Bolt: `cypherlite-bolt` serves the engine over the Bolt protocol for remote clients. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (`.auth-token`); override with `--auth user:password` / `CYPHERLITE_AUTH`, or `--auth none` to disable. Bolt-over-WebSocket is served on the same `--bind` (on by default; `--no-websocket` opts out, `--ws-allow-origin ORIGIN` widens the auth-dependent Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box
 
+## Extensions
+
+Userland commands reach the CLI as extension packages: a directory with an
+`extension.json` manifest and an executable that walks some source and
+writes the graph through MCP tool calls (`tools/call`: `get_schema`,
+`update_schema`, `read_cypher`, `write_cypher`, `batch_cypher`,
+`report_output`). The host owns the store, the caps, the commit policy and
+the exit codes. Author loop: `cypherlite extension init <name> --lang sh|py|ts|rust`
+(scaffold: manifest, inline MCP client, TODO `walk()`) → edit →
+`cypherlite extension check ./<name>` (wiring probe, no install) →
+`extension install <name> --from ./<name>` → `cypherlite run <name> [flags]`.
+Install trust tiers: first-party channel, commit-pinned GitHub releases
+(`--github OWNER/REPO@TAG`, pin recorded in a per-user trust store),
+unsigned URL, local directory. Shipped: `fs-to-graph` (directory tree),
+`git-to-graph` (checkout history), plus worked `so-to-graph` examples in
+bash/Python/TypeScript (live Stack Exchange import). The same tool surface
+serves any MCP client via `cypherlite serve --mcp stdio` (JSON-RPC per
+line on stdin/stdout) or `--mcp PORT` (streamable HTTP, one JSON-RPC
+message per POST, basic auth via `--auth`). Contract:
+docs/api/extensions/ on GitHub (ADR-0429…0447).
+
 ## Docker
 
 `make docker` builds the cypherlite-bolt server image (multi-stage: a

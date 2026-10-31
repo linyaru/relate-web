@@ -1329,6 +1329,7 @@
     </a>
     <nav class="top-nav" id="topNav">
       <a href="#examples">Examples</a>
+      <a href="#extensions">Extensions</a>
       <a href="#reference">Reference</a>
       <a href="#quickstart">Quickstart</a>
       <a href="/cypherlite/cookbook/">Cookbook</a>
@@ -1803,8 +1804,93 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
   </div>
 </section>
 
+<!-- ============== EXTENSIONS ============== -->
+<section class="alt" id="extensions">
+  <div class="container inner">
+    <div class="section-header">
+      <span class="section-eyebrow">extensions</span>
+      <h2 class="section-title">Userland commands, one mount.</h2>
+      <p class="section-sub">
+        An extension is a package that walks some source and writes the
+        graph through MCP tool calls. The host alone owns the store, the
+        caps, the commit policy and the exit codes — a package is a source
+        walker; its only power is the calls it makes. Any language that
+        can speak JSON-RPC can be an extension.
+      </p>
+    </div>
+    <div class="examples" id="extensionsSection" style="grid-template-columns:1fr;">
+
+      <div class="example-pane active">
+        <div class="example-header">
+          <span class="desc">user guide — scaffold, check, install, run</span>
+        </div>
+        <div class="ref-body">
+          <p>One command scaffolds a complete package; one function says what it does.</p>
+<pre><span class="comment"># scaffold a package (sh | py | ts | rust) — manifest, MCP client, TODO-marked walk()</span>
+<span class="prompt">$</span> cypherlite extension init word-count --lang py
+<span class="comment"># probe the wiring — the handshake, the flag table, the refusal texts — without installing</span>
+<span class="prompt">$</span> cypherlite extension check ./word-count
+<span class="comment"># install and run it: flags come from the manifest's own table</span>
+<span class="prompt">$</span> cypherlite extension install word-count --from ./word-count
+<span class="prompt">$</span> cypherlite run word-count --name README.md -d ./mydata</pre>
+          <p class="ref-sub"><span class="keyword">Trust tiers</span> — first-party channel, commit-pinned GitHub releases (<code>--github OWNER/REPO@TAG</code>, the pin recorded in a per-user trust store), or a local directory. Nothing is ever fetched implicitly; every unknown name fails closed naming the install path.</p>
+        </div>
+      </div>
+
+      <div class="example-pane">
+        <div class="example-header">
+          <span class="desc">shipped extensions — two first-party walkers, three worked examples</span>
+        </div>
+        <div class="ref-body">
+          <p><code>fs-to-graph</code> walks a directory tree into the graph; <code>git-to-graph</code> reads a checkout's history — both first-party extension crates speaking the same MCP stdio wire.</p>
+<pre><span class="prompt">$</span> cypherlite extension install git-to-graph
+<span class="out">installed git-to-graph 0.2.0 (first-party)</span>
+<span class="prompt">$</span> cypherlite run git-to-graph --help</pre>
+          <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
+        </div>
+      </div>
+
+      <div class="example-pane">
+        <div class="example-header">
+          <span class="desc">from other MCP clients — stdio and streamable HTTP</span>
+        </div>
+        <div class="ref-body">
+          <p>The same tool surface serves plain MCP clients, not just extensions: six tools, one table — <code>get_schema</code>, <code>update_schema</code>, <code>read_cypher</code>, <code>write_cypher</code>, <code>batch_cypher</code>, <code>report_output</code>.</p>
+<pre><span class="comment"># stdio: register as a command in any MCP host (Claude Code, Claude Desktop, …)</span>
+<span class="comment">#   command: cypherlite  args: serve --mcp stdio -d ./mydata</span>
+
+<span class="comment"># streamable HTTP: one JSON-RPC message per POST, basic auth</span>
+<span class="prompt">$</span> cypherlite serve --mcp 7800 --auth cypherlite:secret -d ./mydata
+<span class="prompt">$</span> curl -s cypherlite:secret@127.0.0.1:7800/ -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</pre>
+          <p class="ref-sub"><span class="keyword">Gates</span> — <code>read_cypher</code> admits pure reads only; <code>write_cypher</code>/<code>batch_cypher</code> refuse pure reads and cap rows and statements per call; <code>update_schema</code> admits DDL only. Hosts auto-approve the read-only tool; everything else asks.</p>
+        </div>
+      </div>
+
+      <div class="example-pane">
+        <div class="example-header">
+          <span class="desc">implementers — the wire under the hood, and publishing</span>
+        </div>
+        <div class="ref-body">
+          <p>The child is the MCP client; the host is the server. JSON-RPC 2.0 on the pipes: the child writes <code>initialize</code> then <code>tools/call</code> requests on stdout, the host answers on stdin. The store is host property — the child never even sees the database path.</p>
+<pre><span class="comment"># the wire kit: pure std + serde_json, linkable from any child language</span>
+<span class="comment">#   cypherlite-wire/src/mcp/{protocol,tools,child}.rs</span>
+<span class="comment">#   Request/Response records, the one tool table, the child-side client kit</span>
+
+<span class="comment"># a child's whole job: handshake, then parameterized calls under the caps</span>
+<span class="out">→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18",…}}</span>
+<span class="out">← {"jsonrpc":"2.0","id":1,"result":{"serverInfo":{…},"capacity":{…},"commitPolicy":"per-batch"}}</span>
+<span class="out">→ {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"write_cypher",
+     "arguments":{"statement":"UNWIND $rows AS r CREATE (:Word {text: r.text})","parameters":{"rows":[…]}}}}</span></pre>
+          <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 <!-- ============== REFERENCE ============== -->
-<section class="alt" id="reference">
+<section id="reference">
   <div class="container inner">
     <div class="section-header">
       <span class="section-eyebrow">reference</span>

@@ -1294,11 +1294,11 @@
   .ref-body li { margin-bottom: 2px; }
   .ref-body code {
     font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-size: 12.5px;
     background: rgba(255,255,255,0.08);
     padding: 1px 5px;
     border-radius: 3px;
-    color: var(--code-keyword);
+    color: var(--code-fg);
   }
   .ref-body a { color: var(--code-fn); text-decoration: none; }
   .ref-body a:hover { text-decoration: underline; }
@@ -1310,7 +1310,7 @@
     overflow-x: auto;
     white-space: pre;
     font-family: var(--font-mono);
-    font-size: 12.5px;
+    font-size: 14px;
     line-height: 1.65;
     color: var(--code-fg);
   }
@@ -1848,13 +1848,13 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         <div class="ref-body">
           <p>One command scaffolds a complete package; one function says what it does.</p>
 <pre><span class="comment"># scaffold a package (sh | py | ts | rust) — manifest, MCP client, TODO-marked walk()</span>
-<span class="prompt">$</span> cypherlite extension init word-count --lang py
+<span class="prompt">$</span> cypherlite extension init word-count <span class="flag">--lang py</span>
 <span class="comment"># probe the wiring — the handshake, the flag table, the refusal texts — without installing</span>
 <span class="prompt">$</span> cypherlite extension check ./word-count
 <span class="comment"># install and run it: flags come from the manifest's own table</span>
-<span class="prompt">$</span> cypherlite extension install word-count --from ./word-count
-<span class="prompt">$</span> cypherlite run word-count --name README.md -d ./mydata</pre>
-          <p class="ref-sub"><span class="keyword">Trust tiers</span> — first-party channel, commit-pinned GitHub releases (<code>--github OWNER/REPO@TAG</code>, the pin recorded in a per-user trust store), or a local directory. Nothing is ever fetched implicitly; every unknown name fails closed naming the install path.</p>
+<span class="prompt">$</span> cypherlite extension install word-count <span class="flag">--from ./word-count</span>
+<span class="prompt">$</span> cypherlite run word-count <span class="flag">--name README.md</span> <span class="flag">-d ./mydata</span></pre>
+          <p class="ref-sub"><span class="keyword">Trust tiers</span> — first-party channel, commit-pinned GitHub releases (<code><span class="flag">--github OWNER/REPO@TAG</span></code>, the pin recorded in a per-user trust store), or a local directory. Nothing is ever fetched implicitly; every unknown name fails closed naming the install path.</p>
         </div>
       </div>
 
@@ -1866,11 +1866,11 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <p>A first-party extension crate speaking the same MCP stdio wire: one <code>(:File {path, name, extension, size_bytes, content?})</code> per file, <code>(:Folder)-[:CONTAINS]-&gt;</code> the tree, a fulltext index over names and contents, idempotent re-runs on the <code>path</code> key.</p>
 <pre><span class="prompt">$</span> cypherlite extension install fs-to-graph
 <span class="out">installed fs-to-graph 0.13.0 (first-party)</span>
-<span class="prompt">$</span> cypherlite run fs-to-graph -d ./mydata ./project
+<span class="prompt">$</span> cypherlite run fs-to-graph <span class="flag">-d ./mydata</span> ./project
 <span class="out">fs-to-graph: 312 File, 41 Folder, 353 CONTAINS in 0.8s</span>
 
 <span class="comment"># the graph is meant to be searched — the fulltext index is built in</span>
-<span class="prompt">$</span> cypherlite -d ./mydata "MATCH (f:File) SEARCH f IN (FULLTEXT INDEX file_content FOR 'trust boundary' LIMIT 20) RETURN f.path"</pre>
+<span class="prompt">$</span> cypherlite <span class="flag">-d ./mydata</span> "MATCH (f:File) <span class="keyword">SEARCH</span> f <span class="keyword">IN</span> (<span class="keyword">FULLTEXT INDEX</span> file_content <span class="keyword">FOR</span> 'trust boundary' <span class="keyword">LIMIT</span> 20) <span class="keyword">RETURN</span> f.path"</pre>
         </div>
       </div>
 
@@ -1881,11 +1881,11 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         <div class="ref-body">
           <p>The checkout's history joined onto the same <code>:File.path</code> keys: <code>(:Person {email, name})-[:AUTHORED]-&gt;(:Commit {sha, subject, authored_at, files_changed})-[:TOUCHED]-&gt;(:File {path})</code>, plus <code>CO_CHANGED</code> pairs per commit — the co-change signal for refactoring candidates.</p>
 <pre><span class="prompt">$</span> cypherlite extension install git-to-graph
-<span class="prompt">$</span> cypherlite run git-to-graph -d ./mydata --max-commits 5000
+<span class="prompt">$</span> cypherlite run git-to-graph <span class="flag">-d ./mydata</span> <span class="flag">--max-commits 5000</span>
 <span class="out">git-to-graph: 5000 Commit, 38 Person, 41200 TOUCHED, 96400 CO_CHANGED in 41s</span>
 
 <span class="comment"># files that change together most often — refactor candidates</span>
-<span class="prompt">$</span> cypherlite -d ./mydata "MATCH (a:File)-[c:CO_CHANGED]->(b:File) WHERE c.count &gt; 20 RETURN a.path, b.path, c.count ORDER BY c.count DESC LIMIT 10"</pre>
+<span class="prompt">$</span> cypherlite <span class="flag">-d ./mydata</span> "MATCH (a:File)-[c:CO_CHANGED]->(b:File) <span class="keyword">WHERE</span> c.count &gt; 20 <span class="keyword">RETURN</span> a.path, b.path, c.count <span class="keyword">ORDER BY</span> c.count DESC <span class="keyword">LIMIT</span> 10"</pre>
           <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
         </div>
       </div>
@@ -1897,10 +1897,10 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         <div class="ref-body">
           <p>The same tool surface serves plain MCP clients, not just extensions: six tools, one table — <code>get_schema</code>, <code>update_schema</code>, <code>read_cypher</code>, <code>write_cypher</code>, <code>batch_cypher</code>, <code>report_output</code>.</p>
 <pre><span class="comment"># stdio: register as a command in any MCP host (Claude Code, Claude Desktop, …)</span>
-<span class="comment">#   command: cypherlite  args: serve --mcp stdio -d ./mydata</span>
+<span class="comment">#   command: cypherlite  args: serve <span class="flag">--mcp stdio</span> <span class="flag">-d ./mydata</span></span>
 
 <span class="comment"># streamable HTTP: one JSON-RPC message per POST, basic auth</span>
-<span class="prompt">$</span> cypherlite serve --mcp 7800 --auth cypherlite:secret -d ./mydata
+<span class="prompt">$</span> cypherlite serve <span class="flag">--mcp 7800</span> <span class="flag">--auth cypherlite:secret</span> <span class="flag">-d ./mydata</span>
 <span class="prompt">$</span> curl -s cypherlite:secret@127.0.0.1:7800/ -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</pre>
           <p class="ref-sub"><span class="keyword">Gates</span> — <code>read_cypher</code> admits pure reads only; <code>write_cypher</code>/<code>batch_cypher</code> refuse pure reads and cap rows and statements per call; <code>update_schema</code> admits DDL only. Hosts auto-approve the read-only tool; everything else asks.</p>
         </div>
@@ -1920,7 +1920,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="out">→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18",…}}</span>
 <span class="out">← {"jsonrpc":"2.0","id":1,"result":{"serverInfo":{…},"capacity":{…},"commitPolicy":"per-batch"}}</span>
 <span class="out">→ {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"write_cypher",
-     "arguments":{"statement":"UNWIND $rows AS r CREATE (:Word {text: r.text})","parameters":{"rows":[…]}}}}</span></pre>
+     "arguments":{"statement":"UNWIND $rows <span class="keyword">AS</span> r <span class="keyword">CREATE</span> (:Word {text: r.text})","parameters":{"rows":[…]}}}}</span></pre>
           <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
         </div>
       </div>

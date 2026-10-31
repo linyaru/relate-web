@@ -1811,11 +1811,9 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
       <span class="section-eyebrow">extensions</span>
       <h2 class="section-title">Userland commands, one mount.</h2>
       <p class="section-sub">
-        An extension is a package that walks some source and writes the
-        graph through MCP tool calls. The host alone owns the store, the
-        caps, the commit policy and the exit codes — a package is a source
-        walker; its only power is the calls it makes. Any language that
-        can speak JSON-RPC can be an extension.
+        A package that walks a source and writes the graph through MCP
+        tool calls — the host owns the store. Any language that speaks
+        JSON-RPC works.
       </p>
     </div>
     <div class="examples" id="extensionsSection" style="grid-template-columns:1fr;">

@@ -1839,13 +1839,32 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 
       <div class="example-pane">
         <div class="example-header">
-          <span class="desc">shipped extensions — two first-party walkers, three worked examples</span>
+          <span class="desc">fs-to-graph — the directory tree, as a graph</span>
         </div>
         <div class="ref-body">
-          <p><code>fs-to-graph</code> walks a directory tree into the graph; <code>git-to-graph</code> reads a checkout's history — both first-party extension crates speaking the same MCP stdio wire.</p>
+          <p>A first-party extension crate speaking the same MCP stdio wire: one <code>(:File {path, name, extension, size_bytes, content?})</code> per file, <code>(:Folder)-[:CONTAINS]-&gt;</code> the tree, a fulltext index over names and contents, idempotent re-runs on the <code>path</code> key.</p>
+<pre><span class="prompt">$</span> cypherlite extension install fs-to-graph
+<span class="out">installed fs-to-graph 0.13.0 (first-party)</span>
+<span class="prompt">$</span> cypherlite run fs-to-graph -d ./mydata ./project
+<span class="out">fs-to-graph: 312 File, 41 Folder, 353 CONTAINS in 0.8s</span>
+
+<span class="comment"># the graph is meant to be searched — the fulltext index is built in</span>
+<span class="prompt">$</span> cypherlite -d ./mydata "MATCH (f:File) SEARCH f IN (FULLTEXT INDEX file_content FOR 'trust boundary' LIMIT 20) RETURN f.path"</pre>
+        </div>
+      </div>
+
+      <div class="example-pane">
+        <div class="example-header">
+          <span class="desc">git-to-graph — who wrote what, when, and what changes together</span>
+        </div>
+        <div class="ref-body">
+          <p>The checkout's history joined onto the same <code>:File.path</code> keys: <code>(:Person {email, name})-[:AUTHORED]-&gt;(:Commit {sha, subject, authored_at, files_changed})-[:TOUCHED]-&gt;(:File {path})</code>, plus <code>CO_CHANGED</code> pairs per commit — the co-change signal for refactoring candidates.</p>
 <pre><span class="prompt">$</span> cypherlite extension install git-to-graph
-<span class="out">installed git-to-graph 0.2.0 (first-party)</span>
-<span class="prompt">$</span> cypherlite run git-to-graph --help</pre>
+<span class="prompt">$</span> cypherlite run git-to-graph -d ./mydata --max-commits 5000
+<span class="out">git-to-graph: 5000 Commit, 38 Person, 41200 TOUCHED, 96400 CO_CHANGED in 41s</span>
+
+<span class="comment"># files that change together most often — refactor candidates</span>
+<span class="prompt">$</span> cypherlite -d ./mydata "MATCH (a:File)-[c:CO_CHANGED]->(b:File) WHERE c.count &gt; 20 RETURN a.path, b.path, c.count ORDER BY c.count DESC LIMIT 10"</pre>
           <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
         </div>
       </div>

@@ -1816,9 +1816,32 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         JSON-RPC works.
       </p>
     </div>
-    <div class="examples" id="extensionsSection" style="grid-template-columns:1fr;">
+    <div class="examples" id="extensionsSection">
 
-      <div class="example-pane active">
+      <div class="example-tabs" role="tablist">
+        <button class="example-tab active" data-ext-tab="guide" role="tab">
+          <span>guide</span>
+          <span class="label-tag">start</span>
+        </button>
+        <button class="example-tab" data-ext-tab="fs" role="tab">
+          <span>fs-to-graph</span>
+          <span class="label-tag">walker</span>
+        </button>
+        <button class="example-tab" data-ext-tab="git" role="tab">
+          <span>git-to-graph</span>
+          <span class="label-tag">history</span>
+        </button>
+        <button class="example-tab" data-ext-tab="mcp" role="tab">
+          <span>mcp clients</span>
+          <span class="label-tag">stdio · http</span>
+        </button>
+        <button class="example-tab" data-ext-tab="wire" role="tab">
+          <span>implementers</span>
+          <span class="label-tag">wire</span>
+        </button>
+      </div>
+
+      <div class="example-pane active" data-ext-pane="guide">
         <div class="example-header">
           <span class="desc">user guide — scaffold, check, install, run</span>
         </div>
@@ -1835,7 +1858,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         </div>
       </div>
 
-      <div class="example-pane active">
+      <div class="example-pane" data-ext-pane="fs">
         <div class="example-header">
           <span class="desc">fs-to-graph — the directory tree, as a graph</span>
         </div>
@@ -1851,7 +1874,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         </div>
       </div>
 
-      <div class="example-pane active">
+      <div class="example-pane" data-ext-pane="git">
         <div class="example-header">
           <span class="desc">git-to-graph — who wrote what, when, and what changes together</span>
         </div>
@@ -1867,7 +1890,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         </div>
       </div>
 
-      <div class="example-pane active">
+      <div class="example-pane" data-ext-pane="mcp">
         <div class="example-header">
           <span class="desc">from other MCP clients — stdio and streamable HTTP</span>
         </div>
@@ -1883,7 +1906,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
         </div>
       </div>
 
-      <div class="example-pane active">
+      <div class="example-pane" data-ext-pane="wire">
         <div class="example-header">
           <span class="desc">implementers — the wire under the hood, and publishing</span>
         </div>
@@ -2422,6 +2445,16 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   }
 
   refTabs.forEach(tab => tab.addEventListener('click', () => activateRefTab(tab.dataset.refTab)));
+
+  // ---------- Extension tabs ----------
+  const extSect = document.getElementById('extensionsSection');
+  const extTabs = extSect.querySelectorAll('.example-tab');
+  const extPanes = extSect.querySelectorAll('.example-pane');
+
+  extTabs.forEach(tab => tab.addEventListener('click', () => {
+    extTabs.forEach(t => t.classList.toggle('active', t === tab));
+    extPanes.forEach(p => p.classList.toggle('active', p.dataset.extPane === tab.dataset.extTab));
+  }));
 
   // ---------- cli / agentic mode — global state ----------
   let viewMode = 'agentic';

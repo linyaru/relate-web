@@ -1363,7 +1363,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.13.0</span>
+      <span class="pill-tag" style="text-transform:none">v0.14.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1421,7 +1421,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.13.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.14.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1618,7 +1618,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.13.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.14.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -1967,7 +1967,8 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--snapshot-format</span> F           parquet | json (empty directory only)
 <span class="flag">--wal-dir</span> DIR               WAL directory (default &lt;DATABASE&gt;/wal)
 <span class="flag">--checkpoint-interval-secs</span> N  timed checkpoint period, 0 disables
-<span class="flag">--memory-limit</span> SIZE          live graph + index cap (bytes, mb/mib/gb/gib)
+<span class="flag">--logical-graph-size-limit</span> SIZE   live graph + index cap (bytes, mb/mib/gb/gib; 0/unset unlimited)
+<span class="flag">--concurrent-logical-workspace-limit</span> SIZE  shared query workspace pool; a positive value turns admission on
 <span class="flag">--durability-mode</span> M         WAL durability (full|everysecond|snapshot; default full)
 <span class="flag">--load-csv-dir</span> PATH         allow local LOAD CSV under this directory (default denied)
 <span class="flag">--read-only</span>                 open an existing database without writing or checkpointing
@@ -1988,14 +1989,15 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' <span class="flag">--database</span> ./mydata
 <span class="comment"># pull: Neo4j/Aura subgraph → new local db (HTTP Query API v2, streamed, one checkpoint;</span>
 <span class="comment"># --query takes inline Cypher, a ;-list, a file, or - for stdin; refuses a non-empty db)</span>
-<span class="prompt">$</span> cypherlite lab fs-to-graph ./src <span class="flag">--database</span> ./code-graph   <span class="comment"># experimental</span>
-<span class="comment"># lab fs-to-graph: import a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
+<span class="prompt">$</span> cypherlite extension install fs-to-graph · cypherlite run fs-to-graph ./src <span class="flag">--database</span> ./code-graph
+<span class="comment"># the lab importers are extensions now: install from the signed channel, then `run` drives it;</span>
+<span class="comment"># fs-to-graph imports a directory tree as (:Folder)-[:CONTAINS]-&gt;(:Folder|:File),</span>
 <span class="comment"># files keep content up to --max-content-bytes (default 65536); MERGEd on path, re-import is a no-op</span></pre>
-          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line; a parse error whose first word is a near-miss of a command gains a <code>did you mean "query"?</code> line under the error. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>7</code> statement timed out (<code>--timeout</code>), <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
+          <p>Run <code>cypherlite &lt;COMMAND&gt; --help</code> for a command's own synopsis and flags (top-level <code>--help</code> stays short; both end with examples — <code>CYPHERLITE_HELP_EXAMPLES=0</code> hides them). <code>--version --json</code> prints one JSON line. An unknown flag close to a real one gets a <code>Did you mean '--read-only'?</code> suggestion before the usage line; a parse error whose first word is a near-miss of a command gains a <code>did you mean "query"?</code> line under the error. Exit codes: <code>0</code> success, <code>2</code> usage error, <code>6</code> rejected statement (syntax, semantic or type error — including a write on a <code>--read-only</code> database), <code>5</code> write conflict or store locked by another opener, <code>7</code> statement timed out (<code>--timeout</code>), <code>1</code> other runtime failure. In <code>json</code>, <code>jsonl</code> and <code>envelope</code> modes a failure also prints <code>{"error":{code,exit_code,kind,message,retryable,…}}</code> on stdout; a failed multi-statement run adds <code>statement N of M failed; …</code> on stderr. A batch write that applies no change prints <code>note: write statement changed nothing; the graph is unchanged</code> on stderr (a <code>.commit</code> whose transaction changed nothing prints its own note); stdout and exit codes are unchanged. A path that collides with a command word stays reachable via <code>./</code> or after <code>--</code>.</p>
           <p class="ref-sub"><span class="keyword">Environment variables</span> — each mirrors a flag:</p>
           <pre><span class="keyword">CYPHERLITE_SNAPSHOT_FORMAT</span>=json        <span class="comment"># snapshot codec for an empty directory</span>
 <span class="keyword">CYPHERLITE_CHECKPOINT_INTERVAL_SECS</span>=300 <span class="comment"># timed checkpoint period, 0 disables</span>
-<span class="keyword">CYPHERLITE_MEMORY_LIMIT</span>=4gb             <span class="comment"># live graph + index cap</span>
+<span class="keyword">CYPHERLITE_LOGICAL_GRAPH_SIZE_LIMIT</span>=4gb <span class="comment"># live graph + index cap</span>
 <span class="keyword">CYPHERLITE_TELEMETRY</span>=0 · <span class="keyword">DO_NOT_TRACK</span>=1   <span class="comment"># opt out of CLI metrics</span>
 <span class="keyword">CYPHERLITE_MAX_ROWS</span>=0 · <span class="keyword">CYPHERLITE_HELP_EXAMPLES</span>=0  <span class="comment"># lift the agent row cap / hide help examples</span>
 <span class="keyword">NEO4J_URI</span>=… <span class="keyword">NEO4J_USERNAME</span>=… <span class="keyword">NEO4J_PASSWORD</span>=…  <span class="comment"># pull source when --from is omitted</span>
@@ -2041,7 +2043,7 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
           <p><code>EXPLAIN</code> and <code>PROFILE</code> render the query's plan tree — operators with row estimates; PROFILE adds measured rows, time, db hits (broken into hops / neighbor walks / node reads), and memory per operator, marks an operator that never ran, and flags typed warnings (cartesian product, label-less scan while a label index exists, a 10× estimate overshoot). One more mode exports that tree:</p>
           <pre><span class="prompt">$</span> cypherlite <span class="flag">--mode</span> speedscope <span class="flag">--database</span> ./mydata "PROFILE …" &gt; plan.json   <span class="comment"># load at speedscope.app</span></pre>
           <p><code>EXPLAIN</code> and <code>PROFILE</code> also derive Neo4j-style query notifications — twelve kinds (unknown label / relationship type / property key, deprecated function or procedure, cartesian product, unbounded variable-length pattern, …), each with a code, GQLSTATUS, severity, and remedy. Table mode prints a <code>Notifications:</code> block on stderr, markdown appends it, toon prints a <code>notifications:</code> section, and envelope always carries the complete list under <code>notifications</code> (an empty array on a plain run).</p>
-          <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it) and <code>envelope</code> reports <code>"truncated": true</code>.</p>
+          <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it), <code>envelope</code> reports <code>"truncated": true</code>, and a piped run's default format is <code>toon</code> instead of <code>jsonl</code> (an explicit <code>--mode</code>/shortcut always wins).</p>
         </div>
       </div>
 
@@ -2132,7 +2134,7 @@ cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl f
 &lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
 &lt;dir&gt;/relationships/{lo}-{hi}.parquet
 &lt;dir&gt;/wal/NNNNNNNN.log</pre>
-          <p>One codec per directory — mixing Parquet shards and <code>graph.json</code> is an error. Checkpoints rotate at 64 MiB WAL, 10 000 commits, or a timer (default 300 s, <code>--checkpoint-interval-secs</code>). Crash recovery = load snapshot, replay WAL. <code>--memory-limit</code> caps the live graph (logical, not RSS) — the working set must fit in RAM. Optional CDC slots hold WAL recycle until acked. Stores carry a format version — opening an older store migrates it in place, hands-off.</p>
+          <p>One codec per directory — mixing Parquet shards and <code>graph.json</code> is an error. Checkpoints rotate at 64 MiB WAL, 10 000 commits, or a timer (default 300 s, <code>--checkpoint-interval-secs</code>). Crash recovery = load snapshot, replay WAL. <code>--logical-graph-size-limit</code> caps the live graph (logical, not RSS) — the working set must fit in RAM. Optional CDC slots hold WAL recycle until acked. Stores carry a format version — opening an older store migrates it in place, hands-off.</p>
         </div>
       </div>
 
@@ -2180,7 +2182,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.13.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.14.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -2964,7 +2966,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.13.0').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.14.0').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

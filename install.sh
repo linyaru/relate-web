@@ -18,6 +18,31 @@ die() {
 	exit 1
 }
 
+# The ADR-0457 signed-manifest version header. The prefix is byte-identical
+# to `upgrade_cmd/manifest.rs`'s SUMS_VERSION_PREFIX and is matched literally
+# (quoted expansion) in both spots below; the harness's section-0 guards hold
+# the three copies together.
+SUMS_VERSION_PREFIX='# cypherlite-release-version: '
+
+# The last release published before the signed SHA256SUMS version header
+# existed (ADR-0457). A headerless manifest is accepted only at or below it.
+LEGACY_MANIFEST_CEILING=0.14.0
+
+# True when the X.Y.Z version $1 is greater than $2. Unparseable input counts
+# as greater, so the caller takes the fail-closed branch.
+version_gt() {
+	awk -v a="$1" -v b="$2" 'BEGIN {
+		na = split(a, A, "."); nb = split(b, B, ".");
+		if (na != 3 || nb != 3) exit 0;
+		for (i = 1; i <= 3; i++) {
+			if (A[i] !~ /^[0-9]+$/ || B[i] !~ /^[0-9]+$/) exit 0;
+			if (A[i] + 0 > B[i] + 0) exit 0;
+			if (A[i] + 0 < B[i] + 0) exit 1;
+		}
+		exit 1;
+	}'
+}
+
 case "$(uname -s)" in
 Darwin) os=darwin ;;
 Linux) os=linux ;;
@@ -134,6 +159,31 @@ printf 'cypherlite-release %s\n' "$SIGNING_KEY" >"$tmp/allowed_signers"
 ssh-keygen -Y verify -f "$tmp/allowed_signers" -I cypherlite-release \
 	-n cypherlite-release -s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" ||
 	die "SHA256SUMS signature verification failed for $tag; installing nothing"
+
+# Bind the authenticated manifest to the release the API resolved (ADR-0457):
+# the version header is inside the signed bytes, so a validly signed older
+# manifest cannot be replayed for a newer tag. The prefix comes from the one
+# constant above, whose literal the Rust side also pins: any other spelling —
+# no space after the colon, a tab, a later line — is a headerless legacy
+# manifest. A present-but-empty header is a publish bug and fails hard.
+first_line=$(head -n 1 "$tmp/SHA256SUMS")
+case "$first_line" in
+"$SUMS_VERSION_PREFIX"*)
+	sums_version=${first_line#"$SUMS_VERSION_PREFIX"}
+	sums_version=$(printf '%s\n' "$sums_version" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	[ -n "$sums_version" ] ||
+		die "SHA256SUMS from $tag carries an empty version header; installing nothing"
+	[ "$sums_version" = "$tag" ] ||
+		die "SHA256SUMS is for $sums_version, not the requested release $tag; installing nothing"
+	;;
+*)
+	if version_gt "${tag#v}" "$LEGACY_MANIFEST_CEILING"; then
+		die "SHA256SUMS from $tag has no signed version header; refusing to install a manifest whose version is not authenticated (legacy manifests are accepted only at or below v$LEGACY_MANIFEST_CEILING); installing nothing"
+	else
+		echo "install.sh: warning: SHA256SUMS from $tag has no signed version header (legacy manifest, accepted only at or below v$LEGACY_MANIFEST_CEILING)" >&2
+	fi
+	;;
+esac
 
 # The manifest is authenticated; only now is the binary download worth
 # paying for.

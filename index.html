@@ -1363,7 +1363,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.14.0</span>
+      <span class="pill-tag" style="text-transform:none">v0.15.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1421,7 +1421,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.14.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.15.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1618,7 +1618,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.14.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.15.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -2080,7 +2080,7 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> envelope <span class="flag">--database</span> ./mydata "…"            <span class="comment"># {columns, rows, truncated, notifications} per result set</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> markdown <span class="flag">--database</span> ./mydata "…"              <span class="comment"># for docs &amp; agents</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--mode</span> cypher <span class="flag">--database</span> ./mydata "…"                 <span class="comment"># Cypher literals</span></pre>
-          <p><code>EXPLAIN</code> and <code>PROFILE</code> render the query's plan tree — operators with row estimates; PROFILE adds measured rows, time, db hits (broken into hops / neighbor walks / node reads), and memory per operator, marks an operator that never ran, and flags typed warnings (cartesian product, label-less scan while a label index exists, a 10× estimate overshoot). One more mode exports that tree:</p>
+          <p><code>EXPLAIN</code> and <code>PROFILE</code> render the query's plan tree — operators with row estimates; PROFILE adds measured rows, time, db hits (broken into hops / neighbor walks / node reads), and memory per operator, marks an operator that never ran, and flags typed warnings (cartesian product, label-less scan while a label index exists, a 10× estimate overshoot). A scan-shaped <code>MATCH</code> executed as batch operators shows a <code>[batched]</code> suffix in <code>Details</code>, plus <code>[zone-skips N]</code> when per-column zone maps skipped a conjunct. One more mode exports that tree:</p>
           <pre><span class="prompt">$</span> cypherlite <span class="flag">--mode</span> speedscope <span class="flag">--database</span> ./mydata "PROFILE …" &gt; plan.json   <span class="comment"># load at speedscope.app</span></pre>
           <p><code>EXPLAIN</code> and <code>PROFILE</code> also derive Neo4j-style query notifications — twelve kinds (unknown label / relationship type / property key, deprecated function or procedure, cartesian product, unbounded variable-length pattern, …), each with a code, GQLSTATUS, severity, and remedy. Table mode prints a <code>Notifications:</code> block on stderr, markdown appends it, toon prints a <code>notifications:</code> section, and envelope always carries the complete list under <code>notifications</code> (an empty array on a plain run).</p>
           <p>Flags work in one-shot mode, pipe mode, and the interactive shell. Under a detected agent harness a statement prints at most 100 rows (warns on stderr, exits <code>0</code>; <code>--max-rows 0</code> lifts it), <code>envelope</code> reports <code>"truncated": true</code>, and a piped run's default format is <code>toon</code> instead of <code>jsonl</code> (an explicit <code>--mode</code>/shortcut always wins).</p>
@@ -2222,7 +2222,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.14.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.15.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -3016,7 +3016,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.14.0').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.15.0').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-02T13:49:14Z",
+  "generated_at": "2026-11-02T14:50:55Z",
   "latest": {
     "tag": "v0.15.0",
     "published_at": "2026-11-02T13:39:15Z",
@@ -55,30 +55,6 @@
         "neo4j_cypherlite-0.15.0.tar.gz",
         "SHA256SUMS",
         "SHA256SUMS.sig"
-      ]
-    },
-    {
-      "tag": "cypherlite-extensions-fs-to-graph-0.13.0",
-      "published_at": "2026-11-02T09:22:00Z",
-      "notes": "",
-      "prerelease": false,
-      "assets": [
-        "fs-to-graph-0.13.0-darwin-amd64.tar.gz",
-        "fs-to-graph-0.13.0-darwin-arm64.tar.gz",
-        "fs-to-graph-0.13.0-linux-amd64.tar.gz",
-        "fs-to-graph-0.13.0-linux-arm64.tar.gz"
-      ]
-    },
-    {
-      "tag": "cypherlite-extensions-git-to-graph-0.13.0",
-      "published_at": "2026-11-02T09:06:26Z",
-      "notes": "",
-      "prerelease": false,
-      "assets": [
-        "git-to-graph-0.13.0-darwin-amd64.tar.gz",
-        "git-to-graph-0.13.0-darwin-arm64.tar.gz",
-        "git-to-graph-0.13.0-linux-amd64.tar.gz",
-        "git-to-graph-0.13.0-linux-arm64.tar.gz"
       ]
     },
     {
@@ -260,6 +236,58 @@
         "neo4j_cypherlite-0.12.5-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "neo4j_cypherlite-0.12.5-cp39-abi3-win_amd64.whl",
         "neo4j_cypherlite-0.12.5.tar.gz",
+        "SHA256SUMS",
+        "SHA256SUMS.sig"
+      ]
+    },
+    {
+      "tag": "v0.12.4",
+      "published_at": "2026-10-16T09:23:11Z",
+      "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **`upgrade` now reads the website, not the GitHub API** — release discovery for `cypherlite upgrade`/`update` moved to a static `releases.json` published on the project site, so self-updates no longer live or die by `api.github.com`'s 60/hour anonymous rate limit (shared NATs and CI boxes may rejoice, quietly). `GITHUB_TOKEN` survives only as an optional bearer header on the asset downloads; SSHSIG verification and the atomic self-replace are unchanged. Example:\n  ```\n  cypherlite upgrade --check\n  ```\n\n- **`LOAD CSV` reads real-world CSV** — a quoted field may now contain newlines, so one record can span physical lines (full RFC 4180, matching Neo4j). A short row maps its missing `WITH HEADERS` keys to null, extra fields past the header width are dropped, and an unterminated quote preserves the rest of the file instead of silently eating it. Example:\n  ```\n  cypherlite --load-csv-dir ./data :memory: \"LOAD CSV WITH HEADERS FROM 'people.csv' AS row RETURN row.name\"\n  ```\n\n- **Query-engine speedups** — two executor paths stopped doing laps they didn't need to:\n  - The vector-search flat scan was rewritten around a bounded top-k heap with no per-row value clones: 155 ms → 93 ms p50 on a 50k×768 embedding corpus (1.7×), exactness unchanged.\n  - `elementId(r)`/`id(r)` equality on a relationship variable is now an O(1) seek instead of walking every node's adjacency: 37 s → 2.4 s on the 2000-relationship repro.\n\n### Other changes\n\n- Repo plumbing: ADR numbers are minted atomically from a counter branch (`python3 scripts/adr_mint.py`), with a CI conflict check and a proof-of-mint `Claim:` header required on new ADRs (ADR-0300, ADR-0301).\n\n<!-- release-notes:end -->\n## What's Changed\n* feat(cli): discover releases from website releases.json instead of the GitHub REST API by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/306\n* test(ci): drop the prebuild gate, shard Test, 8-core A/B, composite setup action, nextest on TCK (LABS-310 rounds 3+4) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/310\n* perf(executor): vector SEARCH flat-scan rewrite — bounded top-k heap, Value-kernels (ADR-0256, #311) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/312\n* ci: per-lane speed fixes — free-disk pass1 removal, feature-bundle + bolt suite splits (LABS-310) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/313\n* chore(adr): counter-branch number mint + PR conflict check (LABS-318) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/302\n* refactor(executor): stellar round 1 fixes for the vector SEARCH flat scan (#311) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/314\n* style: rustfmt vector.rs — fmt gate on main is red by @jexp in https://github.com/neo4j-labs/cypherlite/pull/316\n* fix(executor): RFC4180 quote handling for LOAD CSV (LABS-226) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/304\n* ci: partition the bolt lib suite at test level (LABS-310) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/315\n* perf(executor): O(1) rel elementId equality seek (LABS-161) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/305\n* ci(review): env-overridable review-agent models, default glm-fast-latest (LABS-320) by @oskarhane in https://github.com/neo4j-labs/cypherlite/pull/318\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.12.3...v0.12.4\n",
+      "prerelease": false,
+      "assets": [
+        "cypherlite-darwin-amd64",
+        "cypherlite-darwin-arm64",
+        "cypherlite-ffi-aarch64-apple-darwin.tar.gz",
+        "cypherlite-ffi-aarch64-unknown-linux-gnu.tar.gz",
+        "cypherlite-ffi-x86_64-apple-darwin.tar.gz",
+        "cypherlite-ffi-x86_64-pc-windows-msvc.tar.gz",
+        "cypherlite-ffi-x86_64-unknown-linux-gnu.tar.gz",
+        "cypherlite-linux-amd64",
+        "cypherlite-linux-arm64",
+        "cypherlite-windows-amd64.exe",
+        "neo4j_cypherlite-0.12.4-cp39-abi3-macosx_10_12_x86_64.whl",
+        "neo4j_cypherlite-0.12.4-cp39-abi3-macosx_11_0_arm64.whl",
+        "neo4j_cypherlite-0.12.4-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "neo4j_cypherlite-0.12.4-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "neo4j_cypherlite-0.12.4-cp39-abi3-win_amd64.whl",
+        "neo4j_cypherlite-0.12.4.tar.gz",
+        "SHA256SUMS",
+        "SHA256SUMS.sig"
+      ]
+    },
+    {
+      "tag": "v0.12.3",
+      "published_at": "2026-10-15T16:32:34Z",
+      "notes": "<!-- release-notes:start -->\n## Release notes\n\n### Highlights\n\n- **Did-you-mean suggestions for mistyped commands** — a statement whose first word is a near-miss of a command (`cypherlite qu`, `telemetr`, `updat`, …) no longer dies on a bare parse error: the error keeps the headline and stderr gains a `did you mean \"query\"?  -- run a statement session (oneshot, stdin, or shell)` line, rendered from the same command table as `--help`, so the hints cannot drift. Valid Cypher with a command-like first token runs untouched, and the JSON error envelope is unchanged. Example:\n  ```\n  cypherlite qu\n  ```\n\n### Other changes\n\n- Nothing else this time — one small kindness, shipped on its own.\n\n<!-- release-notes:end -->\n## What's Changed\n* test(query-latency): graph-benchmark-ldbc query latency suite (LABS-301, ADR-0226..0229) by @johnymontana in https://github.com/neo4j-labs/cypherlite/pull/277\n* feat(query-latency): in-process sampling profiler (ADR-0227) by @johnymontana in https://github.com/neo4j-labs/cypherlite/pull/281\n* test(query-latency): SF0.1 literal substitutions for strong answer checks (ADR-0230) by @johnymontana in https://github.com/neo4j-labs/cypherlite/pull/283\n* feat(cli): bare cypherlite opens the interactive shell on a TTY (LABS-304, ADR-0231) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/276\n* docs(process): stellar incremental-scope rule + cheap pass models; squash-to-one-commit PRs by @jexp in https://github.com/neo4j-labs/cypherlite/pull/295\n* refactor(cli): e2e_help UsageCase cleanup — iterate named fields (LABS-309) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/294\n* feat(cli,docker): serve --host + unified serve image with MCP (ADR-0239, ADR-0240) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/289\n* Re-freeze loadtest baselines (CI envelope) by @github-actions[bot] in https://github.com/neo4j-labs/cypherlite/pull/290\n* feat(cli): did-you-mean command suggestions on parse errors (LABS-303, ADR-0230) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/280\n* ci: run the full suite on Linux and smoke macOS and Windows by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/293\n* ci(stellar): night-shift planner, stale-ledger-proof scoping, prevention rules (LABS-311) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/296\n* ci: run Windows smokes on windows-16-core by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/298\n* ci(test): recover runner disk before the examples build by @jexp in https://github.com/neo4j-labs/cypherlite/pull/299\n* test: fast-test-architecture — memory tiers, OS dedup, shared builds, one corpus compile, sub-minute suites (LABS-310) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/300\n* feat(executor): batched execution of global bulk writes (LABS-263, ADR-0209) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/251\n* test(ci): nextest pilot, mold, cache-key fix, runner-lane fixes (LABS-310 follow-up) by @jexp in https://github.com/neo4j-labs/cypherlite/pull/301\n* perf(executor): gate far-node index probes on range cardinality by @triha74 in https://github.com/neo4j-labs/cypherlite/pull/303\n\n\n**Full Changelog**: https://github.com/neo4j-labs/cypherlite/compare/v0.12.2...v0.12.3\n",
+      "prerelease": false,
+      "assets": [
+        "cypherlite-darwin-amd64",
+        "cypherlite-darwin-arm64",
+        "cypherlite-ffi-aarch64-apple-darwin.tar.gz",
+        "cypherlite-ffi-aarch64-unknown-linux-gnu.tar.gz",
+        "cypherlite-ffi-x86_64-apple-darwin.tar.gz",
+        "cypherlite-ffi-x86_64-pc-windows-msvc.tar.gz",
+        "cypherlite-ffi-x86_64-unknown-linux-gnu.tar.gz",
+        "cypherlite-linux-amd64",
+        "cypherlite-linux-arm64",
+        "cypherlite-windows-amd64.exe",
+        "neo4j_cypherlite-0.12.3-cp39-abi3-macosx_10_12_x86_64.whl",
+        "neo4j_cypherlite-0.12.3-cp39-abi3-macosx_11_0_arm64.whl",
+        "neo4j_cypherlite-0.12.3-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "neo4j_cypherlite-0.12.3-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "neo4j_cypherlite-0.12.3-cp39-abi3-win_amd64.whl",
+        "neo4j_cypherlite-0.12.3.tar.gz",
         "SHA256SUMS",
         "SHA256SUMS.sig"
       ]

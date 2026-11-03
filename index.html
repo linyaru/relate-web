@@ -1831,6 +1831,10 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <span>git-to-graph</span>
           <span class="label-tag">history</span>
         </button>
+        <button class="example-tab" data-ext-tab="dungeon" role="tab">
+          <span>dungeon</span>
+          <span class="label-tag">game</span>
+        </button>
         <button class="example-tab" data-ext-tab="mcp" role="tab">
           <span>mcp clients</span>
           <span class="label-tag">stdio · http</span>
@@ -1887,6 +1891,29 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="comment"># files that change together most often — refactor candidates</span>
 <span class="prompt">$</span> cypherlite <span class="flag">-d ./mydata</span> "MATCH (a:File)-[c:CO_CHANGED]->(b:File) <span class="keyword">WHERE</span> c.count &gt; 20 <span class="keyword">RETURN</span> a.path, b.path, c.count <span class="keyword">ORDER BY</span> c.count DESC <span class="keyword">LIMIT</span> 10"</pre>
           <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
+        </div>
+      </div>
+
+      <div class="example-pane" data-ext-pane="dungeon">
+        <div class="example-header">
+          <span class="desc">dungeon — the keep, as a graph you walk</span>
+        </div>
+        <div class="ref-body">
+          <p>A MUD-style game as a first-party extension child: every verb — move, look, take, give, ask — is one Cypher statement against the store the host owns, and the map is an explored window the child renders from the rooms you have entered. The starter quest is a trade with a dragon.</p>
+<pre><span class="comment"># from a checkout — or any extension package directory</span>
+<span class="prompt">$</span> cypherlite extension install dungeon <span class="flag">--from</span> extensions/cypherlite-dungeon/package
+<span class="comment"># the play verb prints a self-contained bash runner; process substitution keeps the prompt interactive</span>
+<span class="prompt">$</span> bash &lt;(cypherlite run dungeon <span class="flag">--command</span> play) keep.cl
+<span class="out">The road ends at a flight of stone steps. … You have come for the trade.</span>
+<span class="out">You — hp 10, xp 0, carrying: nothing</span>
+<span class="out">· · · · | · · · ·</span>
+<span class="out">· · · - @ - · · ·</span>
+<span class="out">[Entrance] A cool draft blows down from the steps above. Torchlight flickers on worn stone.</span>
+<span class="out">exits: n, e, w</span>
+<span class="prompt">dungeon&gt;</span> n
+<span class="prompt">dungeon&gt;</span> ask bard hint
+<span class="out">Bard: Take the key from the armory west of the hall, then follow the corridors north to the throne room. The cellar lies beyond it.</span></pre>
+          <p class="ref-sub"><span class="keyword">The whole game is the store</span> — rooms, passages, characters and their chat, items and the locks they open live in your <code>.cl</code> file; the child holds no state, so every turn is one <code>cypherlite run</code> call and any session resumes where it left off.</p>
         </div>
       </div>
 

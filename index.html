@@ -1363,7 +1363,7 @@
 <section class="hero">
   <div class="container inner">
     <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
-      <span class="pill-tag" style="text-transform:none">v0.15.0</span>
+      <span class="pill-tag" style="text-transform:none">v0.16.0</span>
       <span>neo4j-labs</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
@@ -1421,7 +1421,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.15.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.0</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1618,7 +1618,7 @@
 <span class="prompt">$</span> cypherlite upgrade <span class="flag">--check</span>     <span class="comment"># report current vs latest, change nothing</span>
 <span class="prompt">$</span> cypherlite upgrade             <span class="comment"># download, verify, replace</span>
 
-<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.15.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
+<span class="agentic-line"><span class="agentic-result">Installed cypherlite v0.16.0 at ~/.local/bin/cypherlite; latest release matches.</span></span></pre>
       </div>
 
       <!-- skill -->
@@ -2015,6 +2015,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata    <span class="comment"># durable directory, interactive</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--database</span> ./mydata.cl "RETURN 1"      <span class="comment"># single-file bundle, one-shot</span>
 <span class="prompt">$</span> cypherlite <span class="flag">--database</span> :memory: "RETURN 1 + 2 AS sum"  <span class="comment"># one-shot, no files</span>
+<span class="prompt">$</span> cypherlite <span class="flag">--load</span> ./mydata.cl "MATCH (n) RETURN count(n)"  <span class="comment"># bundle into memory, query it</span>
 <span class="prompt">$</span> cypherlite query <span class="flag">--database</span> ./mydata &lt; setup.cypher  <span class="comment"># pipe a script</span></pre>
           <p class="ref-sub"><span class="keyword">Flags</span> — single- and double-dash both accepted; <code>--</code> ends flag parsing:</p>
           <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
@@ -2038,8 +2039,11 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--concurrent-logical-workspace-limit</span> SIZE  shared query workspace pool; a positive value turns admission on
 <span class="flag">--durability-mode</span> M         WAL durability (full|everysecond|snapshot; default full)
 <span class="flag">--load-csv-dir</span> PATH         allow local LOAD CSV under this directory (default denied)
-<span class="flag">--read-only</span>                 open an existing database without writing or checkpointing
-<span class="flag">--follow</span>                   tail the WAL of a native database (implies --read-only)
+<span class="flag">--read-only</span>[=FRESH]   open an existing database without writing or checkpointing;
+                       FRESH is snapshot (default) or live — tail the WAL (the former --follow)
+<span class="flag">--load</span> SOURCE       load a store's content from a .cl path, directory, or https URL:
+                       into :memory: (turned into the in-memory store, source released)
+                       or a new --database path (cloned there)
 <span class="flag">--namespace</span> NAME            session namespace (neo4j|system|system_ontologies)</pre>
           <p class="ref-sub"><span class="keyword">Lifecycle commands</span> — positional, first argument only:</p>
           <pre><span class="prompt">$</span> cypherlite query [STATEMENT] [--database PATH]  <span class="comment"># statement session: oneshot, stdin script, or shell</span>
@@ -2194,7 +2198,9 @@ cypherlite --database ./mydata              <span class="comment"># dir: WAL + P
 cypherlite --snapshot-format json --database ./d  <span class="comment"># dir: WAL + graph.json (empty dir only)</span>
 cypherlite --database ./mydata.cl             <span class="comment"># one host file: WAL + snapshot + catalog</span>
 cypherlite --read-only --database ./mydata    <span class="comment"># open existing store, no writes or checkpoints</span>
-cypherlite --follow --database ./mydata       <span class="comment"># tail the WAL live (implies --read-only)</span>
+cypherlite --read-only=live --database ./mydata <span class="comment"># tail the WAL live (the former --follow)</span>
+cypherlite --load ./mydata.cl                 <span class="comment"># turn the bundle into the in-memory store — source released</span>
+cypherlite --load https://…/graph.cl          <span class="comment"># remote .cl fetched to memory (blob links rewritten to raw)</span>
 cypherlite clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file (reverse: clone ./backup.cl ./d); never writes source</span></pre>
           <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
           <pre>&lt;dir&gt;/manifest.json
@@ -2218,7 +2224,7 @@ let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import cypherlite</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>). Cursor rows are <code>Record</code>s (dicts with attribute access) and cursors carry driver-style conveniences — <code>single()</code>, <code>peek()</code>, <code>graph()</code>, <code>to_df()</code>, <code>to_arrow()</code>.</p>
           <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/cypherlite</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @neo4j-labs/cypherlite-wasm</code> — in-memory, or durable OPFS via <code>await CypherliteDb.open("opfs://name")</code> in a dedicated worker.</p>
-          <p class="ref-sub"><span class="keyword">Java / Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship for macOS, Linux, and Windows on the releases page.</p>
+          <p class="ref-sub"><span class="keyword">Java</span> — <code>com.cypherlite:cypherlite</code> on Maven Central: the plain jar bundles the <code>cypherlite-ffi</code> native for all five platforms (macOS and Linux on arm64/x64, Windows x64) and loads the running platform's copy with no <code>CYPHERLITE_LIB</code> or library path; per-platform classifier jars (<code>osx-aarch_64</code>, <code>linux-x86_64</code>, …) carry one platform each. <span class="keyword">Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>cypherlite-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> cypherlite-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
         </div>
@@ -2235,7 +2241,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <span class="prompt">$</span> curl -s -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
     -u cypherlite:&lt;token&gt; -H 'Content-Type: application/json' \
     -d '{"statement": "MATCH (n) RETURN count(n)"}'</pre>
-          <p>Basic auth is shared by every served surface: by default a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>, mode 0600); <code>--auth user:password</code> (or <code>CYPHERLITE_AUTH</code>) presets a credential, <code>--auth none</code> disables. <code>--origin ORIGIN</code> widens the browser Origin policy on the HTTP surface (repeatable; default loopback origins plus <code>https://browser.neo4j.io</code> and <code>https://console.neo4j.io</code>). <code>--read-only</code> serves an existing store without the writer lease, so another process can keep writing it; <code>--follow</code> (implies <code>--read-only</code>, native directories only) tails the WAL and keeps showing the writer's commits.</p>
+          <p>Basic auth is shared by every served surface: by default a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>, mode 0600); <code>--auth user:password</code> (or <code>CYPHERLITE_AUTH</code>) presets a credential, <code>--auth none</code> disables. <code>--origin ORIGIN</code> widens the browser Origin policy on the HTTP surface (repeatable; default loopback origins plus <code>https://browser.neo4j.io</code> and <code>https://console.neo4j.io</code>). <code>--read-only</code> serves an existing store without the writer lease, so another process can keep writing it; <code>--read-only=live</code> (native directories only) tails the WAL and keeps showing the writer's commits. <code>--load SOURCE</code> takes the same sources as the CLI — a <code>:memory:</code> target serves the loaded store ephemeral (source released, writes refuse), a <code>-d PATH</code> target creates the store there before serving.</p>
           <p><code>--host HOST</code> overrides the loopback bind (any other host prints a loud warning — serve has no TLS); <code>--mcp stdio</code> serves the MCP stdio transport in the foreground for MCP hosts; <code>--bolt-identity STRING</code> sets the Bolt HELLO server agent. <code>--max-connections N</code> caps process-wide sessions shared by every surface (over cap is accept-then-close; <code>0</code> or omit is unlimited; <code>CYPHERLITE_MAX_CONNECTIONS</code>), and <code>--max-active-queries N</code> caps concurrent queries (<code>CYPHERLITE_MAX_ACTIVE_QUERIES</code>).</p>
         </div>
       </div>
@@ -2249,7 +2255,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.15.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      cypherlite <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.0</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
       <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
@@ -3043,7 +3049,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
     // Matches the real REPL banner from crates/cypherlite-cli/src/main.rs.
     // Version tracks the site's release pill (updated by the docs pipeline).
-    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.15.0').trim();
+    const CLI_VERSION = (document.querySelector('.pill-tag')?.textContent || 'v0.16.0').trim();
 
     function renderBanner() {
       outputEl.innerHTML =

@@ -94,7 +94,7 @@ footer meta). The authoritative source is the latest GitHub release tag.
 | Install commands, supported platforms | `README.md`, `install.sh` |
 | CLI flags, commands, exit codes, env vars | `docs/api/cli/spec.md` (kept in sync with hand-written `--help`) |
 | Dot-commands | `docs/api/cli/spec.md` / `docs/reference/dot-commands.md` |
-| Cypher coverage wording | "100% openCypher TCK 2024.3 — 3,893 / 3,893 scenarios pass, strict run in CI" — cite the exact counts, link `docs/tck/compliance.md`. GQL alignment and Cypher 25 feature coverage are claimed on the same evidence standard. |
+| Cypher coverage wording | "100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run in CI" — cite the exact counts, link `docs/tck/compliance.md`. GQL alignment and Cypher 25 feature coverage are claimed on the same evidence standard. |
 | "In milliseconds" / latency wording | Backed by the frozen baseline loadtests on `main` (ADR-0046, ADR-0070, ADR-0071, `baselines/`). Any new latency phrasing on the site must trace to that artefact — not to a dev-machine run. |
 | Where CypherLite fits | `docs/guides/storage-engine.md`, ADR-0116 (namespaces), ADR-0119 (admin scope). Frame positively (good fits + a one-line shape note); no bulleted "not for" lists on the site. |
 | Vector / spatial APIs | `docs/guides/vector-similarity.md`, `docs/guides/geospatial-queries.md` |

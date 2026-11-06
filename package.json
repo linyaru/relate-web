@@ -5,9 +5,12 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 8765",
-    "build": "astro build",
+    "dev:playground": "npm --prefix playground run dev --",
+    "build": "astro build && npm run build:playground",
+    "build:playground": "npm --prefix playground run build -- --outDir ../dist/playground --emptyOutDir",
     "preview": "astro preview --host 127.0.0.1 --port 8765",
     "check": "astro check",
+    "check:playground": "npm --prefix playground run typecheck",
     "cookbook:check": "node scripts/cookbook.ts",
     "cookbook:record": "node scripts/cookbook.ts --record",
     "cookbook:test": "node --test \"src/lib/cookbook/*.test.ts\"",

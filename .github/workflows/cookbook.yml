@@ -38,8 +38,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
 
       - run: npm ci
+
+      # The playground is its own package (playground/package.json).
+      - name: Install playground
+        run: npm ci --prefix playground
 
       - name: Unit tests
         run: npm run cookbook:test
@@ -49,6 +56,9 @@ jobs:
 
       - name: Type check
         run: npm run check
+
+      - name: Type check playground
+        run: npm run check:playground
 
       - name: Build site
         run: npm run build

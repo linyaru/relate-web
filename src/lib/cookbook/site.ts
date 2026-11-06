@@ -4,20 +4,19 @@
 // read and checked, and a highlighter for its code. Computed once per build
 // and shared by every cookbook page and endpoint; any problem fails the build.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
+
 import { createHighlighter, type Highlighter } from 'shiki';
 
 import { readLabels, readRendered, diagramTitle, type Theme } from './diagrams.ts';
 import { COOKBOOK_DIR, loadRecipes } from './load.ts';
 import type { Recipe, ResultKind } from './recipe.ts';
-import { checkRun, lastEnvelope, loadEngine, resultProblems, runRecipe } from './run.ts';
+import { lastEnvelope, type TableCells } from './result-view.ts';
+import { checkRun, loadEngine, resultProblems, runRecipe, WASM_DIR } from './run.ts';
 
-/** A table recording's cells: Cypher literals, as the `table` block records them. */
-export interface TableCells {
-  columns: string[];
-  rows: string[][];
-  numeric: boolean[];
-  summary: string;
-}
+export type { TableCells };
 
 export interface GraphNode {
   id: number;
@@ -66,6 +65,8 @@ export interface Page {
 export interface Cookbook {
   pages: Page[];
   highlight: (code: string, lang: string) => string;
+  /** The engine's size over the wire (gzipped), which a page quotes before loading it. */
+  wasmGzipBytes: number;
 }
 
 const LANG_ALIASES: Record<string, string> = { sh: 'shellscript', bash: 'shellscript', shell: 'shellscript', js: 'javascript', py: 'python' };
@@ -87,8 +88,8 @@ async function build(): Promise<Cookbook> {
   const engine = await loadEngine();
   const pages: Page[] = [];
   for (const recipe of recipes) {
-    const run = runRecipe(engine, recipe);
-    const runProblems = [...checkRun(recipe, run), ...resultProblems(recipe, run)];
+    const run = await runRecipe(engine, recipe);
+    const runProblems = [...checkRun(recipe, run), ...run.expandProblems, ...resultProblems(recipe, run)];
     problems.push(...runProblems.map((p) => `[${recipe.slug}] ${p}`));
     const cells = new Map<string, CellResult>(
       run.cells.map((c) => [c.id, { recording: c.recording as FullRecording, envelope: lastEnvelope(c.envelopes) }]),
@@ -116,5 +117,6 @@ async function build(): Promise<Cookbook> {
     const known = highlighter.getLoadedLanguages().includes(l);
     return highlighter.codeToHtml(code, { lang: known ? l : 'text', theme: THEME });
   };
-  return { pages, highlight };
+  const wasmGzipBytes = gzipSync(readFileSync(join(WASM_DIR, 'relate_bg.wasm'))).length;
+  return { pages, highlight, wasmGzipBytes };
 }

@@ -14,13 +14,13 @@ import { byCodePoint } from './index.ts';
 import { CATEGORIES, type Category } from './frontmatter.ts';
 import { byteLength, dataBlock, INLINE_DATA_BYTES, narrative, type Cell, type Recipe } from './recipe.ts';
 import { rewriteHref } from './links.ts';
-import type { Cookbook, Page, RenderedDiagram, TableCells } from './site.ts';
+import { canDraw, esc, tableHtml } from './result-view.ts';
+import type { Cookbook, Page, RenderedDiagram } from './site.ts';
 
-/** `s` with `&`, `<`, `>`, and `"` escaped. */
-export const esc = (s: unknown) =>
-  String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+export { canDraw, esc, tableHtml };
 
 export const kb = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB`);
+export const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 /** Where a data block is published, relative to its recipe page. */
 export const dataPath = (name: string) => `data/${name}.json`;
@@ -35,23 +35,6 @@ export function byCategory(recipes: Recipe[], categories: readonly Category[] = 
         .sort((a, b) => byCodePoint(a.front.title, b.front.title)),
     }))
     .filter((g) => g.recipes.length > 0);
-}
-
-/** Whether a recording's graph has anything the graph view can draw. */
-export const canDraw = (graph: { nodes: unknown[] } | null) => (graph?.nodes.length ?? 0) > 0;
-
-/**
- * A table recording's cells as HTML: the table in a scroll box, then the row
- * count and counters. Numeric columns are right-aligned.
- */
-export function tableHtml({ columns, rows, numeric, summary }: TableCells): string {
-  const cls = (i: number) => (numeric[i] ? ' class="num"' : '');
-  const head = columns.map((c, i) => `<th scope="col"${cls(i)}>${esc(c)}</th>`).join('');
-  const body = rows.map((r) => `<tr>${r.map((v, i) => `<td${cls(i)}>${esc(v)}</td>`).join('')}</tr>`).join('');
-  return (
-    `<div class="table-scroll" tabindex="0"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
-    `<p class="out-summary">${esc(summary)}</p>`
-  );
 }
 
 interface Env extends MarkdownEnv {
@@ -70,7 +53,7 @@ function renderParams(recipe: Recipe, cell: Cell, step: number): string {
       `<textarea class="params-editor" rows="${rows}" spellcheck="false" aria-label="Parameters for step ${step} (JSON)">${esc(text)}</textarea></details>`
     );
   }
-  const file = dataPath(cell.params);
+  const file = `/cookbook/${recipe.slug}/${dataPath(cell.params)}`;
   return `<div class="cell-params">Loads <a href="${esc(file)}">${esc(`${cell.params}.json`)}</a> (${kb(size)})</div>`;
 }
 

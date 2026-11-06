@@ -38,9 +38,9 @@ let cells = 0;
 
 for (const recipe of recipes) {
   const fail = (msg: string) => problems.push(`[${recipe.slug}] ${msg}`);
-  const run = runRecipe(engine, recipe);
+  const run = await runRecipe(engine, recipe);
   cells += run.cells.length;
-  const runProblems = checkRun(recipe, run);
+  const runProblems = [...checkRun(recipe, run), ...run.expandProblems];
   if (runProblems.length) {
     // Never record a run that went other than the recipe says.
     runProblems.forEach(fail);

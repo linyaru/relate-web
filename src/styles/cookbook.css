@@ -88,6 +88,25 @@
 .facts dt { color: var(--fg-faint); }
 .facts dd { margin: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
 
+/* The engine bar: the page's database status and controls (shown by the runtime). */
+.engine-bar {
+  position: sticky; top: 56px; z-index: 40;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 24px 0 8px; padding: 10px 14px;
+  background: color-mix(in srgb, var(--bg-alt) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+}
+.engine-status { display: flex; align-items: center; gap: 8px; color: var(--fg-muted); flex: 1; min-width: 220px; }
+.engine-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-faint); flex: none; }
+.engine-bar[data-status="loading"] .dot { background: var(--accent); animation: pulse 1s infinite; }
+.engine-bar[data-status="ready"] .dot { background: var(--success); }
+.engine-bar[data-status="failed"] .dot, .engine-bar[data-status="crashed"] .dot { background: var(--danger); }
+.engine-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .engine-bar[data-status="loading"] .dot { animation: none; } }
+.noscript-note { font-size: 14px; color: var(--fg-muted); }
+
 .btn {
   font: inherit; font-size: 13px; font-weight: 500; line-height: 1;
   display: inline-flex; align-items: center; gap: 6px;
@@ -216,6 +235,70 @@ cypher-cell.is-error .out-text { color: var(--danger); white-space: pre-wrap; }
 .out-summary {
   margin: 0; padding: 7px 12px; border-top: 1px solid var(--border);
   font-family: var(--font-mono); font-size: 12px; color: var(--fg-faint);
+}
+
+/* Graph results (ADR-0151): NVL draws on a canvas in .graph-stage; the
+   tools, inspector, and status float over it. */
+.graph-view { position: relative; }
+.out-graph-error { margin: 0; padding: 12px; font-size: 13px; color: var(--danger); }
+.graph-stage {
+  position: relative; height: 420px; min-height: 240px; max-height: 1200px;
+  resize: vertical; overflow: hidden;
+}
+.graph-host { position: absolute; inset: 0; }
+.graph-tools {
+  position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 2px;
+  padding: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow-raised);
+}
+.graph-tool {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  background: transparent; border: 0; border-radius: 4px; color: var(--fg-muted); cursor: pointer;
+}
+.graph-tool:hover { background: var(--bg-alt); color: var(--fg); }
+.graph-tool:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.graph-tool[hidden] { display: none; }
+.graph-inspector {
+  position: absolute; top: 8px; left: 8px; width: min(300px, calc(100% - 64px)); max-height: calc(100% - 16px);
+  overflow: auto; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; box-shadow: var(--shadow-overlay); font-size: 12.5px; line-height: 1.45;
+}
+.graph-inspector[hidden] { display: none; }
+.graph-inspector:not(.is-pinned) { pointer-events: none; }
+.graph-inspector-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.graph-inspector-close {
+  margin-left: auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--fg-muted); font-size: 16px; line-height: 1; cursor: pointer;
+}
+.graph-inspector-close:hover { background: var(--bg-alt); color: var(--fg); }
+/* Label colours are light fills in either theme, so their text is always ink. */
+.graph-chip {
+  padding: 1px 8px; border-radius: 999px; color: var(--on-highlight); font-weight: 600; font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.graph-chip.rel { background: var(--bg-alt); color: var(--fg); border: 1px solid var(--border-strong); font-family: var(--font-mono); font-weight: 500; }
+.graph-inspector-id { color: var(--fg-faint); font-size: 11.5px; }
+.graph-inspector dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; }
+.graph-inspector dt { color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
+.graph-inspector dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; white-space: pre-wrap; }
+.graph-inspector-none, .graph-inspector-hint { margin: 0; color: var(--fg-faint); font-size: 12px; }
+.graph-inspector-hint { margin-top: 6px; }
+.graph-status {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  margin: 0; padding: 4px 10px; background: var(--fg); color: var(--bg); border-radius: 999px;
+  font-size: 12.5px; box-shadow: var(--shadow-overlay); pointer-events: none; text-align: center;
+}
+.graph-status[hidden] { display: none; }
+.graph-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 12px;
+  border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-muted);
+}
+.graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.graph-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.graph-legend .graph-hint { margin-left: auto; color: var(--fg-faint); }
+@media (max-width: 640px) {
+  .graph-stage { height: 340px; }
+  .graph-legend .graph-hint { margin-left: 0; }
 }
 
 /* ---------- Footer ---------- */

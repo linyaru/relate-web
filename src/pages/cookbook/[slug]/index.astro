@@ -4,7 +4,7 @@
 import RecipeCard from '../../../components/cookbook/RecipeCard.astro';
 import Cookbook from '../../../layouts/Cookbook.astro';
 import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
-import { byCategory, esc, renderRecipe } from '../../../lib/cookbook/render.ts';
+import { byCategory, esc, mb, renderRecipe } from '../../../lib/cookbook/render.ts';
 import { cookbook, type Page } from '../../../lib/cookbook/site.ts';
 
 export async function getStaticPaths() {
@@ -17,6 +17,8 @@ const { page } = Astro.props;
 const book = await cookbook();
 const { recipe } = page;
 const f = recipe.front;
+// The markdown and data links resolve with or without a trailing slash on the page URL.
+const base = `/cookbook/${recipe.slug}/`;
 const { html, lede, toc, inline } = renderRecipe(book, page);
 
 const DEFAULT_LICENSE = 'Apache-2.0';
@@ -34,7 +36,7 @@ const others =
 // The graph view colours each label as the recipe's data model does.
 const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
 ---
-<Cookbook title={`${f.title} · Cookbook`} description={f.summary} footerLinks={[{ href: 'index.md', label: 'Markdown' }]}>
+<Cookbook title={`${f.title} · Cookbook`} description={f.summary} footerLinks={[{ href: `${base}index.md`, label: 'Markdown' }]}>
   <script is:inline slot="head" type="application/json" id="label-colors" set:html={labelColors} />
   <div class="recipe-container">
     <article class="recipe-page">
@@ -48,6 +50,20 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
           </p>
         )}
       </header>
+      <div class="engine-bar" id="engineBar" hidden>
+        <span class="engine-status">
+          <span class="dot"></span>
+          <span class="engine-text">
+            Each step runs in your browser. Press Run to load the engine ({mb(book.wasmGzipBytes)}); earlier steps run
+            first.{f.browser === 'partial' && ' Code in other languages is shown, not run.'}
+          </span>
+        </span>
+        <span class="engine-actions">
+          <button class="btn" type="button" data-action="run-all">Run all</button>
+          <button class="btn" type="button" data-action="reset">Reset</button>
+          <button class="btn danger" type="button" data-action="stop" hidden>Stop</button>
+        </span>
+      </div>
       {contents.length >= 3 && (
         <nav class="toc" aria-label="On this page">
           <details>
@@ -58,6 +74,7 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
           </details>
         </nav>
       )}
+      <noscript><p class="noscript-note">JavaScript is off, so the steps below show their recorded outputs only.</p></noscript>
       <div class="recipe-body" set:html={html} />
       {facts.length > 0 && (
         <section class="about-data">
@@ -72,7 +89,7 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
           </dl>
           <p>
             Every data block is published beside this page as <code>data/&lt;name&gt;.json</code>, and the whole
-            recipe as <a href="index.md">markdown</a>.
+            recipe as <a href={`${base}index.md`}>markdown</a>.
           </p>
           {companion && (
             <p>
@@ -96,3 +113,7 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
     </article>
   </div>
 </Cookbook>
+
+<script>
+  import '../../../scripts/cookbook/runtime.ts';
+</script>

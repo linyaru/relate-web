@@ -9,9 +9,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { surprise, type LastEnvelope } from './cells.ts';
+import { surprise } from './cells.ts';
+import { expandNode, type Graph, type RunStatement } from './graph-model.ts';
 import { projectRoot } from './load.ts';
 import { dataBlock, MAX_RESULT_ROWS, type Recipe, type Recording } from './recipe.ts';
+import { lastEnvelope } from './result-view.ts';
 
 /** The site's WASM bundle. */
 export const WASM_DIR = join(projectRoot(), 'public/wasm');
@@ -50,32 +52,66 @@ export interface RecipeRun {
   stopped: string | null;
 }
 
-/** The last statement's envelope of a run, parsed, or null when none ran. */
-export const lastEnvelope = (envelopes: string[]): LastEnvelope =>
-  envelopes.length ? (JSON.parse(envelopes.at(-1)!) as LastEnvelope) : null;
+export { lastEnvelope };
 
-/** Run `recipe`'s cells in order on a fresh in-memory database. */
-export function runRecipe(engine: Engine, recipe: Recipe): RecipeRun {
+/**
+ * Run `recipe`'s cells in order on a fresh in-memory database. Each cell
+ * that goes as its recipe says is checked with the graph view's expansion
+ * against the database as it stands then (see `expandProblem`); what that
+ * finds goes in `expandProblems`.
+ */
+export async function runRecipe(engine: Engine, recipe: Recipe): Promise<RecipeRun & { expandProblems: string[] }> {
   const db = new engine.RelateDb();
+  const run: RunStatement = (code, params) => {
+    const envelopes = db.executeScript(code, params);
+    return { envelopes, recording: JSON.parse(engine.renderResult(envelopes)) };
+  };
+  const expandProblems: string[] = [];
   try {
     const cells: CellRun[] = [];
     for (const cell of recipe.cells) {
       const params = cell.params === null ? null : (dataBlock(recipe, cell.params)?.text ?? null);
       if (cell.params !== null && params === null) {
-        return { cells, stopped: `cell \`${cell.id}\`: no \`json data=${cell.params}\` block` };
+        return { cells, stopped: `cell \`${cell.id}\`: no \`json data=${cell.params}\` block`, expandProblems };
       }
       const envelopes = db.executeScript(cell.code, params);
-      const recording = JSON.parse(engine.renderResult(envelopes)) as Recording;
+      const recording = JSON.parse(engine.renderResult(envelopes)) as Recording & { graph?: Graph | null };
       cells.push({ id: cell.id, envelopes, recording });
       // The engine runs nothing for a blank or comment-only script.
-      if (envelopes.length === 0) return { cells, stopped: `cell \`${cell.id}\` has no statements` };
+      if (envelopes.length === 0) return { cells, stopped: `cell \`${cell.id}\` has no statements`, expandProblems };
       const stopped = surprise(cell, lastEnvelope(envelopes));
-      if (stopped) return { cells, stopped };
+      if (stopped) return { cells, stopped, expandProblems };
+      const problem = await expandProblem(cell.id, run, recording.graph ?? null);
+      if (problem) expandProblems.push(problem);
     }
-    return { cells, stopped: null };
+    return { cells, stopped: null, expandProblems };
   } finally {
     db.free();
   }
+}
+
+/**
+ * How expanding a node of a step's graph result (the graph view's
+ * double-click, ADR-0151) goes other than it should, run right after the
+ * step, or null. It expands the graph's first node and expects every
+ * relationship of that node the step recorded, unless the expansion hit its
+ * limit.
+ */
+export async function expandProblem(cellId: string, run: RunStatement, graph: Graph | null): Promise<string | null> {
+  const node = graph?.nodes[0];
+  if (!graph || !node) return null;
+  let found;
+  try {
+    found = await expandNode(run, node.id, graph.nodes.map((n) => n.id));
+  } catch (err) {
+    return `cell \`${cellId}\`: expanding node ${node.id} in the graph view failed: ${(err as Error).message}`;
+  }
+  const got = new Set(found.rels.map((r) => r.id));
+  const missing = graph.rels
+    .filter((r) => (r.start_node === node.id || r.end_node === node.id) && !got.has(r.id))
+    .map((r) => r.id);
+  if (missing.length === 0 || found.truncated) return null;
+  return `cell \`${cellId}\`: expanding node ${node.id} in the graph view missed its relationship(s) ${missing.join(', ')}`;
 }
 
 /**

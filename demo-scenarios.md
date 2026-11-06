@@ -1,8 +1,8 @@
-# CypherLite — agentic usage demo scenarios
+# Relate — agentic usage demo scenarios
 
-10 proposals (title + abstract) for demos of AI agents using CypherLite.
+10 proposals (title + abstract) for demos of AI agents using Relate.
 Each runs with the CLI only (one-shot invocations, JSON output) after
-`cypherlite skill install`. No server, no driver code.
+`relate skill install`. No server, no driver code.
 
 ## Context & memory
 
@@ -16,7 +16,7 @@ you remember about …" from the file.
 
 ### 2. Context-graph builder for a codebase or document set
 The agent ingests README/docs/tickets (or a codebase's modules and
-imports), extracts entities and relations into CypherLite, and answers
+imports), extracts entities and relations into Relate, and answers
 multi-hop questions ("which component depends on the deprecated API and
 who last touched it?"). Uses fulltext `SEARCH` for keyword recall plus
 graph expansion for relations, in one process, checkpointed to a directory.
@@ -50,7 +50,7 @@ Runs with a terminal, a `.cl` file, and about ten Cypher statements.
 ## Subgraph extraction & test fixtures
 
 ### 7. Companies demo subgraph as a checked-in test fixture
-`cypherlite pull --from companies.env --query 'MATCH (o:Organization)-[r]-() RETURN o, r LIMIT 500' ./sample.cl`
+`relate pull --from companies.env --query 'MATCH (o:Organization)-[r]-() RETURN o, r LIMIT 500' ./sample.cl`
 mirrors a slice of the `demo.neo4jlabs.com` companies graph into one file.
 Commit it to the repo and generate data classes plus unit tests against it
 (Rust or Python). Tests then run offline on the same graph every time;
@@ -72,6 +72,6 @@ real-shaped data with no production risk.
 ### 10. Text-to-Cypher eval harness in a single file
 A small benchmark: a file of question/Cypher pairs, a graph loaded via
 `pull`, and an agent (or any LLM) generating Cypher per question. Each
-answer runs through `cypherlite -json` and is scored against the expected
+answer runs through `relate -json` and is scored against the expected
 result. The harness is one binary plus two files, usable for prompt or
 fine-tune evaluation without a Neo4j instance.

@@ -1,0 +1,49 @@
+# Publishes the static site to GitHub Pages at https://r31473.relatedb.ai/ (unlisted preview host,
+# CNAME -> relatedb.github.io).
+# Interim host: switch to relatedb.ai / a scalable host later (see LAUNCH.md).
+# Requires Settings -> Pages -> Source: "GitHub Actions".
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stage only what is served; keep notes/plans/config out of the site.
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html llms.txt robots.txt sitemap.xml install.sh \
+             releases.json extensions.json extensions.json.sig .nojekyll CNAME _site/
+          cp -R fonts img wasm _site/
+
+      - name: Sanity check
+        run: |
+          test -s _site/index.html
+          test -s _site/wasm/relate_bg.wasm
+          test -s _site/wasm/relate.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

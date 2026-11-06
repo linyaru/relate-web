@@ -4,7 +4,7 @@
 
 name: Update website
 
-# Keeps the gh-pages site (neo4j-labs.github.io/cypherlite) in sync with each
+# Keeps the gh-pages site (neo4j-labs.github.io/relate) in sync with each
 # release: an agent scans CHANGELOG.md and the commits since the last sync
 # and surgically updates version references, quickstart, install, examples,
 # and reference tabs. Design stays untouched (contract: gh-pages/MAINTAINING.md).
@@ -36,7 +36,7 @@ jobs:
           path: gh-pages
           fetch-depth: 1
 
-      - name: Install released cypherlite binary
+      - name: Install released relate binary
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -52,9 +52,9 @@ jobs:
             --pattern "cypherlite-linux-amd64" \
             --dir /tmp/cypherlite-release
           mkdir -p "$HOME/.local/bin"
-          install -m755 /tmp/cypherlite-release/cypherlite-linux-amd64 "$HOME/.local/bin/cypherlite"
+          install -m755 /tmp/cypherlite-release/cypherlite-linux-amd64 "$HOME/.local/bin/relate"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          cypherlite --version
+          relate --version
 
       - name: Setup Node
         uses: actions/setup-node@v4

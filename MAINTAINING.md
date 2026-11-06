@@ -1,7 +1,7 @@
-# Maintaining the cypherlite website
+# Maintaining the relate website
 
 This is the contract for anyone — human or agent — updating
-`neo4j-labs.github.io/cypherlite`. Read it before every change.
+`neo4j-labs.github.io/relate`. Read it before every change.
 
 ## What this site is
 
@@ -12,7 +12,7 @@ the default). Plus `llms.txt` for AI agents, `install.sh` (the documented
 install entry point — never delete or rewrite it by hand; it is preserved by
 the docs deploy workflow), `fonts/`, `robots.txt`, `sitemap.xml`.
 
-The playground SPA lives at `/cypherlite/playground/` and is built from
+The playground SPA lives at `/relate/playground/` and is built from
 `examples/wasm-playground/` on `main`. Its files are never committed to
 this branch.
 
@@ -39,10 +39,10 @@ Page structure, top to bottom:
 | Section | id | Contents |
 |---|---|---|
 | Hero | — | version pill, outcome-led tagline, substantiation badges (TCK 100% + live-demo link to `#console`), OS install tabs (macOS/Linux/Windows/Python) |
-| Memory console | `#console` | live in-browser CypherLite (WASM), seeded with a 5-person social graph, three clickable query suggestions, user types + submits; lazy-loaded on first click/focus — keep it above the fold |
+| Memory console | `#console` | live in-browser Relate (WASM), seeded with a 5-person social graph, three clickable query suggestions, user types + submits; lazy-loaded on first click/focus — keep it above the fold |
 | Quickstart | `#quickstart` | 4 steps: skill, database format, create (typed params / LOAD CSV / pipe / `pull` from Neo4j/Aura), query; the format toggle rewrites the db argument in steps 3-4 |
 | Examples | `#examples` | 5 panes mirroring the quickstart: `install`, `skill`, `database`, `create`, `query` (tab ids `data-tab`/`data-pane`) |
-| Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients`, `fit` (`data-ref-tab`/`data-ref-pane`). The `fit` tab is a positively-framed "Where CypherLite fits" block — good fits plus a one-line shape note on the single-process, memory-resident model. |
+| Reference | `#reference` | concise tabs: `cli`, `dot`, `output`, `cypher`, `vector`, `spatial`, `storage`, `clients`, `fit` (`data-ref-tab`/`data-ref-pane`). The `fit` tab is a positively-framed "Where Relate fits" block — good fits plus a one-line shape note on the single-process, memory-resident model. |
 
 ## What must never change
 
@@ -51,10 +51,10 @@ Page structure, top to bottom:
 - The `cli | agentic` toggle behaviour and the four agentic invariants
   (below).
 - `install.sh` is owned by the release pipeline, not by site edits.
-- `wasm/` (`cypherlite.js`, `cypherlite.d.ts`, `cypherlite_bg.wasm`,
-  `cypherlite_bg.wasm.d.ts`) is owned by the build pipeline. To refresh
+- `wasm/` (`relate.js`, `relate.d.ts`, `relate_bg.wasm`,
+  `relate_bg.wasm.d.ts`) is owned by the build pipeline. To refresh
   it, run `bash scripts/build-wasm.sh --mode release` on `main` and copy
-  the four files out of `crates/cypherlite-wasm/pkg/` into `wasm/`. Never
+  the four files out of `crates/relate-wasm/pkg/` into `wasm/`. Never
   hand-edit these files.
 - The `#console` live console stays. It is a scenario workbench with
   three tabs — `agent-memory`, `codebase`, `deps` — defined by the
@@ -65,11 +65,11 @@ Page structure, top to bottom:
   the same for the active scenario. Changes to scenario data or demo
   queries go in the same pass as this file.
 - Console suggestions **click-to-run**. The scenarios exist to show
-  CypherLite solving a real problem, so a single click on a suggestion
+  Relate solving a real problem, so a single click on a suggestion
   pill both populates the input and executes the query. Arrow-up still
   browses history; nothing auto-types or auto-cycles.
 - The top-nav `Playground` link stays as the **last** item in
-  `#topNav` (after `GitHub`), with `href="/cypherlite/playground/"`,
+  `#topNav` (after `GitHub`), with `href="/relate/playground/"`,
   `target="_blank"`, `class="nav-external"`, and the inline `.ext-icon`
   SVG indicating an external destination. It points at the playground
   SPA built by `.github/workflows/deploy-pages.yml` on `main`. Never
@@ -96,7 +96,7 @@ footer meta). The authoritative source is the latest GitHub release tag.
 | Dot-commands | `docs/api/cli/spec.md` / `docs/reference/dot-commands.md` |
 | Cypher coverage wording | "100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run in CI" — cite the exact counts, link `docs/tck/compliance.md`. GQL alignment and Cypher 25 feature coverage are claimed on the same evidence standard. |
 | "In milliseconds" / latency wording | Backed by the frozen baseline loadtests on `main` (ADR-0046, ADR-0070, ADR-0071, `baselines/`). Any new latency phrasing on the site must trace to that artefact — not to a dev-machine run. |
-| Where CypherLite fits | `docs/guides/storage-engine.md`, ADR-0116 (namespaces), ADR-0119 (admin scope). Frame positively (good fits + a one-line shape note); no bulleted "not for" lists on the site. |
+| Where Relate fits | `docs/guides/storage-engine.md`, ADR-0116 (namespaces), ADR-0119 (admin scope). Frame positively (good fits + a one-line shape note); no bulleted "not for" lists on the site. |
 | Vector / spatial APIs | `docs/guides/vector-similarity.md`, `docs/guides/geospatial-queries.md` |
 | Storage formats (memory / directory / `.cl`, codecs) | `README.md`, `docs/guides/storage-engine.md` |
 | Python API | `README.md`, `docs/reference/python-library.md` |
@@ -132,7 +132,7 @@ The page has two `cli | agentic` toggles (`#quickstartSteps`,
 1. **Prompt prefix** — every `.agentic-comment` starts with `> ` and renders
    terminal-green; it is the visual hero.
 2. **One loading cue** — exactly one
-   `<span class="agentic-loading">→ loading skill cypherlite</span>`
+   `<span class="agentic-loading">→ loading skill relate</span>`
    inside the same `.agentic-line`, immediately after the comment. Unicode
    `→`, no ellipsis.
 3. **Dim sweep** — the `$` command block under an agent prompt renders in

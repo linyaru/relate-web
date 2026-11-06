@@ -1,0 +1,100 @@
+---
+// Site-wide top bar. Used by every page (home and sections) so navigation stays consistent.
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const links = [
+  { href: '/#quickstart', label: 'Quickstart' },
+  { href: '/#examples', label: 'Examples' },
+  { href: '/#reference', label: 'Reference' },
+  { href: '/#extensions', label: 'Extensions' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/blog', label: 'Blog' },
+  { href: '/relate/cookbook/', label: 'Cookbook' },
+  { href: 'https://github.com/relatedb/relate', label: 'GitHub', external: true },
+  { href: '/relate/playground/', label: 'Playground', external: true, icon: true },
+];
+---
+<header class="top" id="top">
+  <div class="container inner">
+    <a href="/" class="brand">
+      <svg class="glyph" viewBox="0 0 12 10" shape-rendering="crispEdges" role="img" aria-label="Relate logomark"><path class="hl" d="M3 0h6v1h-6zM2 1h1v1h-1zM1 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h1v1h-1zM8 8h1v1h-1zM0 9h1v1h-1zM8 9h1v1h-1z"/><path class="md" d="M3 1h6v1h-6zM2 2h3v1h-3zM7 2h3v1h-3zM2 3h2v1h-2zM8 3h2v1h-2zM2 4h1v1h-1zM9 4h1v1h-1zM2 5h1v1h-1zM9 5h1v1h-1zM2 6h1v1h-1zM9 6h1v1h-1zM1 7h2v1h-2zM9 7h2v1h-2zM1 8h2v1h-2zM9 8h2v1h-2z"/><path class="sh" d="M9 1h1v1h-1zM5 2h2v1h-2zM10 2h1v1h-1zM4 3h1v1h-1zM10 3h1v1h-1zM3 4h1v1h-1zM10 4h1v1h-1zM3 5h1v1h-1zM10 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM11 8h1v1h-1zM1 9h3v1h-3zM9 9h3v1h-3z"/></svg>
+      <span class="name">relate</span>
+      <span class="brand-tag">labs</span>
+    </a>
+    <nav class="top-nav" id="topNav">
+      {links.map((l) => (
+        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} class={l.icon ? 'nav-external' : undefined} aria-current={path === l.href ? 'page' : undefined}>
+          {l.label}{l.icon && <svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>}
+        </a>
+      ))}
+    </nav>
+    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+    <button class="icon-btn nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="topNav" aria-expanded="false">
+      <svg class="open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18M3 12h18M3 18h18"></path>
+      </svg>
+      <svg class="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 6l12 12M6 18L18 6"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<script>
+  // ---------- Theme ----------
+  const themeToggle = document.getElementById('themeToggle') as HTMLButtonElement;
+  const root = document.documentElement;
+  const stored = localStorage.getItem('theme');
+  if (stored === 'light' || stored === 'dark') {
+    root.setAttribute('data-theme', stored);
+  }
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let next;
+    if (current === 'dark') next = 'light';
+    else if (current === 'light') next = 'dark';
+    else next = sysDark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+
+  // ---------- Sticky header shadow ----------
+  const header = document.getElementById('top') as HTMLElement;
+  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ---------- Mobile nav toggle ----------
+  const navToggle = document.getElementById('navToggle');
+  const topNav = document.getElementById('topNav');
+  if (navToggle && topNav) {
+    const closeNav = () => {
+      topNav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+      navToggle.setAttribute('aria-label', 'Open menu');
+    };
+    navToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = topNav.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    });
+    topNav.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).tagName === 'A') closeNav();
+    });
+    document.addEventListener('click', (e) => {
+      if (!topNav.contains(e.target as Node) && !navToggle.contains(e.target as Node)) closeNav();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeNav();
+    });
+  }
+</script>

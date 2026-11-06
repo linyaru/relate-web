@@ -27,19 +27,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Stage only what is served; keep notes/plans/config out of the site.
-      - name: Assemble site
-        run: |
-          mkdir _site
-          cp index.html llms.txt robots.txt sitemap.xml install.sh \
-             releases.json extensions.json extensions.json.sig .nojekyll _site/
-          cp -R fonts img wasm _site/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build site
+        run: npm run build
 
       - name: Sanity check
         run: |
-          test -s _site/index.html
-          test -s _site/wasm/relate_bg.wasm
-          test -s _site/wasm/relate.js
+          test -s dist/index.html
+          test -s dist/wasm/relate_bg.wasm
+          test -s dist/wasm/relate.js
+          test -s dist/CNAME
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -47,4 +50,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
-          command: pages deploy _site --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}
+          command: pages deploy dist --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}

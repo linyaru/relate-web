@@ -1,0 +1,290 @@
+/* ---------- Fonts (self-hosted Public Sans + Fira Code) ---------- */
+@font-face {
+  font-family: 'Public Sans'; font-style: normal; font-weight: 400;
+  src: url("/fonts/public-sans-400.woff2") format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Public Sans'; font-style: normal; font-weight: 500;
+  src: url("/fonts/public-sans-500.woff2") format('woff2'); font-display: swap;
+}
+@font-face {
+  font-family: 'Public Sans'; font-style: normal; font-weight: 600;
+  src: url("/fonts/public-sans-600.woff2") format('woff2'); font-display: swap;
+}
+@font-face {
+  font-family: 'Public Sans'; font-style: normal; font-weight: 700;
+  src: url("/fonts/public-sans-700.woff2") format('woff2'); font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Code'; font-style: normal; font-weight: 400;
+  src: url("/fonts/fira-code-400.woff2") format('woff2'); font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Code'; font-style: normal; font-weight: 500;
+  src: url("/fonts/fira-code-500.woff2") format('woff2'); font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Code'; font-style: normal; font-weight: 700;
+  src: url("/fonts/fira-code-700.woff2") format('woff2'); font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+/* Colors come from the "Relate by ABK" design system (tokens.json): Night and Day themes
+   on the Neo4j Needle palette. Day is the default; Night applies via data-theme="dark" or,
+   when no theme is chosen, prefers-color-scheme: dark.
+   Names on the right are the design-system token names. Marked "derived" = a Relate
+   addition in the design system (flagged there for brand review). */
+:root {
+  --font-sans: 'Public Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Day (paper) */
+  --bg: #F2EAD4;               /* surface-0  Cream */
+  --bg-alt: #FCF9F6;           /* surface-1  Light Gray */
+  --bg-inset: #E6DCC0;         /* surface-2  (derived) */
+  --fg: #181414;               /* ink        Black */
+  --fg-muted: #4F4E4D;         /* ink-muted  Dark Gray */
+  --fg-faint: #6B6A68;         /* secondary text, lighter than ink-muted (derived here) */
+  --border: #E6DCC0;           /* surface-2 */
+  --border-strong: #4F4E4D;    /* line       Dark Gray */
+  --accent: #0A6190;           /* brand      Mid Baltic */
+  --accent-hover: #014063;     /* Dark Baltic */
+  --on-accent: #FCF9F6;        /* on-brand */
+  --discovery: #3B4FD0;        /* rel (derived from Periwinkle) */
+  --success: #145439;          /* success    Forest */
+  --danger: #B02A00;           /* danger-ink (derived; Hibiscus #D43300 fails 4.5:1 as text on Cream) */
+  --highlight: #FAFF00;        /* accent     Highlight Yellow: a FILL only, never text */
+  --on-highlight: #181414;
+  --focus: #014063;            /* focus ring */
+
+  /* Terminal and code: dark in both themes */
+  --bg-code: #181414;          /* term-bg    Neo4j Black */
+  --code-bg: #181414;
+  --code-fg: #F2EAD4;          /* term-ink   Cream */
+  --code-comment: #A8A39A;     /* term-dim   (derived) */
+  --code-keyword: #8FE3E8;     /* term-kw    Light Baltic */
+  --code-string: #FF8E6A;      /* term-str   Light Hibiscus */
+  --code-fn: #FAFF00;          /* term-node  Highlight Yellow */
+  --code-num: #9AAAFF;         /* rel (night) */
+  --code-flag: #FF8E6A;
+  --terminal-prompt: #90CB62;  /* term-ok    Light Forest */
+  --terminal-cursor: #8FE3E8;
+
+  /* Legacy aliases still referenced by the page markup */
+  --forest-40: var(--success);
+
+  --shadow-raised: 0 1px 2px rgba(24, 20, 20, 0.08), 0 1px 3px rgba(24, 20, 20, 0.05);
+  --shadow-overlay: 0 4px 16px rgba(24, 20, 20, 0.14);
+
+  color-scheme: light;
+}
+
+/* Night (lofi) */
+[data-theme="dark"] {
+  --bg: #002B43;               /* surface-0  Darkest Baltic */
+  --bg-alt: #014063;           /* surface-1  Dark Baltic */
+  --bg-inset: #0A6190;         /* surface-2  Mid Baltic */
+  --fg: #F2EAD4;               /* ink        Cream */
+  --fg-muted: #8FE3E8;         /* ink-muted  Light Baltic */
+  --fg-faint: #6FB9C2;         /* secondary text, lighter than ink-muted (derived here) */
+  --border: #0A6190;           /* surface-2 */
+  --border-strong: #4C99A4;    /* line       Baltic */
+  --accent: #8FE3E8;           /* brand      Light Baltic */
+  --accent-hover: #D6F7F8;
+  --on-accent: #002B43;        /* on-brand */
+  --discovery: #9AAAFF;        /* rel */
+  --success: #90CB62;          /* success    Light Forest */
+  --danger: #FF8E6A;           /* danger     Light Hibiscus */
+  --focus: #FAFF00;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+/* prefers-color-scheme: dark sets Night by default */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #002B43;
+    --bg-alt: #014063;
+    --bg-inset: #0A6190;
+    --fg: #F2EAD4;
+    --fg-muted: #8FE3E8;
+    --fg-faint: #6FB9C2;
+    --border: #0A6190;
+    --border-strong: #4C99A4;
+    --accent: #8FE3E8;
+    --accent-hover: #D6F7F8;
+    --on-accent: #002B43;
+    --discovery: #9AAAFF;
+    --success: #90CB62;
+    --danger: #FF8E6A;
+    --focus: #FAFF00;
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  overflow-x: clip;
+}
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+/* ---------- Layout ---------- */
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- Top nav ---------- */
+header.top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+header.top.scrolled { border-bottom-color: var(--border); }
+header.top .inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--fg);
+}
+.brand .glyph {
+  height: 24px;
+  width: auto;
+}
+[id] { scroll-margin-top: 72px; }
+.brand .name { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
+.brand .name .dash { color: var(--fg-faint); }
+.brand-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  margin-left: 4px;
+}
+nav.top-nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+nav.top-nav a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: color 0.1s, background-color 0.1s;
+}
+nav.top-nav a:hover { color: var(--fg); background: var(--bg-alt); }
+nav.top-nav a.nav-external { display: inline-flex; align-items: center; gap: 4px; }
+nav.top-nav a.nav-external .ext-icon {
+  width: 12px; height: 12px;
+  color: var(--fg-faint);
+  transition: color 0.1s;
+}
+nav.top-nav a.nav-external:hover .ext-icon { color: var(--fg-muted); }
+
+.icon-btn {
+  width: 32px; height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.icon-btn:hover { background: var(--bg-alt); color: var(--fg); border-color: var(--border-strong); }
+.icon-btn svg { width: 16px; height: 16px; }
+.theme-toggle .moon { display: none; }
+[data-theme="dark"] .theme-toggle .sun { display: none; }
+[data-theme="dark"] .theme-toggle .moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .sun { display: none; }
+  :root:not([data-theme="light"]) .theme-toggle .moon { display: block; }
+}
+
+/* ---------- Mobile nav ---------- */
+.nav-toggle { display: none; }
+.nav-toggle .close { display: none; }
+.nav-toggle[aria-expanded="true"] .open { display: none; }
+.nav-toggle[aria-expanded="true"] .close { display: block; }
+
+@media (max-width: 640px) {
+  header.top .inner { gap: 8px; }
+  .brand-tag { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .theme-toggle { margin-left: auto; }
+
+  nav.top-nav {
+    position: absolute;
+    top: 56px;
+    left: 16px;
+    right: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-overlay);
+    display: none;
+  }
+  nav.top-nav.open { display: flex; }
+  nav.top-nav a { padding: 10px 12px; font-size: 14px; }
+}
+
+/* Current-page indicator in the top nav */
+nav.top-nav a[aria-current='page'] { color: var(--fg); background: var(--bg-alt); }
+
+/* Logomark: shaded arch (lit top/left, mid body, shadowed right/base), flat colour. */
+.brand .glyph { --mark-hl: #4C99A4; --mark-md: #0A6190; --mark-sh: #014063; width: auto; }
+.brand .glyph .hl { fill: var(--mark-hl); }
+.brand .glyph .md { fill: var(--mark-md); }
+.brand .glyph .sh { fill: var(--mark-sh); }
+[data-theme="dark"] .brand .glyph { --mark-hl: #D6F7F8; --mark-md: #8FE3E8; --mark-sh: #4C99A4; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand .glyph { --mark-hl: #D6F7F8; --mark-md: #8FE3E8; --mark-sh: #4C99A4; }
+}
+
+/* Focus ring (design system: 3px solid, 2px offset) */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

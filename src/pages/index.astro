@@ -1,0 +1,11 @@
+---
+// Interim: renders the legacy page body, with the shared Header component and base.css
+// swapped in. Replace with real section components as pieces are extracted from
+// src/legacy/index.html (see CLAUDE.md).
+import legacy from '../legacy/index.html?raw';
+import Header from '../components/Header.astro';
+import '../styles/base.css';
+const html = legacy.replace(/^<!DOCTYPE html>\s*/i, '');
+const [before, after] = html.split('<!--SITE-HEADER-->');
+---
+<Fragment set:html={before} /><Header /><Fragment set:html={after} />

@@ -8,7 +8,9 @@
 
 <link rel="preload" href="fonts/public-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/fira-code-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/favicon-192.png">
 <link rel="sitemap" type="application/xml" href="sitemap.xml">
 <link rel="canonical" href="https://neo4j-labs.github.io/cypherlite/">
 <link rel="describedby" href="llms.txt">
@@ -18,278 +20,7 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <style>
-  /* ---------- Fonts (self-hosted Public Sans + Fira Code) ---------- */
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 400;
-    src: url("fonts/public-sans-400.woff2") format('woff2');
-    font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 500;
-    src: url("fonts/public-sans-500.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 600;
-    src: url("fonts/public-sans-600.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 700;
-    src: url("fonts/public-sans-700.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 400;
-    src: url("fonts/fira-code-400.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 500;
-    src: url("fonts/fira-code-500.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 700;
-    src: url("fonts/fira-code-700.woff2") format('woff2'); font-display: swap;
-  }
-
-  /* ---------- Tokens ---------- */
-  :root {
-    --font-sans: 'Public Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-    /* Needle palette */
-    --baltic-50: #006FD6;
-    --baltic-55: #0061BD;
-    --baltic-60: #014063;
-    --baltic-70: #00253D;
-
-    --hibiscus-40: #f96746;
-    --hibiscus-50: #d43300;
-
-    --forest-50: #158838;
-    --forest-40: #1ea34a;
-
-    --lavender-40: #8B5CF6;
-    --lavender-50: #7C39C9;
-    --lavender-30: #B89AFF;
-
-    --lemon-50: #B8860B;
-
-    /* Light theme (default) */
-    --bg: #ffffff;
-    --bg-alt: #F7F8FA;
-    --bg-code: #0F141A;
-    --fg: #0A1014;
-    --fg-muted: #4A5664;
-    --fg-faint: #6B7A88;
-    --border: #E3E8EE;
-    --border-strong: #C9D2DB;
-    --accent: var(--baltic-50);
-    --accent-hover: var(--baltic-55);
-    --discovery: var(--lavender-50);
-    --success: var(--forest-50);
-    --danger: var(--hibiscus-50);
-
-    --code-bg: #0F141A;
-    --code-fg: #E3E8EE;
-    --code-comment: #6B7A88;
-    --code-keyword: #B89AFF;
-    --code-string: #6BD0A0;
-    --code-fn: #5BB7FF;
-    --code-num: #FFB060;
-    --code-flag: #F09595;
-
-    --terminal-prompt: #6BD0A0;
-    --terminal-cursor: var(--accent);
-
-    --shadow-raised: 0 1px 2px rgba(10, 16, 20, 0.06), 0 1px 3px rgba(10, 16, 20, 0.04);
-    --shadow-overlay: 0 4px 16px rgba(10, 16, 20, 0.10);
-
-    color-scheme: light;
-  }
-
-  [data-theme="dark"] {
-    --bg: #0B0E12;
-    --bg-alt: #11161C;
-    --bg-code: #161B22;
-    --fg: #ECEFF3;
-    --fg-muted: #9AA8B4;
-    --fg-faint: #6B7A88;
-    --border: #1E2530;
-    --border-strong: #2A3340;
-    --accent: #4FA3F0;
-    --accent-hover: #6FB7FA;
-    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
-  }
-
-  /* prefers-color-scheme: dark sets dark by default */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0B0E12;
-      --bg-alt: #11161C;
-      --bg-code: #161B22;
-      --fg: #ECEFF3;
-      --fg-muted: #9AA8B4;
-      --fg-faint: #6B7A88;
-      --border: #1E2530;
-      --border-strong: #2A3340;
-      --accent: #4FA3F0;
-      --accent-hover: #6FB7FA;
-      --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
-      --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
-      color-scheme: dark;
-    }
-  }
-
-  /* ---------- Reset ---------- */
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: var(--font-sans);
-    font-size: 17px;
-    line-height: 1.5;
-    color: var(--fg);
-    background: var(--bg);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.15s ease, color 0.15s ease;
-    overflow-x: clip;
-  }
-
-  ::selection { background: var(--accent); color: #fff; }
-
-  /* ---------- Layout ---------- */
-  .container {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ---------- Top nav ---------- */
-  header.top {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    background: color-mix(in srgb, var(--bg) 85%, transparent);
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.15s ease;
-  }
-  header.top.scrolled { border-bottom-color: var(--border); }
-  header.top .inner {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    height: 56px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-    text-decoration: none;
-    color: var(--fg);
-  }
-  .brand .glyph {
-    height: 28px;
-    width: auto;
-  }
-  [id] { scroll-margin-top: 72px; }
-  [data-theme="dark"] .brand .glyph path { fill: #ffffff; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .brand .glyph path { fill: #ffffff; }
-  }
-  .brand .name { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
-  .brand .name .dash { color: var(--fg-faint); }
-  .brand-tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--fg-muted);
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--bg-alt);
-    border: 1px solid var(--border);
-    margin-left: 4px;
-  }
-  nav.top-nav {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  nav.top-nav a {
-    color: var(--fg-muted);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 4px;
-    transition: color 0.1s, background-color 0.1s;
-  }
-  nav.top-nav a:hover { color: var(--fg); background: var(--bg-alt); }
-  nav.top-nav a.nav-external { display: inline-flex; align-items: center; gap: 4px; }
-  nav.top-nav a.nav-external .ext-icon {
-    width: 12px; height: 12px;
-    color: var(--fg-faint);
-    transition: color 0.1s;
-  }
-  nav.top-nav a.nav-external:hover .ext-icon { color: var(--fg-muted); }
-
-  .icon-btn {
-    width: 32px; height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--fg-muted);
-    cursor: pointer;
-    transition: all 0.1s;
-  }
-  .icon-btn:hover { background: var(--bg-alt); color: var(--fg); border-color: var(--border-strong); }
-  .icon-btn svg { width: 16px; height: 16px; }
-  .theme-toggle .moon { display: none; }
-  [data-theme="dark"] .theme-toggle .sun { display: none; }
-  [data-theme="dark"] .theme-toggle .moon { display: block; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .theme-toggle .sun { display: none; }
-    :root:not([data-theme="light"]) .theme-toggle .moon { display: block; }
-  }
-
-  /* ---------- Mobile nav ---------- */
-  .nav-toggle { display: none; }
-  .nav-toggle .close { display: none; }
-  .nav-toggle[aria-expanded="true"] .open { display: none; }
-  .nav-toggle[aria-expanded="true"] .close { display: block; }
-
-  @media (max-width: 640px) {
-    header.top .inner { gap: 8px; }
-    .brand-tag { display: none; }
-    .nav-toggle { display: inline-flex; }
-    .theme-toggle { margin-left: auto; }
-
-    nav.top-nav {
-      position: absolute;
-      top: 56px;
-      left: 16px;
-      right: 16px;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 2px;
-      padding: 8px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: var(--shadow-overlay);
-      display: none;
-    }
-    nav.top-nav.open { display: flex; }
-    nav.top-nav a { padding: 10px 12px; font-size: 14px; }
-  }
+  /* Shared fonts, tokens, reset and top-nav styles live in src/styles/base.css */
 
   /* ---------- Hero ---------- */
   .hero {
@@ -337,7 +68,7 @@
   .pill:hover { border-color: var(--border-strong); color: var(--fg); }
   .pill .pill-tag {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     padding: 2px 8px;
     border-radius: 999px;
     font-weight: 600;
@@ -891,7 +622,7 @@
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 13px;
@@ -932,7 +663,7 @@
   /* Adjacent step-cmd boxes merge into one visual block */
   .step .step-cmd + .step-cmd { margin-top: 1px; border-radius: 0 0 6px 6px; }
   .step .step-cmd:has(+ .step-cmd) { border-radius: 6px 6px 0 0; }
-  .step .step-cmd:hover { background: #1a212a; }
+  .step .step-cmd:hover { background: color-mix(in srgb, var(--code-bg) 88%, #fff); }
   .step .step-cmd .prompt { color: var(--terminal-prompt); }
   .step .step-cmd .copy-icon {
     position: absolute;
@@ -1320,42 +1051,7 @@
 </head>
 <body>
 
-<!-- ============== TOP NAV ============== -->
-<header class="top" id="top">
-  <div class="container inner">
-    <a href="#top" class="brand">
-      <svg class="glyph" viewBox="0 0 86 79" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" aria-hidden="true"><path d="M57.3779 0C40.5967 0 29.3328 9.8948 29.3328 28.9973V42.5747C30.9412 41.7692 32.7812 41.3085 34.7344 41.3085C36.6877 41.3085 38.5277 41.7692 40.2519 42.5747V28.8815C40.2519 16.4545 47.0328 10.1264 57.3779 10.1264C67.7231 10.1264 74.504 16.4545 74.504 28.8815V58.6843H85.423V28.8815C85.5388 9.6658 74.1592 0 57.3779 0Z" fill="#1A1B1D"></path><path d="M4.73608 32.7957C3.35676 33.4854 2.09321 34.6358 1.17192 36.1335C0.253212 37.6287 -0.0916182 39.2395 0.0216118 40.8505C0.137412 43.7276 1.7458 46.373 4.38868 47.8682C6.80258 49.2475 9.56128 48.9028 12.2042 48.3288C15.4235 47.5233 18.1822 47.1785 21.0542 48.9053H21.17C26.1135 51.7824 26.1135 59.0317 21.17 61.9062H21.0542C18.1797 63.6327 15.421 63.2877 12.2042 62.4827C9.67448 61.793 6.91578 61.4481 4.38868 62.9436C1.7458 64.4386 0.250642 67.1996 0.0216118 69.9606C-0.0941982 71.5716 0.250642 73.1827 1.17192 74.6777C2.09063 76.1736 3.24095 77.3236 4.73608 78.0156C7.26578 79.2816 10.3693 79.2817 13.0122 77.7867C15.4261 76.4076 16.5764 73.7596 17.2661 71.2266C18.1848 68.0056 19.2193 65.4726 22.2096 63.8616C25.0841 62.1352 27.8428 62.4827 31.0596 63.2877C33.5893 63.9776 36.348 64.3227 38.8751 62.8277C41.518 61.3324 43.0131 58.571 43.2422 55.8097V54.6594C43.1264 51.7823 41.518 49.1369 38.8751 47.6417C36.4612 46.2598 33.7025 46.6073 31.0596 47.1812C27.8403 47.9867 25.0816 48.3315 22.2096 46.6047C19.3351 44.878 18.1874 42.4614 17.2661 39.2395C16.5764 36.7073 15.4261 34.1776 13.0122 32.6799C10.3693 31.5296 7.26578 31.5296 4.73608 32.7957Z" fill="#014063"></path></svg>
-      <span class="name">relate</span>
-      <span class="brand-tag">labs</span>
-    </a>
-    <nav class="top-nav" id="topNav">
-      <a href="#examples">Examples</a>
-      <a href="#extensions">Extensions</a>
-      <a href="#reference">Reference</a>
-      <a href="#quickstart">Quickstart</a>
-      <a href="/relate/cookbook/">Cookbook</a>
-      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
-      <a href="/relate/playground/" target="_blank" rel="noopener" class="nav-external">Playground<svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-    </nav>
-    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4"></circle>
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-      </svg>
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-      </svg>
-    </button>
-    <button class="icon-btn nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="topNav" aria-expanded="false">
-      <svg class="open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 6h18M3 12h18M3 18h18"></path>
-      </svg>
-      <svg class="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M6 6l12 12M6 18L18 6"></path>
-      </svg>
-    </button>
-  </div>
-</header>
+<!--SITE-HEADER-->
 
 <!-- ============== MAIN ============== -->
 <main>
@@ -2265,7 +1961,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
       relate <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
     </div>
     <div class="links">
-      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/relatedb/relate" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/neo4j-labs/cypherlite/issues" target="_blank" rel="noopener">Issues</a>
       <a href="llms.txt">llms.txt</a>
       <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
@@ -2281,56 +1977,6 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 </div>
 
 <script>
-  // ---------- Theme ----------
-  const themeToggle = document.getElementById('themeToggle');
-  const root = document.documentElement;
-  const stored = localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark') {
-    root.setAttribute('data-theme', stored);
-  }
-  themeToggle.addEventListener('click', () => {
-    const current = root.getAttribute('data-theme');
-    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let next;
-    if (current === 'dark') next = 'light';
-    else if (current === 'light') next = 'dark';
-    else next = sysDark ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-  });
-
-  // ---------- Sticky header shadow ----------
-  const header = document.getElementById('top');
-  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-
-  // ---------- Mobile nav toggle ----------
-  const navToggle = document.getElementById('navToggle');
-  const topNav = document.getElementById('topNav');
-  if (navToggle && topNav) {
-    const closeNav = () => {
-      topNav.classList.remove('open');
-      navToggle.setAttribute('aria-expanded', 'false');
-      navToggle.setAttribute('aria-label', 'Open menu');
-    };
-    navToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = topNav.classList.toggle('open');
-      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    });
-    topNav.addEventListener('click', (e) => {
-      if (e.target.tagName === 'A') closeNav();
-    });
-    document.addEventListener('click', (e) => {
-      if (!topNav.contains(e.target) && !navToggle.contains(e.target)) closeNav();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeNav();
-    });
-  }
-
   // ---------- Toast ----------
   const toast = document.getElementById('toast');
   const toastText = document.getElementById('toastText');

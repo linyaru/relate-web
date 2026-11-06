@@ -11,8 +11,9 @@ cypherlite-era redo) and should not be extended.
 ## Decisions
 
 - Name: `cypherlite` → `relate`. Site domain: `relatedb.ai`.
-- Local preview: launch config `relate-web` (port 8765, `python3 -m http.server`).
-- `wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (built with
+- Local preview: launch config `relate-web` (port 8765, `npm run dev`).
+- Site is being migrated to Astro (branch `astro-migration`); later: evaluate the relate + Astro beta integration (separate repo).
+- `public/wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (built with
   `scripts/build-wasm.sh --mode release`). Re-copy after upstream changes.
 
 ## Target names (from upstream sources; none published yet)
@@ -37,6 +38,7 @@ cypherlite-era redo) and should not be extended.
 - [ ] Set up Pages / hosting and DNS for `relatedb.ai`; deploy workflow (old one lived on cypherlite `main`)
 - [ ] Add `noindex` / robots block while stealth; remove at launch
 - [ ] Playground (`/relate/playground/`) and cookbook (`/relate/cookbook/`) links stay in `index.html`; they 404 on the interim host until those pages are built and published (upstream `examples/wasm-playground`, `scripts/cookbook`) and the paths are settled
+- [ ] GitHub links (header, footer) point to `relatedb/relate`, which is private: 404 for logged-out visitors until the repo is public. Other repo links (releases, issues, TCK doc, extensions examples) still point at `neo4j-labs/cypherlite`
 - [ ] Fix canonical / `og:url` / `sitemap.xml` (still `neo4j-labs.github.io/cypherlite/`) for the interim host, then again for `relatedb.ai`
 
 ## Switch hosts: github.io → relatedb.ai

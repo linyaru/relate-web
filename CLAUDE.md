@@ -13,6 +13,7 @@ Astro (static output) site. Migration from the old single-file page is in progre
 - `public/` — copied to `dist/` as-is: `llms.txt`, `robots.txt`, `sitemap.xml`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`), `.nojekyll`, `CNAME`, `fonts/`, `img/`, `wasm/`
   - `install.sh`, `releases.json`, `extensions.json` are synced from upstream; do not hand-edit (signed/generated)
   - `wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (`relate.js`, `relate_bg.wasm`, `opfs.js`, `trap.js`, `snippets/`). Keep it in `public/` so Vite never bundles or rewrites it
+- `src/content/cookbook/` — the cookbook recipes; this repo is their source (moved from upstream `docs/cookbook`, which is no longer synced). One markdown file per recipe; `README.md` there is the authoring contract (its index section is generated). `diagrams/` holds pre-rendered SVGs (the renderer has not moved here yet). `src/lib/cookbook/` is the parser, validator and runner, ported from upstream's Rust `relate-cookbook` harness; `scripts/cookbook.ts` is the check/record command. Pages are not built yet
 - `astro.config.mjs` — `site` is the interim preview host; change to `https://relatedb.ai` at launch
 - `MAINTAINING.md` — standing contract for the site (tone, invariants, facts and sources). Its "no build step / single page" statements predate the Astro migration; everything else still applies
 - `LAUNCH.md` — pre-launch notes, target names, launch-day sanity checks
@@ -25,7 +26,12 @@ npm install
 npm run dev       # http://127.0.0.1:8765 (launch config `relate-web`)
 npm run build     # -> dist/
 npm run check     # astro check
+npm run cookbook:check    # every recipe runs on public/wasm and matches its recorded results
+npm run cookbook:record   # rewrite result blocks + README index from a run; review the diff
+npm run cookbook:test     # unit tests for src/lib/cookbook
 ```
+
+The cookbook tooling runs `.ts` directly on Node ≥ 22.18 (type stripping), so keep `src/lib/cookbook/` to erasable TypeScript (no enums, namespaces or parameter properties) and import with `.ts` extensions. `COOKBOOK_ONLY=<slug>[,…]` limits a check or record run.
 
 Refresh the WASM from the upstream checkout (`~/Developer/neo4j-labs/cypherlite`, toolchain pinned to 1.88.0, needs the `wasm32-unknown-unknown` target):
 
@@ -33,6 +39,8 @@ Refresh the WASM from the upstream checkout (`~/Developer/neo4j-labs/cypherlite`
 cd ~/Developer/neo4j-labs/cypherlite && bash scripts/build-wasm.sh --mode release
 # then copy surfaces/relate-wasm/pkg/{relate.js,relate.d.ts,relate_bg.wasm,relate_bg.wasm.d.ts,opfs.js,trap.js,snippets} into public/wasm/
 ```
+
+After refreshing the WASM, run `npm run cookbook:check`. If it fails, decide whether the engine changed on purpose; if so, run `npm run cookbook:record` and review the diff.
 
 Deploys: `.github/workflows/deploy-pages.yml` (GitHub Pages) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci && npm run build` and publish `dist/`.
 

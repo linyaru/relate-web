@@ -22,6 +22,7 @@ this site: `npm run build` at the repository root builds it into
 npm ci --prefix playground          # once, from the repository root
 npm run dev:playground              # http://localhost:5173/playground/
 npm run check:playground            # tsc
+npm run cookbook:browser            # after a build: the playground and the cookbook hand-off in headless Chrome
 npm run build                       # the site, then the playground into dist/playground/
 ```
 

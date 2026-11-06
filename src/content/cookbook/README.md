@@ -305,7 +305,7 @@ changed.
 | --- | --- |
 | `npm run cookbook:check` | Every recipe parses and validates (the front matter, data blocks, and raw HTML are valid; step code fits in 88 columns; small blocks sit beside their steps and datasets in `## Data`; the recipe runs at most 800 lines before `## Data`; it has a diagram), runs every step in order, reproduces each recorded `table` / `gram` block, and returns at most 200 rows per statement; the index is current |
 | `npm run cookbook:test` | The cookbook tooling's unit tests (`src/lib/cookbook/*.test.ts`) |
-| `npm run cookbook:browser` | After `npm run build`: every recipe page opens in headless Chrome, "Run all" runs every step, and each must match its recording; the page controls (Run, parameters, JSON view, Edit and Revert, Reset, Stop) are exercised on one recipe. Needs Chrome (`CHROME_PATH`) |
+| `npm run cookbook:browser` | After `npm run build`, in headless Chrome: every recipe page's "Run all" runs every step, and each must match its recording; every graph result draws; the page controls (Run, parameters, JSON view, Edit and Revert, Reset, Stop) are exercised on one recipe; the playground loads its sample data; every recipe opens whole in the playground (`#recipe=<slug>`) and replays all its steps, and one step link replays the steps before it and loads the step with its parameters. Before that, the built `recipe.json` files and step links are checked. Needs Chrome (`CHROME_PATH`) |
 
 A run stops at the first step that goes other than the recipe says (an error
 where none is expected, or success where the step is `expect=error`), in the

@@ -25,19 +25,39 @@ jobs:
       contents: read
       deployments: write
     steps:
+      # Secrets can't be used in a job-level `if`, so detect them here and gate the rest.
+      # Until Cloudflare is set up, the job skips (green) instead of failing.
+      - name: Check Cloudflare config
+        id: cf
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping Cloudflare deploy: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set."
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.cf.outputs.configured == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.cf.outputs.configured == 'true'
         with:
           node-version: 24
           cache: npm
 
       - run: npm ci
+        if: steps.cf.outputs.configured == 'true'
 
       - name: Build site
+        if: steps.cf.outputs.configured == 'true'
         run: npm run build
 
       - name: Sanity check
+        if: steps.cf.outputs.configured == 'true'
         run: |
           test -s dist/index.html
           test -s dist/wasm/relate_bg.wasm
@@ -45,6 +65,7 @@ jobs:
           test -s dist/CNAME
 
       - name: Deploy to Cloudflare Pages
+        if: steps.cf.outputs.configured == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

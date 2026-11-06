@@ -1,0 +1,226 @@
+/* Cookbook pages (/cookbook/ and /cookbook/<slug>/). Ported from the Relate
+   repository's scripts/cookbook/runtime/cookbook.css; fonts, colour tokens,
+   reset and the top bar come from base.css. Colours are tokens only. */
+
+:root {
+  /* The output pane and code borders, from base.css tokens. */
+  --out-bg: var(--bg-alt);
+  --code-border: color-mix(in srgb, var(--code-fg) 14%, var(--code-bg));
+}
+
+.cookbook a { color: var(--accent); text-underline-offset: 2px; }
+.cookbook a:hover { color: var(--accent-hover); }
+.cookbook [hidden] { display: none !important; }
+.cookbook code { font-family: var(--font-mono); font-size: 0.88em; }
+.cookbook :not(pre) > code {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  overflow-wrap: anywhere;
+}
+.cookbook h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 12px; }
+.cookbook .eyebrow { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); margin: 0 0 8px; }
+.cookbook .eyebrow a { color: inherit; text-decoration: none; }
+.cookbook .eyebrow a:hover { color: var(--fg); }
+
+/* ---------- Index page ---------- */
+.page-head { padding: 48px 0 8px; }
+.page-head .lede { font-size: 19px; color: var(--fg-muted); max-width: 720px; margin: 0; }
+.category { margin-top: 44px; }
+.category h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); margin: 0 0 12px; font-weight: 600; }
+.recipe-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 0; }
+.cookbook a.recipe-card {
+  display: flex; flex-direction: column; gap: 8px; height: 100%;
+  padding: 18px 20px; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--fg); text-decoration: none; background: var(--bg-alt);
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.cookbook a.recipe-card:hover { color: var(--fg); border-color: var(--border-strong); box-shadow: var(--shadow-raised); }
+.recipe-card .title { font-weight: 600; font-size: 17px; line-height: 1.35; }
+.recipe-card .summary { color: var(--fg-muted); font-size: 15px; line-height: 1.5; flex: 1; }
+.recipe-card .card-meta { font-size: 13px; color: var(--fg-faint); }
+.index-foot { margin-top: 48px; color: var(--fg-muted); font-size: 15px; }
+
+/* ---------- Recipe page ---------- */
+.recipe-container { max-width: 860px; margin: 0 auto; }
+.recipe-page { display: flex; flex-direction: column; }
+.recipe-head { padding: 40px 0 8px; }
+.recipe-head .lede { font-size: 19px; color: var(--fg-muted); max-width: 720px; margin: 0; }
+.data-note { font-size: 14px; color: var(--fg-muted); margin: 12px 0 0; }
+@media (max-width: 600px) {
+  .page-head .lede, .recipe-head .lede { font-size: 17px; }
+}
+
+/* Contents: a collapsed disclosure in the flow on narrow screens, a sticky
+   side column on wide ones (the page script opens it there). */
+.toc { margin: 16px 0 0; font-size: 14px; }
+.toc details { border: 1px solid var(--border); border-radius: 8px; padding: 4px 14px; }
+.toc summary { cursor: pointer; color: var(--fg-muted); font-weight: 500; padding: 6px 0; }
+.toc ol { list-style: none; margin: 4px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cookbook .toc a { color: var(--fg-muted); text-decoration: none; display: block; line-height: 1.35; }
+.cookbook .toc a:hover { color: var(--fg); }
+.toc code { font-size: 0.9em; }
+@media (min-width: 1240px) {
+  .recipe-container { max-width: 1160px; }
+  .recipe-page { display: grid; grid-template-columns: minmax(0, 1fr) 220px; column-gap: 48px; }
+  .recipe-page > * { grid-column: 1; }
+  .recipe-page > .toc {
+    grid-column: 2; grid-row: 1 / span 20; align-self: start;
+    position: sticky; top: 72px; margin: 0; padding-top: 44px;
+    max-height: calc(100vh - 88px); overflow-y: auto;
+  }
+  .toc details { border: 0; padding: 0; }
+  .toc summary {
+    pointer-events: none; list-style: none; padding: 0 0 8px;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint);
+  }
+  .toc summary::-webkit-details-marker { display: none; }
+  .toc ol { border-left: 1px solid var(--border); gap: 8px; }
+  .cookbook .toc a { padding-left: 12px; font-size: 13.5px; }
+}
+
+/* The end of a recipe: where its data comes from, and what to read next. */
+.about-data, .more { margin-top: 48px; }
+.about-data h2, .more h2 { font-size: 24px; letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 12px; }
+.about-data p { color: var(--fg-muted); font-size: 15px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 12px; font-size: 14px; }
+.facts dt { color: var(--fg-faint); }
+.facts dd { margin: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+
+.btn {
+  font: inherit; font-size: 13px; font-weight: 500; line-height: 1;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 11px; border-radius: 6px; cursor: pointer; text-decoration: none;
+  color: var(--fg); background: var(--bg); border: 1px solid var(--border-strong);
+}
+.btn:hover { background: var(--bg-alt); color: var(--fg); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
+.btn.danger { color: var(--danger); }
+
+.recipe-body { padding-bottom: 24px; }
+.recipe-body h2 { font-size: 24px; letter-spacing: -0.01em; line-height: 1.25; margin: 48px 0 12px; }
+.recipe-body h3 { font-size: 19px; margin: 32px 0 8px; }
+.recipe-body blockquote {
+  margin: 20px 0; padding: 12px 16px; border-left: 3px solid var(--border-strong);
+  background: var(--bg-alt); border-radius: 0 6px 6px 0; color: var(--fg-muted);
+}
+.recipe-body blockquote.callout { border-left-color: var(--accent); }
+.recipe-body blockquote p { margin: 0.4em 0; }
+.recipe-body table { border-collapse: collapse; font-size: 15px; margin: 16px 0; display: block; overflow-x: auto; }
+.recipe-body th, .recipe-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.recipe-body th { background: var(--bg-alt); }
+.recipe-body img { max-width: 100%; }
+
+/* Diagrams: both renderings are in the page; the theme picks one. */
+.diagram { margin: 24px 0; padding: 16px 16px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt); }
+.diagram-art { overflow-x: auto; }
+.diagram-art svg { display: block; margin: 0 auto; height: auto; }
+.diagram-dark { display: none; }
+[data-theme="dark"] .diagram-light { display: none; }
+[data-theme="dark"] .diagram-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .diagram-light { display: none; }
+  :root:not([data-theme="light"]) .diagram-dark { display: block; }
+}
+.diagram figcaption { margin-top: 10px; font-size: 13px; color: var(--fg-muted); text-align: center; }
+/* On narrow screens a diagram keeps 80% of its natural size and scrolls
+   sideways, instead of shrinking until its labels are unreadable. */
+@media (max-width: 700px) {
+  .diagram { padding: 12px 8px 10px; }
+  .diagram-art svg { width: calc(var(--natural-width, 600px) * 0.8); max-width: none !important; }
+}
+
+/* Static code blocks */
+.code-block { position: relative; margin: 16px 0; }
+.code-block pre, .cell-code pre {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--code-bg) !important; color: var(--code-fg);
+  border: 1px solid var(--code-border); border-radius: 8px;
+  font-family: var(--font-mono); font-size: 13.5px; line-height: 1.6; tab-size: 2;
+}
+.code-block pre code, .cell-code pre code { font-size: inherit; background: none; border: 0; padding: 0; }
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  font: 500 12px var(--font-sans); padding: 4px 8px; border-radius: 4px; cursor: pointer;
+  color: var(--code-comment);
+  background: color-mix(in srgb, var(--code-fg) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--code-fg) 12%, transparent);
+  opacity: 0; transition: opacity 0.1s;
+}
+.code-block:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+
+/* Steps */
+cypher-cell { display: block; margin: 20px 0 28px; }
+.cell-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.cell-tag { font-family: var(--font-mono); font-size: 12px; color: var(--fg-faint); }
+.cell-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.cell-body > summary {
+  cursor: pointer; font-size: 14px; color: var(--fg-muted); padding: 6px 0; list-style: none;
+}
+.cell-body > summary::-webkit-details-marker { display: none; }
+.cell-body > summary::before { content: '▸ '; }
+.cell-body[open] > summary::before { content: '▾ '; }
+.cell-editor {
+  display: block; width: 100%; min-height: 80px; resize: vertical;
+  padding: 14px 16px; margin: 0;
+  background: var(--code-bg); color: var(--code-fg); caret-color: var(--code-fg);
+  border: 1px solid var(--accent); border-radius: 8px; outline: none;
+  font-family: var(--font-mono); font-size: 13.5px; line-height: 1.6; tab-size: 2; white-space: pre; overflow-x: auto;
+}
+.cell-params { margin-top: 8px; font-size: 14px; color: var(--fg-muted); }
+.cell-params summary { cursor: pointer; }
+.cell-params .params-editor {
+  display: block; width: 100%; margin-top: 6px; min-height: 60px; resize: vertical;
+  padding: 10px 12px; background: var(--bg-alt); color: var(--fg);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.5;
+}
+.cell-output { margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--out-bg); overflow: hidden; }
+.out-head { display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.out-label { color: var(--fg-faint); flex: 1; }
+cypher-cell.is-live .out-label { color: var(--success); }
+cypher-cell.is-error .out-label, cypher-cell.is-blocked .out-label { color: var(--danger); }
+cypher-cell.is-running .out-label { color: var(--accent); }
+.out-tabs { display: flex; gap: 2px; }
+.out-copy, .out-tabs button {
+  font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--fg-muted);
+}
+.out-copy:hover { color: var(--fg); border-color: var(--border); }
+.out-tabs button[aria-selected="true"] { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.out-text, .out-json {
+  margin: 0; padding: 12px; overflow-x: auto; max-height: 520px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; color: var(--fg);
+}
+cypher-cell.is-error .out-text { color: var(--danger); white-space: pre-wrap; }
+
+/* Table results */
+.out-table .table-scroll { overflow: auto; max-height: 520px; }
+.recipe-body .out-table table {
+  display: table; margin: 0; border-collapse: separate; border-spacing: 0;
+  min-width: 100%; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5;
+}
+.recipe-body .out-table th, .recipe-body .out-table td {
+  border: 0; border-bottom: 1px solid var(--border); padding: 5px 12px;
+  text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch;
+}
+.recipe-body .out-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--out-bg);
+  color: var(--fg-muted); font-weight: 500; white-space: nowrap;
+}
+.recipe-body .out-table tbody tr:last-child td { border-bottom: 0; }
+.recipe-body .out-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.out-summary {
+  margin: 0; padding: 7px 12px; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px; color: var(--fg-faint);
+}
+
+/* ---------- Footer ---------- */
+.cookbook-foot { border-top: 1px solid var(--border); margin-top: 72px; padding: 24px 0 40px; font-size: 14px; color: var(--fg-muted); }
+.cookbook-foot .inner { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+.cookbook-foot .links { display: flex; flex-wrap: wrap; gap: 16px; }
+.cookbook .cookbook-foot a { color: var(--fg-muted); text-decoration: none; }
+.cookbook .cookbook-foot a:hover { color: var(--fg); }

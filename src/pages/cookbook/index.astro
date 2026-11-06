@@ -1,0 +1,37 @@
+---
+// The cookbook's index: every recipe, grouped by category.
+import RecipeCard from '../../components/cookbook/RecipeCard.astro';
+import Cookbook from '../../layouts/Cookbook.astro';
+import { slugify } from '../../lib/cookbook/markdown.ts';
+import { byCategory } from '../../lib/cookbook/render.ts';
+import { cookbook } from '../../lib/cookbook/site.ts';
+
+const { pages } = await cookbook();
+const groups = byCategory(pages.map((p) => p.recipe));
+const used = new Set<string>();
+---
+<Cookbook
+  title="Cookbook"
+  description="Relate recipes: entity resolution, geospatial tools, dependency analysis, hybrid search, agent memory, and more, each with its data and recorded results."
+>
+  <header class="page-head">
+    <p class="eyebrow"><a href="/">relate</a> / cookbook</p>
+    <h1>Cookbook</h1>
+    <p class="lede">
+      Recipes that solve one problem each, with a small dataset and plain Cypher. Every step shows its
+      recorded result, and CI checks each one against the engine.
+    </p>
+  </header>
+  {groups.map((g) => (
+    <section class="category" id={slugify(g.category, used)}>
+      <h2>{g.category}</h2>
+      <ul class="recipe-list">
+        {g.recipes.map((r) => <RecipeCard recipe={r} />)}
+      </ul>
+    </section>
+  ))}
+  <p class="index-foot">
+    The same Cypher runs from the CLI and from Python. Every recipe page publishes its data as JSON files
+    beside it, and its source as markdown.
+  </p>
+</Cookbook>

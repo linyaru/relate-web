@@ -1,14 +1,25 @@
 // Reading the cookbook from disk: every recipe file under the cookbook
 // directory, parsed and (optionally) validated.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { basename, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 import { parseRecipe, validateRecipe, type Recipe } from './recipe.ts';
 
+/**
+ * The repository root: the nearest directory at or above the working
+ * directory that holds `src/content/cookbook`. (Not found from
+ * `import.meta.url`, which points into dist/ once Astro bundles this module.)
+ */
+export function projectRoot(from = process.cwd()): string {
+  for (let dir = from; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, 'src/content/cookbook'))) return dir;
+    if (dirname(dir) === dir) throw new Error(`no src/content/cookbook at or above ${from}`);
+  }
+}
+
 /** The repository's cookbook directory. */
-export const COOKBOOK_DIR = fileURLToPath(new URL('../../content/cookbook/', import.meta.url));
+export const COOKBOOK_DIR = join(projectRoot(), 'src/content/cookbook');
 
 /** Every recipe file (`*.md` other than `README.md`) under `root`, sorted by slug. */
 export function recipeFiles(root: string): string[] {

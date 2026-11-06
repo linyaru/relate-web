@@ -1,0 +1,71 @@
+---
+// Shell for the cookbook's pages (/cookbook/ and /cookbook/<slug>/): the shared
+// Base layout plus the cookbook styles, head tags, footer, and page chrome.
+import Base from './Base.astro';
+import { CANONICAL_ORIGIN } from '../lib/cookbook/links.ts';
+import '../styles/cookbook.css';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Extra footer links (a recipe page links its markdown). */
+  footerLinks?: { href: string; label: string }[];
+}
+const { title, description, footerLinks = [] } = Astro.props;
+const canonical = new URL(Astro.url.pathname, CANONICAL_ORIGIN).href;
+---
+<Base title={title} description={description}>
+  <Fragment slot="head">
+    <link rel="canonical" href={canonical} />
+    <link rel="describedby" href="/cookbook/llms.txt" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="article" />
+    <slot name="head" />
+  </Fragment>
+  <div class="cookbook">
+    <slot />
+    <footer class="cookbook-foot">
+      <div class="inner">
+        <div class="meta">relate cookbook</div>
+        <div class="links">
+          {footerLinks.map((l) => <a href={l.href}>{l.label}</a>)}
+          <a href="/cookbook/">All recipes</a>
+          <a href="/cookbook/llms.txt">llms.txt</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</Base>
+
+<script>
+  // Page chrome. The steps' runtime (Run, Edit, graph and JSON views) comes later;
+  // until then every step shows its recorded result.
+
+  // Copy buttons on static code blocks.
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.copy-btn[data-copy-target]')) {
+    btn.hidden = false;
+    btn.addEventListener('click', async () => {
+      const target = document.getElementById(btn.dataset.copyTarget ?? '') as HTMLTextAreaElement | null;
+      const label = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(target?.value ?? '');
+        btn.textContent = 'Copied';
+      } catch {
+        btn.textContent = 'Copy failed';
+      }
+      setTimeout(() => (btn.textContent = label), 1200);
+    });
+  }
+
+  // The contents list is a collapsed disclosure on narrow screens and an open
+  // side column on wide ones.
+  const toc = document.querySelector<HTMLDetailsElement>('.toc details');
+  if (toc) {
+    const wide = window.matchMedia('(min-width: 1240px)');
+    const sync = () => (toc.open = wide.matches);
+    sync();
+    wide.addEventListener('change', sync);
+  }
+</script>

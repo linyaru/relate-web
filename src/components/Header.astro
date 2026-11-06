@@ -1,6 +1,12 @@
 ---
 // Site-wide top bar. Used by every page (home and sections) so navigation stays consistent.
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+// A section link is current on the section's own pages too (/cookbook/<slug>/).
+const isCurrent = (href: string) => {
+  if (href.includes('#') || /^https?:/.test(href)) return false;
+  const h = href.replace(/\/$/, '') || '/';
+  return path === h || (h !== '/' && path.startsWith(`${h}/`));
+};
 const links = [
   { href: '/#quickstart', label: 'Quickstart' },
   { href: '/#examples', label: 'Examples' },
@@ -8,7 +14,7 @@ const links = [
   { href: '/#extensions', label: 'Extensions' },
   { href: '/docs', label: 'Docs' },
   { href: '/blog', label: 'Blog' },
-  { href: '/relate/cookbook/', label: 'Cookbook' },
+  { href: '/cookbook/', label: 'Cookbook' },
   { href: 'https://github.com/relatedb/relate', label: 'GitHub', external: true },
   { href: '/relate/playground/', label: 'Playground', external: true, icon: true },
 ];
@@ -21,7 +27,7 @@ const links = [
     </a>
     <nav class="top-nav" id="topNav">
       {links.map((l) => (
-        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} class={l.icon ? 'nav-external' : undefined} aria-current={path === l.href ? 'page' : undefined}>
+        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} class={l.icon ? 'nav-external' : undefined} aria-current={isCurrent(l.href) ? 'page' : undefined}>
           {l.label}{l.icon && <svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>}
         </a>
       ))}

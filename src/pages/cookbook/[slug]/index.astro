@@ -1,0 +1,98 @@
+---
+// A recipe's page: its prose, each step with its recorded result, its
+// diagrams, where its data comes from, and the other recipes in its category.
+import RecipeCard from '../../../components/cookbook/RecipeCard.astro';
+import Cookbook from '../../../layouts/Cookbook.astro';
+import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
+import { byCategory, esc, renderRecipe } from '../../../lib/cookbook/render.ts';
+import { cookbook, type Page } from '../../../lib/cookbook/site.ts';
+
+export async function getStaticPaths() {
+  const { pages } = await cookbook();
+  return pages.map((page) => ({ params: { slug: page.recipe.slug }, props: { page } }));
+}
+
+interface Props { page: Page }
+const { page } = Astro.props;
+const book = await cookbook();
+const { recipe } = page;
+const f = recipe.front;
+const { html, lede, toc, inline } = renderRecipe(book, page);
+
+const DEFAULT_LICENSE = 'Apache-2.0';
+const facts = (
+  [
+    ['Dataset', f.dataset],
+    ['Source', f.source],
+    ['License', f.license],
+  ] as const
+).filter(([, v]) => v);
+const companion = f.companion && !isNotYetPublic(f.companion) ? f.companion : null;
+const contents = [...toc, ...(facts.length ? [{ id: 'about-the-data', label: 'About the data' }] : [])];
+const others =
+  byCategory(book.pages.map((p) => p.recipe), [f.category])[0]?.recipes.filter((r) => r.slug !== recipe.slug) ?? [];
+// The graph view colours each label as the recipe's data model does.
+const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
+---
+<Cookbook title={`${f.title} · Cookbook`} description={f.summary} footerLinks={[{ href: 'index.md', label: 'Markdown' }]}>
+  <script is:inline slot="head" type="application/json" id="label-colors" set:html={labelColors} />
+  <div class="recipe-container">
+    <article class="recipe-page">
+      <header class="recipe-head">
+        <p class="eyebrow"><a href="/cookbook/">Cookbook</a> / {f.category} · {f.level}</p>
+        <h1>{f.title}</h1>
+        <p class="lede" set:html={lede} />
+        {f.license && f.license !== DEFAULT_LICENSE && (
+          <p class="data-note">
+            The data is licensed <Fragment set:html={inline(f.license)} />; see <a href="#about-the-data">About the data</a>.
+          </p>
+        )}
+      </header>
+      {contents.length >= 3 && (
+        <nav class="toc" aria-label="On this page">
+          <details>
+            <summary>On this page</summary>
+            <ol>
+              {contents.map((e) => <li><a href={`#${esc(e.id)}`} set:html={e.label} /></li>)}
+            </ol>
+          </details>
+        </nav>
+      )}
+      <div class="recipe-body" set:html={html} />
+      {facts.length > 0 && (
+        <section class="about-data">
+          <h2 id="about-the-data">About the data</h2>
+          <dl class="facts">
+            {facts.map(([k, v]) => (
+              <>
+                <dt>{k}</dt>
+                <dd set:html={inline(v!)} />
+              </>
+            ))}
+          </dl>
+          <p>
+            Every data block is published beside this page as <code>data/&lt;name&gt;.json</code>, and the whole
+            recipe as <a href="index.md">markdown</a>.
+          </p>
+          {companion && (
+            <p>
+              The full program this recipe distils: <a href={companion} target="_blank" rel="noopener">{companion.replace(/^https:\/\//, '')}</a>
+            </p>
+          )}
+        </section>
+      )}
+      <section class="more">
+        {others.length > 0 ? (
+          <>
+            <h2 id="more-recipes">More in {f.category}</h2>
+            <ul class="recipe-list">
+              {others.map((r) => <RecipeCard recipe={r} />)}
+            </ul>
+          </>
+        ) : (
+          <p><a href="/cookbook/">All recipes</a></p>
+        )}
+      </section>
+    </article>
+  </div>
+</Cookbook>

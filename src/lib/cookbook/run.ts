@@ -7,13 +7,14 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import { surprise, type LastEnvelope } from './cells.ts';
+import { projectRoot } from './load.ts';
 import { dataBlock, MAX_RESULT_ROWS, type Recipe, type Recording } from './recipe.ts';
 
 /** The site's WASM bundle. */
-export const WASM_DIR = fileURLToPath(new URL('../../../public/wasm/', import.meta.url));
+export const WASM_DIR = join(projectRoot(), 'public/wasm');
 
 interface Db {
   executeScript(script: string, params?: string | null): string[];

@@ -37,7 +37,11 @@ playground's dev server.
 The build keeps the tuning it had upstream (`vite.config.ts`): terser rather
 than esbuild (esbuild's minifier breaks labelled statements in dagre and
 cypher-language-support), React in one chunk (NVL's React wrapper needs a
-single binding), and an explicit dependency pre-bundle list.
+single binding), and an explicit dependency pre-bundle list. The `build`
+script also raises Node's heap to 6 GB, as upstream's deploy did: the
+manual-chunks pass over the CodeMirror and NVL vendors needs more than
+the 2 GB heap Node gets on a GitHub runner, and fails there with
+"JavaScript heap out of memory".
 
 ## Running queries
 

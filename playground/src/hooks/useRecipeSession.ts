@@ -35,6 +35,8 @@ export type RecipeState =
 /** What a load did: the steps it ran, and the linked step for the editor. */
 export interface LoadedRecipe {
   title: string;
+  /** The recipe that was loaded, for the sample queries. */
+  recipe: Recipe;
   replayed: number;
   /** The linked step's Cypher and parameters; null when the whole recipe ran. */
   step: { code: string; params: RecipeParams | null } | null;
@@ -94,7 +96,7 @@ export function useRecipeSession({ afterReset, onPoisoned }: Options) {
             ? null
             : { text: paramsAt(target.paramsPath), label: `${recipe.title} · ${target.paramsPath}` },
       };
-      return { title: recipe.title, replayed: replay.length, step };
+      return { title: recipe.title, recipe, replayed: replay.length, step };
     } catch (e) {
       if (e instanceof EnginePoisonedError) onPoisoned(e);
       else setError((e as Error).message);

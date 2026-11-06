@@ -7,16 +7,20 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useResizable } from '../hooks/useResizable';
 import { loadSchema, type DbSchema } from '../lib/schema';
 import { templates } from '../lib/query-templates';
-import { SAMPLES } from '../lib/samples';
+import type { Sample } from '../lib/samples';
 import { ResizeHandle } from './ResizeHandle';
 
 interface Props {
   engineReady: boolean;
   refreshKey: number;
   onRunQuery: (query: string) => void;
+  /** The sample list: the sample data's queries, or a loaded recipe's steps. */
+  samplesTitle: string;
+  samples: Sample[];
+  onRunSample: (sample: Sample) => void;
 }
 
-export function SchemaSidebar({ engineReady, refreshKey, onRunQuery }: Props) {
+export function SchemaSidebar({ engineReady, refreshKey, onRunQuery, samplesTitle, samples, onRunSample }: Props) {
   const isMobile = useIsMobile();
   const [schema, setSchema] = useState<DbSchema | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +57,7 @@ export function SchemaSidebar({ engineReady, refreshKey, onRunQuery }: Props) {
       )}
       {schema && <SchemaSections schema={schema} onRunQuery={onRunQuery} />}
       <Divider />
-      <SampleList onRunQuery={onRunQuery} />
+      <SampleList title={samplesTitle} samples={samples} onRun={onRunSample} />
     </Flex>
   );
 
@@ -146,16 +150,16 @@ function SchemaSections({
   );
 }
 
-function SampleList({ onRunQuery }: { onRunQuery: (q: string) => void }) {
+function SampleList({ title, samples, onRun }: { title: string; samples: Sample[]; onRun: (s: Sample) => void }) {
   return (
-    <Section title="Sample queries" direction="column">
-      {SAMPLES.map((s) => (
+    <Section title={title} direction="column">
+      {samples.map((s) => (
         <FilledButton
           key={s.label}
           size="small"
           isFluid
           leadingVisual={<PlayIconSolid />}
-          onClick={() => onRunQuery(templates.labeled(s.label, s.query))}
+          onClick={() => onRun(s)}
           style={{ justifyContent: 'flex-start' }}
         >
           {s.label}

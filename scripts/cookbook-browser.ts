@@ -345,10 +345,19 @@ const PLAYGROUND = `(async () => {
 /**
  * Opening a recipe (or one step) from the cookbook in the playground: the
  * dialog loads it, the expected steps replay, and for a step link its Cypher
- * and parameters are loaded. `expect` is
- * `{replayed, title, editorStart: string | null, paramsPath: string | null}`.
+ * and parameters are loaded. The sample list then holds the recipe's steps
+ * (`samples`, their titles) instead of the sample data's queries, and
+ * `runSample`, when set, is a step title whose button must run and return
+ * rows.
  */
-const handoff = (expect: { replayed: number; title: string; editorStart: string | null; paramsPath: string | null }) => `(async () => {
+const handoff = (expect: {
+  replayed: number;
+  title: string;
+  editorStart: string | null;
+  paramsPath: string | null;
+  samples: string[];
+  runSample: string | null;
+}) => `(async () => {
   const expect = ${JSON.stringify(expect)};
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const button = () => [...document.querySelectorAll('button')].find((b) => /Load the recipe/.test(b.textContent));
@@ -370,7 +379,28 @@ const handoff = (expect: { replayed: number; title: string; editorStart: string 
   const banner = /Queries run from the editor use the parameters from/.test(text);
   if (expect.paramsPath !== null && !(banner && text.includes(expect.paramsPath))) failures.push('no parameters banner for ' + expect.paramsPath);
   if (expect.paramsPath === null && banner) failures.push('a parameters banner, though the link takes no parameters');
-  return { log: [loaded], failures };
+
+  // The sample list is the recipe's steps, not the sample data's queries.
+  const buttons = () => [...document.querySelectorAll('button')];
+  const labels = new Set(buttons().map((b) => b.textContent.trim()));
+  const missing = expect.samples.filter((s) => !labels.has(s));
+  if (missing.length) failures.push('the sample list lacks the recipe steps ' + JSON.stringify(missing.slice(0, 3)));
+  if (labels.has('Colleagues at Neo4j')) failures.push('the sample list still shows the sample data queries');
+  if (!text.includes('Queries from "' + expect.title + '"')) failures.push('the sample list is not titled for the recipe');
+
+  // A step's button runs it with its own parameters.
+  if (expect.runSample !== null) {
+    const results = () => (document.body.innerText.match(/\\d+ records? · [\\d.]+ ms/g) || []).length;
+    const before = results();
+    const sample = buttons().find((b) => b.textContent.trim() === expect.runSample);
+    if (!sample) failures.push('no sample button ' + expect.runSample);
+    else {
+      sample.click();
+      for (let i = 0; i < 200 && results() === before; i++) await wait(50);
+      if (results() === before) failures.push('running the sample ' + JSON.stringify(expect.runSample) + ' returned no result');
+    }
+  }
+  return { log: [loaded + ' ' + expect.samples.length + ' step queries'], failures };
 })()`;
 
 // ---------------------------------------------------------------- main
@@ -389,7 +419,7 @@ interface RecipeJson {
   format: number;
   slug: string;
   title: string;
-  cells: { id: string; code: string; paramsPath: string | null }[];
+  cells: { id: string; title?: string; code: string; paramsPath: string | null; setup: boolean }[];
 }
 const published = new Map<string, RecipeJson>();
 
@@ -449,14 +479,23 @@ try {
   for (const slug of slugs) {
     const json = published.get(slug);
     if (!json) continue;
-    const expect = { replayed: json.cells.length, title: json.title, editorStart: null, paramsPath: null };
+    const samples = json.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
+    const expect = { replayed: json.cells.length, title: json.title, editorStart: null, paramsPath: null, samples, runSample: null };
     await check('hand-off (whole recipe)', slug, playgroundLink(slug), handoff(expect));
   }
   const step = published.get(HANDOFF_STEP.slug);
   const index = step?.cells.findIndex((c) => c.id === HANDOFF_STEP.cell) ?? -1;
   if (step && index >= 0) {
     const cell = step.cells[index];
-    const expect = { replayed: index, title: step.title, editorStart: cell.code.split('\n')[0], paramsPath: cell.paramsPath };
+    const samples = step.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
+    const expect = {
+      replayed: index,
+      title: step.title,
+      editorStart: cell.code.split('\n')[0],
+      paramsPath: cell.paramsPath,
+      samples,
+      runSample: cell.title ?? cell.id,
+    };
     await check(`hand-off (step ${cell.id})`, HANDOFF_STEP.slug, playgroundLink(HANDOFF_STEP.slug, cell.id), handoff(expect));
   }
 } finally {

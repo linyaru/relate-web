@@ -1,6 +1,8 @@
 export interface Sample {
   label: string;
   query: string;
+  /** A loaded recipe's step only: its parameter file, relative to the recipe page. */
+  paramsPath?: string | null;
 }
 
 export const SAMPLES: Sample[] = [

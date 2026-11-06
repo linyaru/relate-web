@@ -12,7 +12,7 @@ import { createMarkdown, type MarkdownEnv } from './markdown.ts';
 import { prepareSvg, type Theme } from './diagrams.ts';
 import { byCodePoint } from './index.ts';
 import { CATEGORIES, type Category } from './frontmatter.ts';
-import { byteLength, dataBlock, INLINE_DATA_BYTES, narrative, type Cell, type Recipe } from './recipe.ts';
+import { byteLength, cellTitles, dataBlock, INLINE_DATA_BYTES, narrative, type Cell, type Recipe } from './recipe.ts';
 import { rewriteHref } from './links.ts';
 import { canDraw, esc, tableHtml } from './result-view.ts';
 import type { Cookbook, Page, RenderedDiagram } from './site.ts';
@@ -187,11 +187,15 @@ export function llmsTxt(cookbook: Cookbook, cookbookUrl: string): string {
 
 /**
  * The hand-off the playground reads (ADR-0134): format 1,
- * `{format, slug, title, cells: [{id, code, paramsPath, setup, expectError}]}`,
- * `paramsPath` relative to the recipe page. The playground checks the shape
- * and refuses any other format (playground/src/lib/recipe-link.ts).
+ * `{format, slug, title, cells: [{id, title, code, paramsPath, setup, expectError}]}`,
+ * `paramsPath` relative to the recipe page. A cell's `title` is the heading
+ * it sits under (`cellTitles`), which the playground labels its sample
+ * queries with; it is optional in format 1, so a reader that predates it
+ * still accepts the file. The playground checks the shape and refuses any
+ * other format (playground/src/lib/recipe-link.ts).
  */
 export function recipeJson(recipe: Recipe): string {
+  const titles = cellTitles(recipe);
   return `${JSON.stringify(
     {
       format: 1,
@@ -199,6 +203,7 @@ export function recipeJson(recipe: Recipe): string {
       title: recipe.front.title,
       cells: recipe.cells.map((c) => ({
         id: c.id,
+        title: titles.get(c.id) ?? c.id,
         code: c.code,
         paramsPath: c.params ? dataPath(c.params) : null,
         setup: c.setup,

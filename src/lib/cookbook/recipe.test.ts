@@ -6,6 +6,7 @@ import type { Category } from './frontmatter.ts';
 import cases from './cells.cases.json' with { type: 'json' };
 import { renderIndex, spliceIndex } from './index.ts';
 import {
+  cellTitles,
   INLINE_DATA_BYTES,
   isStrayHtml,
   MAX_NARRATIVE_LINES,
@@ -197,4 +198,26 @@ test('the cell rule matches the shared cases', () => {
   for (const c of cases) {
     assert.equal(surprise({ id: 'a', expectError: c.expectError }, c.last), c.problem, JSON.stringify(c));
   }
+});
+
+test('cellTitles names each cell by the heading it sits under', () => {
+  const steps = (body: string) =>
+    parse(
+      SAMPLE.replace(
+        'Text after.',
+        `Text after.\n\n${body}`,
+      ),
+    );
+  const r = steps(
+    '## Cafes `within` 2 km\n\n```cypher cell=a\nRETURN 1\n```\n\n```python\n## not a heading\n```\n\n' +
+      '```cypher cell=b\nRETURN 2\n```\n\n### The **nearest** [k](https://example.com) cafes\n\n```cypher cell=c\nRETURN 3\n```',
+  );
+  const titles = cellTitles(r);
+  // `load` and `q` come before any `##` heading: titled by their ids.
+  assert.equal(titles.get('load'), 'load');
+  assert.equal(titles.get('q'), 'q');
+  assert.equal(titles.get('a'), 'Cafes within 2 km');
+  // A heading-shaped line inside a code fence is not a heading.
+  assert.equal(titles.get('b'), 'Cafes within 2 km (2)');
+  assert.equal(titles.get('c'), 'The nearest k cafes');
 });

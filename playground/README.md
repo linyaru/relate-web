@@ -60,7 +60,11 @@ says, by the cookbook pages' own rule (imported from the site's
 parameters go with every query run from the editor until **Clear** or a
 database reset. A recipe page's **Open in playground** links to
 `#recipe=<slug>` with no step: the playground runs every step of the recipe
-and leaves the editor empty. See `src/lib/recipe-link.ts`,
+and leaves the editor empty. Once a recipe is loaded, the sample-query list
+holds its steps instead of the sample data's queries (setup steps left out),
+labelled by the heading each sits under (`title` in recipe.json); a step's
+button runs it with its own parameter file, which also becomes the editor's.
+**Reset** brings the sample data's queries back. See `src/lib/recipe-link.ts`,
 `src/hooks/useRecipeSession.ts`, and `src/components/RecipeDialog.tsx`.
 
 ## Layout

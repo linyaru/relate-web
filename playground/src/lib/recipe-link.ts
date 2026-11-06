@@ -13,6 +13,8 @@ export const RECIPE_FORMAT = 1;
 
 export interface RecipeCell {
   id: string;
+  /** The heading the step sits under in the recipe; optional in format 1. */
+  title?: string;
   code: string;
   /** Path of the step's JSON parameter file, relative to the recipe page. */
   paramsPath: string | null;
@@ -66,6 +68,7 @@ function isRecipeCell(v: unknown): v is RecipeCell {
   return (
     isObject(v) &&
     typeof v.id === 'string' &&
+    (v.title === undefined || typeof v.title === 'string') &&
     typeof v.code === 'string' &&
     (v.paramsPath === null || typeof v.paramsPath === 'string') &&
     typeof v.setup === 'boolean' &&

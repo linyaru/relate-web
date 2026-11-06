@@ -5,6 +5,9 @@ import { engine, EnginePoisonedError, type ScriptRun } from './lib/engine';
 import { resultHasGraph } from './lib/extract-graph';
 import { PREVIEW_QUERY, SEED_DISPLAY_SCRIPT, SEED_PARAMS, SEED_SCRIPT } from './lib/seed';
 import { canRunQuery } from './lib/query-eligibility';
+import { templates } from './lib/query-templates';
+import { fetchParams, type Recipe } from './lib/recipe-link';
+import { SAMPLES, type Sample } from './lib/samples';
 import type { QueryStats } from './lib/wire';
 import { CliSidebar, type CliEntry } from './components/CliSidebar';
 import { FullScreenBanner } from './components/FullScreenBanner';
@@ -45,8 +48,12 @@ export function App() {
   const [resetting, setResetting] = useState(false);
   const [cliHistory, setCliHistory] = useState<CliEntry[]>([]);
   // A cookbook step's parameters, passed with every query run from the editor
-  // until cleared (never with schema-browser queries or the seed).
+  // until cleared (never with schema-browser queries or the seed). Running a
+  // loaded recipe's step from the sample list sets them to that step's.
   const [params, setParams] = useState<RecipeParams | null>(null);
+  // The recipe a hand-off loaded (#recipe=…): its steps replace the sample
+  // queries, which are about the sample data, until the database is reset.
+  const [loadedRecipe, setLoadedRecipe] = useState<Recipe | null>(null);
 
   // Everything that describes the database's contents goes stale when it is
   // reset: the Reset button and a recipe load both call this right after the
@@ -57,6 +64,7 @@ export function App() {
     setElapsed(null);
     setError(null);
     setParams(null);
+    setLoadedRecipe(null);
     setQuery('');
     setSchemaRefreshKey((k) => k + 1);
   }, []);
@@ -151,7 +159,8 @@ export function App() {
     // The replay changed the database, whether or not it finished.
     setSchemaRefreshKey((k) => k + 1);
     if (!loaded) return;
-    const { title, replayed, step } = loaded;
+    const { title, recipe, replayed, step } = loaded;
+    setLoadedRecipe(recipe);
     setCliHistory([
       { kind: 'output', text: `Loaded ${replayed} step${replayed === 1 ? '' : 's'} of "${title}".` },
       { kind: 'output', text: '' },
@@ -224,6 +233,47 @@ export function App() {
     void runQuery(text, params?.text ?? null);
   };
 
+  // The sample list: a loaded recipe's steps (its setup steps left out), or
+  // the queries about the sample data.
+  const samples = useMemo<{ title: string; items: Sample[] }>(
+    () =>
+      loadedRecipe
+        ? {
+            title: `Queries from "${loadedRecipe.title}"`,
+            items: loadedRecipe.cells
+              .filter((c) => !c.setup)
+              .map((c) => ({ label: c.title ?? c.id, query: c.code, paramsPath: c.paramsPath })),
+          }
+        : { title: 'Sample queries', items: SAMPLES },
+    [loadedRecipe],
+  );
+
+  // A recipe step runs with its own parameter file, which also becomes the
+  // editor's, so running it again (or an edit of it) from the editor works.
+  const runSample = (s: Sample) => {
+    const q = templates.labeled(s.label, s.query);
+    const recipe = loadedRecipe;
+    if (!recipe) {
+      runFromSchema(q);
+      return;
+    }
+    void (async () => {
+      let text: string | null = null;
+      if (s.paramsPath) {
+        try {
+          text = await fetchParams(recipe.slug, s.paramsPath);
+        } catch (e) {
+          setError(`Could not load ${s.paramsPath}: ${(e as Error).message}`);
+          return;
+        }
+      }
+      setParams(text === null ? null : { text, label: `${recipe.title} · ${s.paramsPath}` });
+      echoInput(q);
+      if (isMobile) setMobileTab('query');
+      await runQuery(q, text);
+    })();
+  };
+
   // Ghost-text in the editor after a run: the most recent input in history.
   const lastRun = [...cliHistory].reverse().find((e) => e.kind === 'input')?.text ?? null;
 
@@ -242,6 +292,9 @@ export function App() {
       engineReady={engineReady}
       refreshKey={schemaRefreshKey}
       onRunQuery={runFromSchema}
+      samplesTitle={samples.title}
+      samples={samples.items}
+      onRunSample={runSample}
     />
   );
   const workspace = (

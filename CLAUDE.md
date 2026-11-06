@@ -34,7 +34,7 @@ npm run check     # astro check
 npm run cookbook:check    # every recipe runs on public/wasm and matches its recorded results
 npm run cookbook:record   # rewrite result blocks + README index from a run; review the diff
 npm run cookbook:test     # unit tests for src/lib/cookbook
-npm run cookbook:browser  # after a build, in headless Chrome: every recipe runs and matches, the playground loads, every recipe opens in the playground (needs Chrome; CHROME_PATH)
+npm run cookbook:browser  # after a build, in headless Chrome: every recipe runs and matches, the playground loads and double-click expands a node, every recipe opens in the playground (needs Chrome; CHROME_PATH)
 npm run cookbook:diagrams # after `npm ci --prefix scripts/cookbook-diagrams`: render changed diagrams (`-- --force` for all; needs Chrome)
 ```
 

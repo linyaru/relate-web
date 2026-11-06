@@ -47,6 +47,18 @@ scanner and stops at the first error; the results pane shows the last
 statement's result, with counters summed over the script. Each statement
 commits on its own.
 
+## Graph view
+
+Double-clicking a node in the graph view adds its neighbours from the
+playground's database: up to 100 of its relationships and the nodes at their
+other ends, plus the relationships between those nodes and the ones already
+drawn. The view grows up to 1,000 nodes. The status in the bottom-left corner
+says what was added, and its **Reset** puts the view back to the result. The
+queries are the cookbook graph view's (`expandNode` in the site's
+`src/lib/cookbook/graph-model.ts`); `src/lib/expand.ts` runs them on the
+playground's engine. A new result, and each expansion, refits the camera
+around everything drawn.
+
 ## Cookbook links
 
 Cookbook steps link here as `#recipe=<slug>&cell=<id>`. The playground then
@@ -78,5 +90,5 @@ playground/
     App.tsx
     main.tsx
     components/    # QueryWorkspace, ResultsPanel, NeedleGraphView, RecipeDialog, …
-    lib/           # engine.ts + engine.worker.ts (wasm bridge), recipe-link.ts, wire.ts, extract-graph.ts, samples.ts
+    lib/           # engine.ts + engine.worker.ts (wasm bridge), recipe-link.ts, wire.ts, extract-graph.ts, expand.ts, samples.ts
 ```

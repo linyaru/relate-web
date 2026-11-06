@@ -7,7 +7,8 @@
 //   matching its recording; every graph result must draw; the controls (Run,
 //   edited parameters, the JSON view, a failing edit and Revert, Reset, Stop)
 //   are exercised on one recipe.
-// - Playground (/playground/): the sample data loads and draws.
+// - Playground (/playground/): the sample data loads and draws; a real
+//   double-click on a drawn node adds its neighbours, and Reset removes them.
 // - Hand-off (ADR-0134): every recipe opened whole in the playground
 //   (#recipe=<slug>) replays all its steps; one step link with parameters
 //   replays the steps before it and loads the step and its parameters.
@@ -178,6 +179,14 @@ async function openPage(http: string, url: string) {
       if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 600));
       return r.result?.result?.value as T;
     },
+    /** A real double-click (CDP input events) at viewport point x, y. */
+    async doubleClick(x: number, y: number) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+      for (const clickCount of [1, 2]) {
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount });
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount });
+      }
+    },
     async close() {
       ws.close();
       await fetch(`${http}/json/close/${target.id}`).then((r) => r.text());
@@ -343,6 +352,51 @@ const PLAYGROUND = `(async () => {
 })()`;
 
 /**
+ * Double-click to expand, in two parts around a real double-click: load the
+ * sample data and draw one node (alone, so it sits at the centre of the
+ * graph canvas once the view fits it), returning the point to double-click;
+ * then its neighbours must be added, and Reset must take them away.
+ */
+const EXPAND_NODE = `MATCH (p:Person {name: 'Alice'}) RETURN p`;
+const EXPAND_PREPARE = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const button = () => [...document.querySelectorAll('button')].find((b) => /Load sample data/.test(b.textContent));
+  const enabled = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
+  for (let i = 0; i < 600 && !enabled(button()); i++) await wait(50);
+  if (!enabled(button())) return { failures: ['the engine did not get ready'] };
+  button().click();
+  for (let i = 0; i < 600 && button(); i++) await wait(50);
+  const editor = document.querySelector('textarea');
+  if (!editor) return { failures: ['no query input'] };
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(editor, ${JSON.stringify(EXPAND_NODE)});
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  document.querySelector('[aria-label=Run]').click();
+  const status = () => document.querySelector('[data-graph-status]')?.innerText ?? '';
+  for (let i = 0; i < 200 && !/Double-click/.test(status()); i++) await wait(50);
+  if (!/Double-click/.test(status())) return { failures: ['the graph did not draw the node: ' + status()] };
+  await wait(1500);
+  const r = [...document.querySelectorAll('canvas')].map((c) => c.getBoundingClientRect()).find((b) => b.width > 100);
+  if (!r) return { failures: ['no graph canvas'] };
+  return { failures: [], x: r.left + r.width / 2, y: r.top + r.height / 2 };
+})()`;
+const EXPAND_CHECK = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const status = () => document.querySelector('[data-graph-status] > span')?.textContent ?? '';
+  for (let i = 0; i < 200 && !/Added|Nothing|Could not/.test(status()); i++) await wait(50);
+  const added = status();
+  const failures = [];
+  if (!/^Added [1-9]\\d* nodes? and \\d+ relationships?/.test(added)) failures.push('the double-click did not expand the node: ' + added);
+  const reset = document.querySelector('[data-graph-status] button');
+  if (!reset) failures.push('no Reset next to the expansion');
+  else {
+    reset.click();
+    for (let i = 0; i < 40 && !/Double-click/.test(status()); i++) await wait(50);
+    if (!/Double-click/.test(status())) failures.push('Reset did not take the expansion away: ' + status());
+  }
+  return { log: [added], failures };
+})()`;
+
+/**
  * Opening a recipe (or one step) from the cookbook in the playground: the
  * dialog loads it, the expected steps replay, and for a step link its Cypher
  * and parameters are loaded. The sample list then holds the recipe's steps
@@ -467,6 +521,23 @@ async function check(name: string, label: string, path: string, scenario: string
     await page.close();
   }
 }
+/** Double-click a node in the playground's graph view; see EXPAND_PREPARE. */
+async function checkExpand() {
+  const page = await openPage(chrome.http, `${site.url}/playground/`);
+  try {
+    const at = await page.evaluate<{ failures: string[]; x?: number; y?: number }>(EXPAND_PREPARE);
+    let result = { log: [] as string[], failures: at.failures };
+    if (!at.failures.length) {
+      await page.doubleClick(at.x!, at.y!);
+      result = await page.evaluate<{ log: string[]; failures: string[] }>(EXPAND_CHECK);
+    }
+    const bad = [...result.failures, ...page.errors.map((e) => `console error: ${e}`)];
+    console.log(`${bad.length ? '✖' : '✔'} playground · double-click to expand: ${result.log[0] ?? ''}`);
+    problems.push(...bad.map((b) => `[playground] double-click to expand: ${b}`));
+  } finally {
+    await page.close();
+  }
+}
 const recipePage = (slug: string) => `/cookbook/${slug}/`;
 const playgroundLink = (slug: string, cell: string | null = null) =>
   `/playground/#recipe=${encodeURIComponent(slug)}${cell ? `&cell=${encodeURIComponent(cell)}` : ''}`;
@@ -476,6 +547,7 @@ try {
   for (const slug of slugs) await check('graph view', slug, recipePage(slug), GRAPH);
   if (slugs.includes(CONTROLS_RECIPE)) await check('controls', CONTROLS_RECIPE, recipePage(CONTROLS_RECIPE), CONTROLS);
   await check('sample data', 'playground', '/playground/', PLAYGROUND);
+  await checkExpand();
   for (const slug of slugs) {
     const json = published.get(slug);
     if (!json) continue;
@@ -509,5 +581,5 @@ if (problems.length) {
 }
 console.log(
   `cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings; ` +
-    'the playground loads, and every recipe opens in it',
+    'the playground loads and expands a node, and every recipe opens in it',
 );

@@ -8,10 +8,13 @@ export interface NeedleGraph {
   limitHit: boolean;
 }
 
-const nodeId = (n: CLNode) => String(n.elementId ?? n.id);
-const relId = (r: CLRelationship) => String(r.elementId ?? r.id);
+/** A node's id in the graph view. */
+export const nodeId = (n: CLNode) => String(n.elementId ?? n.id);
+/** A relationship's id in the graph view. */
+export const relId = (r: CLRelationship) => String(r.elementId ?? r.id);
 
-function forEachEntity(
+/** Every node and relationship in a result's rows (inside lists, maps, and paths too). */
+export function forEachEntity(
   result: WireResult,
   onNode: (n: CLNode) => void,
   onRel: (r: CLRelationship) => void,
@@ -69,25 +72,30 @@ export function extractNeedleGraph(
   );
 
   const nodeIds = new Set(nodes.keys());
-  const outNodes: NeoNode[] = Array.from(nodes.values()).map((n) => ({
-    id: nodeId(n),
-    labels: n.labels,
-    properties: toPortableProperties(n.properties),
-  }));
+  const outNodes: NeoNode[] = Array.from(nodes.values()).map(toNeoNode);
   const outRels: NeoRel[] = [];
   for (const r of rels.values()) {
-    const from = String(r.start_node);
-    const to = String(r.end_node);
-    if (!nodeIds.has(from) || !nodeIds.has(to)) continue;
-    outRels.push({
-      id: relId(r),
-      from,
-      to,
-      type: r.type,
-      properties: toPortableProperties(r.properties),
-    });
+    const rel = toNeoRel(r);
+    if (!nodeIds.has(rel.from) || !nodeIds.has(rel.to)) continue;
+    outRels.push(rel);
   }
   return { nodes: outNodes, rels: outRels, limitHit };
+}
+
+/** A node as the graph view draws it. */
+export function toNeoNode(n: CLNode): NeoNode {
+  return { id: nodeId(n), labels: n.labels, properties: toPortableProperties(n.properties) };
+}
+
+/** A relationship as the graph view draws it. */
+export function toNeoRel(r: CLRelationship): NeoRel {
+  return {
+    id: relId(r),
+    from: String(r.start_node),
+    to: String(r.end_node),
+    type: r.type,
+    properties: toPortableProperties(r.properties),
+  };
 }
 
 function toPortableProperties(p: Record<string, CLValue>): Record<string, PortableProperty> {

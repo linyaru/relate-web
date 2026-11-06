@@ -10,9 +10,12 @@ Astro (static output) site. Migration from the old single-file page is in progre
 - `src/components/Header.astro` — the one top bar used on every page (nav links, theme toggle, mobile menu + their JS); edit nav items there. `src/styles/base.css` — shared fonts, design tokens, reset, top-nav styles. `src/layouts/Base.astro` is the shell for section pages (`/docs`, `/blog`); `Placeholder.astro` wraps it for coming-soon pages. The home page injects `Header` at the `<!--SITE-HEADER-->` marker in the legacy markup
 - Brand assets (source: the shared "Relate Brand Board" artifact, which generates them from pixel grids): `public/favicon.svg` (+ `favicon-32.png`, `favicon-192.png`), `public/brand/` (logomark in shaded dark/light, black, white; alternate favicon grounds). The top-bar logomark is inlined in `Header.astro` and shaded via CSS vars in `base.css`. `public/img/favicon.png` is the old icon and is now unused
 - Colors: `src/styles/base.css` holds the Night/Day tokens, taken from the "Relate by ABK" design-system artifact (`project/tokens.json`; token names are in the comments). Day is the default; Night via `data-theme="dark"` or `prefers-color-scheme`. Code/terminal blocks stay dark in both. Use the tokens (`--bg`, `--fg`, `--accent`, `--on-accent`, …), never hard-coded hex
-- `public/` — copied to `dist/` as-is: `llms.txt`, `robots.txt`, `sitemap.xml`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`), `.nojekyll`, `CNAME`, `fonts/`, `img/`, `wasm/`
+- `public/` — copied to `dist/` as-is: `llms.txt`, `robots.txt`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`), `.nojekyll`, `CNAME`, `fonts/`, `img/`, `wasm/`
   - `install.sh`, `releases.json`, `extensions.json` are synced from upstream; do not hand-edit (signed/generated)
   - `wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (`relate.js`, `relate_bg.wasm`, `opfs.js`, `trap.js`, `snippets/`). Keep it in `public/` so Vite never bundles or rewrites it
+- `src/content/cookbook/` — the cookbook recipes; this repo is their source (moved from upstream `docs/cookbook`, which is no longer synced). One markdown file per recipe; `README.md` there is the authoring contract (its index section is generated). `diagrams/` holds the pre-rendered diagram SVGs (light + dark) and label colours, drawn by `scripts/cookbook-diagrams/render.mjs` (an authoring-only package with its own `package.json`: mermaid + puppeteer-core; CI never installs it) in the site's colours, which `src/lib/cookbook/tokens.ts` and `diagram-theme.ts` read from `base.css`; data models are laid out by `src/lib/cookbook/schema-*.ts`. Re-render with `--force` after changing colour tokens. `src/lib/cookbook/` is the parser, validator and runner, ported from upstream's Rust `relate-cookbook` harness, plus the page rendering (`site.ts` replays every recipe once per build and fails it on any drift, stale diagram, or invalid recipe; `render.ts`/`markdown.ts` turn a recipe into HTML); `scripts/cookbook.ts` is the check/record command
+- Cookbook pages: `src/pages/cookbook/` (index, `[slug]/index.astro`, and the `[slug]/index.md`, `results.json`, `data/<name>.json` and `cookbook/llms.txt` endpoints) on `src/layouts/Cookbook.astro`, styled by `src/styles/cookbook.css`. Pages are complete without JavaScript (every step shows its recorded result); `src/scripts/cookbook/runtime.ts` makes steps runnable (Run, Edit, Run all, Reset, Stop, parameters, JSON view) on a module worker (`worker.ts`) that loads the engine from `/wasm/` at runtime, so Vite never bundles it. Graph (gram) results open in an NVL graph view (`graph.ts`, pinned to 1.2.2, loaded only when one comes into view; `astro.config.mjs` aliases its Segment telemetry to an empty module, so none ships). `graph-model.ts` and `palette.ts` are shared with the check, which expands the first node of every graph result. `src/lib/cookbook/result-view.ts`, `cells.ts`, `graph-model.ts` and `palette.ts` are shared with the runtime, so keep them free of Node imports. Canonical URLs use `CANONICAL_ORIGIN` (`relatedb.ai`) like the home page; `NOT_PUBLIC_YET` in `links.ts` turns pre-launch links into text
+- `src/pages/sitemap.xml.ts` generates the sitemap (home, cookbook, every recipe)
 - `astro.config.mjs` — `site` is the interim preview host; change to `https://relatedb.ai` at launch
 - `MAINTAINING.md` — standing contract for the site (tone, invariants, facts and sources). Its "no build step / single page" statements predate the Astro migration; everything else still applies
 - `LAUNCH.md` — pre-launch notes, target names, launch-day sanity checks
@@ -25,7 +28,14 @@ npm install
 npm run dev       # http://127.0.0.1:8765 (launch config `relate-web`)
 npm run build     # -> dist/
 npm run check     # astro check
+npm run cookbook:check    # every recipe runs on public/wasm and matches its recorded results
+npm run cookbook:record   # rewrite result blocks + README index from a run; review the diff
+npm run cookbook:test     # unit tests for src/lib/cookbook
+npm run cookbook:browser  # after a build: every recipe runs in headless Chrome and matches (needs Chrome; CHROME_PATH)
+npm run cookbook:diagrams # after `npm ci --prefix scripts/cookbook-diagrams`: render changed diagrams (`-- --force` for all; needs Chrome)
 ```
+
+The cookbook tooling runs `.ts` directly on Node ≥ 22.18 (type stripping), so keep `src/lib/cookbook/` to erasable TypeScript (no enums, namespaces or parameter properties) and import with `.ts` extensions. `COOKBOOK_ONLY=<slug>[,…]` limits a check or record run.
 
 Refresh the WASM from the upstream checkout (`~/Developer/neo4j-labs/cypherlite`, toolchain pinned to 1.88.0, needs the `wasm32-unknown-unknown` target):
 
@@ -34,7 +44,9 @@ cd ~/Developer/neo4j-labs/cypherlite && bash scripts/build-wasm.sh --mode releas
 # then copy surfaces/relate-wasm/pkg/{relate.js,relate.d.ts,relate_bg.wasm,relate_bg.wasm.d.ts,opfs.js,trap.js,snippets} into public/wasm/
 ```
 
-Deploys: `.github/workflows/deploy-pages.yml` (GitHub Pages) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci && npm run build` and publish `dist/`.
+After refreshing the WASM, run `npm run cookbook:check`. If it fails, decide whether the engine changed on purpose; if so, run `npm run cookbook:record` and review the diff.
+
+Deploys: `.github/workflows/deploy-pages.yml` (GitHub Pages) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci`, `npm run cookbook:check` and `npm run build`, and publish `dist/`. CI: `cookbook.yml` runs on every PR and push to `main` (no paths filter, so it can be a required check): cookbook unit tests, `cookbook:check`, `astro check`, build, `cookbook:browser`.
 
 ## Conventions
 

@@ -38,7 +38,9 @@ cypherlite-era redo) and should not be extended.
 - [ ] Update `sitemap.xml`, `robots.txt` (currently stealth-appropriate? decide), `update-website.yml`
 - [ ] Set up Pages / hosting and DNS for `relatedb.ai`; deploy workflow (old one lived on cypherlite `main`)
 - [ ] Add `noindex` / robots block while stealth; remove at launch
-- [ ] Playground (`/relate/playground/`) and cookbook (`/relate/cookbook/`) links stay in `index.html`; they 404 on the interim host until those pages are built and published (upstream `examples/wasm-playground`, `scripts/cookbook`) and the paths are settled
+- [ ] Playground link (`/relate/playground/`) stays in the header; it 404s on the interim host until the playground is built and published (upstream `examples/wasm-playground`) and its path is settled
+- [x] Cookbook is built by this site at `/cookbook/` (source: `src/content/cookbook/`); the header links it
+- [ ] Cookbook link policy: `src/lib/cookbook/links.ts` `NOT_PUBLIC_YET` drops links to `github.com/relatedb/` and `relatedb.ai` from recipe prose; delete those entries at launch
 - [ ] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) now point at `relatedb/relate`, which is private: they 404 for logged-out visitors until the repo is public, and the docs paths (`docs/tck/compliance.md`, `docs/adr/`, `docs/api/extensions/...`) must exist there
 - [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the preview host `r31473.relatedb.ai` is `noindex`)
 - [ ] `public/releases.json` and `extensions.json` are still the cypherlite-era copies (release notes mention neo4j-labs); regenerate from upstream when the first relate release is cut
@@ -52,7 +54,7 @@ public). Later: `relatedb.ai` on a more scalable host (CDN / static hosting).
 
 - [ ] Pick the host and set up hosting, TLS, and DNS for `relatedb.ai` (+ `www` redirect)
 - [ ] Replace or retire `deploy-pages.yml` with a deploy for the new host; remove the Pages site and `github-pages` environment
-- [ ] Serve from the domain root: check root-relative links (`/relate/playground/`, `/relate/cookbook/`) and the `/relate-web/` subpath assumption are gone
+- [ ] Serve from the domain root: check root-relative links (`/relate/playground/`) and the `/relate-web/` subpath assumption are gone (the cookbook already uses `/cookbook/`)
 - [ ] Update canonical, `og:url`, `sitemap.xml`, and any hard-coded `github.io` URLs
 - [ ] Keep `install.sh` and `releases.json` at `https://relatedb.ai/` (the CLI's `upgrade` reads `releases.json`; release workflows rewrite it), with correct content types and no caching that hides new releases
 - [ ] Set cache headers: long-lived for `fonts/` and `wasm/`, short for `index.html`, `releases.json`, `install.sh`; serve `.wasm` as `application/wasm`

@@ -7,13 +7,30 @@
     "dev": "astro dev --host 127.0.0.1 --port 8765",
     "build": "astro build",
     "preview": "astro preview --host 127.0.0.1 --port 8765",
-    "check": "astro check"
+    "check": "astro check",
+    "cookbook:check": "node scripts/cookbook.ts",
+    "cookbook:record": "node scripts/cookbook.ts --record",
+    "cookbook:test": "node --test \"src/lib/cookbook/*.test.ts\"",
+    "cookbook:browser": "node scripts/cookbook-browser.ts",
+    "cookbook:diagrams": "node scripts/cookbook-diagrams/render.mjs"
+  },
+  "engines": {
+    "node": ">=22.18"
   },
   "dependencies": {
-    "astro": "^7.4.7"
+    "@neo4j-nvl/base": "1.2.2",
+    "@neo4j-nvl/interaction-handlers": "1.2.2",
+    "astro": "^7.4.7",
+    "markdown-it": "^14.3.3",
+    "parse5": "^8.1.0",
+    "shiki": "^4.6.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@types/d3-force": "3.0.10",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^24.19.2",
+    "d3-force": "3.0.0",
     "typescript": "^6.0.3"
   }
 }

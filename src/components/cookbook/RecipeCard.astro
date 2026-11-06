@@ -1,0 +1,12 @@
+---
+import type { Recipe } from '../../lib/cookbook/recipe.ts';
+interface Props { recipe: Recipe }
+const { recipe } = Astro.props;
+---
+<li>
+  <a class="recipe-card" href={`/cookbook/${recipe.slug}/`}>
+    <span class="title">{recipe.front.title}</span>
+    <span class="summary">{recipe.front.summary}</span>
+    <span class="card-meta">{recipe.front.level}</span>
+  </a>
+</li>

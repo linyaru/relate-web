@@ -1,0 +1,59 @@
+# Checks the cookbook (src/content/cookbook) on every pull request and push
+# to main: every recipe parses and validates, runs on the engine build the
+# site ships (public/wasm), and reproduces its recorded results; the README
+# index is current; the tooling's unit tests and the type check pass; the
+# site builds; and every recipe runs in headless Chrome on the built site.
+# Needs no secrets and no other repository.
+#
+# There is no paths filter, so the job always reports and can be a required
+# status check on main. It takes well under a minute.
+#
+# A failure in "Check recipes" prints each recipe's recorded and actual
+# result. If the engine changed on purpose (a public/wasm refresh), run
+# `npm run cookbook:record` locally and commit the reviewed diff.
+name: Cookbook
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cookbook-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm run cookbook:test
+
+      - name: Check recipes
+        run: npm run cookbook:check
+
+      - name: Type check
+        run: npm run check
+
+      - name: Build site
+        run: npm run build
+
+      # Every recipe's steps run in headless Chrome (preinstalled on the
+      # runner) on the built site, plus the page controls on one recipe.
+      - name: Run recipes in the browser
+        run: npm run cookbook:browser

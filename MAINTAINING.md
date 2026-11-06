@@ -12,9 +12,9 @@ the default). Plus `llms.txt` for AI agents, `install.sh` (the documented
 install entry point — never delete or rewrite it by hand; it is preserved by
 the docs deploy workflow), `fonts/`, `robots.txt`, `sitemap.xml`.
 
-The playground SPA lives at `/relate/playground/` and is built from
-`examples/wasm-playground/` on `main`. Its files are never committed to
-this branch.
+The playground SPA lives at `/playground/` and is built from this
+repository's `playground/` directory (its own package; see
+`playground/README.md`) by `npm run build`, into `dist/playground/`.
 
 ## How the site is deployed
 
@@ -69,15 +69,11 @@ Page structure, top to bottom:
   pill both populates the input and executes the query. Arrow-up still
   browses history; nothing auto-types or auto-cycles.
 - The top-nav `Playground` link stays as the **last** item in
-  `#topNav` (after `GitHub`), with `href="/relate/playground/"`,
+  `#topNav` (after `GitHub`), with `href="/playground/"`,
   `target="_blank"`, `class="nav-external"`, and the inline `.ext-icon`
-  SVG indicating an external destination. It points at the playground
-  SPA built by `.github/workflows/deploy-pages.yml` on `main`. Never
-  rewrite the href, reorder, or drop the icon.
-- Never commit files under `playground/` on this branch. That path on
-  the live site is layered in by the deploy workflow from
-  `examples/wasm-playground/dist/`. Any `playground/` directory pushed
-  to `gh-pages` will be silently overwritten on the next deploy.
+  SVG: the playground is a full-screen app that opens in its own tab.
+  It points at the playground SPA this site builds from `playground/`.
+  Never rewrite the href, reorder, or drop the icon.
 - Tone: concise, friendly, no marketing fluff, no "revolutionary" language.
   Say what the thing does and show a command.
 

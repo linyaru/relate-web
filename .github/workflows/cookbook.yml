@@ -1,9 +1,10 @@
 # Checks the cookbook (src/content/cookbook) on every pull request and push
 # to main: every recipe parses and validates, runs on the engine build the
 # site ships (public/wasm), and reproduces its recorded results; the README
-# index is current; the tooling's unit tests and the type check pass; the
-# site builds; and every recipe runs in headless Chrome on the built site.
-# Needs no secrets and no other repository.
+# index is current; the tooling's unit tests and the type checks (site and
+# playground) pass; the site builds; and in headless Chrome on the built site
+# every recipe runs, the playground loads, and every recipe opens in the
+# playground. Needs no secrets and no other repository.
 #
 # There is no paths filter, so the job always reports and can be a required
 # status check on main. It takes well under a minute.
@@ -38,8 +39,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
 
       - run: npm ci
+
+      # The playground is its own package (playground/package.json).
+      - name: Install playground
+        run: npm ci --prefix playground
 
       - name: Unit tests
         run: npm run cookbook:test
@@ -50,10 +58,14 @@ jobs:
       - name: Type check
         run: npm run check
 
+      - name: Type check playground
+        run: npm run check:playground
+
       - name: Build site
         run: npm run build
 
-      # Every recipe's steps run in headless Chrome (preinstalled on the
-      # runner) on the built site, plus the page controls on one recipe.
-      - name: Run recipes in the browser
+      # In headless Chrome (preinstalled on the runner) on the built site:
+      # every recipe's steps run, the page controls on one recipe, the
+      # playground's sample data, and the cookbook -> playground hand-off.
+      - name: Run the cookbook and playground in the browser
         run: npm run cookbook:browser

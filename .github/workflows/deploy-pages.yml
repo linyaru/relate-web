@@ -31,8 +31,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
 
       - run: npm ci
+
+      # The playground is its own package; `npm run build` builds it into dist/playground.
+      - run: npm ci --prefix playground
 
       # Never deploy a cookbook whose recipes drift from their recordings.
       - name: Check cookbook
@@ -46,6 +52,7 @@ jobs:
           test -s dist/index.html
           test -s dist/wasm/relate_bg.wasm
           test -s dist/wasm/relate.js
+          test -s dist/playground/index.html
           test -s dist/CNAME
 
       - uses: actions/configure-pages@v5

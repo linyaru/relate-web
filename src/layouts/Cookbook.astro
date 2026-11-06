@@ -10,11 +10,13 @@ interface Props {
   description: string;
   /** Extra footer links (a recipe page links its markdown). */
   footerLinks?: { href: string; label: string }[];
+  /** Where the header's Playground link goes (a recipe page opens its recipe). */
+  playgroundHref?: string;
 }
-const { title, description, footerLinks = [] } = Astro.props;
+const { title, description, footerLinks = [], playgroundHref } = Astro.props;
 const canonical = new URL(Astro.url.pathname, CANONICAL_ORIGIN).href;
 ---
-<Base title={title} description={description}>
+<Base title={title} description={description} playgroundHref={playgroundHref}>
   <Fragment slot="head">
     <link rel="canonical" href={canonical} />
     <link rel="describedby" href="/cookbook/llms.txt" />

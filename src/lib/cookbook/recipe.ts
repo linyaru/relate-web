@@ -347,6 +347,51 @@ export const narrative = (r: Recipe) => r.source.slice(r.bodyStart, r.narrativeE
 /** The data block named `name`, if any. */
 export const dataBlock = (r: Recipe, name: string) => r.data.find((d) => d.name === name);
 
+/** A heading's text without its inline markdown: `code`, *emphasis*, **strong**, and links. */
+const plainHeading = (text: string) =>
+  text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_]/g, '')
+    .trim();
+
+/**
+ * Each cell's title, by cell id: the `##` or `###` heading the cell sits
+ * under (the closest one above it, outside code fences), plain text. A
+ * second or later cell under the same heading gets its position, `Heading
+ * (2)`; a cell before any heading is titled by its id.
+ */
+export function cellTitles(r: Recipe): Map<string, string> {
+  const lines = r.source.split('\n').map((l) => l.replace(/\r$/, ''));
+  const cellAt = new Map(r.cells.map((c) => [c.line, c]));
+  const titles = new Map<string, string>();
+  let heading: string | null = null;
+  let under = 0;
+  let fence: [string, number] | null = null;
+  for (let i = r.bodyLine - 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (fence) {
+      if (isFenceClose(line, fence[0], fence[1])) fence = null;
+      continue;
+    }
+    const cell = cellAt.get(i + 1);
+    if (cell) {
+      under += 1;
+      titles.set(cell.id, heading === null ? cell.id : under === 1 ? heading : `${heading} (${under})`);
+    }
+    const opened = fenceOpen(line);
+    if (opened) {
+      fence = [opened[0], opened[1]];
+      continue;
+    }
+    const m = /^#{2,3} (.+)$/.exec(line);
+    if (m) {
+      heading = plainHeading(m[1]);
+      under = 0;
+    }
+  }
+  return titles;
+}
+
 /**
  * Contract checks beyond the front matter's own schema (which parsing
  * enforces), none needing the engine: heading, cells, a diagram, data

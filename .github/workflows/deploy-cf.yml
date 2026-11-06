@@ -48,8 +48,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
 
       - run: npm ci
+        if: steps.cf.outputs.configured == 'true'
+
+      # The playground is its own package; `npm run build` builds it into dist/playground.
+      - run: npm ci --prefix playground
         if: steps.cf.outputs.configured == 'true'
 
       # Never deploy a cookbook whose recipes drift from their recordings.
@@ -67,6 +74,7 @@ jobs:
           test -s dist/index.html
           test -s dist/wasm/relate_bg.wasm
           test -s dist/wasm/relate.js
+          test -s dist/playground/index.html
           test -s dist/CNAME
 
       - name: Deploy to Cloudflare Pages

@@ -1,12 +1,24 @@
 #!/usr/bin/env node
-// Checks the cookbook's page runtime in a real browser: serves the built site
-// (dist/, so run `npm run build` first), opens every recipe page in headless
-// Chrome, presses "Run all", and requires every step to finish live and match
-// its recording; then exercises the controls (Run, edited parameters, the
-// JSON view, a failing edit and Revert, Reset, Stop) on one recipe.
+// Checks the cookbook's page runtime and the playground in a real browser:
+// serves the built site (dist/, so run `npm run build` first) and drives
+// headless Chrome.
+//
+// - Cookbook: every recipe page's "Run all" must finish every step live and
+//   matching its recording; every graph result must draw; the controls (Run,
+//   edited parameters, the JSON view, a failing edit and Revert, Reset, Stop)
+//   are exercised on one recipe.
+// - Playground (/playground/): the sample data loads and draws; a real
+//   double-click on a drawn node adds its neighbours, and Reset removes them.
+// - Hand-off (ADR-0134): every recipe opened whole in the playground
+//   (#recipe=<slug>) replays all its steps; one step link with parameters
+//   replays the steps before it and loads the step and its parameters.
+// - Before any browser runs, the built files are checked: the playground is
+//   built and bundles no engine of its own, each recipe's recipe.json is
+//   format 1 and lists exactly its steps, and each step's playground link
+//   names one of them.
 //
 // `npm run cookbook:check` runs the recipes in Node; this catches what only a
-// browser shows: the bundled runtime, the module worker, and the engine
+// browser shows: the bundled runtimes, the module workers, and the engine
 // loaded from /wasm/.
 //
 //   node scripts/cookbook-browser.ts            (npm run cookbook:browser)
@@ -16,13 +28,13 @@
 // dependencies. COOKBOOK_ONLY=<slug>[,<slug>…] limits the recipes.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { extname, join, normalize } from 'node:path';
 
-import { COOKBOOK_DIR, projectRoot, recipeFiles } from '../src/lib/cookbook/load.ts';
+import { COOKBOOK_DIR, loadRecipes, projectRoot } from '../src/lib/cookbook/load.ts';
 
 const DIST = join(projectRoot(), 'dist');
 const CHROMES = [
@@ -35,6 +47,8 @@ const CHROMES = [
 ];
 // The recipe the controls are exercised on, and the step to drive.
 const CONTROLS_RECIPE = 'nearby-places';
+// The step link the hand-off check opens: a step that takes parameters.
+const HANDOFF_STEP = { slug: 'nearby-places', cell: 'within' };
 const RUN_TIMEOUT_MS = 180_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -96,6 +110,9 @@ async function launchChrome() {
     '--headless=new',
     '--disable-gpu',
     '--remote-debugging-port=0',
+    // A desktop-sized window: at Chrome's headless default (800x600) the
+    // playground switches to its mobile layout, with the editor behind a tab.
+    '--window-size=1400,900',
     `--user-data-dir=${mkdtempSync(join(tmpdir(), 'cookbook-chrome-'))}`,
     'about:blank',
   ];
@@ -161,6 +178,14 @@ async function openPage(http: string, url: string) {
       const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
       if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 600));
       return r.result?.result?.value as T;
+    },
+    /** A real double-click (CDP input events) at viewport point x, y. */
+    async doubleClick(x: number, y: number) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+      for (const clickCount of [1, 2]) {
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount });
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount });
+      }
     },
     async close() {
       ws.close();
@@ -306,34 +331,245 @@ const CONTROLS = `(async () => {
   return { log, failures };
 })()`;
 
+/** The playground: the sample data loads, the results show, and the graph draws. */
+const PLAYGROUND = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const button = () => [...document.querySelectorAll('button')].find((b) => /Load sample data/.test(b.textContent));
+  const enabled = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
+  for (let i = 0; i < 600 && !enabled(button()); i++) await wait(50);
+  if (!enabled(button())) return { log: [], failures: ['the engine did not get ready: ' + document.body.innerText.slice(0, 200)] };
+  button().click();
+  for (let i = 0; i < 600 && button(); i++) await wait(50);
+  await wait(500);
+  const text = document.body.innerText;
+  const runs = text.match(/\\d+ records? · [\\d.]+ ms/g) || [];
+  const failures = [];
+  if (button()) failures.push('the welcome dialog did not close');
+  if (runs.length < 2) failures.push('the sample data did not load: ' + runs.join(', '));
+  if (!document.querySelector('canvas')) failures.push('no graph drawn');
+  if (/Failed to load Relate WASM|crashed/.test(text)) failures.push('the engine failed to load');
+  return { log: [runs.join(', ')], failures };
+})()`;
+
+/**
+ * Double-click to expand, in two parts around a real double-click: load the
+ * sample data and draw one node (alone, so it sits at the centre of the
+ * graph canvas once the view fits it), returning the point to double-click;
+ * then its neighbours must be added, and Reset must take them away.
+ */
+const EXPAND_NODE = `MATCH (p:Person {name: 'Alice'}) RETURN p`;
+const EXPAND_PREPARE = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const button = () => [...document.querySelectorAll('button')].find((b) => /Load sample data/.test(b.textContent));
+  const enabled = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
+  for (let i = 0; i < 600 && !enabled(button()); i++) await wait(50);
+  if (!enabled(button())) return { failures: ['the engine did not get ready'] };
+  button().click();
+  for (let i = 0; i < 600 && button(); i++) await wait(50);
+  const editor = document.querySelector('textarea');
+  if (!editor) return { failures: ['no query input'] };
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(editor, ${JSON.stringify(EXPAND_NODE)});
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  document.querySelector('[aria-label=Run]').click();
+  const status = () => document.querySelector('[data-graph-status]')?.innerText ?? '';
+  for (let i = 0; i < 200 && !/Double-click/.test(status()); i++) await wait(50);
+  if (!/Double-click/.test(status())) return { failures: ['the graph did not draw the node: ' + status()] };
+  await wait(1500);
+  const r = [...document.querySelectorAll('canvas')].map((c) => c.getBoundingClientRect()).find((b) => b.width > 100);
+  if (!r) return { failures: ['no graph canvas'] };
+  return { failures: [], x: r.left + r.width / 2, y: r.top + r.height / 2 };
+})()`;
+const EXPAND_CHECK = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const status = () => document.querySelector('[data-graph-status] > span')?.textContent ?? '';
+  for (let i = 0; i < 200 && !/Added|Nothing|Could not/.test(status()); i++) await wait(50);
+  const added = status();
+  const failures = [];
+  if (!/^Added [1-9]\\d* nodes? and \\d+ relationships?/.test(added)) failures.push('the double-click did not expand the node: ' + added);
+  const reset = document.querySelector('[data-graph-status] button');
+  if (!reset) failures.push('no Reset next to the expansion');
+  else {
+    reset.click();
+    for (let i = 0; i < 40 && !/Double-click/.test(status()); i++) await wait(50);
+    if (!/Double-click/.test(status())) failures.push('Reset did not take the expansion away: ' + status());
+  }
+  return { log: [added], failures };
+})()`;
+
+/**
+ * Opening a recipe (or one step) from the cookbook in the playground: the
+ * dialog loads it, the expected steps replay, and for a step link its Cypher
+ * and parameters are loaded. The sample list then holds the recipe's steps
+ * (`samples`, their titles) instead of the sample data's queries, and
+ * `runSample`, when set, is a step title whose button must run and return
+ * rows.
+ */
+const handoff = (expect: {
+  replayed: number;
+  title: string;
+  editorStart: string | null;
+  paramsPath: string | null;
+  samples: string[];
+  runSample: string | null;
+}) => `(async () => {
+  const expect = ${JSON.stringify(expect)};
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const button = () => [...document.querySelectorAll('button')].find((b) => /Load the recipe/.test(b.textContent));
+  const enabled = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
+  for (let i = 0; i < 600 && !enabled(button()); i++) await wait(50);
+  if (!enabled(button())) {
+    const said = (document.querySelector('[role=dialog]') || document.body).innerText.replace(/\\s+/g, ' ').slice(0, 300);
+    return { log: [], failures: ['the recipe dialog did not offer to load: ' + said] };
+  }
+  button().click();
+  for (let i = 0; i < 1200 && button(); i++) await wait(50);
+  await wait(300);
+  const text = document.body.innerText;
+  const failures = [];
+  const loaded = 'Loaded ' + expect.replayed + ' step' + (expect.replayed === 1 ? '' : 's') + ' of "' + expect.title + '".';
+  if (!text.includes(loaded)) failures.push('expected "' + loaded + '"; the page says: ' + ((text.match(/Loaded [^\\n]*|Could not[^\\n]*|failed[^\\n]*/) || ['nothing'])[0]));
+  const editor = document.querySelector('.cm-content')?.innerText ?? '';
+  if (expect.editorStart !== null && !editor.startsWith(expect.editorStart)) failures.push('the step is not in the editor: ' + editor.slice(0, 80));
+  const banner = /Queries run from the editor use the parameters from/.test(text);
+  if (expect.paramsPath !== null && !(banner && text.includes(expect.paramsPath))) failures.push('no parameters banner for ' + expect.paramsPath);
+  if (expect.paramsPath === null && banner) failures.push('a parameters banner, though the link takes no parameters');
+
+  // The sample list is the recipe's steps, not the sample data's queries.
+  const buttons = () => [...document.querySelectorAll('button')];
+  const labels = new Set(buttons().map((b) => b.textContent.trim()));
+  const missing = expect.samples.filter((s) => !labels.has(s));
+  if (missing.length) failures.push('the sample list lacks the recipe steps ' + JSON.stringify(missing.slice(0, 3)));
+  if (labels.has('Colleagues at Neo4j')) failures.push('the sample list still shows the sample data queries');
+  if (!text.includes('Queries from "' + expect.title + '"')) failures.push('the sample list is not titled for the recipe');
+
+  // A step's button runs it with its own parameters.
+  if (expect.runSample !== null) {
+    const results = () => (document.body.innerText.match(/\\d+ records? · [\\d.]+ ms/g) || []).length;
+    const before = results();
+    const sample = buttons().find((b) => b.textContent.trim() === expect.runSample);
+    if (!sample) failures.push('no sample button ' + expect.runSample);
+    else {
+      sample.click();
+      for (let i = 0; i < 200 && results() === before; i++) await wait(50);
+      if (results() === before) failures.push('running the sample ' + JSON.stringify(expect.runSample) + ' returned no result');
+    }
+  }
+  return { log: [loaded + ' ' + expect.samples.length + ' step queries'], failures };
+})()`;
+
 // ---------------------------------------------------------------- main
 
 if (!existsSync(join(DIST, 'cookbook', 'index.html'))) fail('no dist/cookbook; run `npm run build` first');
+if (!existsSync(join(DIST, 'playground', 'index.html'))) fail('no dist/playground; run `npm run build` (it builds the playground too)');
 const only = process.env.COOKBOOK_ONLY?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
-const slugs = recipeFiles(COOKBOOK_DIR)
-  .map((f) => f.slice(f.lastIndexOf('/') + 1, -'.md'.length))
-  .filter((s) => !only || only.includes(s));
-const site = await serve();
-const chrome = await launchChrome().catch((e: Error) => fail(e.message));
+const { recipes: all } = loadRecipes(COOKBOOK_DIR, { validate: false });
+const recipes = all.filter((r) => !only || only.includes(r.slug));
+const slugs = recipes.map((r) => r.slug);
 const problems: string[] = [];
 
-async function check(name: string, slug: string, scenario: string) {
-  const page = await openPage(chrome.http, `${site.url}/cookbook/${slug}/`);
+// ---------------------------------------------------------------- built files
+
+interface RecipeJson {
+  format: number;
+  slug: string;
+  title: string;
+  cells: { id: string; title?: string; code: string; paramsPath: string | null; setup: boolean }[];
+}
+const published = new Map<string, RecipeJson>();
+
+/** Every file under `dir`, recursively. */
+const filesUnder = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
+
+if (filesUnder(join(DIST, 'playground')).some((f) => f.endsWith('.wasm'))) {
+  problems.push('[playground] built: dist/playground bundles a .wasm; the engine must load from /wasm/');
+}
+for (const r of recipes) {
+  const where = `[${r.slug}] built`;
+  let json: RecipeJson;
+  try {
+    json = JSON.parse(readFileSync(join(DIST, 'cookbook', r.slug, 'recipe.json'), 'utf8'));
+  } catch (e) {
+    problems.push(`${where}: recipe.json: ${(e as Error).message}`);
+    continue;
+  }
+  published.set(r.slug, json);
+  if (json.format !== 1) problems.push(`${where}: recipe.json has format ${json.format}, not 1`);
+  const ids = json.cells.map((c) => c.id).join(',');
+  if (ids !== r.cells.map((c) => c.id).join(',')) problems.push(`${where}: recipe.json lists steps ${ids}, not the recipe's`);
+  const html = readFileSync(join(DIST, 'cookbook', r.slug, 'index.html'), 'utf8');
+  const linked = [...html.matchAll(/href="\/playground\/#recipe=([^"&]+)&amp;cell=([^"]+)"/g)];
+  if (linked.length !== r.cells.length) problems.push(`${where}: ${linked.length} step playground links for ${r.cells.length} steps`);
+  for (const [, slug, cell] of linked) {
+    if (slug !== r.slug || !r.cells.some((c) => c.id === cell)) problems.push(`${where}: a playground link names ${slug}/${cell}`);
+  }
+}
+console.log(`${problems.length ? '✖' : '✔'} built files: the playground, and ${published.size} recipe.json and step links`);
+const site = await serve();
+const chrome = await launchChrome().catch((e: Error) => fail(e.message));
+
+/** Run `scenario` on the page at `path`; `label` names it in the report. */
+async function check(name: string, label: string, path: string, scenario: string) {
+  const page = await openPage(chrome.http, `${site.url}${path}`);
   try {
     const { log, failures } = await page.evaluate<{ log: string[]; failures: string[] }>(scenario);
     const bad = [...failures, ...page.errors.map((e) => `console error: ${e}`)];
-    console.log(`${bad.length ? '✖' : '✔'} ${slug} · ${name}: ${log[0] ?? ''}`);
+    console.log(`${bad.length ? '✖' : '✔'} ${label} · ${name}: ${log[0] ?? ''}`);
     if (name === 'controls') for (const line of log) console.log(`    ${line}`);
-    problems.push(...bad.map((b) => `[${slug}] ${name}: ${b}`));
+    problems.push(...bad.map((b) => `[${label}] ${name}: ${b}`));
   } finally {
     await page.close();
   }
 }
+/** Double-click a node in the playground's graph view; see EXPAND_PREPARE. */
+async function checkExpand() {
+  const page = await openPage(chrome.http, `${site.url}/playground/`);
+  try {
+    const at = await page.evaluate<{ failures: string[]; x?: number; y?: number }>(EXPAND_PREPARE);
+    let result = { log: [] as string[], failures: at.failures };
+    if (!at.failures.length) {
+      await page.doubleClick(at.x!, at.y!);
+      result = await page.evaluate<{ log: string[]; failures: string[] }>(EXPAND_CHECK);
+    }
+    const bad = [...result.failures, ...page.errors.map((e) => `console error: ${e}`)];
+    console.log(`${bad.length ? '✖' : '✔'} playground · double-click to expand: ${result.log[0] ?? ''}`);
+    problems.push(...bad.map((b) => `[playground] double-click to expand: ${b}`));
+  } finally {
+    await page.close();
+  }
+}
+const recipePage = (slug: string) => `/cookbook/${slug}/`;
+const playgroundLink = (slug: string, cell: string | null = null) =>
+  `/playground/#recipe=${encodeURIComponent(slug)}${cell ? `&cell=${encodeURIComponent(cell)}` : ''}`;
 
 try {
-  for (const slug of slugs) await check('run all', slug, RUN_ALL);
-  for (const slug of slugs) await check('graph view', slug, GRAPH);
-  if (slugs.includes(CONTROLS_RECIPE)) await check('controls', CONTROLS_RECIPE, CONTROLS);
+  for (const slug of slugs) await check('run all', slug, recipePage(slug), RUN_ALL);
+  for (const slug of slugs) await check('graph view', slug, recipePage(slug), GRAPH);
+  if (slugs.includes(CONTROLS_RECIPE)) await check('controls', CONTROLS_RECIPE, recipePage(CONTROLS_RECIPE), CONTROLS);
+  await check('sample data', 'playground', '/playground/', PLAYGROUND);
+  await checkExpand();
+  for (const slug of slugs) {
+    const json = published.get(slug);
+    if (!json) continue;
+    const samples = json.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
+    const expect = { replayed: json.cells.length, title: json.title, editorStart: null, paramsPath: null, samples, runSample: null };
+    await check('hand-off (whole recipe)', slug, playgroundLink(slug), handoff(expect));
+  }
+  const step = published.get(HANDOFF_STEP.slug);
+  const index = step?.cells.findIndex((c) => c.id === HANDOFF_STEP.cell) ?? -1;
+  if (step && index >= 0) {
+    const cell = step.cells[index];
+    const samples = step.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
+    const expect = {
+      replayed: index,
+      title: step.title,
+      editorStart: cell.code.split('\n')[0],
+      paramsPath: cell.paramsPath,
+      samples,
+      runSample: cell.title ?? cell.id,
+    };
+    await check(`hand-off (step ${cell.id})`, HANDOFF_STEP.slug, playgroundLink(HANDOFF_STEP.slug, cell.id), handoff(expect));
+  }
 } finally {
   chrome.kill();
   site.close();
@@ -343,4 +579,7 @@ if (problems.length) {
   console.error(`\n${problems.length} browser problem(s):\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings`);
+console.log(
+  `cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings; ` +
+    'the playground loads and expands a node, and every recipe opens in it',
+);

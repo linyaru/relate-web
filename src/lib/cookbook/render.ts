@@ -12,7 +12,7 @@ import { createMarkdown, type MarkdownEnv } from './markdown.ts';
 import { prepareSvg, type Theme } from './diagrams.ts';
 import { byCodePoint } from './index.ts';
 import { CATEGORIES, type Category } from './frontmatter.ts';
-import { byteLength, dataBlock, INLINE_DATA_BYTES, narrative, type Cell, type Recipe } from './recipe.ts';
+import { byteLength, cellTitles, dataBlock, INLINE_DATA_BYTES, narrative, type Cell, type Recipe } from './recipe.ts';
 import { rewriteHref } from './links.ts';
 import { canDraw, esc, tableHtml } from './result-view.ts';
 import type { Cookbook, Page, RenderedDiagram } from './site.ts';
@@ -24,6 +24,18 @@ export const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 /** Where a data block is published, relative to its recipe page. */
 export const dataPath = (name: string) => `data/${name}.json`;
+
+/**
+ * The playground link for a recipe, or for one of its steps (ADR-0134): the
+ * playground fetches the recipe's recipe.json, then runs every step, or the
+ * steps before `cellId` with that step left in the editor.
+ */
+export const playgroundHref = (slug: string, cellId: string | null = null) =>
+  `/playground/#recipe=${encodeURIComponent(slug)}${cellId ? `&cell=${encodeURIComponent(cellId)}` : ''}`;
+
+// A console window: "open this step in the playground".
+const PLAYGROUND_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>';
 
 /** `recipes` grouped by category, in index order, each sorted by title; empty groups left out. */
 export function byCategory(recipes: Recipe[], categories: readonly Category[] = CATEGORIES) {
@@ -96,6 +108,8 @@ function renderCell(cookbook: Cookbook, page: Page, cell: Cell, env: Env): strin
     `<div class="cell-actions">` +
     `<button class="btn primary" type="button" data-action="run" hidden>Run</button>` +
     `<button class="btn" type="button" data-action="edit" hidden>Edit</button>` +
+    `<a class="btn icon-only" href="${esc(playgroundHref(page.recipe.slug, cell.id))}" target="_blank" rel="noopener" ` +
+    `title="Open this step in the playground" aria-label="Open step ${step} in the playground">${PLAYGROUND_ICON}</a>` +
     `</div></div>`;
   const wrapped = cell.setup ? `<details class="cell-body"><summary>Show the setup step</summary>${body}</details>` : body;
   return `<cypher-cell ${attrs}>${head}${wrapped}</cypher-cell>\n`;
@@ -169,4 +183,34 @@ export function llmsTxt(cookbook: Cookbook, cookbookUrl: string): string {
     lines.push('');
   }
   return lines.join('\n');
+}
+
+/**
+ * The hand-off the playground reads (ADR-0134): format 1,
+ * `{format, slug, title, cells: [{id, title, code, paramsPath, setup, expectError}]}`,
+ * `paramsPath` relative to the recipe page. A cell's `title` is the heading
+ * it sits under (`cellTitles`), which the playground labels its sample
+ * queries with; it is optional in format 1, so a reader that predates it
+ * still accepts the file. The playground checks the shape and refuses any
+ * other format (playground/src/lib/recipe-link.ts).
+ */
+export function recipeJson(recipe: Recipe): string {
+  const titles = cellTitles(recipe);
+  return `${JSON.stringify(
+    {
+      format: 1,
+      slug: recipe.slug,
+      title: recipe.front.title,
+      cells: recipe.cells.map((c) => ({
+        id: c.id,
+        title: titles.get(c.id) ?? c.id,
+        code: c.code,
+        paramsPath: c.params ? dataPath(c.params) : null,
+        setup: c.setup,
+        expectError: c.expectError,
+      })),
+    },
+    null,
+    2,
+  )}\n`;
 }

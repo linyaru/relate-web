@@ -10,9 +10,11 @@ cypherlite-era redo) and should not be extended.
 
 ## Decisions
 
+- Independent OSS project (heading toward the Linux Foundation): no Neo4j Labs branding ("labs" tag, `neo4j-labs` org/package/URL names) on the site.
 - Name: `cypherlite` → `relate`. Site domain: `relatedb.ai`.
-- Local preview: launch config `relate-web` (port 8765, `python3 -m http.server`).
-- `wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (built with
+- Local preview: launch config `relate-web` (port 8765, `npm run dev`).
+- Site is being migrated to Astro (branch `astro-migration`); later: evaluate the relate + Astro beta integration (separate repo).
+- `public/wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (built with
   `scripts/build-wasm.sh --mode release`). Re-copy after upstream changes.
 
 ## Target names (from upstream sources; none published yet)
@@ -37,7 +39,9 @@ cypherlite-era redo) and should not be extended.
 - [ ] Set up Pages / hosting and DNS for `relatedb.ai`; deploy workflow (old one lived on cypherlite `main`)
 - [ ] Add `noindex` / robots block while stealth; remove at launch
 - [ ] Playground (`/relate/playground/`) and cookbook (`/relate/cookbook/`) links stay in `index.html`; they 404 on the interim host until those pages are built and published (upstream `examples/wasm-playground`, `scripts/cookbook`) and the paths are settled
-- [ ] Fix canonical / `og:url` / `sitemap.xml` (still `neo4j-labs.github.io/cypherlite/`) for the interim host, then again for `relatedb.ai`
+- [ ] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) now point at `relatedb/relate`, which is private: they 404 for logged-out visitors until the repo is public, and the docs paths (`docs/tck/compliance.md`, `docs/adr/`, `docs/api/extensions/...`) must exist there
+- [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the preview host `r31473.relatedb.ai` is `noindex`)
+- [ ] `public/releases.json` and `extensions.json` are still the cypherlite-era copies (release notes mention neo4j-labs); regenerate from upstream when the first relate release is cut
 
 ## Switch hosts: github.io → relatedb.ai
 
@@ -63,7 +67,7 @@ GitHub token.
 **Site**
 - [ ] `https://relatedb.ai/` loads over HTTPS, valid cert, `www` redirect works
 - [ ] No console errors; live WASM demo reaches "ready" and runs a sample query
-- [ ] No remaining `cypherlite` / `neo4j-labs` strings: `curl -s https://relatedb.ai/ https://relatedb.ai/llms.txt | grep -ci cypherlite` → `0`
+- [ ] No remaining `cypherlite` / `neo4j-labs` / "labs" branding strings: `curl -s https://relatedb.ai/ https://relatedb.ai/llms.txt | grep -ci cypherlite` → `0`
 - [ ] Every link on the page resolves (run `lychee` against the live URL); no 404s to repos/releases/packages
 - [ ] `robots.txt` and `sitemap.xml` allow indexing; `noindex` removed; `llms.txt` served as text
 - [ ] Light/dark theme, mobile width, cli/agentic toggle, copy buttons all work

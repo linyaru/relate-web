@@ -73,7 +73,7 @@ ADR-0071) that gate every merge.
   no "your data stays local" claim that needs correcting, and bolting
   one on would introduce exactly the ambiguity the study warns about.
 - **A competition subtree on the site.** No competitive comparisons live
-  on `neo4j-labs.github.io/relate`. Audience content only.
+  on `relatedb.ai`. Audience content only.
 - **Dropping "agent-native" entirely from the page.** The study's own
   evidence is that "agent" is a visible messaging pattern across the
   category; stripping it from every surface at once would cost

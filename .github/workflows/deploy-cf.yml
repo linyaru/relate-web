@@ -25,26 +25,50 @@ jobs:
       contents: read
       deployments: write
     steps:
-      - uses: actions/checkout@v4
-
-      # Stage only what is served; keep notes/plans/config out of the site.
-      - name: Assemble site
+      # Secrets can't be used in a job-level `if`, so detect them here and gate the rest.
+      # Until Cloudflare is set up, the job skips (green) instead of failing.
+      - name: Check Cloudflare config
+        id: cf
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          mkdir _site
-          cp index.html llms.txt robots.txt sitemap.xml install.sh \
-             releases.json extensions.json extensions.json.sig .nojekyll _site/
-          cp -R fonts img wasm _site/
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping Cloudflare deploy: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cf.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.cf.outputs.configured == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+        if: steps.cf.outputs.configured == 'true'
+
+      - name: Build site
+        if: steps.cf.outputs.configured == 'true'
+        run: npm run build
 
       - name: Sanity check
+        if: steps.cf.outputs.configured == 'true'
         run: |
-          test -s _site/index.html
-          test -s _site/wasm/relate_bg.wasm
-          test -s _site/wasm/relate.js
+          test -s dist/index.html
+          test -s dist/wasm/relate_bg.wasm
+          test -s dist/wasm/relate.js
+          test -s dist/CNAME
 
       - name: Deploy to Cloudflare Pages
+        if: steps.cf.outputs.configured == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
-          command: pages deploy _site --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}
+          command: pages deploy dist --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}

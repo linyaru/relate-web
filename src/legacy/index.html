@@ -8,288 +8,19 @@
 
 <link rel="preload" href="fonts/public-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/fira-code-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/favicon-192.png">
 <link rel="sitemap" type="application/xml" href="sitemap.xml">
-<link rel="canonical" href="https://neo4j-labs.github.io/cypherlite/">
+<link rel="canonical" href="https://relatedb.ai/">
 <link rel="describedby" href="llms.txt">
 <meta property="og:title" content="relate — the agent-native graph database">
 <meta property="og:description" content="The agent-native graph database. Make sense of connected data in milliseconds — on a graph you can see, in process, with no infrastructure to run. Embedded openCypher engine in one binary; 100% openCypher TCK 2024.3.">
-<meta property="og:url" content="https://neo4j-labs.github.io/cypherlite/">
+<meta property="og:url" content="https://relatedb.ai/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <style>
-  /* ---------- Fonts (self-hosted Public Sans + Fira Code) ---------- */
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 400;
-    src: url("fonts/public-sans-400.woff2") format('woff2');
-    font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 500;
-    src: url("fonts/public-sans-500.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 600;
-    src: url("fonts/public-sans-600.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Public Sans'; font-style: normal; font-weight: 700;
-    src: url("fonts/public-sans-700.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 400;
-    src: url("fonts/fira-code-400.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 500;
-    src: url("fonts/fira-code-500.woff2") format('woff2'); font-display: swap;
-  }
-  @font-face {
-    font-family: 'Fira Code'; font-style: normal; font-weight: 700;
-    src: url("fonts/fira-code-700.woff2") format('woff2'); font-display: swap;
-  }
-
-  /* ---------- Tokens ---------- */
-  :root {
-    --font-sans: 'Public Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-    /* Needle palette */
-    --baltic-50: #006FD6;
-    --baltic-55: #0061BD;
-    --baltic-60: #014063;
-    --baltic-70: #00253D;
-
-    --hibiscus-40: #f96746;
-    --hibiscus-50: #d43300;
-
-    --forest-50: #158838;
-    --forest-40: #1ea34a;
-
-    --lavender-40: #8B5CF6;
-    --lavender-50: #7C39C9;
-    --lavender-30: #B89AFF;
-
-    --lemon-50: #B8860B;
-
-    /* Light theme (default) */
-    --bg: #ffffff;
-    --bg-alt: #F7F8FA;
-    --bg-code: #0F141A;
-    --fg: #0A1014;
-    --fg-muted: #4A5664;
-    --fg-faint: #6B7A88;
-    --border: #E3E8EE;
-    --border-strong: #C9D2DB;
-    --accent: var(--baltic-50);
-    --accent-hover: var(--baltic-55);
-    --discovery: var(--lavender-50);
-    --success: var(--forest-50);
-    --danger: var(--hibiscus-50);
-
-    --code-bg: #0F141A;
-    --code-fg: #E3E8EE;
-    --code-comment: #6B7A88;
-    --code-keyword: #B89AFF;
-    --code-string: #6BD0A0;
-    --code-fn: #5BB7FF;
-    --code-num: #FFB060;
-    --code-flag: #F09595;
-
-    --terminal-prompt: #6BD0A0;
-    --terminal-cursor: var(--accent);
-
-    --shadow-raised: 0 1px 2px rgba(10, 16, 20, 0.06), 0 1px 3px rgba(10, 16, 20, 0.04);
-    --shadow-overlay: 0 4px 16px rgba(10, 16, 20, 0.10);
-
-    color-scheme: light;
-  }
-
-  [data-theme="dark"] {
-    --bg: #0B0E12;
-    --bg-alt: #11161C;
-    --bg-code: #161B22;
-    --fg: #ECEFF3;
-    --fg-muted: #9AA8B4;
-    --fg-faint: #6B7A88;
-    --border: #1E2530;
-    --border-strong: #2A3340;
-    --accent: #4FA3F0;
-    --accent-hover: #6FB7FA;
-    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
-  }
-
-  /* prefers-color-scheme: dark sets dark by default */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0B0E12;
-      --bg-alt: #11161C;
-      --bg-code: #161B22;
-      --fg: #ECEFF3;
-      --fg-muted: #9AA8B4;
-      --fg-faint: #6B7A88;
-      --border: #1E2530;
-      --border-strong: #2A3340;
-      --accent: #4FA3F0;
-      --accent-hover: #6FB7FA;
-      --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
-      --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.5);
-      color-scheme: dark;
-    }
-  }
-
-  /* ---------- Reset ---------- */
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: var(--font-sans);
-    font-size: 17px;
-    line-height: 1.5;
-    color: var(--fg);
-    background: var(--bg);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.15s ease, color 0.15s ease;
-    overflow-x: clip;
-  }
-
-  ::selection { background: var(--accent); color: #fff; }
-
-  /* ---------- Layout ---------- */
-  .container {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ---------- Top nav ---------- */
-  header.top {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    background: color-mix(in srgb, var(--bg) 85%, transparent);
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.15s ease;
-  }
-  header.top.scrolled { border-bottom-color: var(--border); }
-  header.top .inner {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    height: 56px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-    text-decoration: none;
-    color: var(--fg);
-  }
-  .brand .glyph {
-    height: 28px;
-    width: auto;
-  }
-  [id] { scroll-margin-top: 72px; }
-  [data-theme="dark"] .brand .glyph path { fill: #ffffff; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .brand .glyph path { fill: #ffffff; }
-  }
-  .brand .name { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
-  .brand .name .dash { color: var(--fg-faint); }
-  .brand-tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--fg-muted);
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--bg-alt);
-    border: 1px solid var(--border);
-    margin-left: 4px;
-  }
-  nav.top-nav {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  nav.top-nav a {
-    color: var(--fg-muted);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 4px;
-    transition: color 0.1s, background-color 0.1s;
-  }
-  nav.top-nav a:hover { color: var(--fg); background: var(--bg-alt); }
-  nav.top-nav a.nav-external { display: inline-flex; align-items: center; gap: 4px; }
-  nav.top-nav a.nav-external .ext-icon {
-    width: 12px; height: 12px;
-    color: var(--fg-faint);
-    transition: color 0.1s;
-  }
-  nav.top-nav a.nav-external:hover .ext-icon { color: var(--fg-muted); }
-
-  .icon-btn {
-    width: 32px; height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--fg-muted);
-    cursor: pointer;
-    transition: all 0.1s;
-  }
-  .icon-btn:hover { background: var(--bg-alt); color: var(--fg); border-color: var(--border-strong); }
-  .icon-btn svg { width: 16px; height: 16px; }
-  .theme-toggle .moon { display: none; }
-  [data-theme="dark"] .theme-toggle .sun { display: none; }
-  [data-theme="dark"] .theme-toggle .moon { display: block; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .theme-toggle .sun { display: none; }
-    :root:not([data-theme="light"]) .theme-toggle .moon { display: block; }
-  }
-
-  /* ---------- Mobile nav ---------- */
-  .nav-toggle { display: none; }
-  .nav-toggle .close { display: none; }
-  .nav-toggle[aria-expanded="true"] .open { display: none; }
-  .nav-toggle[aria-expanded="true"] .close { display: block; }
-
-  @media (max-width: 640px) {
-    header.top .inner { gap: 8px; }
-    .brand-tag { display: none; }
-    .nav-toggle { display: inline-flex; }
-    .theme-toggle { margin-left: auto; }
-
-    nav.top-nav {
-      position: absolute;
-      top: 56px;
-      left: 16px;
-      right: 16px;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 2px;
-      padding: 8px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: var(--shadow-overlay);
-      display: none;
-    }
-    nav.top-nav.open { display: flex; }
-    nav.top-nav a { padding: 10px 12px; font-size: 14px; }
-  }
+  /* Shared fonts, tokens, reset and top-nav styles live in src/styles/base.css */
 
   /* ---------- Hero ---------- */
   .hero {
@@ -337,7 +68,7 @@
   .pill:hover { border-color: var(--border-strong); color: var(--fg); }
   .pill .pill-tag {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     padding: 2px 8px;
     border-radius: 999px;
     font-weight: 600;
@@ -891,7 +622,7 @@
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 13px;
@@ -932,7 +663,7 @@
   /* Adjacent step-cmd boxes merge into one visual block */
   .step .step-cmd + .step-cmd { margin-top: 1px; border-radius: 0 0 6px 6px; }
   .step .step-cmd:has(+ .step-cmd) { border-radius: 6px 6px 0 0; }
-  .step .step-cmd:hover { background: #1a212a; }
+  .step .step-cmd:hover { background: color-mix(in srgb, var(--code-bg) 88%, #fff); }
   .step .step-cmd .prompt { color: var(--terminal-prompt); }
   .step .step-cmd .copy-icon {
     position: absolute;
@@ -1320,42 +1051,7 @@
 </head>
 <body>
 
-<!-- ============== TOP NAV ============== -->
-<header class="top" id="top">
-  <div class="container inner">
-    <a href="#top" class="brand">
-      <svg class="glyph" viewBox="0 0 86 79" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" aria-hidden="true"><path d="M57.3779 0C40.5967 0 29.3328 9.8948 29.3328 28.9973V42.5747C30.9412 41.7692 32.7812 41.3085 34.7344 41.3085C36.6877 41.3085 38.5277 41.7692 40.2519 42.5747V28.8815C40.2519 16.4545 47.0328 10.1264 57.3779 10.1264C67.7231 10.1264 74.504 16.4545 74.504 28.8815V58.6843H85.423V28.8815C85.5388 9.6658 74.1592 0 57.3779 0Z" fill="#1A1B1D"></path><path d="M4.73608 32.7957C3.35676 33.4854 2.09321 34.6358 1.17192 36.1335C0.253212 37.6287 -0.0916182 39.2395 0.0216118 40.8505C0.137412 43.7276 1.7458 46.373 4.38868 47.8682C6.80258 49.2475 9.56128 48.9028 12.2042 48.3288C15.4235 47.5233 18.1822 47.1785 21.0542 48.9053H21.17C26.1135 51.7824 26.1135 59.0317 21.17 61.9062H21.0542C18.1797 63.6327 15.421 63.2877 12.2042 62.4827C9.67448 61.793 6.91578 61.4481 4.38868 62.9436C1.7458 64.4386 0.250642 67.1996 0.0216118 69.9606C-0.0941982 71.5716 0.250642 73.1827 1.17192 74.6777C2.09063 76.1736 3.24095 77.3236 4.73608 78.0156C7.26578 79.2816 10.3693 79.2817 13.0122 77.7867C15.4261 76.4076 16.5764 73.7596 17.2661 71.2266C18.1848 68.0056 19.2193 65.4726 22.2096 63.8616C25.0841 62.1352 27.8428 62.4827 31.0596 63.2877C33.5893 63.9776 36.348 64.3227 38.8751 62.8277C41.518 61.3324 43.0131 58.571 43.2422 55.8097V54.6594C43.1264 51.7823 41.518 49.1369 38.8751 47.6417C36.4612 46.2598 33.7025 46.6073 31.0596 47.1812C27.8403 47.9867 25.0816 48.3315 22.2096 46.6047C19.3351 44.878 18.1874 42.4614 17.2661 39.2395C16.5764 36.7073 15.4261 34.1776 13.0122 32.6799C10.3693 31.5296 7.26578 31.5296 4.73608 32.7957Z" fill="#014063"></path></svg>
-      <span class="name">relate</span>
-      <span class="brand-tag">labs</span>
-    </a>
-    <nav class="top-nav" id="topNav">
-      <a href="#examples">Examples</a>
-      <a href="#extensions">Extensions</a>
-      <a href="#reference">Reference</a>
-      <a href="#quickstart">Quickstart</a>
-      <a href="/relate/cookbook/">Cookbook</a>
-      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
-      <a href="/relate/playground/" target="_blank" rel="noopener" class="nav-external">Playground<svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-    </nav>
-    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4"></circle>
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-      </svg>
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-      </svg>
-    </button>
-    <button class="icon-btn nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="topNav" aria-expanded="false">
-      <svg class="open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 6h18M3 12h18M3 18h18"></path>
-      </svg>
-      <svg class="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M6 6l12 12M6 18L18 6"></path>
-      </svg>
-    </button>
-  </div>
-</header>
+<!--SITE-HEADER-->
 
 <!-- ============== MAIN ============== -->
 <main>
@@ -1363,9 +1059,9 @@
 <!-- ============== HERO ============== -->
 <section class="hero">
   <div class="container inner">
-    <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
+    <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener" class="pill">
       <span class="pill-tag" style="text-transform:none">v0.16.1</span>
-      <span>neo4j-labs</span>
+      <span>release notes</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
       </svg>
@@ -1382,7 +1078,7 @@
       one file, full Cypher coverage.
     </p>
     <div class="hero-badges" aria-label="Substantiated claims">
-      <a class="hero-badge" href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">
+      <a class="hero-badge" href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">
         <span class="hero-badge-k">100% Cypher coverage</span>
         <span class="hero-badge-v">openCypher TCK 2024.3 — 3,892 / 3,892 tests passing</span>
       </a>
@@ -1422,7 +1118,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener">v0.16.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1608,7 +1304,7 @@
         </div>
 <pre><span class="agentic-line"><span class="agentic-comment">&gt; Install relate and tell me which version I have</span><span class="agentic-loading">→ loading skill relate</span></span>
 <span class="comment"># macOS / Linux — verifies SHA256SUMS, installs to ~/.local/bin</span>
-<span class="prompt">$</span> curl <span class="flag">-sSfL</span> https://neo4j-labs.github.io/cypherlite/install.sh | bash
+<span class="prompt">$</span> curl <span class="flag">-sSfL</span> https://relatedb.ai/install.sh | bash
 
 <span class="comment"># Windows: download cypherlite-windows-amd64.exe from the releases page</span>
 <span class="comment"># Python:  pip install neo4j-cypherlite   ·   from source: cargo build --release</span>
@@ -1799,7 +1495,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
       <code style="font-family:var(--font-mono);font-size:14px">--bind</code> port
       (<code style="font-family:var(--font-mono);font-size:14px">-p 7687-7689:7687-7689</code>
       publishes the range). Ctrl-C and docker stop work. See the
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0128-docker-bolt-server-image.md" target="_blank" rel="noopener">ADR</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0128-docker-bolt-server-image.md" target="_blank" rel="noopener">ADR</a>
       and the README Docker section for the full contract.
     </p>
   </div>
@@ -1891,7 +1587,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 
 <span class="comment"># files that change together most often — refactor candidates</span>
 <span class="prompt">$</span> relate <span class="flag">-d ./mydata</span> "MATCH (a:File)-[c:CO_CHANGED]->(b:File) <span class="keyword">WHERE</span> c.count &gt; 20 <span class="keyword">RETURN</span> a.path, b.path, c.count <span class="keyword">ORDER BY</span> c.count DESC <span class="keyword">LIMIT</span> 10"</pre>
-          <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
+          <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/relatedb/relate/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
         </div>
       </div>
 
@@ -1949,7 +1645,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="out">← {"jsonrpc":"2.0","id":1,"result":{"serverInfo":{…},"capacity":{…},"commitPolicy":"per-batch"}}</span>
 <span class="out">→ {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"write_cypher",
      "arguments":{"statement":"UNWIND $rows <span class="keyword">AS</span> r <span class="keyword">CREATE</span> (:Word {text: r.text})","parameters":{"rows":[…]}}}}</span></pre>
-          <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
+          <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/relatedb/relate/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
         </div>
       </div>
 
@@ -2128,7 +1824,7 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
           <span class="desc">Cypher — 100% openCypher TCK 2024.3 + GQL alignment</span>
         </div>
         <div class="ref-body">
-          <p><strong>100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run (error class, error phase, side effects) enforced in CI.</strong> See the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">compliance report</a>. On top of that, Relate ships full GQL alignment and the Cypher 25 feature set.</p>
+          <p><strong>100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run (error class, error phase, side effects) enforced in CI.</strong> See the <a href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">compliance report</a>. On top of that, Relate ships full GQL alignment and the Cypher 25 feature set.</p>
           <p class="ref-sub"><span class="keyword">Read &amp; write</span>:</p>
           <pre>MATCH (p:Person)-[:FRIENDS_WITH*1..3]->(f) WHERE p.name STARTS WITH 'A' RETURN f
 OPTIONAL MATCH, CREATE, MERGE, SET, REMOVE, DELETE, FOREACH, INSERT</pre>
@@ -2230,7 +1926,7 @@ relate clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file 
 let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import relate</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>). Cursor rows are <code>Record</code>s (dicts with attribute access) and cursors carry driver-style conveniences — <code>single()</code>, <code>peek()</code>, <code>graph()</code>, <code>to_df()</code>, <code>to_arrow()</code>.</p>
-          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/relate</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @neo4j-labs/relate-wasm</code> — in-memory, or durable OPFS via <code>await RelateDb.open("opfs://name")</code> in a dedicated worker.</p>
+          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @relate/relate</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @relate/relate-wasm</code> — in-memory, or durable OPFS via <code>await RelateDb.open("opfs://name")</code> in a dedicated worker.</p>
           <p class="ref-sub"><span class="keyword">Java</span> — <code>com.cypherlite:cypherlite</code> on Maven Central: the plain jar bundles the <code>cypherlite-ffi</code> native for all five platforms (macOS and Linux on arm64/x64, Windows x64) and loads the running platform's copy with no <code>RELATE_LIB</code> or library path; per-platform classifier jars (<code>osx-aarch_64</code>, <code>linux-x86_64</code>, …) carry one platform each. <span class="keyword">Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>relate-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> relate-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
@@ -2262,14 +1958,14 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      relate <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      relate <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener">v0.16.1</a> · open source
     </div>
     <div class="links">
-      <a href="https://github.com/neo4j-labs/cypherlite" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/relatedb/relate" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/relatedb/relate/issues" target="_blank" rel="noopener">Issues</a>
       <a href="llms.txt">llms.txt</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
     </div>
   </div>
 </footer>
@@ -2281,56 +1977,6 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 </div>
 
 <script>
-  // ---------- Theme ----------
-  const themeToggle = document.getElementById('themeToggle');
-  const root = document.documentElement;
-  const stored = localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark') {
-    root.setAttribute('data-theme', stored);
-  }
-  themeToggle.addEventListener('click', () => {
-    const current = root.getAttribute('data-theme');
-    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let next;
-    if (current === 'dark') next = 'light';
-    else if (current === 'light') next = 'dark';
-    else next = sysDark ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-  });
-
-  // ---------- Sticky header shadow ----------
-  const header = document.getElementById('top');
-  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-
-  // ---------- Mobile nav toggle ----------
-  const navToggle = document.getElementById('navToggle');
-  const topNav = document.getElementById('topNav');
-  if (navToggle && topNav) {
-    const closeNav = () => {
-      topNav.classList.remove('open');
-      navToggle.setAttribute('aria-expanded', 'false');
-      navToggle.setAttribute('aria-label', 'Open menu');
-    };
-    navToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = topNav.classList.toggle('open');
-      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    });
-    topNav.addEventListener('click', (e) => {
-      if (e.target.tagName === 'A') closeNav();
-    });
-    document.addEventListener('click', (e) => {
-      if (!topNav.contains(e.target) && !navToggle.contains(e.target)) closeNav();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeNav();
-    });
-  }
-
   // ---------- Toast ----------
   const toast = document.getElementById('toast');
   const toastText = document.getElementById('toastText');
@@ -2360,7 +2006,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   }
 
   // ---------- OS detection + install tabs ----------
-  const INSTALL_URL = 'https://neo4j-labs.github.io/cypherlite/install.sh';
+  const INSTALL_URL = 'https://relatedb.ai/install.sh';
   const installers = {
     macos: {
       prompt: '$',
@@ -2377,7 +2023,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
     windows: {
       prompt: '#',
       html: 'download cypherlite-windows-amd64.exe from the releases page',
-      raw: 'https://github.com/neo4j-labs/cypherlite/releases/latest',
+      raw: 'https://github.com/relatedb/relate/releases/latest',
       label: 'Windows: release .exe',
     },
     pip: {
@@ -2518,7 +2164,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
   // ---------- Per-pane copy (mode-aware) ----------
   const paneCommands = {
-    install: 'curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash',
+    install: 'curl -sSfL https://relatedb.ai/install.sh | bash',
     skill: 'relate skill install',
     database: 'relate query --database ./mydata',
     create: 'relate --database ./movies \'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE\'',

@@ -1,5 +1,10 @@
 ---
 // Site-wide top bar. Used by every page (home and sections) so navigation stays consistent.
+interface Props {
+  /** Where the Playground link goes: a recipe page opens its recipe there (`/playground/#recipe=<slug>`). */
+  playgroundHref?: string;
+}
+const { playgroundHref = '/playground/' } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 // A section link is current on the section's own pages too (/cookbook/<slug>/).
 const isCurrent = (href: string) => {
@@ -16,7 +21,13 @@ const links = [
   { href: '/blog', label: 'Blog' },
   { href: '/cookbook/', label: 'Cookbook' },
   { href: 'https://github.com/relatedb/relate', label: 'GitHub', external: true },
-  { href: '/playground/', label: 'Playground', external: true, icon: true },
+  {
+    href: playgroundHref,
+    label: 'Playground',
+    external: true,
+    icon: true,
+    title: playgroundHref === '/playground/' ? undefined : 'Open this recipe in the playground',
+  },
 ];
 ---
 <header class="top" id="top">
@@ -27,7 +38,7 @@ const links = [
     </a>
     <nav class="top-nav" id="topNav">
       {links.map((l) => (
-        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} class={l.icon ? 'nav-external' : undefined} aria-current={isCurrent(l.href) ? 'page' : undefined}>
+        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} class={l.icon ? 'nav-external' : undefined} title={'title' in l ? l.title : undefined} aria-current={isCurrent(l.href) ? 'page' : undefined}>
           {l.label}{l.icon && <svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>}
         </a>
       ))}

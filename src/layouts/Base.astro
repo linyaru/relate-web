@@ -4,8 +4,8 @@
 // Header component and base.css.
 import Header from '../components/Header.astro';
 import '../styles/base.css';
-interface Props { title: string; description?: string }
-const { title, description = '' } = Astro.props;
+interface Props { title: string; description?: string; playgroundHref?: string }
+const { title, description = '', playgroundHref } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -22,7 +22,7 @@ const { title, description = '' } = Astro.props;
     <slot name="head" />
   </head>
   <body>
-    <Header />
+    <Header playgroundHref={playgroundHref} />
     <main class="page container">
       <slot />
     </main>

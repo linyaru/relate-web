@@ -5,13 +5,22 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // The engine is the site's public/wasm, which the worker loads from /wasm/ at
-// runtime (src/lib/engine.worker.ts). The site serves it in production; this
-// serves it to the playground's own dev server.
-const SITE_WASM = fileURLToPath(new URL('../public/wasm/', import.meta.url))
-const WASM_TYPES: Record<string, string> = {
+// runtime (src/lib/engine.worker.ts), and index.html links the site's
+// favicons from the site root. The site serves both in production; this
+// serves them to the playground's own dev server.
+const SITE_PUBLIC = fileURLToPath(new URL('../public/', import.meta.url))
+const SITE_WASM = join(SITE_PUBLIC, 'wasm/')
+const SITE_FAVICONS = new Set(['/favicon.svg', '/favicon-32.png', '/favicon-192.png'])
+const TYPES: Record<string, string> = {
   '.js': 'text/javascript',
   '.wasm': 'application/wasm',
   '.ts': 'text/plain',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+}
+function serveFile(path: string, res: import('node:http').ServerResponse) {
+  res.setHeader('Content-Type', TYPES[extname(path)] ?? 'application/octet-stream')
+  res.end(readFileSync(path))
 }
 function siteWasm(): Plugin {
   return {
@@ -20,8 +29,16 @@ function siteWasm(): Plugin {
       server.middlewares.use('/wasm', (req, res, next) => {
         const path = normalize(join(SITE_WASM, decodeURIComponent((req.url ?? '/').split('?')[0])))
         if (!path.startsWith(SITE_WASM) || !existsSync(path) || !statSync(path).isFile()) return next()
-        res.setHeader('Content-Type', WASM_TYPES[extname(path)] ?? 'application/octet-stream')
-        res.end(readFileSync(path))
+        serveFile(path, res)
+      })
+      // The dev server prefixes index.html's root links with the base
+      // (/playground/favicon.svg); the build leaves them at the site root.
+      const base = server.config.base
+      server.middlewares.use((req, res, next) => {
+        let url = (req.url ?? '').split('?')[0]
+        if (url.startsWith(base)) url = `/${url.slice(base.length)}`
+        if (!SITE_FAVICONS.has(url)) return next()
+        serveFile(join(SITE_PUBLIC, url.slice(1)), res)
       })
     },
   }

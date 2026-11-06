@@ -2,8 +2,8 @@
 //
 // A cookbook cell links to the playground, `playground/#recipe=<slug>&cell=<id>`
 // beside `cookbook/` under the site root. The playground fetches
-// `../cookbook/<slug>/recipe.json`, relative to itself (written by
-// scripts/cookbook/build.mjs, format 1), asks the reader to confirm, replays
+// `../cookbook/<slug>/recipe.json`, relative to itself (written by the site's
+// src/pages/cookbook/[slug]/recipe.json.ts, format 1), asks the reader to confirm, replays
 // the steps before the target cell, and puts the target cell in the editor
 // unrun. A recipe page's "Open in playground" links to `#recipe=<slug>` with no
 // cell: the playground runs every step and leaves the editor empty.

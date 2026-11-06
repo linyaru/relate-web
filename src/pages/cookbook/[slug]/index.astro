@@ -4,7 +4,7 @@
 import RecipeCard from '../../../components/cookbook/RecipeCard.astro';
 import Cookbook from '../../../layouts/Cookbook.astro';
 import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
-import { byCategory, esc, mb, renderRecipe } from '../../../lib/cookbook/render.ts';
+import { byCategory, esc, mb, playgroundHref, renderRecipe } from '../../../lib/cookbook/render.ts';
 import { cookbook, type Page } from '../../../lib/cookbook/site.ts';
 
 export async function getStaticPaths() {
@@ -36,7 +36,12 @@ const others =
 // The graph view colours each label as the recipe's data model does.
 const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
 ---
-<Cookbook title={`${f.title} · Cookbook`} description={f.summary} footerLinks={[{ href: `${base}index.md`, label: 'Markdown' }]}>
+<Cookbook
+  title={`${f.title} · Cookbook`}
+  description={f.summary}
+  footerLinks={[{ href: `${base}index.md`, label: 'Markdown' }]}
+  playgroundHref={playgroundHref(recipe.slug)}
+>
   <script is:inline slot="head" type="application/json" id="label-colors" set:html={labelColors} />
   <div class="recipe-container">
     <article class="recipe-page">
@@ -62,6 +67,16 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
           <button class="btn" type="button" data-action="run-all">Run all</button>
           <button class="btn" type="button" data-action="reset">Reset</button>
           <button class="btn danger" type="button" data-action="stop" hidden>Stop</button>
+          <a
+            class="btn"
+            href={playgroundHref(recipe.slug)}
+            target="_blank"
+            rel="noopener"
+            title="Run every step in the playground, then query the graph"
+          >
+            Open in playground
+            <svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
+          </a>
         </span>
       </div>
       {contents.length >= 3 && (

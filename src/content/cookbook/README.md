@@ -309,7 +309,7 @@ changed.
 
 A run stops at the first step that goes other than the recipe says (an error
 where none is expected, or success where the step is `expect=error`), in the
-check and on the page.
+check, on the page, and in the playground.
 
 Environment variables honored by `cookbook:check`, `cookbook:record`, and `cookbook:browser`:
 

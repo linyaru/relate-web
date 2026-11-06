@@ -52,6 +52,11 @@ jobs:
       - run: npm ci
         if: steps.cf.outputs.configured == 'true'
 
+      # Never deploy a cookbook whose recipes drift from their recordings.
+      - name: Check cookbook
+        if: steps.cf.outputs.configured == 'true'
+        run: npm run cookbook:check
+
       - name: Build site
         if: steps.cf.outputs.configured == 'true'
         run: npm run build

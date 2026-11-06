@@ -42,7 +42,7 @@ cd ~/Developer/neo4j-labs/cypherlite && bash scripts/build-wasm.sh --mode releas
 
 After refreshing the WASM, run `npm run cookbook:check`. If it fails, decide whether the engine changed on purpose; if so, run `npm run cookbook:record` and review the diff.
 
-Deploys: `.github/workflows/deploy-pages.yml` (GitHub Pages) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci && npm run build` and publish `dist/`.
+Deploys: `.github/workflows/deploy-pages.yml` (GitHub Pages) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci`, `npm run cookbook:check` and `npm run build`, and publish `dist/`. CI: `cookbook.yml` runs on every PR and push to `main` (no paths filter, so it can be a required check): cookbook unit tests, `cookbook:check`, `astro check`, build.
 
 ## Conventions
 

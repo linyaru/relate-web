@@ -9,7 +9,10 @@ import {
   diagramTitle,
   hashComment,
   inertSvg,
+  isDiagramFileOf,
+  isFresh,
   labelsFile,
+  writeLabels,
   prepareSvg,
   readLabels,
   readRendered,
@@ -45,6 +48,29 @@ test('readRendered returns both themes and rejects stale, missing, or active fil
   assert.throws(() => readRendered(dir, 'u', DIAGRAM), /has no light rendering/);
   const tampered = rendered({ light: SVG, dark: SVG.replace('</svg>', '<script>alert(1)</script></svg>') });
   assert.throws(() => readRendered(tampered, 't', DIAGRAM), /holds the element <script>/);
+});
+
+test('isFresh tells a current rendering from a stale or missing one', () => {
+  const dir = rendered({ light: SVG });
+  assert.equal(isFresh(dir, 't', DIAGRAM, 'light'), true);
+  assert.equal(isFresh(dir, 't', { ...DIAGRAM, source: 'flowchart TD' }, 'light'), false);
+  assert.equal(isFresh(dir, 't', DIAGRAM, 'dark'), false);
+});
+
+test("isDiagramFileOf knows a recipe's renderings and labels, and nothing else", () => {
+  for (const name of ['t-1-light.svg', 't-12-dark.svg', 't-3-labels.json']) assert.equal(isDiagramFileOf('t', name), true, name);
+  for (const name of ['t-1-sepia.svg', 't-x-light.svg', 't-01-light.svg', 't-1-light.svg.bak', 'u-1-light.svg', 't-u-1-light.svg']) {
+    assert.equal(isDiagramFileOf('t', name), false, name);
+  }
+  // A slug that extends another is not its diagram.
+  assert.equal(isDiagramFileOf('agent', 'agent-memory-1-light.svg'), false);
+  assert.equal(isDiagramFileOf('agent-memory', 'agent-memory-1-light.svg'), true);
+});
+
+test('writeLabels writes what readLabels reads back', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'labels-'));
+  writeLabels(dir, 't', DIAGRAM, { Agent: '#FFDF81' });
+  assert.deepEqual(readLabels(dir, 't', DIAGRAM), { Agent: '#FFDF81' });
 });
 
 test('readLabels reads fresh labels, and rejects stale or malformed ones', () => {

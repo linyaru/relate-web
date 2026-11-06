@@ -10,7 +10,7 @@ import { gzipSync } from 'node:zlib';
 
 import { createHighlighter, type Highlighter } from 'shiki';
 
-import { readLabels, readRendered, diagramTitle, type Theme } from './diagrams.ts';
+import { diagramTitle, readLabels, readRendered, RENDER_COMMAND, type Theme } from './diagrams.ts';
 import { COOKBOOK_DIR, loadRecipes } from './load.ts';
 import type { Recipe, ResultKind } from './recipe.ts';
 import { lastEnvelope, type TableCells } from './result-view.ts';
@@ -102,7 +102,7 @@ async function build(): Promise<Cookbook> {
         diagrams.set(d.index, { title: diagramTitle(d.source), svg: readRendered(dir, recipe.slug, d) });
         Object.assign(labels, readLabels(dir, recipe.slug, d) ?? {});
       } catch (e) {
-        problems.push(`[${recipe.slug}] ${(e as Error).message}`);
+        problems.push(`[${recipe.slug}] ${(e as Error).message}; render again: ${RENDER_COMMAND}`);
       }
     }
     pages.push({ recipe, cells, diagrams, labels });

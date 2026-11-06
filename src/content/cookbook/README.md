@@ -259,15 +259,32 @@ flowchart LR
   a long flow reads better as two rows (two `direction LR` subgraphs linked
   to each other) or as `flowchart TB`.
 
-The renderings in `diagrams/` were made by the diagram renderer in the
-Relate repository (`scripts/cookbook/diagrams/render.mjs`), which is not in
-this repository yet. Until it moves here, a recipe whose diagram changes
-cannot have its renderings refreshed. Each rendering is
-`diagrams/<slug>-<n>-light.svg` and `-dark.svg`, in the site's colours and
-font, and for a data model also `<slug>-<n>-labels.json`, the colour of
-each label, which the website's graph view uses so a result's nodes match
-the diagram. Each SVG starts with a comment holding the SHA-256 of the
-block it was drawn from.
+After changing a diagram, render it:
+
+```sh
+npm ci --prefix scripts/cookbook-diagrams   # once
+npm run cookbook:diagrams
+```
+
+That writes `diagrams/<slug>-<n>-light.svg` and `-dark.svg` beside the
+recipes, in the site's colours (the Night/Day tokens in
+`src/styles/base.css`) and its Public Sans, and for a data model also
+`<slug>-<n>-labels.json`, the colour of each label, which the website's
+graph view uses so a result's nodes match the diagram. It needs Chrome
+(`CHROME_PATH`, or a usual install location) and no network. For a data
+model it tries several layouts and keeps the cleanest; it warns when that
+one still has overlapping nodes or captions, a line through a node, or a
+caption longer than its line. Then reorder the block's lines or change its
+direction (the layout starts from it), and render again. Commit the files
+with the recipe: the site build fails when a rendering is missing, is older
+than its block, or holds anything beyond the elements, attributes, and CSS
+the renderer draws (no scripts, links, event handlers, or external URLs),
+since it is inlined into the page.
+
+A rendering is only re-drawn when its block changes. After changing the
+site's colours, render every diagram again with
+`npm run cookbook:diagrams -- --force`; `--only <slug>[,<slug>…]` limits a
+run to some recipes.
 
 Generate the results, and the index above:
 

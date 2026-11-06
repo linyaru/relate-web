@@ -6,7 +6,7 @@
 // hold nothing that can run, fetch, or navigate.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { defaultTreeAdapter, parseFragment, serialize, type DefaultTreeAdapterMap } from 'parse5';
@@ -27,6 +27,21 @@ export const diagramFile = (slug: string, index: number, theme: Theme) => `${slu
 /** The file a data model's label colours go to, beside its renderings. */
 export const labelsFile = (slug: string, index: number) => `${slug}-${index}-labels.json`;
 
+/** Every file a diagram can render to: an SVG per theme, and its labels. */
+export const diagramFiles = (slug: string, index: number) => [
+  ...THEMES.map((t) => diagramFile(slug, index, t)),
+  labelsFile(slug, index),
+];
+
+/** Whether `name`, in the diagrams directory, is a file of a diagram of `slug`. */
+export function isDiagramFileOf(slug: string, name: string): boolean {
+  const index = name.startsWith(`${slug}-`) ? /^(\d+)-/.exec(name.slice(slug.length + 1))?.[1] : undefined;
+  return index !== undefined && diagramFiles(slug, Number(index)).includes(name);
+}
+
+/** The command that brings every rendering up to date. */
+export const RENDER_COMMAND = 'npm run cookbook:diagrams';
+
 /** The comment that opens a rendered file and records its source. */
 export const hashComment = (hash: string) => `<!-- mermaid source sha256:${hash} -->`;
 
@@ -39,6 +54,18 @@ function renderedBody(path: string, diagram: Diagram): string | null {
   const text = readFileSync(path, 'utf8');
   const head = `${hashComment(sourceHash(diagram.source))}\n`;
   return text.startsWith(head) ? text.slice(head.length) : null;
+}
+
+/** Whether a diagram's `theme` rendering in `dir` is there and from its current source. */
+export function isFresh(dir: string, slug: string, diagram: Diagram, theme: Theme): boolean {
+  const path = join(dir, diagramFile(slug, diagram.index, theme));
+  return existsSync(path) && renderedBody(path, diagram) !== null;
+}
+
+/** Write a data model's label colours (label → #RRGGBB) to `dir`, with the hash of the source they came from. */
+export function writeLabels(dir: string, slug: string, diagram: Diagram, labels: Record<string, string>) {
+  const record = { source: sourceHash(diagram.source), labels };
+  writeFileSync(join(dir, labelsFile(slug, diagram.index)), `${JSON.stringify(record, null, 2)}\n`);
 }
 
 // The build parses each rendering the way the browser will (parse5 is a

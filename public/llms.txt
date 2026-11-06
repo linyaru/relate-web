@@ -11,7 +11,7 @@ Agent context and memory (a durable, queryable graph in one `.cl` file; recall i
 ## Installation
 
 ```bash
-curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash
+curl -sSfL https://relatedb.ai/install.sh | bash
 ```
 
 The install script verifies the pinned-key release signature (SSHSIG) and SHA256SUMS before installing. Prebuilt binaries ship for macOS (amd64/arm64, Developer-ID signed and notarized), Linux (amd64/arm64), and Windows. Windows: download `cypherlite-windows-amd64.exe` from the releases page. Python package: `pip install neo4j-cypherlite` (import as `import relate`).
@@ -91,8 +91,8 @@ One write path: commit appends physical redo to the fsync'd WAL, then applies it
 
 - Rust: the `relate` crate — `Database::open("./graph.cl")`, `db.execute(query)`
 - Python: `pip install neo4j-cypherlite` — `relate.connect(":memory:")` (sqlite3-style cursors) or `Database` with `execute_arrow()` for zero-copy Arrow IPC. Cursor rows are `Record`s (dicts with attribute access); cursors carry driver-style conveniences: `data()`, `fetch(n)`, `peek()`, `single()`, `keys()`, `graph()`, `to_df()`, `to_arrow()`. Params accept `uuid.UUID`, `bytes`/`bytearray`, and `tuple`
-- JavaScript (Node): `npm install @neo4j-labs/relate` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@neo4j-labs/relate-<platform>-<arch>`) is an auto-selected optional dependency; TypeScript types included. `conn.query(cypher, params?)` returns a `Result` with object rows, `stats`, `single()`, `consume()`, and `graph()`; `conn.query` also works as a tagged template — interpolated values become auto-named parameters
-- JavaScript (browser): `npm install @neo4j-labs/relate-wasm` — `new RelateDb()` for in-memory, `await RelateDb.open("opfs://<name>")` for the durable OPFS store (dedicated worker only)
+- JavaScript (Node): `npm install @relate/relate` — wraps the `cypherlite-ffi` C ABI via koffi; the platform binary (`@relate/<platform>-<arch>`) is an auto-selected optional dependency; TypeScript types included. `conn.query(cypher, params?)` returns a `Result` with object rows, `stats`, `single()`, `consume()`, and `graph()`; `conn.query` also works as a tagged template — interpolated values become auto-named parameters
+- JavaScript (browser): `npm install @relate/relate-wasm` — `new RelateDb()` for in-memory, `await RelateDb.open("opfs://<name>")` for the durable OPFS store (dedicated worker only)
 - Java: `com.cypherlite:cypherlite` on Maven Central — the plain jar bundles the `cypherlite-ffi` native for all five platforms (darwin/linux arm64+x64, win32-x64) and loads the running platform's copy with no `RELATE_LIB` or library path; per-platform classifier jars (`osx-aarch_64`, `osx-x86_64`, `linux-aarch_64`, `linux-x86_64`, `windows-x86_64`) carry one platform each. Go: bindings over the `cypherlite-ffi` C ABI (tarballs on the releases page)
 - Result metadata: query results expose the resolved namespace and the query type (`r`/`w`/`rw`/`s`) on every surface — Rust `QueryResult`, the C ABI, Python, JavaScript, Java, Go, and Bolt. The statement's structured plan rides the same surfaces as a `relate.plan/v1` document (operator tree with estimates, PROFILE metrics, and per-operator remedy-bearing warnings; absent on a plain run) — the C ABI's `relate_result_plan_json`, Python `ResultSummary.plan`, JS `result.plan`, Java `Result.getPlan()`, Go `Result.Plan`, the WASM envelope's `plan`, and the MCP tool result.
 - Read-only open is available on every surface — Rust, Bolt, Python, C, JavaScript, Java, Go, and WASM — alongside the CLI's `--read-only`: loads once, refuses writes and checkpoints, never creates a missing store; writable stays the default.
@@ -164,13 +164,13 @@ Task-shaped, tested recipes — entity resolution, nearby places, dependency
 blast radius, hybrid recall (vector + full-text + RRF), long-term agent
 memory, and more — each step runnable in the browser:
 
-- Cookbook: https://neo4j-labs.github.io/cypherlite/cookbook/
-- Cookbook llms.txt: https://neo4j-labs.github.io/cypherlite/cookbook/llms.txt
+- Cookbook: https://relatedb.ai/cookbook/
+- Cookbook llms.txt: https://relatedb.ai/cookbook/llms.txt
 
 ## Links
 
-- Homepage: https://neo4j-labs.github.io/cypherlite/
-- GitHub: https://github.com/neo4j-labs/cypherlite
-- Issues: https://github.com/neo4j-labs/cypherlite/issues
-- TCK compliance: https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md
-- Architecture decisions: https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/
+- Homepage: https://relatedb.ai/
+- GitHub: https://github.com/relatedb/relate
+- Issues: https://github.com/relatedb/relate/issues
+- TCK compliance: https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md
+- Architecture decisions: https://github.com/relatedb/relate/blob/main/docs/adr/

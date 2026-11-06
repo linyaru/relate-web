@@ -12,11 +12,11 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/favicon-192.png">
 <link rel="sitemap" type="application/xml" href="sitemap.xml">
-<link rel="canonical" href="https://neo4j-labs.github.io/cypherlite/">
+<link rel="canonical" href="https://relatedb.ai/">
 <link rel="describedby" href="llms.txt">
 <meta property="og:title" content="relate — the agent-native graph database">
 <meta property="og:description" content="The agent-native graph database. Make sense of connected data in milliseconds — on a graph you can see, in process, with no infrastructure to run. Embedded openCypher engine in one binary; 100% openCypher TCK 2024.3.">
-<meta property="og:url" content="https://neo4j-labs.github.io/cypherlite/">
+<meta property="og:url" content="https://relatedb.ai/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <style>
@@ -1059,9 +1059,9 @@
 <!-- ============== HERO ============== -->
 <section class="hero">
   <div class="container inner">
-    <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener" class="pill">
+    <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener" class="pill">
       <span class="pill-tag" style="text-transform:none">v0.16.1</span>
-      <span>neo4j-labs</span>
+      <span>release notes</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;opacity:0.6">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
       </svg>
@@ -1078,7 +1078,7 @@
       one file, full Cypher coverage.
     </p>
     <div class="hero-badges" aria-label="Substantiated claims">
-      <a class="hero-badge" href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">
+      <a class="hero-badge" href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">
         <span class="hero-badge-k">100% Cypher coverage</span>
         <span class="hero-badge-v">openCypher TCK 2024.3 — 3,892 / 3,892 tests passing</span>
       </a>
@@ -1118,7 +1118,7 @@
         </button>
       </div>
       <div class="cmd-hint">
-        latest release <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
+        latest release <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener">v0.16.1</a> · <span id="osDetected">detected your OS</span> · install script verifies the release signature and SHA256SUMS before installing · <kbd>⌘</kbd><kbd>C</kbd> / <kbd>Ctrl</kbd><kbd>C</kbd> to copy from anywhere
       </div>
     </div>
   </div>
@@ -1304,7 +1304,7 @@
         </div>
 <pre><span class="agentic-line"><span class="agentic-comment">&gt; Install relate and tell me which version I have</span><span class="agentic-loading">→ loading skill relate</span></span>
 <span class="comment"># macOS / Linux — verifies SHA256SUMS, installs to ~/.local/bin</span>
-<span class="prompt">$</span> curl <span class="flag">-sSfL</span> https://neo4j-labs.github.io/cypherlite/install.sh | bash
+<span class="prompt">$</span> curl <span class="flag">-sSfL</span> https://relatedb.ai/install.sh | bash
 
 <span class="comment"># Windows: download cypherlite-windows-amd64.exe from the releases page</span>
 <span class="comment"># Python:  pip install neo4j-cypherlite   ·   from source: cargo build --release</span>
@@ -1495,7 +1495,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
       <code style="font-family:var(--font-mono);font-size:14px">--bind</code> port
       (<code style="font-family:var(--font-mono);font-size:14px">-p 7687-7689:7687-7689</code>
       publishes the range). Ctrl-C and docker stop work. See the
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0128-docker-bolt-server-image.md" target="_blank" rel="noopener">ADR</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0128-docker-bolt-server-image.md" target="_blank" rel="noopener">ADR</a>
       and the README Docker section for the full contract.
     </p>
   </div>
@@ -1587,7 +1587,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 
 <span class="comment"># files that change together most often — refactor candidates</span>
 <span class="prompt">$</span> relate <span class="flag">-d ./mydata</span> "MATCH (a:File)-[c:CO_CHANGED]->(b:File) <span class="keyword">WHERE</span> c.count &gt; 20 <span class="keyword">RETURN</span> a.path, b.path, c.count <span class="keyword">ORDER BY</span> c.count DESC <span class="keyword">LIMIT</span> 10"</pre>
-          <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/neo4j-labs/cypherlite/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
+          <p class="ref-sub"><span class="keyword">Worked examples</span> — <code>so-to-graph</code> imports live Stack Exchange questions into the notebook's schema, three times: bash with the inlined wire kit, Python on the official MCP SDK, TypeScript on the TS SDK. <a href="https://github.com/relatedb/relate/tree/main/docs/api/extensions/examples" target="_blank" rel="noopener">The sources are in the repo.</a></p>
         </div>
       </div>
 
@@ -1645,7 +1645,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="out">← {"jsonrpc":"2.0","id":1,"result":{"serverInfo":{…},"capacity":{…},"commitPolicy":"per-batch"}}</span>
 <span class="out">→ {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"write_cypher",
      "arguments":{"statement":"UNWIND $rows <span class="keyword">AS</span> r <span class="keyword">CREATE</span> (:Word {text: r.text})","parameters":{"rows":[…]}}}}</span></pre>
-          <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
+          <p class="ref-sub"><span class="keyword">Publishing</span> — a package is a directory with a manifest (<code>extension.json</code>), an executable, and its inputs; <code>extension check</code> validates the wiring before any install. First-party packages ship through the signed channel; anyone else ships a GitHub release and users install it commit-pinned. The full contract — manifest schema, caps, commit policies, error classes — is the <a href="https://github.com/relatedb/relate/blob/main/docs/api/extensions/spec.md" target="_blank" rel="noopener">extension spec</a>; the design record is <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0429-cli-extension-registry.md" target="_blank" rel="noopener">ADR-0429</a> through <a href="https://github.com/relatedb/relate/blob/main/docs/adr/0447-extension-single-wire.md" target="_blank" rel="noopener">ADR-0447</a>.</p>
         </div>
       </div>
 
@@ -1824,7 +1824,7 @@ cypher&gt; .timer on      <span class="comment"># per-statement timing</span></p
           <span class="desc">Cypher — 100% openCypher TCK 2024.3 + GQL alignment</span>
         </div>
         <div class="ref-body">
-          <p><strong>100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run (error class, error phase, side effects) enforced in CI.</strong> See the <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">compliance report</a>. On top of that, Relate ships full GQL alignment and the Cypher 25 feature set.</p>
+          <p><strong>100% openCypher TCK 2024.3 — 3,892 / 3,892 scenarios pass, strict run (error class, error phase, side effects) enforced in CI.</strong> See the <a href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">compliance report</a>. On top of that, Relate ships full GQL alignment and the Cypher 25 feature set.</p>
           <p class="ref-sub"><span class="keyword">Read &amp; write</span>:</p>
           <pre>MATCH (p:Person)-[:FRIENDS_WITH*1..3]->(f) WHERE p.name STARTS WITH 'A' RETURN f
 OPTIONAL MATCH, CREATE, MERGE, SET, REMOVE, DELETE, FOREACH, INSERT</pre>
@@ -1926,7 +1926,7 @@ relate clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file 
 let db = Database::open("./graph.cl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import relate</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>). Cursor rows are <code>Record</code>s (dicts with attribute access) and cursors carry driver-style conveniences — <code>single()</code>, <code>peek()</code>, <code>graph()</code>, <code>to_df()</code>, <code>to_arrow()</code>.</p>
-          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @neo4j-labs/relate</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @neo4j-labs/relate-wasm</code> — in-memory, or durable OPFS via <code>await RelateDb.open("opfs://name")</code> in a dedicated worker.</p>
+          <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @relate/relate</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @relate/relate-wasm</code> — in-memory, or durable OPFS via <code>await RelateDb.open("opfs://name")</code> in a dedicated worker.</p>
           <p class="ref-sub"><span class="keyword">Java</span> — <code>com.cypherlite:cypherlite</code> on Maven Central: the plain jar bundles the <code>cypherlite-ffi</code> native for all five platforms (macOS and Linux on arm64/x64, Windows x64) and loads the running platform's copy with no <code>RELATE_LIB</code> or library path; per-platform classifier jars (<code>osx-aarch_64</code>, <code>linux-x86_64</code>, …) carry one platform each. <span class="keyword">Go</span> — FFI bindings over the same C ABI; prebuilt <code>cypherlite-ffi</code> tarballs ship on the releases page.</p>
           <p class="ref-sub"><span class="keyword">Bolt</span> — remote transport for the same engine: point any Bolt client at the <code>relate-bolt</code> server. Basic auth is on by default — a token is generated at startup, printed in the banner, and persisted next to a persistent database (<code>.auth-token</code>); <code>--auth user:password</code> sets your own, <code>--auth none</code> disables. Bolt-over-WebSocket shares the same <code>--bind</code> (on by default, <code>--no-websocket</code> opts out, <code>--ws-allow-origin</code> widens the Origin policy), so neo4j-browser and the browser build of the official JavaScript driver connect out of the box.</p>
           <pre><span class="prompt">$</span> relate-bolt --help    <span class="comment"># serve the database over Bolt</span></pre>
@@ -1958,14 +1958,14 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 <footer>
   <div class="container inner">
     <div class="meta">
-      relate <a href="https://github.com/neo4j-labs/cypherlite/releases" target="_blank" rel="noopener">v0.16.1</a> · maintained by <a href="https://neo4j.com" target="_blank" rel="noopener">Neo4j</a> labs
+      relate <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener">v0.16.1</a> · open source
     </div>
     <div class="links">
       <a href="https://github.com/relatedb/relate" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/relatedb/relate/issues" target="_blank" rel="noopener">Issues</a>
       <a href="llms.txt">llms.txt</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
-      <a href="https://github.com/neo4j-labs/cypherlite/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
+      <a href="https://github.com/relatedb/relate/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
     </div>
   </div>
 </footer>
@@ -2006,7 +2006,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   }
 
   // ---------- OS detection + install tabs ----------
-  const INSTALL_URL = 'https://neo4j-labs.github.io/cypherlite/install.sh';
+  const INSTALL_URL = 'https://relatedb.ai/install.sh';
   const installers = {
     macos: {
       prompt: '$',
@@ -2023,7 +2023,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
     windows: {
       prompt: '#',
       html: 'download cypherlite-windows-amd64.exe from the releases page',
-      raw: 'https://github.com/neo4j-labs/cypherlite/releases/latest',
+      raw: 'https://github.com/relatedb/relate/releases/latest',
       label: 'Windows: release .exe',
     },
     pip: {
@@ -2164,7 +2164,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
   // ---------- Per-pane copy (mode-aware) ----------
   const paneCommands = {
-    install: 'curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | bash',
+    install: 'curl -sSfL https://relatedb.ai/install.sh | bash',
     skill: 'relate skill install',
     database: 'relate query --database ./mydata',
     create: 'relate --database ./movies \'CREATE CONSTRAINT person_id FOR (p:Person) REQUIRE p.name IS UNIQUE\'',

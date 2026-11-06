@@ -1,7 +1,7 @@
 # Maintaining the relate website
 
 This is the contract for anyone — human or agent — updating
-`neo4j-labs.github.io/relate`. Read it before every change.
+`relatedb.ai`. Read it before every change.
 
 ## What this site is
 

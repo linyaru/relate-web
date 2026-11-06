@@ -1,17 +1,17 @@
 #!/bin/sh
-# cypherlite installer:
-#   curl -sSfL https://neo4j-labs.github.io/cypherlite/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+# relate installer:
+#   curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
 set -eu
 
-REPO=neo4j-labs/cypherlite
-ASSET_PREFIX=cypherlite
-BIN_NAME=cypherlite
+REPO=relatedb/relate
+ASSET_PREFIX=relate
+BIN_NAME=relate
 INSTALL_DIR="$HOME/.local/bin"
 
 # Pinned release signing public key (ADR-0115). Verification never fetches the
 # key from the release. The signer identity and the SSH signature namespace are
-# both `cypherlite-release`; changing either, or this key, requires a new ADR.
-SIGNING_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK cypherlite-release'
+# both `relate-release`; changing either, or this key, requires a new ADR.
+SIGNING_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release'
 
 die() {
 	echo "install.sh: $1" >&2
@@ -22,7 +22,7 @@ die() {
 # to `upgrade_cmd/manifest.rs`'s SUMS_VERSION_PREFIX and is matched literally
 # (quoted expansion) in both spots below; the harness's section-0 guards hold
 # the three copies together.
-SUMS_VERSION_PREFIX='# cypherlite-release-version: '
+SUMS_VERSION_PREFIX='# relate-release-version: '
 
 # The last release published before the signed SHA256SUMS version header
 # existed (ADR-0457). A headerless manifest is accepted only at or below it.
@@ -113,8 +113,8 @@ asset_id_for() {
 	'
 }
 
-# Raw binaries, no archive concatenation: cypherlite publishes
-# cypherlite-<os>-<arch>.
+# Raw binaries, no archive concatenation: relate publishes
+# relate-<os>-<arch>.
 asset="${ASSET_PREFIX}-${os}-${arch}"
 
 resolve_fail_msg="could not resolve latest release for $REPO. If the repo is private, set GITHUB_TOKEN (e.g. GITHUB_TOKEN=\$(gh auth token))."
@@ -131,7 +131,7 @@ tag=$(printf '%s\n' "$release_json" |
 [ -n "$tag" ] ||
 	die "$resolve_fail_msg"
 
-echo "Installing cypherlite $tag ($os/$arch) to $INSTALL_DIR"
+echo "Installing relate $tag ($os/$arch) to $INSTALL_DIR"
 
 # Resolve the asset ids (binary, manifest, signature) from the release JSON we
 # already have, and die on an empty id rather than downloading the wrong thing.
@@ -155,9 +155,9 @@ download_asset "$sig_id" >"$tmp/SHA256SUMS.sig" ||
 # The pinned key is written in the identity form ssh-keygen's allowed_signers
 # expects, and SHA256SUMS is fed on stdin. Fail closed: a missing, invalid or
 # wrong-key signature installs nothing — and never downloads the binary.
-printf 'cypherlite-release %s\n' "$SIGNING_KEY" >"$tmp/allowed_signers"
-ssh-keygen -Y verify -f "$tmp/allowed_signers" -I cypherlite-release \
-	-n cypherlite-release -s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" ||
+printf 'relate-release %s\n' "$SIGNING_KEY" >"$tmp/allowed_signers"
+ssh-keygen -Y verify -f "$tmp/allowed_signers" -I relate-release \
+	-n relate-release -s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" ||
 	die "SHA256SUMS signature verification failed for $tag; installing nothing"
 
 # Bind the authenticated manifest to the release the API resolved (ADR-0457):
@@ -226,4 +226,4 @@ case ":$PATH:" in
 	;;
 esac
 
-echo "Installed cypherlite $tag at $INSTALL_DIR/$BIN_NAME"
+echo "Installed relate $tag at $INSTALL_DIR/$BIN_NAME"

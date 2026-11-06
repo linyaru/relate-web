@@ -1,0 +1,50 @@
+# Publishes the static site to Cloudflare Pages (project: relate-web).
+# main -> production; pull requests -> preview deployments (same-repo PRs only,
+# since fork PRs have no access to secrets).
+#
+# One-time setup:
+#   1. Create the project:  npx wrangler pages project create relate-web --production-branch main
+#   2. Repo secrets: CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: cf-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stage only what is served; keep notes/plans/config out of the site.
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html llms.txt robots.txt sitemap.xml install.sh \
+             releases.json extensions.json extensions.json.sig .nojekyll _site/
+          cp -R fonts img wasm _site/
+
+      - name: Sanity check
+        run: |
+          test -s _site/index.html
+          test -s _site/wasm/relate_bg.wasm
+          test -s _site/wasm/relate.js
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: pages deploy _site --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}

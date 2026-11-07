@@ -25,7 +25,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Full history: each docs page's "Updated" date is its file's last commit.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -44,8 +47,15 @@ jobs:
       - name: Check cookbook
         run: npm run cookbook:check
 
+      # Never deploy docs that fail their checks (scripts/docs.ts).
+      - name: Check docs
+        run: npm run docs:check
+
       - name: Build site
         run: npm run build
+
+      - name: Check built docs
+        run: npm run docs:check -- --built
 
       - name: Sanity check
         run: |

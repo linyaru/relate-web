@@ -6,6 +6,11 @@
 # every recipe runs, the playground loads, and every recipe opens in the
 # playground. Needs no secrets and no other repository.
 #
+# The docs (src/content/docs) are checked from the source before the build
+# (`docs:check`: frontmatter, links, words, the twins, the trust and diagram
+# checks), their prose is linted with Vale (`docs:lint`), and after the build
+# `docs:check -- --built` checks the built pages, twins and llms.txt.
+#
 # There is no paths filter, so the job always reports and can be a required
 # status check on main. It takes well under a minute.
 #
@@ -33,7 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Full history: each docs page's "Updated" date is its file's last commit.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -50,10 +58,30 @@ jobs:
         run: npm ci --prefix playground
 
       - name: Unit tests
-        run: npm run cookbook:test
+        run: |
+          npm run cookbook:test
+          npm run docs:test
 
       - name: Check decision records
         run: npm run adr:check
+
+      - name: Check docs
+        run: npm run docs:check
+
+      # Vale for docs:lint, pinned and checked against the release's published SHA-256.
+      - name: Install Vale
+        env:
+          VALE_VERSION: 3.25.1
+          VALE_SHA256: 4bf5c5176b682b1da0830f471584d3494f1c2e27ee3029e1ad6f6661d4962182
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/vale.tar.gz" "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  $RUNNER_TEMP/vale.tar.gz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$HOME/.local/bin" vale
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Lint docs prose
+        run: npm run docs:lint
 
       - name: Check recipes
         run: npm run cookbook:check
@@ -66,6 +94,9 @@ jobs:
 
       - name: Build site
         run: npm run build
+
+      - name: Check built docs
+        run: npm run docs:check -- --built
 
       # In headless Chrome (preinstalled on the runner) on the built site:
       # every recipe's steps run, the page controls on one recipe, the

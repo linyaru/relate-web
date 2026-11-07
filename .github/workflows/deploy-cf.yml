@@ -40,8 +40,11 @@ jobs:
             echo "::notice::Skipping Cloudflare deploy: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set."
           fi
 
+      # Full history: each docs page's "Updated" date is its file's last commit.
       - uses: actions/checkout@v4
         if: steps.cf.outputs.configured == 'true'
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         if: steps.cf.outputs.configured == 'true'
@@ -64,9 +67,18 @@ jobs:
         if: steps.cf.outputs.configured == 'true'
         run: npm run cookbook:check
 
+      # Never deploy docs that fail their checks (scripts/docs.ts).
+      - name: Check docs
+        if: steps.cf.outputs.configured == 'true'
+        run: npm run docs:check
+
       - name: Build site
         if: steps.cf.outputs.configured == 'true'
         run: npm run build
+
+      - name: Check built docs
+        if: steps.cf.outputs.configured == 'true'
+        run: npm run docs:check -- --built
 
       - name: Sanity check
         if: steps.cf.outputs.configured == 'true'

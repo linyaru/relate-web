@@ -1,0 +1,18 @@
+---
+// A tab set written in markup (the landing's install strip): the same
+// `.tabs` / `.tab-panel` structure the `::::tabs` directive renders, so the
+// layout script enhances both. `detect="os"` picks the visitor's OS first.
+interface Props {
+  tabs: { key: string; label: string }[];
+  detect?: 'os';
+}
+const { tabs, detect } = Astro.props;
+---
+<div class="tabs" data-tabs data-tabs-detect={detect}>
+  {tabs.map((t) => (
+    <div class="tab-panel" data-tab-key={t.key} data-tab-label={t.label}>
+      <p class="tab-label">{t.label}</p>
+      <slot name={t.key} />
+    </div>
+  ))}
+</div>

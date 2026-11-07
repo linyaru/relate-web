@@ -28,6 +28,12 @@ a budget read never touches the `Step` nodes.
 ```mermaid
 flowchart LR
   accTitle: Data model: a session's steps, each calling one tool
+  accDescr {
+    A Session links to each of its Step nodes by a STEP relationship that
+    carries an integer timestamp, a sequence number and a token count. Each
+    Step has a kind, text and time, and a CALLED relationship to the one Tool
+    it used.
+  }
   Session(("<b>Session</b><br/>id")) -- "<b>STEP</b><br/>ts (integer) · seq · tokens" --> Step(("<b>Step</b><br/>id · kind · text · at"))
   Step -- "<b>CALLED</b>" --> Tool(("<b>Tool</b><br/>name"))
   class Session l1

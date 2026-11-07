@@ -29,6 +29,13 @@ its four statements has a bug.
 ```mermaid
 flowchart LR
   accTitle: Data model: the company directory; the migration renames HAS_CEO to LED_BY and adds industry
+  accDescr {
+    An Organization is linked to its chief executive, a Person, by HAS_CEO,
+    which the migration renames to LED_BY; the migration also adds an industry
+    property to Organization. Each Organization has HAS_CATEGORY to an
+    IndustryCategory and IN_CITY to a City, and each City is IN_COUNTRY a
+    Country.
+  }
   Org(("<b>Organization</b><br/>id · name · founded · employees<br/>isPublic · summary · industry")) -- "<b>HAS_CEO</b> → <b>LED_BY</b>" --> Person(("<b>Person</b><br/>id · name"))
   Org -- "<b>HAS_CATEGORY</b>" --> Category(("<b>IndustryCategory</b><br/>id · name"))
   Org -- "<b>IN_CITY</b>" --> City(("<b>City</b><br/>id · name"))
@@ -48,6 +55,13 @@ that the migration never matches.
 ```mermaid
 flowchart TB
   accTitle: The rehearsal, in one database
+  accDescr {
+    The golden graph is fingerprinted with Probe and Fingerprint nodes, then
+    the migration runs with its bug and the verdict is FAIL. The diff shows
+    which probes failed and who lost relationships; the graph is restored from
+    the fingerprint and the fixed dedupe runs, and the verdict is PASS. Last,
+    the scaffolding is deleted; every step runs in one database.
+  }
   subgraph Break[" "]
     direction LR
     Golden[("Golden graph")] --> Fingerprint["Fingerprint<br/>Probe and Fingerprint nodes"]

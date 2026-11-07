@@ -1,0 +1,45 @@
+---
+// <Errors />: the errors tables, generated from _data/errors.json. The table
+// model and the twin live in errors.ts; this renders the same rows as HTML,
+// each <tr> at its entry's stable id, with the id cell linking to itself.
+import MarkdownIt from 'markdown-it';
+
+import { esc } from '../../lib/cookbook/result-view.ts';
+import { publishedIds } from '../../lib/docs/content.ts';
+import { resolveHref } from '../../lib/docs/links.ts';
+import { table } from './errors.ts';
+
+interface Props {
+  surface?: string;
+}
+const pages = publishedIds();
+// Inline markdown with raw HTML off (a `<placeholder>` in prose stays text);
+// links resolve first, so one that is not built or not public keeps its text.
+const markdown = new MarkdownIt({ html: false, linkify: false });
+const md = {
+  renderInline: (s: string) =>
+    markdown.renderInline(
+      s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label: string, href: string) => {
+        const resolved = resolveHref(href, { pages });
+        return resolved === null ? label : `[${label}](${resolved})`;
+      }),
+    ),
+};
+const t = table(Astro.props as Record<string, string>);
+const inline = (parts: string[]) => parts.map((p) => md.renderInline(p)).join('<br />');
+const html =
+  '<table class="errors-table"><thead><tr>' +
+  t.columns.map((c) => `<th scope="col">${esc(c)}</th>`).join('') +
+  '</tr></thead><tbody>' +
+  t.rows
+    .map((r) => {
+      const [first, ...rest] = r.cells;
+      // The first part of the first cell names the row; it links to the row's own anchor.
+      const head = `<a class="errors-anchor" href="#${esc(r.id)}">${md.renderInline(first[0])}</a>` + (first.length > 1 ? `<br />${inline(first.slice(1))}` : '');
+      return `<tr id="${esc(r.id)}"><td>${head}</td>${rest.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`;
+    })
+    .join('') +
+  '</tbody></table>' +
+  t.notes.map((n) => `<p>${md.renderInline(n)}</p>`).join('');
+---
+<div class="docs-errors" set:html={html} />

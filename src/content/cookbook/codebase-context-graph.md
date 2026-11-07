@@ -31,6 +31,13 @@ search started.
 ```mermaid
 flowchart TB
   accTitle: Data model: crates, documents and their sections, and the links between them
+  accDescr {
+    Crate nodes DEPENDS_ON other crates and CITES ADR documents (Doc:ADR).
+    Each ADR HAS_CHUNK sections; a Chunk MENTIONS crates and CITES ADRs, and
+    an ADR SUPERSEDES an earlier one, sometimes only in part. A Question is
+    linked by dashed, derived ANCHOR relationships to the ADRs and crates it
+    starts from.
+  }
   Question(("<b>Question</b><br/>id · text")) -. "<b>ANCHOR</b>" .-> ADR(("<b>Doc:ADR</b><br/>path · title · number<br/>status · vendored · terms"))
   Question -. "<b>ANCHOR</b>" .-> Crate(("<b>Crate</b><br/>name · description · terms"))
   ADR -- "<b>HAS_CHUNK</b>" --> Chunk(("<b>Chunk</b><br/>id · heading · text · terms"))
@@ -256,6 +263,14 @@ from those anchors.
 ```mermaid
 flowchart TB
   accTitle: From a question to evidence: seeds, anchors, and bounded hops
+  accDescr {
+    A question is normalized and split into content terms and structural
+    words. Each content term runs one SEARCH weighted by IDF, and the seeds
+    within 85% of the best become the anchors, while the structural words
+    choose which hops to follow: supersedes, dependents or cites. A bounded
+    expansion from the anchors, up to three supersession steps and one or two
+    hops, gathers the evidence for the answer.
+  }
   Q("Question") --> Split["Normalize and split<br/>content terms · structural words"]
   Split -- "content terms" --> Seeds["One SEARCH per term<br/>weighted by IDF"]
   Seeds --> Anchors["Anchors<br/>within 85% of the best seed"]

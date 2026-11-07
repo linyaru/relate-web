@@ -1,0 +1,25 @@
+---
+// Not found. Points readers at the docs and agents at /docs/llms.txt (DOCS-PLAN.md §3.1).
+import Base from '../layouts/Base.astro';
+---
+<Base title="Page not found" description="This page does not exist.">
+  <div class="not-found">
+    <h1>Page not found</h1>
+    <p class="lead">There is no page at this address.</p>
+    <ul>
+      <li><a href="/docs/">The docs</a>: start from the task index.</li>
+      <li><a href="/docs/llms.txt">/docs/llms.txt</a>: the index for agents. Every docs page is also markdown at its URL plus <code>.md</code>.</li>
+      <li><a href="/cookbook/">The cookbook</a>: worked examples.</li>
+      <li><a href="/">The home page</a>.</li>
+    </ul>
+  </div>
+</Base>
+
+<style is:global>
+  .not-found { padding: 48px 0 96px; max-width: 680px; }
+  .not-found h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 12px; }
+  .not-found .lead { color: var(--fg-muted); font-size: 1.1rem; margin: 0 0 24px; }
+  .not-found a { color: var(--accent); }
+  .not-found li { margin: 6px 0; }
+  .not-found code { font-family: var(--font-mono); font-size: 0.9em; }
+</style>

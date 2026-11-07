@@ -1,0 +1,21 @@
+---
+// "On this page": the page's h2 and h3 headings. A sticky column on wide
+// screens; an open disclosure above the content on narrow ones, which the
+// layout script closes there.
+interface Props {
+  headings: { depth: number; slug: string; text: string }[];
+}
+const items = Astro.props.headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+{items.length >= 2 && (
+  <nav class="docs-toc" aria-label="On this page" data-pagefind-ignore>
+    <details open>
+      <summary>On this page</summary>
+      <ol>
+        {items.map((h) => (
+          <li class={`toc-depth-${h.depth}`}><a href={`#${h.slug}`}>{h.text}</a></li>
+        ))}
+      </ol>
+    </details>
+  </nav>
+)}

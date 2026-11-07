@@ -1,0 +1,297 @@
+---
+// Shell for the docs section (/docs/ and /docs/<path>/): the shared Base
+// layout with a docs bar (menu toggle on phones, search), the generated
+// sidebar, the content column (indexed by Pagefind) and the "On this page"
+// column (ADR-0003). Every page is complete without JavaScript; the script
+// adds copy buttons, tabs, the phone menu and search.
+import Base from './Base.astro';
+import Search from '../components/docs/Search.astro';
+import Sidebar from '../components/docs/Sidebar.astro';
+import Toc from '../components/docs/Toc.astro';
+import { CANONICAL_ORIGIN } from '../lib/cookbook/links.ts';
+import type { NavGroup } from '../lib/docs/nav.ts';
+import '../styles/cookbook.css';
+import '../styles/docs.css';
+
+interface Props {
+  title: string;
+  description: string;
+  nav: NavGroup[];
+  /** The current page id ('' for the landing). */
+  current: string;
+  headings?: { depth: number; slug: string; text: string }[];
+  /** The page's markdown twin, for <link rel="alternate">. */
+  twinHref?: string;
+}
+const { title, description, nav, current, headings = [], twinHref } = Astro.props;
+const canonical = new URL(Astro.url.pathname.replace(/\/?$/, '/'), CANONICAL_ORIGIN).href;
+---
+<Base title={title} description={description}>
+  <Fragment slot="head">
+    <link rel="canonical" href={canonical} />
+    {twinHref && <link rel="alternate" type="text/markdown" href={twinHref} title="This page as markdown" />}
+    <link rel="describedby" href="/docs/llms.txt" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="article" />
+  </Fragment>
+  <div class="docs-shell">
+    <div class="docs-bar">
+      <button class="docs-nav-toggle" id="docsNavToggle" type="button" aria-controls="docsNav" aria-expanded="false" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+        Menu
+      </button>
+      <a class="docs-bar-title" href="/docs/">Docs</a>
+      <Search />
+    </div>
+    <div class={`docs-grid${headings.filter((h) => h.depth === 2 || h.depth === 3).length >= 2 ? ' has-toc' : ''}`}>
+      <nav class="docs-sidebar" id="docsNav" aria-label="Docs">
+        <Sidebar nav={nav} current={current} />
+      </nav>
+      <article class="docs-main" data-pagefind-body>
+        <slot />
+      </article>
+      <Toc headings={headings} />
+    </div>
+  </div>
+</Base>
+
+<script>
+  // ---------- Copy: code blocks, and a page's markdown ----------
+  const flash = (btn: HTMLButtonElement, text: string) => {
+    const label = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => (btn.textContent = label), 1200);
+  };
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.docs-shell [data-copy-target]')) {
+    btn.hidden = false;
+    btn.addEventListener('click', async () => {
+      const target = document.getElementById(btn.dataset.copyTarget ?? '');
+      const text = target instanceof HTMLTextAreaElement ? target.value : (target?.textContent ?? '');
+      try {
+        await navigator.clipboard.writeText(text);
+        flash(btn, 'Copied');
+      } catch {
+        flash(btn, 'Copy failed');
+      }
+    });
+  }
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-copy-markdown]')) {
+    btn.hidden = false;
+    btn.addEventListener('click', async () => {
+      try {
+        const res = await fetch(btn.dataset.copyMarkdown!);
+        if (!res.ok) throw new Error(String(res.status));
+        const md = await res.text();
+        await navigator.clipboard.writeText(btn.dataset.agentLine ? `${btn.dataset.agentLine}\n\n${md}` : md);
+        flash(btn, 'Copied');
+      } catch {
+        flash(btn, 'Copy failed');
+      }
+    });
+  }
+
+  // ---------- Tabs ----------
+  // Without JavaScript every panel shows under its label. Here each set
+  // becomes a tab list; choosing a tab chooses it in every set on the page
+  // that has the same key (Python everywhere), and is remembered.
+  const TAB_KEY = 'docs-tab';
+  const remembered = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(TAB_KEY) ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  })();
+  const detectOs = () => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (/windows/.test(ua)) return 'windows';
+    if (/mac os|macintosh/.test(ua)) return 'macos';
+    return 'linux';
+  };
+  const sets = [...document.querySelectorAll<HTMLElement>('[data-tabs]')];
+  const select = (key: string, remember: boolean) => {
+    for (const set of sets) {
+      const panels = [...set.querySelectorAll<HTMLElement>(':scope > .tab-panel')];
+      if (!panels.some((p) => p.dataset.tabKey === key)) continue;
+      for (const p of panels) p.hidden = p.dataset.tabKey !== key;
+      for (const b of set.querySelectorAll<HTMLButtonElement>(':scope > .tab-list > button')) {
+        const on = b.dataset.tabKey === key;
+        b.setAttribute('aria-selected', String(on));
+        b.tabIndex = on ? 0 : -1;
+      }
+    }
+    if (remember) {
+      const next = [key, ...remembered.filter((k) => k !== key)].slice(0, 8);
+      remembered.splice(0, remembered.length, ...next);
+      try {
+        localStorage.setItem(TAB_KEY, JSON.stringify(next));
+      } catch {
+        // Storage blocked: the choice lasts for this page.
+      }
+    }
+  };
+  sets.forEach((set, n) => {
+    const panels = [...set.querySelectorAll<HTMLElement>(':scope > .tab-panel')];
+    if (!panels.length) return;
+    const list = document.createElement('div');
+    list.className = 'tab-list';
+    list.setAttribute('role', 'tablist');
+    panels.forEach((panel, i) => {
+      const id = `tabs-${n}-${i}`;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.id = `${id}-tab`;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-controls', id);
+      b.dataset.tabKey = panel.dataset.tabKey;
+      b.textContent = panel.dataset.tabLabel ?? panel.dataset.tabKey ?? '';
+      b.addEventListener('click', () => select(panel.dataset.tabKey!, true));
+      b.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        const buttons = [...list.querySelectorAll<HTMLButtonElement>('button')];
+        const next = buttons[(buttons.indexOf(b) + step + buttons.length) % buttons.length];
+        next.focus();
+        next.click();
+      });
+      list.append(b);
+      panel.id = id;
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', b.id);
+    });
+    set.prepend(list);
+    set.classList.add('is-enhanced');
+    const keys = panels.map((p) => p.dataset.tabKey!);
+    const wanted =
+      remembered.find((k) => keys.includes(k)) ??
+      (set.dataset.tabsDetect === 'os' ? keys.find((k) => k.split('-').includes(detectOs())) : undefined) ??
+      keys[0];
+    select(wanted, false);
+  });
+
+  // ---------- Phone menu: the sidebar opens from the docs bar ----------
+  // The same pattern as the site header's menu (Header.astro).
+  const shell = document.querySelector<HTMLElement>('.docs-shell');
+  const toggle = document.getElementById('docsNavToggle') as HTMLButtonElement | null;
+  const sidebar = document.getElementById('docsNav');
+  if (shell && toggle && sidebar) {
+    shell.dataset.navJs = '';
+    toggle.hidden = false;
+    const close = () => {
+      sidebar.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    };
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = sidebar.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+    sidebar.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('a')) close();
+    });
+    document.addEventListener('click', (e) => {
+      if (!sidebar.contains(e.target as Node) && !toggle.contains(e.target as Node)) close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+    });
+  }
+
+  // ---------- On this page: open beside the content, collapsed above it ----------
+  const toc = document.querySelector<HTMLDetailsElement>('.docs-toc details');
+  if (toc) {
+    const wide = window.matchMedia('(min-width: 1180px)');
+    const sync = () => (toc.open = wide.matches);
+    sync();
+    wide.addEventListener('change', sync);
+  }
+
+  // ---------- Search ----------
+  interface PagefindResult {
+    data: () => Promise<{ url: string; excerpt: string; meta: { title?: string } }>;
+  }
+  interface Pagefind {
+    options: (o: Record<string, unknown>) => Promise<void>;
+    debouncedSearch: (q: string) => Promise<{ results: PagefindResult[] } | null>;
+  }
+  const box = document.querySelector<HTMLElement>('[data-search]');
+  const input = document.getElementById('docsSearch') as HTMLInputElement | null;
+  const results = document.getElementById('docsSearchResults');
+  if (box && input && results) {
+    box.hidden = false;
+    let pagefind: Promise<Pagefind | null> | null = null;
+    const load = () => {
+      const url = '/pagefind/pagefind.js';
+      pagefind ??= import(/* @vite-ignore */ url)
+        .then(async (pf: Pagefind) => {
+          await pf.options({ excerptLength: 18 });
+          return pf;
+        })
+        .catch(() => null);
+      return pagefind;
+    };
+    const show = (html: string) => {
+      results.innerHTML = html;
+      results.hidden = !html;
+      input.setAttribute('aria-expanded', String(!!html));
+    };
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    input.addEventListener('focus', () => void load(), { once: true });
+    input.addEventListener('input', async () => {
+      const q = input.value.trim();
+      if (!q) return show('');
+      const pf = await load();
+      if (!pf) return show('<p class="search-note">Search is built with the site (npm run build).</p>');
+      const found = await pf.debouncedSearch(q);
+      if (found === null || input.value.trim() !== q) return; // superseded by a newer query
+      if (!found.results.length) return show(`<p class="search-note">No results for “${esc(q)}”.</p>`);
+      const items = await Promise.all(found.results.slice(0, 8).map((r) => r.data()));
+      show(
+        items
+          .map(
+            (d, i) =>
+              `<a class="search-hit" role="option" id="hit-${i}" href="${esc(d.url)}"><span class="hit-title">${esc(d.meta.title ?? d.url)}</span>` +
+              `<span class="hit-excerpt">${d.excerpt}</span></a>`,
+          )
+          .join(''),
+      );
+    });
+    input.addEventListener('keydown', (e) => {
+      const hits = [...results.querySelectorAll<HTMLAnchorElement>('.search-hit')];
+      if (e.key === 'ArrowDown' && hits.length) {
+        e.preventDefault();
+        hits[0].focus();
+      } else if (e.key === 'Escape') {
+        input.value = '';
+        show('');
+      }
+    });
+    results.addEventListener('keydown', (e) => {
+      const hits = [...results.querySelectorAll<HTMLAnchorElement>('.search-hit')];
+      const i = hits.indexOf(document.activeElement as HTMLAnchorElement);
+      if (e.key === 'ArrowDown' && i < hits.length - 1) {
+        e.preventDefault();
+        hits[i + 1].focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        (i > 0 ? hits[i - 1] : input).focus();
+      } else if (e.key === 'Escape') {
+        input.focus();
+        show('');
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!box.contains(e.target as Node)) show('');
+    });
+    document.addEventListener('keydown', (e) => {
+      const typing = (e.target as HTMLElement).closest('input, textarea, [contenteditable]');
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+  }
+</script>

@@ -36,7 +36,8 @@ export const MAX_CODE_COLUMNS = 88;
 /**
  * Most lines a recipe may run before its `## Data` section. The datasets in
  * that section are collapsed on GitHub and never rendered on the site, so
- * they do not count.
+ * they do not count; nor do a diagram's `accDescr { … }` lines, which are the
+ * diagram's text alternative rather than prose.
  */
 export const MAX_NARRATIVE_LINES = 800;
 
@@ -341,6 +342,23 @@ export function parseRecipe(slug: string, source: string): Recipe {
   };
 }
 
+/** Lines inside the narrative's mermaid `accDescr { … }` blocks, braces included. */
+function accDescrLines(r: Recipe): number {
+  let n = 0;
+  for (const d of r.diagrams) {
+    if (d.line > r.narrativeLines) continue;
+    let inside = false;
+    for (const line of d.source.split('\n')) {
+      const t = line.trim();
+      if (!inside && /^accDescr\s*\{/.test(t)) inside = !t.endsWith('}');
+      else if (inside && t === '}') inside = false;
+      else if (!inside) continue;
+      n++;
+    }
+  }
+  return n;
+}
+
 /** The recipe as a reader reads it: everything after the front matter, up to the `## Data` section. */
 export const narrative = (r: Recipe) => r.source.slice(r.bodyStart, r.narrativeEnd);
 
@@ -458,9 +476,10 @@ export function validateRecipe(r: Recipe): string[] {
   for (const line of r.strayHtml) {
     errs.push(`line ${line}: raw HTML is not allowed (only \`<details>\` / \`<summary>\` lines)`);
   }
-  if (r.narrativeLines > MAX_NARRATIVE_LINES) {
+  const counted = r.narrativeLines - accDescrLines(r);
+  if (counted > MAX_NARRATIVE_LINES) {
     errs.push(
-      `the recipe runs ${r.narrativeLines} lines before \`## Data\`; keep it under ${MAX_NARRATIVE_LINES} ` +
+      `the recipe runs ${counted} lines before \`## Data\`; keep it under ${MAX_NARRATIVE_LINES} ` +
         '(datasets go in the `## Data` section)',
     );
   }

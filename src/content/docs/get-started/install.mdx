@@ -1,0 +1,80 @@
+---
+title: Install relate
+label: Install
+description: Install the relate CLI on macOS, Linux or Windows, add a client package for your language, or give an agent a pinned, verified install prompt.
+order: 10
+surfaces: [cli, python, node, browser, rust, java, go, swift, agents]
+related: [get-started/agent-quickstart, reference/errors]
+---
+
+By the end of this page, `relate` is on your `PATH`, checked against the release signing key, and answering a statement. It takes about two minutes. If you're setting up an agent, this page also hands you a prompt it can follow and a block for your repository's `AGENTS.md`.
+
+## Prerequisites
+
+- macOS or Linux on amd64 or arm64, with `curl` and `ssh-keygen` (the OpenSSH client). Windows on amd64 has a binary too.
+- For a client package: the language's package manager (`pip`, `npm`, `cargo`, Maven or Gradle, `go`, SwiftPM).
+
+## Install
+
+Pick the tab that matches how you'll use relate. **CLI** is the one-line install. **Package** adds relate to an app. **Agent** is a prompt you paste into an agent, and **Pinned binary** installs one exact release with each check done by hand.
+
+<Install part="tabs" />
+
+The CLI and every client package run the same engine, so a statement means the same thing in each.
+
+## Add to your AGENTS.md
+
+Agent harnesses read a repository's `AGENTS.md` or `CLAUDE.md` before anything else. This block tells an agent which version the repository uses, how to check it, and the safe defaults: machine output with `--mode envelope`, stores opened `--read-only` until it is asked to write, and the exit codes to branch on.
+
+<Install part="agents-md" />
+
+## Keep relate up to date
+
+`relate upgrade` downloads the latest release, checks it against the same signing key as `install.sh`, and replaces the running binary. It runs on macOS and Linux; `update` is an alias.
+
+```bash
+relate upgrade --check
+```
+
+`--check` reports your version against the latest release and changes nothing. Without it, `relate upgrade` installs the newer release:
+
+```bash
+relate upgrade
+```
+
+A repository that pins a version in its `AGENTS.md` moves the pin in the same change that upgrades.
+
+## Verify
+
+Check the version:
+
+```bash
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+Then run one statement and ask for the :term[envelope]{id=envelope}, the JSON form an agent reads:
+
+```bash
+relate --mode envelope "RETURN 1 AS ok"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+```
+
+Notice that the envelope lists the columns and their types, and `truncated` says whether rows were cut. Those exact bytes are what the Agent prompt tells an agent to expect.
+
+## What you built
+
+You have a verified `relate` binary on your `PATH`, and it answers in the JSON an agent reads. With no `--database`, that statement ran against an in-memory :term[store]{id=store}, which forgets everything when the process exits. That's the feature.
+
+## Next
+
+- [Connect your agent to relate](/docs/get-started/agent-quickstart): install the skill, rehearse a change, then write it for real.
+- [Build a first graph in the CLI](/docs/get-started/first-graph): create a graph, persist it to a `.rl` file, and query it.
+- [Errors](/docs/reference/errors): every error message, its cause and its exit code.

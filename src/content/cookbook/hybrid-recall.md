@@ -26,6 +26,11 @@ Nine notes also record a decision as `(:Note)-[:DECIDED {text, ts}]->(:Topic)`.
 ```mermaid
 flowchart LR
   accTitle: Data model: notes about topics, some of which record a decision
+  accDescr {
+    A Note has an id, text, a session, a timestamp and a 384-float embedding,
+    and is ABOUT a Topic. A Note that records a decision also has a DECIDED
+    relationship to the Topic, carrying the decision's text and timestamp.
+  }
   Note(("<b>Note</b><br/>id · text · session · ts<br/>embedding (384 floats)")) -- "<b>ABOUT</b>" --> Topic(("<b>Topic</b><br/>name"))
   Note -- "<b>DECIDED</b><br/>text · ts" --> Topic
   class Note l1
@@ -37,6 +42,13 @@ The recall statement the recipe builds up to, in one picture:
 ```mermaid
 flowchart TB
   accTitle: One statement: two searches fused by reciprocal rank, then a hop to each topic's latest decision
+  accDescr {
+    A question runs a vector SEARCH over the embeddings and a full-text SEARCH
+    over the text, each returning its top k notes. Reciprocal rank fusion
+    merges the two lists, scoring each note by the sum of 1 / (60 + rank). The
+    top notes then hop ABOUT to their topics, and each topic's latest DECIDED
+    gives the current decision.
+  }
   subgraph Search[" "]
     direction LR
     Q("Question") --> Vector["Vector SEARCH<br/>embedding · top k"]

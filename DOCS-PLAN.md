@@ -104,7 +104,7 @@ the live docs graph is not a landing hero (§7.4).
 | `python` — embed in a Python app: connect, parameters, transactions, `to_df()`, errors | 1 | `docs/api/python/examples/*.py` |
 | `node` — the same in Node.js | 1 | `docs/api/javascript/examples/*.js` |
 | `browser` — WASM in a Vite page, OPFS persistence in a worker | 2 | `docs/api/wasm/`, `playground/` |
-| `agent-quickstart` — **the first tutorial on the docs landing page**: the agent (or its operator) installs a pinned CLI and the skill, verifies `--version` and the expected bytes of one `--mode envelope` statement, runs `relate agent-context` (version-true by construction), loads a graph from a URL with its checksum, rehearses against a read-only copy (`--read-only`, `EXPLAIN`, `--safe`), runs for real, reads an error object and its exit code, opens the MCP surface read-only. Has a "No network?" block (`agent-context`, `--help`, the installed skill's path, a committed `relate-docs.rl`). Written to be pasted into an agent prompt as-is, to the safe-default contract of ADR-0013 | 1 | `docs/api/cli/examples/agents.md`, skill `SKILL.md` |
+| `agent-quickstart` — **the first tutorial on the docs landing page**: the agent (or its operator) installs a pinned CLI and the skill, verifies `--version` and the expected bytes of one `--mode envelope` statement, runs `relate agent-context` (version-true by construction), loads a graph from a URL with its checksum, rehearses against a read-only copy (`--read-only`, `EXPLAIN`, `--safe`), runs for real, reads an error object and its exit code, opens the MCP surface read-only. Has a "No network?" block (`agent-context`, `--help`, the installed skill's path, a committed `relate-docs.rl`). Written so an agent can follow it from its markdown twin (the prompt to paste is the install page's Agent tab), to the safe-default contract of ADR-0013 | 1 | `docs/api/cli/examples/agents.md`, skill `SKILL.md` |
 | `agent-memory` — give an agent a memory: CLI + MCP + a recall query; bridges to the cookbook's agent-memory recipes | 2 | cookbook `agent-memory`, `docs/api/mcp/examples/` |
 | `rust`, `java`, `go`, `swift` — full tutorials, same shape as `python`: install, open a store, parameters, a transaction, errors, a working program at the end | 2 | `docs/api/<lang>/examples/` |
 
@@ -214,7 +214,7 @@ tool an agent would use to read docs.
   first lines of `/docs/llms.txt`; every twin's frontmatter `verified` is
   generated from one `_data/engine.json`, not typed per page; every twin
   carries one line: "If your `relate --version` is newer, read
-  /docs/changelog#since-<verified>"; `docs:check` fails when `verified`
+  /docs/reference/changelog/#since-<verified>"; `docs:check` fails when `verified`
   lags the shipped engine by more than one minor, and asserts the published
   skill's version equals the engine's.
 - **"Copy as markdown" and "View as markdown"** on every page header, and a
@@ -292,13 +292,17 @@ Every install block gets three tabs: **CLI**, **Package** (per language) and
 **Agent**. The Agent tab is a prompt, not a command:
 
 ```text
-Install relate, the embedded Cypher graph database (relatedb.ai), version X.Y.Z:
-run `curl -sSfL https://relatedb.ai/install.sh | RELATE_VERSION=X.Y.Z bash`
-(it verifies SHA256SUMS against the pinned signing key; nothing installs on failure),
-then `export PATH="$HOME/.local/bin:$PATH"`. Verify: `relate --version` prints X.Y.Z and
-`relate --mode envelope "RETURN 1 AS ok"` prints {"columns":["ok"],...,"rows":[[1]]}.
+Install relate, the embedded Cypher graph database (relatedb.ai), version X.Y.Z, with the
+checks https://relatedb.ai/install.sh makes (install.sh has no version selector): download
+relate-<os>-<arch>, SHA256SUMS and SHA256SUMS.sig from
+https://github.com/relatedb/relate/releases/download/vX.Y.Z/, verify the SSHSIG signature on
+SHA256SUMS against the pinned signing key, check its signed first line names vX.Y.Z, and check
+the binary's SHA-256; nothing installs on failure. Install it to ~/.local/bin, then
+`export PATH="$HOME/.local/bin:$PATH"`. Verify: `relate --version` prints X.Y.Z and
+`relate --mode envelope "RETURN 1 AS ok"` prints
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}.
 Then `relate skill install --agent <your-agent>` (writes the skill into that agent's
-skills folder in this repo) and `relate agent-context` for the version-true command
+skills folder in the home directory) and `relate agent-context` for the version-true command
 reference. Read https://relatedb.ai/docs/llms.txt before going further. Use --mode envelope
 for machine output, open stores --read-only until you are asked to write, and branch on exit
 codes 6 (rejected statement), 5 (conflict/locked), 7 (timeout), 1 (runtime), 2 (usage).
@@ -1483,7 +1487,7 @@ the relate vocabulary, before any page is written; the `glossary`
 collection with `short` definitions for the first ten terms (no toggletip
 yet); the MDX integration with the directive pipeline (§5), the `docs`
 collection and schema, `Docs.astro` and `docs.css`, the landing page,
-sidebar, TOC, prev/next; the `.md` twin, `?section=`, `llms.txt` and
+sidebar, TOC, prev/next; the `.md` twin, `llms.txt` and
 `llms-full.txt` endpoints, the `<link rel="alternate">`, "Copy as
 markdown", the 404 pointer, `_redirects`; the diagram renderer moved to a
 shared `scripts/diagrams/` package serving both collections (§7.6);
@@ -1525,7 +1529,8 @@ the install block with its three blocks and the config blocks per host
 (`--read-only` in every one); `<ExitCodes>`/`<Flags>`/`<EnvVars>` from the
 data file; static schema diagrams; the skill published under both
 `.well-known` paths with digests, the signed `docs-artifacts.json` and
-`security.txt`; content negotiation; the docs graph as seed script plus
+`security.txt`; content negotiation and `?section=` (with the Terms cap
+per section) in the host function (§5; GitHub Pages cannot serve it); the docs graph as seed script plus
 the native-built `.rl` (the local `--load` form works on day one); the
 hosted MCP with `search_docs` (full-text), `get_page`, `explain_error`,
 the phase 1 resources and the `onboard` prompt, read-only, rate-limited,

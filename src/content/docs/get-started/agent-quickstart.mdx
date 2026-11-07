@@ -1,0 +1,350 @@
+---
+title: Connect your agent to relate
+label: Agent quickstart
+description: Give an agent a pinned, verified relate with its skill, then rehearse a change before writing it, read an error, and connect over MCP.
+order: 20
+surfaces: [cli, mcp, agents]
+prerequisites: [get-started/install]
+related: [reference/errors, cookbook/agent-memory]
+---
+
+In about ten minutes, an agent goes from no relate at all to a small graph it has read, rehearsed a change on, changed for real, and served to itself over MCP, with every step checked. An agent can follow the same steps from the markdown twin at `https://relatedb.ai/docs/get-started/agent-quickstart.md`; the prompt to paste into an agent is the Agent tab on the [install page](/docs/get-started/install). A person can follow the steps at a terminal just as well.
+
+## Prerequisites
+
+- A shell on macOS or Linux (amd64 or arm64), with `curl`, `ssh-keygen` and `sha256sum` (or `shasum` on a Mac).
+- An agent harness such as Claude Code, Cursor or Codex, if you want the skill and the MCP connection. Every other step works in a plain terminal.
+
+## Install a pinned relate
+
+First, we install one exact release and check it three ways before it runs: the signature on the release's checksum list, the release named inside that list, and the binary's own checksum.
+
+<Install part="pinned" />
+
+Notice that nothing runs until all three checks pass. If one fails, the downloads get deleted and the install stops there.
+
+## Check the output format
+
+An agent reads the :term[envelope]{id=envelope}: one JSON object per result set. Let's confirm the bytes match:
+
+```bash
+relate --mode envelope "RETURN 1 AS ok"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+```
+
+The output should be exactly that line. Every statement this page runs passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
+
+## Install the skill
+
+The skill is relate's cheat sheet for agents: the CLI, Cypher, and what to read for vectors, storage and safety. It ships inside the binary. This step installs it for Claude Code; the other names `--agent` accepts are `cursor`, `windsurf`, `copilot`, `antigravity`, `gemini-cli`, `cline`, `codex`, `pi`, `opencode` and `junie`.
+
+```bash
+relate skill install --agent claude-code
+```
+
+The path starts with your home directory, shown as `<home>`:
+
+```text
+installed relate skill into <home>/.claude/skills/relate
+```
+
+The skill now sits where Claude Code looks for skills. `relate skill check` reports whether an installed copy still matches the binary.
+
+## Read the briefing
+
+`relate agent-context` prints the commands, flags and exit codes of the binary that is installed, so it can't describe a different version:
+
+```bash
+relate agent-context
+```
+
+```text
+relate v0.16.1 — agent context
+
+Commands (detail: relate agent-context <COMMAND>):
+  query          Run a statement session (oneshot, stdin, or shell)
+  clone          Copy a database into a new store and exit
+  info           Print store metadata for a database without opening it
+  pull           Copy a Neo4j/Aura subgraph into a database
+  push           Copy a database subgraph into Neo4j/Aura
+  skill          Install, inspect, or remove the embedded agent skill bundle
+  upgrade        Update the relate binary (alias: update)
+  telemetry      Manage anonymous usage metrics (on, off, status)
+  run            Run an installed extension action into a store the host owns
+  serve          Host the HTTP Query API and MCP surfaces on a database
+  agent-context  Print the compact agent briefing (commands, flags, exit codes)
+  extension      Scaffold, install, check, list, or remove command extensions
+
+Query-run flags (relate [OPTIONS] [QUERY]):
+  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command
+
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+Exit code 6 comes back on purpose when we read an error.
+
+## Get a graph, with its checksum
+
+Our graph is five friends and who knows whom. A file you're handed gets its SHA-256 checked before it runs, so we check this one too.
+
+:::note[A local file for now]
+The example graph is not published as a download yet, so we write its seed script on the spot. The checksum step is the same one a downloaded file gets.
+:::
+
+Write the seed script, a few `CREATE` statements and a count:
+
+```bash
+cat > friends.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', likes: 'tea'}),
+       (bo:Person {name: 'Bo', likes: 'chess'}),
+       (cy:Person {name: 'Cy', likes: 'kites'}),
+       (dot:Person {name: 'Dot', likes: 'tea'}),
+       (eli:Person {name: 'Eli', likes: 'puzzles'}),
+       (ada)-[:KNOWS {since: 2019}]->(bo),
+       (bo)-[:KNOWS {since: 2021}]->(cy),
+       (cy)-[:KNOWS {since: 2020}]->(dot),
+       (dot)-[:KNOWS {since: 2023}]->(ada);
+MATCH (p:Person) RETURN count(p) AS people;
+EOF
+```
+
+Check its checksum:
+
+```bash
+sha256sum friends.cypher
+```
+
+```text
+e0c0183542c9e0cab2adb283ec1d1f3e69b8892ae812c43d729190cbb9f127bb  friends.cypher
+```
+
+If the hash differs, the file is not the one this page describes: stop, and write it again. When it matches, run the script into a single-file :term[store]{id=store}, `friends.rl`:
+
+```bash
+relate query --database ./friends.rl --mode envelope < friends.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":5}],"truncated":false}
+```
+
+One envelope per statement: the `CREATE` returns no rows, and the count finds five people. Eli knows nobody yet. We're about to fix that.
+
+## Rehearse before you write
+
+The change we want is one new friendship: Eli knows Ada. Before writing anything, we look at the graph, plan the write, and try it where it can't hurt.
+
+### Read it read-only
+
+`--read-only` opens the store :term[read-only]{id=read-only}: relate never writes it or checkpoints it, and every write fails.
+
+```bash
+relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","friend"],"notifications":[],"rows":[{"friend":"Bo","person":"Ada"},{"friend":"Cy","person":"Bo"},{"friend":"Dot","person":"Cy"},{"friend":"Ada","person":"Dot"}],"truncated":false}
+```
+
+Four friendships, a ring of four, and Eli outside it.
+
+### Plan the write with EXPLAIN
+
+`EXPLAIN` plans a statement without running it, so it works on a read-only open even for a write. The values go in as `$parameters`, bound with `--param`:
+
+```bash
+relate --database ./friends.rl --read-only --mode table --param name=Eli --param friend=Ada 'EXPLAIN MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend'
+```
+
+```text
+Query: MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend
+Plan:
++------------------+----+------------------------+-----------------------------------------+
+| Operator         | Id | Details                | Warnings                                |
++------------------+----+------------------------+-----------------------------------------+
+| + ProduceResults | 0  | 2 item(s)              | -                                       |
++------------------+----+------------------------+-----------------------------------------+
+| | + SetProperty  | 1  | 1 item(s)              | -                                       |
++------------------+----+------------------------+-----------------------------------------+
+| | | + Merge      | 2  | (p)-[k:KNOWS]->(f)     | -                                       |
++------------------+----+------------------------+-----------------------------------------+
+| | | | + Expand   | 3  | (p:Person), (f:Person) | the MATCH patterns share no join anchor |
++------------------+----+------------------------+-----------------------------------------+
+Warnings: Id 3: the MATCH patterns share no join anchor
+Notifications:
+Id 3: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Person without a range index on (:Person {name}) Remedy: CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)
+```
+
+Notice the notification: it names the index that would make the lookup cheaper, with the statement to create it. Five people don't need one. This step uses `--mode table` because a plan reads better as a table; the envelope carries the same plan as JSON.
+
+### Turn on safe mode
+
+`--safe` refuses statement shapes agents commonly get wrong, such as a read with no `LIMIT`:
+
+```bash
+relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name"
+```
+
+The message goes to stderr, the error object to stdout:
+
+```text
+syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>`, or return an aggregate such as `count(*)`, so the read has a bounded result. This is a policy, not a database limit; reopen without --safe to allow it.
+{"error":{"code":"validation_error","exit_code":6,"kind":"syntax","message":"syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>`, or return an aggregate such as `count(*)`, so the read has a bounded result. This is a policy, not a database limit; reopen without --safe to allow it.","retryable":false}}
+```
+
+With a `LIMIT`, the same read goes through:
+
+```bash
+relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3"
+```
+
+```text
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Bo"},{"name":"Cy"}],"truncated":false}
+```
+
+### Try the write on a throwaway copy
+
+`--load` with a new `--database` path copies the store there and opens the copy for writing. The original stays as it was:
+
+```bash
+relate --load ./friends.rl --database ./rehearsal.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
+```
+
+```text
+--load ./friends.rl: loaded into ./rehearsal.rl
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","friend","since"],"notifications":[],"rows":[{"friend":"Ada","person":"Eli","since":2026}],"truncated":false}
+```
+
+The copy has the new friendship. The original still has none for Eli:
+
+```bash
+relate --database ./friends.rl --read-only --mode envelope "MATCH (:Person {name: 'Eli'})-[k:KNOWS]->() RETURN count(k) AS friendships"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["friendships"],"notifications":[],"rows":[{"friendships":0}],"truncated":false}
+```
+
+The rehearsal did what we wanted, so the copy can go:
+
+```bash
+rm ./rehearsal.rl
+```
+
+## Run it for real
+
+Now the same statement, on `friends.rl`, without `--read-only`. This writes one `KNOWS` relationship from Eli to Ada:
+
+```bash
+relate --database ./friends.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
+```
+
+```text
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","friend","since"],"notifications":[],"rows":[{"friend":"Ada","person":"Eli","since":2026}],"truncated":false}
+```
+
+The CLI prints no summary of what changed, so we check with a read:
+
+```bash
+relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","friend"],"notifications":[],"rows":[{"friend":"Bo","person":"Ada"},{"friend":"Cy","person":"Bo"},{"friend":"Dot","person":"Cy"},{"friend":"Ada","person":"Dot"},{"friend":"Ada","person":"Eli"}],"truncated":false}
+```
+
+Five friendships. Eli is in.
+
+## Read an error and its exit code
+
+Let's make a mistake on purpose: a statement that uses `$name` without binding it.
+
+```bash
+relate --database ./friends.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
+echo "exit=$?"
+```
+
+```text
+semantic error: ParameterMissing: Expected parameter(s): name
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: ParameterMissing: Expected parameter(s): name","retryable":false}}
+exit=6
+```
+
+The first line is stderr; the error object is stdout. Its fields are the ones to branch on:
+
+| Field | This error | Meaning |
+| --- | --- | --- |
+| `code` | `validation_error` | The class; the same class always has the same :term[exit code]{id=exit-code} |
+| `exit_code` | `6` | The process exit code: the statement was rejected before it ran |
+| `kind` | `semantic` | The engine's error variant |
+| `retryable` | `false` | Running the same statement again cannot succeed; only a write-write conflict is retryable |
+| `message` | `semantic error: ParameterMissing: …` | The text on stderr, which the [errors reference](/docs/reference/errors#engine-parameter-missing) lists with its remedy |
+
+The fix is the missing `--param`:
+
+```bash
+relate --database ./friends.rl --read-only --mode envelope --param name=Eli 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
+```
+
+```text
+{"columnTypes":["STRING"],"columns":["likes"],"notifications":[],"rows":[{"likes":"puzzles"}],"truncated":false}
+```
+
+Eli likes puzzles.
+
+## Open the MCP surface read-only
+
+The last step serves the store to an agent harness over MCP, on stdio, read-only. For Claude Code:
+
+```bash
+claude mcp add relate -- relate serve --mcp stdio --database ./friends.rl --read-only
+```
+
+To allow writes, remove `--read-only`.
+
+To commit the same server to a repository, the `.mcp.json` block is:
+
+```json
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "./friends.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+Opened read-only, the server lists two tools, `read_cypher` and `get_schema`; `write_cypher` is listed only when the store is writable. A write sent to `read_cypher` comes back as a tool error, `Only MATCH queries are allowed for read-query`, and the store is unchanged.
+
+:::tip[No network?]
+Everything an agent needs to keep going is already on the machine. `relate agent-context` prints the command reference of the installed binary, and `relate agent-context <command>` adds one command's detail. `relate --help` and `relate <command> --help` print the flags. The skill's files sit in the agent's skills folder (for Claude Code, `<home>/.claude/skills/relate/SKILL.md`), and `relate skill list` prints where they are for each agent.
+:::
+
+## Add relate to your AGENTS.md
+
+A repository's `AGENTS.md` (or `CLAUDE.md`) is the first file an agent harness reads. This block pins the same version, opens stores read-only, and points at the docs index:
+
+<Install part="agents-md" />
+
+## What you built
+
+You have a pinned, verified relate with its skill installed, and a graph in one file, `friends.rl`, that was rehearsed on before it was changed. You've read an error by its fields and its exit code, and the same store is one MCP command away from your agent, read-only. Five friends, one new friendship, and no surprises.
+
+## Next
+
+- [Errors](/docs/reference/errors): every message an agent can meet, with its cause, remedy and exit code.
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): the config block for each agent host.
+- [Agent memory](/cookbook/agent-memory/): a worked example of a graph an agent writes to and recalls from.

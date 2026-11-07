@@ -33,6 +33,12 @@ Nothing is ever deleted: a correction closes the old decision instead.
 ```mermaid
 flowchart LR
   accTitle: Data model: decisions about entities, the decisions they replace, and reviews
+  accDescr {
+    A Decision is ABOUT an Entity and carries two time ranges: validFrom and
+    validTo for when it held, recordedAt and closedAt for when it was
+    believed. A Decision SUPERSEDES the one it replaces. A Review REJECTS a
+    Decision and records who rejected it, when and why.
+  }
   Review(("<b>Review</b><br/>key · by · at · reason")) -- "<b>REJECTS</b>" --> Decision(("<b>Decision</b><br/>id · text<br/>validFrom · validTo<br/>recordedAt · closedAt"))
   Decision -- "<b>ABOUT</b>" --> Entity(("<b>Entity</b><br/>name"))
   Decision -- "<b>SUPERSEDES</b>" --> Decision
@@ -382,6 +388,13 @@ six days and never held at all.
 ```mermaid
 gantt
   accTitle: The orders decisions on both time axes
+  accDescr {
+    The chart has a valid-time row and a record-time row for the orders
+    decisions. On valid time, d1 (postgres) holds from 1 to 10 January 2024
+    and d4 (mysql) from 10 January to 5 March, while d6 (redis cache) was
+    never valid. On record time, d1 is believed until 1 February, d4 from then
+    on, and d6 only from 6 to 12 February.
+  }
   dateFormat YYYY-MM-DD
   axisFormat %d %b
   section Valid time

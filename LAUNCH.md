@@ -113,7 +113,9 @@ marked.
 - [ ] Context7, Smithery, Glama, awesome-mcp-servers listings; the skills registries (`/.well-known/agent-skills/index.json` live)
 - [ ] `--help` and `relate agent-context` print the docs URLs; the error object carries a `docs` URL (upstream)
 - [ ] `SECURITY.md` upstream and `/.well-known/security.txt` here; a disclosure address for `reference/security`
-- [ ] Fix the root `llms.txt` TCK wording and `.cl` → `.rl` (phase 0)
+- [x] Fix the root `llms.txt` TCK wording and `.cl` → `.rl` (phase 0)
+- [ ] First relate-named release: move `src/content/docs/_data/engine.json` to it, confirm the `relate-<os>-<arch>` asset names and the signature namespace, and re-record the docs' CLI outputs against the release binary (they were recorded from a source build of upstream `ac441ec`, workspace 0.16.1); run `npm run docs:check -- --built`
+- [ ] Pick the contact address the docs' "Report a problem" link and `reference/security` use (none exists in the repo yet)
 - [ ] Phase 2: pull requests to LangGraph, Vercel AI SDK, LlamaIndex, Mastra and Agno docs for the integrations; a GitHub template repo with the `AGENTS.md` snippet, the skill and a verify script
 
 ## Interim preview host (internal, unlisted)

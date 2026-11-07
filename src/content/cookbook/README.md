@@ -229,6 +229,10 @@ block as it is; the website shows a rendering of it made ahead of time
 ```mermaid
 flowchart LR
   accTitle: Data model: agents visit places, and places are in cities
+  accDescr {
+    An Agent VISITED a Place, with a timestamp and a sequence number, and
+    each Place is IN a City.
+  }
   Agent(("<b>Agent</b><br/>id")) -- "<b>VISITED</b><br/>ts · seq" --> Place(("<b>Place</b><br/>name · kind · loc"))
   Place -- "<b>IN</b>" --> City(("<b>City</b><br/>name"))
   class Agent l1
@@ -241,6 +245,10 @@ flowchart LR
   `~~~`). Start the fence at the beginning of a line, not inside a list.
 - Start with `accTitle:`: it is the diagram's name for screen readers and
   its caption on the website.
+- Then a multi-line `accDescr {` … `}` block of two to four sentences
+  saying what the picture shows, in words (no `}` inside it). Screen readers
+  read it, and an agent reading the page gets it instead of the picture.
+  `npm run cookbook:diagrams` refuses to render a block without both lines.
 - A data model is a `flowchart` whose nodes are all circles, `((…))`, with
   no subgraphs. The website draws it as a graph, the way Neo4j Bloom and NVL
   draw one: each label a coloured circle holding its properties, each
@@ -262,7 +270,7 @@ flowchart LR
 After changing a diagram, render it:
 
 ```sh
-npm ci --prefix scripts/cookbook-diagrams   # once
+npm ci --prefix scripts/diagrams   # once
 npm run cookbook:diagrams
 ```
 

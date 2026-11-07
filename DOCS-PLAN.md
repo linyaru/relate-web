@@ -125,7 +125,7 @@ switching languages recognises the steps.
 | `guides/neo4j/` | `pull-from-neo4j`, `push-to-neo4j` (the Cypher delta is `reference/cypher/differences-from-neo4j`, phase 1) | 2 | skill `references/pull.md`, `push.md`, `docs/api/cli/examples/pull.md` |
 | `guides/integrations/` | one installed, CI-run sample per framework ending in a verify query, each linked from the capability it serves: `claude-agent-sdk` (via MCP), `langgraph` (memory store / checkpointer), `vercel-ai-sdk` (tool with a read-only guard) in phase 1; `pydantic-ai`, `openai-agents-sdk`, `llamaindex`, `mastra`, `crewai`, `langchain` in phase 2. Replaces the `agent-tool` guide | 1 (three), 2 (rest) | `docs/api/mcp/examples/`, `docs/api/{python,javascript}/examples/` |
 | `guides/migrate/` | `from-a-vector-store` (Chroma / LanceDB / pgvector: embeddings become properties, the recall query), `from-json-files`, `from-neo4j` (with a "what Neo4j users will miss" table: APOC, GDS, multi-db, RBAC, clustering); `from-sqlite`, `from-kuzu` later. Each is a recorded recipe | 2 (first three), 3 (rest) | cookbook recipes, `docs/api/cli/examples/pull.md` |
-| `guides/agents/` | `install-the-skill` (CLI installer for the eleven detected agents, `npx skills add relatedb.ai`, manual copy), `drive-relate-from-an-agent` (envelope, error object, exit codes, row cap, `toon`, `--read-only`, `--timeout`, `agent-context`), `agent-safety` (read-only, safe mode, backups, destructive DDL, retry only `retryable`), `connect-over-mcp` (one config block per host: Claude Code, Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI, Cline, OpenCode; stdio vs `serve --mcp PORT`; `--read-only`), `run-in-a-sandbox` (one section per harness: Claude Code sandbox, Codex CLI and Codex cloud, Cursor cloud agents, E2B, Vercel Sandbox, Daytona, plain Docker; what to allowlist, where the binary lands, `DO_NOT_TRACK=1`, `:memory:` vs a workspace `.rl`, `--load` a dataset from a URL, the `agent` build bundle), `model-agent-memory` (the data model for agent memory: entities, episodes, provenance, bi-temporal facts; the schema the capability catalog's `schema` field points at), `text-to-cypher` (give an LLM the schema: `get_schema`, `db.schema.*`, the ontology; dialect notes an LLM gets wrong; `EXPLAIN` notifications as the repair loop), `diffable-memory` (a graph in the repo: JSON codec + schema folder, reviewable in a PR), `use-in-ci` (GitHub Actions: install, verify, run a Cypher check as a gate; the cookbook's blast-radius recipe as the example). `agent-safety` carries the permission matrix (rows `--read-only`, `--safe`, `LOAD CSV` policy, `--fetch-params`/`--load` egress, extension tiers, `upgrade`; columns CLI, MCP stdio, MCP HTTP, hosted docs MCP). `run-in-a-sandbox` names `--load https://` and `--fetch-params` as egress to allowlist, that `--safe` refuses remote `--load`, and that Bolt v1 ignores authentication so loopback only | 1 (skill, drive, safety, mcp, sandbox, model-agent-memory), 2 (rest) | `docs/api/cli/examples/agents.md`, skill `SKILL.md` + `references/agent-safety.md`, `docs/api/mcp/`, `docs/api/cli/spec.md` § build bundles, `website-update-brief.md` |
+| `guides/agents/` | `install-the-skill` (CLI installer for the eleven detected agents, `npx skills add https://relatedb.ai`, manual copy), `drive-relate-from-an-agent` (envelope, error object, exit codes, row cap, `toon`, `--read-only`, `--timeout`, `agent-context`), `agent-safety` (read-only, safe mode, backups, destructive DDL, retry only `retryable`), `connect-over-mcp` (one config block per host: Claude Code, Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI, Cline, OpenCode; stdio vs `serve --mcp PORT`; `--read-only`), `run-in-a-sandbox` (one section per harness: Claude Code sandbox, Codex CLI and Codex cloud, Cursor cloud agents, E2B, Vercel Sandbox, Daytona, plain Docker; what to allowlist, where the binary lands, `DO_NOT_TRACK=1`, `:memory:` vs a workspace `.rl`, `--load` a dataset from a URL, the `agent` build bundle), `model-agent-memory` (the data model for agent memory: entities, episodes, provenance, bi-temporal facts; the schema the capability catalog's `schema` field points at), `text-to-cypher` (give an LLM the schema: `get_schema`, `db.schema.*`, the ontology; dialect notes an LLM gets wrong; `EXPLAIN` notifications as the repair loop), `diffable-memory` (a graph in the repo: JSON codec + schema folder, reviewable in a PR), `use-in-ci` (GitHub Actions: install, verify, run a Cypher check as a gate; the cookbook's blast-radius recipe as the example). `agent-safety` carries the permission matrix (rows `--read-only`, `--safe`, `LOAD CSV` policy, `--fetch-params`/`--load` egress, extension tiers, `upgrade`; columns CLI, MCP stdio, MCP HTTP, hosted docs MCP). `run-in-a-sandbox` names `--load https://` and `--fetch-params` as egress to allowlist, that `--safe` refuses remote `--load`, and that Bolt v1 ignores authentication so loopback only | 1 (skill, drive, safety, mcp, sandbox, model-agent-memory), 2 (rest) | `docs/api/cli/examples/agents.md`, skill `SKILL.md` + `references/agent-safety.md`, `docs/api/mcp/`, `docs/api/cli/spec.md` § build bundles, `website-update-brief.md` |
 | `guides/extensions/` | `write-an-extension` (the 15-minute quickstart), `install-and-run`, `fs-to-graph`, `git-to-graph` | 2 | `docs/api/extensions/quickstart.md`, `install.md`, skill `references/run-git-to-graph.md` |
 | `guides/cli/` | `output-formats`, `interactive-shell`, `scripting` (stdin, exit codes, `--timeout`) | 1 | `docs/guides/output-formats.md`, `docs/reference/dot-commands.md` |
 
@@ -261,11 +261,13 @@ bundle**, so an agent can get it before the binary exists on the machine:
   a `digest` per entry) and `/.well-known/skills/index.json` (the legacy
   path; Mintlify serves both) and `/skills/relate/SKILL.md` (+
   `references/`), the Agent Skills layout; `/skill.md` as the short alias.
-  `npx skills add https://relatedb.ai` then works (the CLI treats a bare
-  domain as a GitHub shorthand; phase 0 verifies the exact semantics), and
-  so does a manual copy into `.claude/skills/`, `.cursor/skills/`,
-  `.codex/skills/`. The index carries a SHA-256 per file and is listed in
-  the signed `docs-artifacts.json` manifest (ADR-0013).
+  `npx skills add https://relatedb.ai` then works (verified 2026-11-07
+  against the CLI's source, see §9: the full `https://` form is required,
+  a bare domain is not a well-known lookup), and so does a manual copy
+  into `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`. Each index
+  entry carries a `sha256:` digest of the artifact it points at (the
+  `SKILL.md` or an archive), and the index is listed in the signed
+  `docs-artifacts.json` manifest (ADR-0013).
 - One source: the bundle is copied from upstream
   `surfaces/relate-cli/src/skill/bundle/` into `public/skills/` in the same
   step that refreshes `public/wasm/`, with `{{VERSION}}` stamped. The site
@@ -1458,6 +1460,25 @@ from the same collection, so they cannot go stale independently.
   organisation (verified on the registry). Confirm the publishing rights
   for `@relate/relate` and `@relate/relate-wasm` with upstream before
   launch, and adopt the canonical phrase everywhere.
+- **The skills CLI's semantics** (verified 2026-11-07 against
+  `vercel-labs/skills` `main`, `src/providers/wellknown.ts`): the argument
+  must be a full `http(s)://` URL for the well-known lookup (a bare domain
+  is not one; `owner/repo` is GitHub shorthand); it tries
+  `/.well-known/agent-skills/index.json` then `/.well-known/skills/index.json`;
+  the 0.2.0 format is recognised only when `$schema` is exactly
+  `https://schemas.agentskills.io/discovery/0.2.0/schema.json`, each entry
+  needs `name` (`^[a-z0-9-]+$`, at most 64 characters), `type` (`skill-md`
+  or `archive`), a non-empty `description` (at most 1024 characters), a
+  `url` (absolute or index-relative) and `digest` (`sha256:` plus 64 lowercase
+  hex over the raw bytes at `url`); invalid entries are skipped and an
+  index with none left is rejected. A missing `$schema` means the legacy
+  0.1.0 shape (`skills[].files[]`, fetched from
+  `/.well-known/<path>/<name>/<file>`, no digest). The CLI verifies the
+  digest only (a mismatch aborts, no fallback) and checks no signature;
+  installs go to `.agents/skills/` (or `~/.agents/skills/` with `-g`),
+  symlinked into each detected agent's directory, Claude Code in its own.
+  So `docs-artifacts.json`'s signature is the only signature over the
+  index, and the 0.2.0 index is what `docs:check` validates.
 - **No `SECURITY.md` in either repo** (verified). `reference/security`
   needs a disclosure address and a supported-versions statement from
   upstream before it can be written.

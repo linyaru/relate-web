@@ -91,3 +91,20 @@ and structurally query-free telemetry.
   holds.
 - Upstream asks: a `SECURITY.md`, statement deadline and memory caps in the
   WASM build, and the `docs` URL in the error object.
+
+## Later references
+
+- Imperative rule, scope (phase 0, 2026-11-07): `docs:check` applies the
+  "no second-person imperative outside prompt fences" rule of decision 2
+  to twins and tool results of `reference` and `explanation` pages, and
+  to every page's prose outside tables and headings. Steps of a
+  `tutorial` or `how-to` are imperative by design, a table's remedy
+  column is imperative by nature, and headings are phrased as intents
+  (STYLE.md §4.5), so those are exempt; the injection patterns apply
+  everywhere. The intent of decision 2 is unchanged: an agent reading a
+  reference page or a tool result is never addressed as the actor.
+- Skills index digest (phase 0 spike, 2026-11-07, DOCS-PLAN.md §9): the
+  discovery format carries one `sha256:` digest per entry over the
+  artifact's bytes, not one per file as decision 3 says; the CLI verifies
+  that digest and no signature, so the signed `docs-artifacts.json` is
+  the only signature over the index.

@@ -52,7 +52,8 @@ Interim: GitHub Pages at `https://relatedb.github.io/relate-web/` via
 GitHub Actions; a private repo needs a paid plan, and the published site is
 public). Later: `relatedb.ai` on a more scalable host (CDN / static hosting).
 
-- [ ] Pick the host and set up hosting, TLS, and DNS for `relatedb.ai` (+ `www` redirect)
+- [x] Pick the host: Cloudflare (Pages for the site, a Worker for `/mcp`; ADR-0012 in `docs/adr/`)
+- [ ] Set up hosting, TLS, and DNS for `relatedb.ai` (+ `www` redirect)
 - [ ] Replace or retire `deploy-pages.yml` with a deploy for the new host; remove the Pages site and `github-pages` environment
 - [ ] Serve from the domain root: check the `/relate-web/` subpath assumption is gone (the cookbook and playground already use `/cookbook/` and `/playground/`)
 - [ ] Update canonical, `og:url`, `sitemap.xml`, and any hard-coded `github.io` URLs
@@ -99,6 +100,23 @@ GitHub token.
 
 - Site: revert the deploy commit on `main` and redeploy.
 - Packages cannot be un-published cleanly; verify names/versions in a dry run (TestPyPI, `npm publish --dry-run`) before the real push.
+
+## Discovery and coordination for the docs (DOCS-PLAN.md §3.9)
+
+Owned by the docs team, mostly shipped outside this repo. Phase 1 unless
+marked.
+
+- [ ] Canonical phrase everywhere a model reads first: "relate, the embedded Cypher graph database (relatedb.ai)" in `llms.txt`'s first line, every docs description, the skill description, MCP `serverInfo`, PyPI/npm descriptions, the README H1; one line "Not the Neo4j Desktop Relate framework" on the fit page and in the skill
+- [ ] Confirm publishing rights for the `@relate` npm scope (owned by the Neo4j organisation; `@relate/cli` is the Desktop framework) before announcing `@relate/relate`
+- [ ] PyPI and npm metadata: descriptions, keywords (agent memory, knowledge graph, GraphRAG, Cypher, embedded), links to `/docs/llms.txt` and the skill
+- [ ] Official MCP registry: `server.json` for the local server and a `remotes` entry for `https://relatedb.ai/mcp`; `mcpName` in `package.json`
+- [ ] Context7, Smithery, Glama, awesome-mcp-servers listings; the skills registries (`/.well-known/agent-skills/index.json` live)
+- [ ] `--help` and `relate agent-context` print the docs URLs; the error object carries a `docs` URL (upstream)
+- [ ] `SECURITY.md` upstream and `/.well-known/security.txt` here; a disclosure address for `reference/security`
+- [x] Fix the root `llms.txt` TCK wording and `.cl` → `.rl` (phase 0)
+- [ ] First relate-named release: move `src/content/docs/_data/engine.json` to it, confirm the `relate-<os>-<arch>` asset names and the signature namespace, and re-record the docs' CLI outputs against the release binary (they were recorded from a source build of upstream `ac441ec`, workspace 0.16.1); run `npm run docs:check -- --built`
+- [ ] Pick the contact address the docs' "Report a problem" link and `reference/security` use (none exists in the repo yet)
+- [ ] Phase 2: pull requests to LangGraph, Vercel AI SDK, LlamaIndex, Mastra and Agno docs for the integrations; a GitHub template repo with the `AGENTS.md` snippet, the skill and a verify script
 
 ## Interim preview host (internal, unlisted)
 

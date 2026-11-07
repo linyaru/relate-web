@@ -1,0 +1,22 @@
+---
+// Docs search: Pagefind's index over /docs/ and /cookbook/ (built after
+// `astro build`, `npm run build:search`), queried through its JS API and
+// drawn on the site's tokens. Hidden until the script runs: without
+// JavaScript there is no search, and the sidebar and llms.txt remain.
+---
+<div class="docs-search" data-search hidden>
+  <label class="visually-hidden" for="docsSearch">Search the docs</label>
+  <input
+    id="docsSearch"
+    type="search"
+    placeholder="Search docs"
+    autocomplete="off"
+    spellcheck="false"
+    role="combobox"
+    aria-expanded="false"
+    aria-controls="docsSearchResults"
+    aria-autocomplete="list"
+  />
+  <kbd class="search-key" aria-hidden="true">⌘K</kbd>
+  <div class="search-results" id="docsSearchResults" role="listbox" aria-label="Search results" hidden></div>
+</div>

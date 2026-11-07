@@ -25,6 +25,11 @@ Portland.
 ```mermaid
 flowchart LR
   accTitle: Data model: agents visit places, and places are in cities
+  accDescr {
+    An Agent VISITED a Place, and each visit records a timestamp and a
+    sequence number. A Place has a name, a kind and a location, and is IN a
+    City.
+  }
   Agent(("<b>Agent</b><br/>id")) -- "<b>VISITED</b><br/>ts · seq" --> Place(("<b>Place</b><br/>name · kind · loc"))
   Place -- "<b>IN</b>" --> City(("<b>City</b><br/>name"))
   class Agent l1

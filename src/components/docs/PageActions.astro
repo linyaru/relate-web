@@ -1,0 +1,17 @@
+---
+// "View as markdown" (a link, so it works without JavaScript) and, once the
+// script runs, "Copy as markdown" and "Copy for your agent" (DOCS-PLAN.md §3.1).
+interface Props {
+  /** The page's markdown twin. */
+  twinHref: string;
+  /** The version the page is verified against, for the agent line. */
+  verified: string;
+}
+const { twinHref, verified } = Astro.props;
+const agentLine = `relate docs page, verified against relate ${verified}; full index at https://relatedb.ai/docs/llms.txt`;
+---
+<div class="page-actions" data-pagefind-ignore>
+  <a class="btn" href={twinHref} type="text/markdown">View as markdown</a>
+  <button class="btn" type="button" data-copy-markdown={twinHref} hidden>Copy as markdown</button>
+  <button class="btn" type="button" data-copy-markdown={twinHref} data-agent-line={agentLine} hidden>Copy for your agent</button>
+</div>

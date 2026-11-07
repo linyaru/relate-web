@@ -1,0 +1,53 @@
+---
+// The docs sidebar, generated from the collection (src/lib/docs/nav.ts): each
+// section, its pages, then its groups as disclosures (open around the current
+// page). A plain list, complete without JavaScript.
+import { pageUrl } from '../../lib/docs/model.ts';
+import type { NavGroup, NavPage } from '../../lib/docs/nav.ts';
+
+interface Props {
+  nav: NavGroup[];
+  /** The current page id ('' for the landing). */
+  current: string;
+}
+const { nav, current } = Astro.props;
+const here = (p: NavPage | null) => (p && p.id === current ? 'page' : undefined);
+const contains = (g: NavGroup) => current === g.id || current.startsWith(`${g.id}/`);
+---
+<div class="docs-nav">
+  <ul class="nav-list nav-top">
+    <li><a href={pageUrl('')} aria-current={current === '' ? 'page' : undefined}>Overview</a></li>
+  </ul>
+  {nav.map((section) => (
+    <section class="nav-section">
+      <h2 class="nav-section-title">
+        {section.index ? <a href={pageUrl(section.id)} aria-current={here(section.index)}>{section.label}</a> : section.label}
+      </h2>
+      <ul class="nav-list">
+        {section.pages.map((p) => (
+          <li><a href={pageUrl(p.id)} aria-current={here(p)}>{p.label}</a></li>
+        ))}
+        {section.groups.map((g) => (
+          <li>
+            <details class="nav-group" open={contains(g) || undefined}>
+              <summary>{g.label}</summary>
+              <ul class="nav-list">
+                {g.index && <li><a href={pageUrl(g.id)} aria-current={here(g.index)}>Overview</a></li>}
+                {g.pages.map((p) => (
+                  <li><a href={pageUrl(p.id)} aria-current={here(p)}>{p.label}</a></li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+  <section class="nav-section">
+    <h2 class="nav-section-title">More</h2>
+    <ul class="nav-list">
+      <li><a href="/cookbook/">Cookbook</a></li>
+      <li><a href="/docs/llms.txt">llms.txt</a></li>
+    </ul>
+  </section>
+</div>

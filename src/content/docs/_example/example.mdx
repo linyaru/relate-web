@@ -1,0 +1,87 @@
+---
+title: Every construct
+description: A throwaway page that exercises every docs construct, for the pipeline's tests. Not part of the site.
+surfaces: [cli, python]
+since: 0.16.0
+prerequisites: [get-started/install]
+related: [cookbook/entity-resolution]
+order: 1
+---
+
+{/* An MDX comment: dropped from the twin. */}
+
+This page opens a :term[store]{id=store} and writes through the :term[write-ahead log]{id=wal}. The second :term[store]{id=store} link adds no second entry to the terms. A colon in prose, like ratio a:b, stays text. Badges: :since[0.16] and :status[preview].
+
+## Callouts
+
+:::note
+A note with the default title.
+:::
+
+:::warning[One writer]
+Only one process writes to a store at a time.
+:::
+
+:::tip
+A tip.
+:::
+
+:::danger
+A danger.
+:::
+
+## Tabs
+
+::::tabs
+:::tab[Python]{key=python}
+```python
+import relate
+db = relate.connect(":memory:")
+```
+:::
+:::tab[Node.js]{key=node}
+```javascript
+const db = new Database(":memory:");
+```
+:::
+::::
+
+## Code and cells
+
+```bash
+relate --version
+```
+
+```cypher run name=create
+CREATE (:Person {name: 'Ada'})-[:KNOWS]->(:Person {name: 'Grace'})
+```
+
+```cypher run
+MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name AS a, b.name AS b
+```
+
+## A diagram
+
+```mermaid
+flowchart LR
+  accTitle: A statement goes to the log, then to the graph
+  accDescr {
+    A statement is appended to the write-ahead log first.
+    Then it is applied to the in-memory graph.
+  }
+  S("Statement") --> W["Write-ahead log"] --> G[("Graph")]
+```
+
+## A figure
+
+::figure[The logomark]{src=/favicon.svg alt="The relate logomark"}
+
+## Components
+
+<Install />
+
+<Errors />
+
+## Links
+
+An existing page: [the landing](/docs/). A planned page: [import a CSV](/docs/guides/cypher/import-csv). A recipe: [entity resolution](/cookbook/entity-resolution/). Not public yet: [the repository](https://github.com/relatedb/relate). External: [openCypher](https://opencypher.org/).

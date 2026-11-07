@@ -1,0 +1,1594 @@
+{
+  "$schema_note": "Facts about the relate CLI for the docs pipeline (DOCS-PLAN.md §8 check 3, the <ExitCodes>/<Flags>/<EnvVars> components). Summaries are paraphrases; strings in `messages` and in backticks are quoted from the sources character for character. `disputed: true` marks a fact the sources disagree on; both readings are recorded and the release binary decides (DOCS-PLAN.md §9).",
+  "binary": "relate",
+  "verified": "0.16.1",
+  "upstream": {
+    "repo": "relatedb/relate",
+    "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
+    "read": "2026-11-07"
+  },
+  "synopsis": [
+    "relate [OPTIONS] [--database PATH] [QUERY]",
+    "relate <COMMAND> [ARGS]",
+    "relate query [STATEMENT] [--database PATH]"
+  ],
+  "commands": [
+    {
+      "id": "query",
+      "word": "query",
+      "synopsis": "relate query [STATEMENT] [--database PATH]",
+      "feature": null,
+      "bundles": [
+        "full",
+        "agent",
+        "minimal"
+      ],
+      "summary": "Run a statement session: one statement or a `;`-separated list (positional or `-c`), a script on piped stdin, or the interactive shell on a terminal. Takes every query-run flag.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "clone",
+      "word": "clone",
+      "synopsis": "relate clone [--wal-dir DIR] [--to-snapshot-format F] SOURCE DEST",
+      "feature": null,
+      "bundles": [
+        "full",
+        "agent",
+        "minimal"
+      ],
+      "summary": "Copy a store into a new store and exit. Each side is a directory, or a `.rl` bundle when its path ends in `.rl`. The source opens read-only; the destination must not exist; `:memory:` is refused on both sides.",
+      "flags": [
+        {
+          "id": "clone-wal-dir",
+          "flag": "--wal-dir",
+          "value": "DIR",
+          "default": "<SOURCE>/wal",
+          "summary": "Source WAL of a directory source; fails with a bundle source.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "clone-to-snapshot-format",
+          "flag": "--to-snapshot-format",
+          "value": "F",
+          "default": "the source codec",
+          "summary": "Destination snapshot codec; transcodes the published checkpoint.",
+          "disputed": true,
+          "readings": [
+            {
+              "text": "json or parquet, when compiled in",
+              "sources": [
+                "docs/api/cli/spec.md § clone flag table",
+                "docs/reference/cli-flags.md § lifecycle commands table"
+              ]
+            },
+            {
+              "text": "json, parquet or markdown",
+              "sources": [
+                "docs/reference/cli-flags.md § Clone"
+              ]
+            }
+          ],
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "info",
+      "word": "info",
+      "synopsis": "relate info --database PATH [--json]",
+      "feature": "info",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Print store metadata from a cold read (no open, no lock, no WAL replay) and exit: layout, codec and format version, checkpoint LSN, size on disk, checkpoint-time counts, the index and constraint catalog. `:memory:` is rejected.",
+      "flags": [
+        {
+          "id": "info-database",
+          "flag": "--database",
+          "short": "-d",
+          "value": "PATH",
+          "default": "required",
+          "summary": "Store to inspect: a directory or a `.rl` bundle.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "info-json",
+          "flag": "--json",
+          "default": "off",
+          "summary": "One JSON object instead of the key/value table.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "skill",
+      "word": "skill",
+      "synopsis": "relate skill install|remove|list|check [--agent NAME] [--force]",
+      "feature": "skill",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Install, remove, list or drift-check the agent skill bundle in each detected agent's skills folder. `check` exits 1 on drift.",
+      "actions": [
+        "install",
+        "remove",
+        "list",
+        "check"
+      ],
+      "flags": [
+        {
+          "id": "skill-agent",
+          "flag": "--agent",
+          "value": "NAME",
+          "default": "all detected agents",
+          "summary": "Scope the action to one agent (case-insensitive).",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "skill-force",
+          "flag": "--force",
+          "default": "refuse",
+          "summary": "Clobber `<skills dir>/relate` even when the command would refuse it; a usage error on `list` and `check`.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        }
+      ],
+      "messages": [
+        "Error: skill: refusing to touch <dest>: no .relate-installed marker present (directory was not created by relate); pass --force to override"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "upgrade",
+      "word": "upgrade",
+      "aliases": [
+        "update"
+      ],
+      "synopsis": "relate upgrade [--yes] [--check]",
+      "feature": "upgrade",
+      "bundles": [
+        "full"
+      ],
+      "summary": "Self-update to the latest release listed in https://relatedb.ai/releases.json; `--check` is a read-only current-versus-latest report; `--yes` installs the skill bundle after the upgrade when none is installed.",
+      "flags": [
+        {
+          "id": "upgrade-yes",
+          "flag": "--yes",
+          "default": "off",
+          "summary": "Install the skill bundle after the upgrade when none is installed yet, without a prompt.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "upgrade-check",
+          "flag": "--check",
+          "default": "off",
+          "summary": "Read-only report of the current and latest versions.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "telemetry",
+      "word": "telemetry",
+      "synopsis": "relate telemetry on|off|status",
+      "feature": "telemetry",
+      "bundles": [
+        "full"
+      ],
+      "summary": "Manage anonymous usage metrics. `status` prints `<enabled|disabled> (<layer>)`; `off` persists the opt-out in `<config>/relate/config.json`.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "pull",
+      "word": "pull",
+      "synopsis": "relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH",
+      "feature": "pull",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Pull a Neo4j or Aura subgraph over HTTP Query API v2 into `--database` (union and upsert on the source `elementId`). `Q` is a statement, a `;`-separated list, a file path, or `-` for stdin. Always writes the `neo4j` namespace.",
+      "messages": [
+        "Error: --namespace is not valid with pull (pull always writes the neo4j namespace)"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "push",
+      "word": "push",
+      "synopsis": "relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]",
+      "feature": "push",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Push a scoped subgraph of `--database` into a Neo4j or Aura remote over HTTP Query API v2. `--dry-run` prints the plan without touching the remote.",
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    },
+    {
+      "id": "serve",
+      "word": "serve",
+      "synopsis": "relate serve --database PATH [--load SOURCE] [--host HOST] [--http PORT] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING]] [--read-only[=FRESHNESS]] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]",
+      "feature": "http, mcp, bolt",
+      "bundles": [
+        "full"
+      ],
+      "summary": "Host the network surfaces (HTTP Query API v2, MCP over stdio or streamable HTTP, Bolt) on one open store until SIGINT or SIGTERM. At least one surface flag is required. Binds `127.0.0.1` by default; ports have no defaults.",
+      "flags": [
+        {
+          "id": "serve-host",
+          "flag": "--host",
+          "value": "HOST",
+          "default": "127.0.0.1",
+          "summary": "Bind host for every served surface; a non-loopback value exposes the plaintext surfaces and prints a startup WARNING.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-http",
+          "flag": "--http",
+          "value": "PORT",
+          "default": "unset",
+          "summary": "HTTP Query API v2 on HOST:PORT.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-mcp",
+          "flag": "--mcp",
+          "value": "PORT|stdio",
+          "default": "unset",
+          "summary": "MCP: `stdio` runs the stdio transport in the foreground (no auth); `PORT` serves streamable HTTP.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-bolt",
+          "flag": "--bolt",
+          "value": "PORT",
+          "default": "unset",
+          "summary": "Bolt and Bolt-over-WebSocket on HOST:PORT.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-bolt-identity",
+          "flag": "--bolt-identity",
+          "value": "STRING",
+          "default": "Relate/<version>",
+          "env": "RELATE_IDENTITY",
+          "summary": "HELLO SUCCESS `server` agent string for the Bolt surface.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-read-only",
+          "flag": "--read-only",
+          "value": "[=snapshot|live]",
+          "default": "unset",
+          "summary": "Open the existing store read-only: no writer lease, never creates it, every write fails; `live` tails the WAL (directories only). The MCP surface does not list `write_cypher`.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-load",
+          "flag": "--load",
+          "value": "SOURCE",
+          "default": "unset",
+          "summary": "Load a store from a source (a local `.rl`, a directory, or an http(s) URL to a `.rl`) into `--database`.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-auth",
+          "flag": "--auth",
+          "value": "USER:PASSWORD|none",
+          "default": "a generated token",
+          "env": "RELATE_AUTH",
+          "summary": "One basic-auth credential shared by every served listener; `none` disables authentication. HTTP transport only for MCP.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-origin",
+          "flag": "--origin",
+          "value": "ORIGIN",
+          "default": "loopback + https://browser.neo4j.io and https://console.neo4j.io",
+          "summary": "Allow a browser Origin on the HTTP surface (repeatable; an explicit list replaces the default).",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-tx-idle-timeout-secs",
+          "flag": "--tx-idle-timeout-secs",
+          "value": "N",
+          "default": "60",
+          "env": "RELATE_TX_IDLE_TIMEOUT_SECS",
+          "summary": "Seconds an HTTP managed transaction may sit idle before it expires (404/`42N90`); `0` disables.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-max-open-transactions",
+          "flag": "--max-open-transactions",
+          "value": "N",
+          "default": "128",
+          "env": "RELATE_MAX_OPEN_TRANSACTIONS",
+          "summary": "Cap on open HTTP managed transactions; a begin over the cap answers 429/`42N91`; `0` is unlimited.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-max-connections",
+          "flag": "--max-connections",
+          "value": "N",
+          "default": "128",
+          "env": "RELATE_MAX_CONNECTIONS",
+          "summary": "Process-wide session cap shared by every listener; `0` is unlimited.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-ws-max-connections",
+          "flag": "--ws-max-connections",
+          "value": "N",
+          "default": "unlimited",
+          "env": "RELATE_WS_MAX_CONNECTIONS",
+          "summary": "Cap on concurrent Bolt-over-WebSocket sessions.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-ws-allow-origin",
+          "flag": "--ws-allow-origin",
+          "value": "ORIGIN",
+          "default": "loopback plus https://browser.neo4j.io and https://console.neo4j.io with auth on; loopback only with --auth none",
+          "summary": "Allow this Origin on Bolt-over-WebSocket upgrades (repeatable).",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-header-deadline-secs",
+          "flag": "--header-deadline-secs",
+          "value": "N",
+          "default": "10",
+          "env": "RELATE_HEADER_DEADLINE_SECS",
+          "summary": "Absolute deadline for a complete HTTP or MCP request header block; `0` disables.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-body-deadline-secs",
+          "flag": "--body-deadline-secs",
+          "value": "N",
+          "default": "60",
+          "env": "RELATE_BODY_DEADLINE_SECS",
+          "summary": "Absolute deadline for a complete HTTP or MCP request body; `0` disables.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        },
+        {
+          "id": "serve-query-run-shared",
+          "flag": "--concurrent-logical-workspace-limit, --max-traversal-depth, --safe/--no-safe, --logical-graph-size-limit, --expression-memory-limit, --durability-mode",
+          "default": "as the query-run flags",
+          "summary": "The query session's flags of the same name, applied to the serve open with the same resolution.",
+          "sources": [
+            "docs/api/cli/spec.md"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    },
+    {
+      "id": "run",
+      "word": "run",
+      "synopsis": "relate run <name> [flags]",
+      "feature": "extensions",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Dispatch an installed extension package: the host parses the action's flags from its manifest, drives the child over MCP into a host-owned store, and prints the child's summary. First-party packages: `fs-to-graph`, `git-to-graph`.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "extension",
+      "word": "extension",
+      "synopsis": "relate extension init|install|list|remove|check …",
+      "feature": "extensions (install and list --available: extension-install)",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Author and manage extension packages: `init <name> [--lang sh|py|ts|rust]` scaffolds one, `install <name>` installs from the signed first-party channel, a commit-pinned GitHub release (`--github`), a URL (`--url`) or a directory (`--from`), `list` prints the installed set, `remove` uninstalls, `check <dir>` runs the six mount stages without installing.",
+      "actions": [
+        "init",
+        "install",
+        "list",
+        "remove",
+        "check"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "agent-context",
+      "word": "agent-context",
+      "synopsis": "relate agent-context [COMMAND]",
+      "feature": "agent-context",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Print the compact agent briefing: the binary version, one line per compiled-in command, the query-run flag names and the exit-code table; with a command word, that command's synopsis, flags and examples. Always exits 0 once its arguments parse.",
+      "disputed": true,
+      "readings": [
+        {
+          "text": "shipped (in the full and agent bundles)",
+          "sources": [
+            "docs/api/cli/spec.md",
+            "docs/reference/cli-flags.md",
+            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+          ]
+        },
+        {
+          "text": "not shipped (\"No `--timeout`, `--dry-run`, `agent-context` ... yet\")",
+          "sources": [
+            "docs/website-update-brief.md § Things not to claim"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    }
+  ],
+  "global_flags_note": "The query-run flags: accepted on the path-first form and on `relate query`. Lifecycle-command flags are listed under each command.",
+  "global_flags": [
+    {
+      "id": "database",
+      "flag": "--database",
+      "short": "-d",
+      "value": "PATH",
+      "default": ":memory:",
+      "summary": "The store target: a directory, a `.rl` bundle (legacy `.cl` bundles still open), or `:memory:`. Never a URL; a remote store is a `--load` source.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "command",
+      "flag": "--command",
+      "short": "-c",
+      "value": "CYPHER",
+      "default": "unset",
+      "summary": "One statement or a `;`-separated list; the same as the positional QUERY, and the two cannot be combined.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "load",
+      "flag": "--load",
+      "value": "SOURCE",
+      "default": "unset",
+      "summary": "Load a store's content from a source (a local `.rl` bundle, a directory, or an http(s) URL to a `.rl` bundle) into the target: into `:memory:` it is an ephemeral read-only open; into a new `-d PATH` it creates the store.",
+      "note": "Documented in the query section, not in the Query-engine flags table.",
+      "sources": [
+        "docs/api/cli/spec.md § Loading a store from a source"
+      ]
+    },
+    {
+      "id": "mode",
+      "flag": "--mode",
+      "value": "MODE",
+      "default": "table on a terminal; jsonl when stdout is piped or redirected; toon when agent mode is in effect and stdout is piped",
+      "summary": "Output mode: `table`, `csv`, `json`, `jsonl`, `envelope`, `markdown`, `cypher`, `toon`, `speedscope`. An explicit mode always overrides the default.",
+      "verify": "DOCS-PLAN.md §9 asks to verify the toon default against the release binary",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "format",
+      "flag": "--format",
+      "value": "MODE",
+      "default": "as --mode",
+      "summary": "Alias of `--mode` (the neo4j-cli spelling). `--output` and `-o` are errors whose did-you-mean names `--format`.",
+      "disputed": true,
+      "readings": [
+        {
+          "text": "documented alias of --mode (ADR-0239)",
+          "sources": [
+            "docs/api/cli/spec.md",
+            "docs/reference/cli-flags.md",
+            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+          ]
+        },
+        {
+          "text": "\"No `--format` or `-o/--output` flag ... A `--format` alias is tracked as LABS-232 and is not shipped.\"",
+          "sources": [
+            "docs/website-update-brief.md § Things not to claim"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "json",
+      "flag": "--json",
+      "default": "off",
+      "summary": "Shortcut for `--mode json`: indented on a terminal, one compact line when piped.",
+      "aliases": [
+        "-json"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "csv",
+      "flag": "--csv",
+      "default": "off",
+      "summary": "Shortcut for `--mode csv`.",
+      "aliases": [
+        "-csv"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "jsonl",
+      "flag": "--jsonl",
+      "default": "off",
+      "summary": "Shortcut for `--mode jsonl`.",
+      "aliases": [
+        "-jsonl"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "markdown",
+      "flag": "--markdown",
+      "default": "off",
+      "summary": "Shortcut for `--mode markdown`.",
+      "aliases": [
+        "-markdown"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "toon",
+      "flag": "--toon",
+      "default": "off",
+      "summary": "Shortcut for `--mode toon`.",
+      "verify": "DOCS-PLAN.md §9",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "pretty",
+      "flag": "--pretty",
+      "default": "off",
+      "summary": "Force indented `json` output when stdout is not a terminal; ignored by the other modes.",
+      "verify": "DOCS-PLAN.md §9",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "noheader",
+      "flag": "--noheader",
+      "default": "off",
+      "summary": "Suppress column headers.",
+      "aliases": [
+        "-noheader"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "param",
+      "flag": "--param",
+      "value": "N=V",
+      "default": "unset",
+      "summary": "Bind a Cypher parameter (repeatable); V is a JSON scalar, array or map, or a bare word string.",
+      "aliases": [
+        "-param"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "fetch-params",
+      "flag": "--fetch-params",
+      "value": "N=SRC",
+      "default": "unset",
+      "summary": "Fetch an http(s) URL or read a file, parse it as JSON, and bind it as parameter N (repeatable; 64 MiB cap, 60 s timeout). A CLI-process fetch with no URL allowlist.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "snapshot-format",
+      "flag": "--snapshot-format",
+      "value": "parquet|json|markdown",
+      "default": "parquet (json in builds without the parquet feature)",
+      "env": "RELATE_SNAPSHOT_FORMAT",
+      "summary": "Snapshot codec for an empty directory; existing stores keep their recorded codec.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "wal-dir",
+      "flag": "--wal-dir",
+      "value": "PATH",
+      "default": "<DATABASE>/wal",
+      "summary": "Local WAL directory for a directory store; rejected for `.rl` bundles.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "checkpoint-interval-secs",
+      "flag": "--checkpoint-interval-secs",
+      "value": "N",
+      "default": "300",
+      "env": "RELATE_CHECKPOINT_INTERVAL_SECS",
+      "summary": "Timed checkpoint period; `0` disables the timer. Persistent stores only.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "durability-mode",
+      "flag": "--durability-mode",
+      "value": "full|everysecond|snapshot",
+      "default": "full",
+      "env": "RELATE_DURABILITY_MODE",
+      "summary": "Commit durability policy. `everysecond` can lose about the last second of acknowledged writes in a crash; `snapshot` can lose every write since the last completed checkpoint.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "logical-graph-size-limit",
+      "flag": "--logical-graph-size-limit",
+      "value": "SIZE",
+      "default": "unlimited",
+      "env": "RELATE_LOGICAL_GRAPH_SIZE_LIMIT",
+      "summary": "Live graph and index cap in logical bytes; `0` or unset is unlimited.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "expression-memory-limit",
+      "flag": "--expression-memory-limit",
+      "value": "SIZE",
+      "default": "256 MiB",
+      "env": "RELATE_EXPRESSION_MEMORY_LIMIT",
+      "summary": "Per-allocation expression cap; `none` or `0` disables it.",
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    },
+    {
+      "id": "concurrent-logical-workspace-limit",
+      "flag": "--concurrent-logical-workspace-limit",
+      "value": "SIZE",
+      "default": "admission off",
+      "env": "RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT",
+      "summary": "Shared logical-workspace pool; a positive value turns query admission on; `0` is rejected.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "max-traversal-depth",
+      "flag": "--max-traversal-depth",
+      "value": "N",
+      "default": "500",
+      "env": "RELATE_MAX_TRAVERSAL_DEPTH",
+      "summary": "Largest explicit traversal hop bound (1 through 2000); a larger bound fails at admission with `TraversalDepthExceeded`.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "safe",
+      "flag": "--safe / --no-safe",
+      "default": "off",
+      "env": "RELATE_SAFE_MODE",
+      "summary": "Opt-in safe mode: refuses a new named node without a label, and a `MATCH` read whose final `RETURN`/`WITH` has no `LIMIT` and no reducing aggregate, as `SafeModeViolation` (exit 6).",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "timeout",
+      "flag": "--timeout",
+      "value": "DURATION",
+      "default": "unset (no bound)",
+      "summary": "Per-statement wall-clock bound: a bare number is seconds, `ms`/`s`/`m` suffixes, fractions allowed; `0` disables. A timed-out statement exits 7 with `code: \"timeout\"`.",
+      "messages": [
+        "Error: query timed out after <duration>"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
+        "settled on the relate CLI source at upstream ac441ec (`--timeout` in --help, exit 7 in agent-context); confirm on the release binary (LAUNCH.md)"
+      ]
+    },
+    {
+      "id": "max-rows",
+      "flag": "--max-rows",
+      "value": "N",
+      "default": "100 under a detected agent harness with stdout not a terminal; otherwise unlimited",
+      "env": "RELATE_MAX_ROWS",
+      "summary": "Rows printed per statement; `0` is unlimited. A cut result warns on stderr, names the cut in-band in the machine modes, and exits 0.",
+      "messages": [
+        "warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "width",
+      "flag": "--width",
+      "value": "N",
+      "default": "the terminal width, else COLUMNS, else the natural width",
+      "summary": "Wrap the human `table` output to N columns; a value under 20 exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    },
+    {
+      "id": "read-only",
+      "flag": "--read-only",
+      "value": "[=snapshot|live]",
+      "default": "off",
+      "summary": "Open an existing store without writing, checkpointing or migrating. `snapshot` (default) freezes the state at open; `live` tails a directory store's WAL (refused for `.rl` and `:memory:`). Attached form only; once only. A write fails with exit 6.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "load-csv-dir",
+      "flag": "--load-csv-dir",
+      "value": "PATH",
+      "default": "denied",
+      "env": "RELATE_LOAD_CSV_DIR",
+      "summary": "Allow local `LOAD CSV` only for regular files under this directory; per-file limit 8 MiB.",
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    },
+    {
+      "id": "namespace",
+      "flag": "--namespace",
+      "value": "NAME",
+      "default": "neo4j",
+      "summary": "Session namespace for the run: `neo4j`, `system` or `system_ontologies` (case-insensitive). Not accepted by `pull`.",
+      "messages": [
+        "Error: invalid --namespace: unknown namespace '<name>' (expected neo4j, system or system_ontologies)"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ]
+    },
+    {
+      "id": "agent-mode",
+      "flag": "--agent-mode / --no-agent-mode",
+      "default": "detected (stdout not a terminal and an agent harness variable set)",
+      "env": "RELATE_AGENT_MODE",
+      "summary": "Turn agent ergonomics (the row-cap default and the piped `toon` default) on or off unconditionally; overrides `RELATE_AGENT_MODE` and detection.",
+      "note": "Documented in the Agent mode section, not in the Query-engine flags table.",
+      "sources": [
+        "docs/api/cli/spec.md § Agent mode",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "help",
+      "flag": "--help",
+      "short": "-h",
+      "default": null,
+      "summary": "Print usage to stdout and exit 0; after a command word, that command's help.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "version",
+      "flag": "--version",
+      "default": null,
+      "summary": "Print `Relate v<version>` and `License: Apache 2.0 (binary)`; with `--json`, one JSON object with `arch`, `license`, `name`, `os`, `version`.",
+      "aliases": [
+        "-version",
+        "-v"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "docs/api/cli/examples/agents.md"
+      ]
+    },
+    {
+      "id": "end-of-options",
+      "flag": "--",
+      "default": null,
+      "summary": "Treat all following arguments as positional.",
+      "sources": [
+        "docs/api/cli/spec.md"
+      ]
+    }
+  ],
+  "environment_variables": [
+    {
+      "id": "env-do-not-track",
+      "name": "DO_NOT_TRACK",
+      "used_by": "usage metrics",
+      "default": null,
+      "summary": "`1`/`true` disables anonymous usage metrics; beats every other layer.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-telemetry",
+      "name": "RELATE_TELEMETRY",
+      "used_by": "usage metrics",
+      "default": null,
+      "summary": "`0`/`false`/`off` disables, `1`/`true`/`on` enables anonymous usage metrics.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-agent-mode",
+      "name": "RELATE_AGENT_MODE",
+      "used_by": "--agent-mode / --no-agent-mode",
+      "default": null,
+      "summary": "`1` turns agent ergonomics on, `0` off; any other value exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-max-rows",
+      "name": "RELATE_MAX_ROWS",
+      "used_by": "--max-rows",
+      "default": null,
+      "summary": "Default row cap per statement; `0` is unlimited; a bad value exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-safe-mode",
+      "name": "RELATE_SAFE_MODE",
+      "used_by": "--safe / --no-safe",
+      "default": "off",
+      "summary": "`1` turns safe mode on, `0` off; any other value exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-preview",
+      "name": "RELATE_PREVIEW",
+      "used_by": "query engine",
+      "default": "nothing enabled",
+      "summary": "Comma-separated preview Cypher features to enable (for example `ontology`, `hybrid-search`); an unknown name fails the open with exit 1.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-snapshot-format",
+      "name": "RELATE_SNAPSHOT_FORMAT",
+      "used_by": "--snapshot-format",
+      "default": null,
+      "summary": "Default snapshot codec for an empty directory.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-checkpoint-interval-secs",
+      "name": "RELATE_CHECKPOINT_INTERVAL_SECS",
+      "used_by": "--checkpoint-interval-secs",
+      "default": "300",
+      "summary": "Default timed checkpoint period.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-durability-mode",
+      "name": "RELATE_DURABILITY_MODE",
+      "used_by": "--durability-mode",
+      "default": "full",
+      "summary": "Default commit durability policy: `full`, `everysecond` or `snapshot`; any other value exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-logical-graph-size-limit",
+      "name": "RELATE_LOGICAL_GRAPH_SIZE_LIMIT",
+      "used_by": "--logical-graph-size-limit",
+      "default": "unlimited",
+      "summary": "Default live graph and index cap; `0` or unset is unlimited.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-expression-memory-limit",
+      "name": "RELATE_EXPRESSION_MEMORY_LIMIT",
+      "used_by": "--expression-memory-limit",
+      "default": "256 MiB",
+      "summary": "Default per-allocation expression cap; `none`/`0` disables it.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-concurrent-logical-workspace-limit",
+      "name": "RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT",
+      "used_by": "--concurrent-logical-workspace-limit",
+      "default": "admission off",
+      "summary": "Default concurrent logical-workspace pool; a positive size turns admission on; `0` exits 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-max-traversal-depth",
+      "name": "RELATE_MAX_TRAVERSAL_DEPTH",
+      "used_by": "--max-traversal-depth",
+      "default": "500",
+      "summary": "Default traversal-depth admission limit, 1 through 2000.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-load-csv-dir",
+      "name": "RELATE_LOAD_CSV_DIR",
+      "used_by": "--load-csv-dir",
+      "default": "denied",
+      "summary": "Fallback CSV directory when the flag is absent; neither set means local files are denied.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-help-examples",
+      "name": "RELATE_HELP_EXAMPLES",
+      "used_by": "--help",
+      "default": null,
+      "summary": "`0`, `false`, `off` or `no` drops the Examples section from every help page.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-auth",
+      "name": "RELATE_AUTH",
+      "used_by": "serve",
+      "default": "a generated token",
+      "summary": "Basic-auth credential (`user:password` or `none`) for every served network surface; `--auth` overrides it.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-pattern-engine",
+      "name": "RELATE_PATTERN_ENGINE",
+      "used_by": "query engine",
+      "default": "auto",
+      "summary": "Diagnostic pattern-engine switch: `auto`, `nfa` or `walk`. Not a supported tuning knob.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-bulk-batch-threshold",
+      "name": "RELATE_BULK_BATCH_THRESHOLD",
+      "used_by": "query engine",
+      "default": "10000",
+      "summary": "Estimated touched-entity count at which an eligible global bulk write switches to batched commits.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-bulk-batch-budget",
+      "name": "RELATE_BULK_BATCH_BUDGET",
+      "used_by": "query engine",
+      "default": "25000",
+      "summary": "Estimated touched-entity budget per batch commit of an eligible global bulk write.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-github-token",
+      "name": "GITHUB_TOKEN",
+      "used_by": "upgrade, extension install",
+      "default": null,
+      "summary": "Optional bearer token for release-asset downloads; required while the repository is internal.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-releases-json-url",
+      "name": "RELATE_RELEASES_JSON_URL",
+      "used_by": "upgrade",
+      "default": "https://relatedb.ai/releases.json",
+      "summary": "Override the release-metadata URL (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-extensions-json-url",
+      "name": "RELATE_EXTENSIONS_JSON_URL",
+      "used_by": "extension install, extension list --available",
+      "default": "https://relatedb.ai/extensions.json",
+      "summary": "Override the extension channel-index URL (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-release-download-url",
+      "name": "RELATE_RELEASE_DOWNLOAD_URL",
+      "used_by": "upgrade, extension install",
+      "default": "https://github.com/relatedb/relate/releases/download",
+      "summary": "Override the base of the direct release-download route (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-github-api-url",
+      "name": "RELATE_GITHUB_API_URL",
+      "used_by": "upgrade, extension install",
+      "default": "https://api.github.com",
+      "summary": "Override the base of the GitHub API asset route (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-neo4j-uri",
+      "name": "NEO4J_URI",
+      "used_by": "pull",
+      "default": null,
+      "summary": "Source Query API URI when `--from` is omitted.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-neo4j-username",
+      "name": "NEO4J_USERNAME",
+      "used_by": "pull",
+      "default": null,
+      "summary": "Source username when `--from` is omitted (`NEO4J_USER` also accepted).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-neo4j-password",
+      "name": "NEO4J_PASSWORD",
+      "used_by": "pull",
+      "default": null,
+      "summary": "Source password when `--from` is omitted.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-neo4j-database",
+      "name": "NEO4J_DATABASE",
+      "used_by": "pull",
+      "default": "neo4j",
+      "summary": "Source database name when `--from` is omitted.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-mixpanel-endpoint",
+      "name": "RELATE_MIXPANEL_ENDPOINT",
+      "used_by": "usage metrics",
+      "default": null,
+      "summary": "Override the Mixpanel /track URL (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-mixpanel-token",
+      "name": "RELATE_MIXPANEL_TOKEN",
+      "used_by": "usage metrics",
+      "default": null,
+      "summary": "Override the compiled-in Mixpanel project token (dev and test).",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-telemetry-flush-ms",
+      "name": "RELATE_TELEMETRY_FLUSH_MS",
+      "used_by": "usage metrics",
+      "default": "250",
+      "summary": "The exit flush's wait budget in milliseconds; `0` is fire-and-forget.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "env-relate-tx-idle-timeout-secs",
+      "name": "RELATE_TX_IDLE_TIMEOUT_SECS",
+      "used_by": "serve --tx-idle-timeout-secs",
+      "default": "60",
+      "summary": "Default HTTP managed-transaction idle timeout.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-max-open-transactions",
+      "name": "RELATE_MAX_OPEN_TRANSACTIONS",
+      "used_by": "serve --max-open-transactions",
+      "default": "128",
+      "summary": "Default cap on open HTTP managed transactions.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-max-connections",
+      "name": "RELATE_MAX_CONNECTIONS",
+      "used_by": "serve --max-connections",
+      "default": "128",
+      "summary": "Default process-wide session cap.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-ws-max-connections",
+      "name": "RELATE_WS_MAX_CONNECTIONS",
+      "used_by": "serve --ws-max-connections",
+      "default": "unlimited",
+      "summary": "Default cap on Bolt-over-WebSocket sessions.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-header-deadline-secs",
+      "name": "RELATE_HEADER_DEADLINE_SECS",
+      "used_by": "serve --header-deadline-secs",
+      "default": "10",
+      "summary": "Default HTTP/MCP header deadline.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-body-deadline-secs",
+      "name": "RELATE_BODY_DEADLINE_SECS",
+      "used_by": "serve --body-deadline-secs",
+      "default": "60",
+      "summary": "Default HTTP/MCP body deadline.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    },
+    {
+      "id": "env-relate-identity",
+      "name": "RELATE_IDENTITY",
+      "used_by": "serve --bolt-identity",
+      "default": "Relate/<version>",
+      "summary": "Default Bolt HELLO server agent string.",
+      "sources": [
+        "docs/api/cli/spec.md § serve flag table"
+      ]
+    }
+  ],
+  "output_modes": [
+    {
+      "id": "mode-table",
+      "mode": "table",
+      "summary": "Human table; the default on a terminal. Control characters are escaped.",
+      "row_cap_in_band": null
+    },
+    {
+      "id": "mode-csv",
+      "mode": "csv",
+      "summary": "RFC 4180 CSV with control escaping and a spreadsheet-formula guard (a leading `=`, `+`, `-`, `@` gets a `'` prefix, so `-5` prints as `'-5`).",
+      "row_cap_in_band": null
+    },
+    {
+      "id": "mode-json",
+      "mode": "json",
+      "summary": "One JSON array; indented on a terminal, compact when piped (`--pretty` forces indentation).",
+      "row_cap_in_band": "the rows are wrapped: {\"data\": [...], \"rowCap\": {...}}"
+    },
+    {
+      "id": "mode-jsonl",
+      "mode": "jsonl",
+      "summary": "One JSON object per row; the default when stdout is piped and agent mode is off.",
+      "row_cap_in_band": "a terminal line {\"rowCap\":{\"kept\":100,\"total\":250}}"
+    },
+    {
+      "id": "mode-envelope",
+      "mode": "envelope",
+      "summary": "One compact JSON object per result set: `columns`, `columnTypes`, `rows` (keys sorted), `truncated`, `rowCap` when cut, `notifications`, `plan` on EXPLAIN/PROFILE.",
+      "row_cap_in_band": "\"truncated\": true plus \"rowCap\": {\"kept\": 100, \"total\": 250}",
+      "disputed": true,
+      "readings": [
+        {
+          "text": "fields columns, columnTypes, rows, truncated, rowCap (when cut), notifications (always), plan (EXPLAIN/PROFILE)",
+          "sources": [
+            "docs/api/cli/spec.md § Result envelope"
+          ]
+        },
+        {
+          "text": "{\"columns\",\"rows\",\"truncated\"} per result set",
+          "sources": [
+            "docs/reference/cli-flags.md § Options",
+            "docs/api/cli/examples/agents.md (recorded output)",
+            "docs/website-update-brief.md"
+          ]
+        },
+        {
+          "text": "{columns, columnTypes, rows, truncated}",
+          "sources": [
+            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mode-markdown",
+      "mode": "markdown",
+      "summary": "A GFM table; `|` is escaped.",
+      "row_cap_in_band": "a footer line > truncated: 100 of 250 rows shown"
+    },
+    {
+      "id": "mode-cypher",
+      "mode": "cypher",
+      "summary": "Rows rendered as Cypher statements.",
+      "row_cap_in_band": null
+    },
+    {
+      "id": "mode-toon",
+      "mode": "toon",
+      "summary": "Compact TOON tabular form: one `rows[N]{cols}:` header plus one line per row, nested values as inline JSON. The piped default when agent mode is in effect.",
+      "row_cap_in_band": "a terminal rowCap: entry",
+      "verify": "DOCS-PLAN.md §9"
+    },
+    {
+      "id": "mode-speedscope",
+      "mode": "speedscope",
+      "summary": "Exports a `PROFILE` plan tree as one speedscope evented-profile JSON document.",
+      "row_cap_in_band": null
+    }
+  ],
+  "error_object": {
+    "modes": [
+      "json",
+      "jsonl",
+      "envelope"
+    ],
+    "shape": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: …\",\"retryable\":false}}",
+    "fields": [
+      {
+        "name": "code",
+        "type": "string",
+        "meaning": "The stable class name from the exit-code table; branch on this."
+      },
+      {
+        "name": "exit_code",
+        "type": "number",
+        "meaning": "The process exit code."
+      },
+      {
+        "name": "kind",
+        "type": "string",
+        "meaning": "The engine error variant: syntax, semantic, argument, type, execution, conflict, capacity, storage, locked, io, internal."
+      },
+      {
+        "name": "message",
+        "type": "string",
+        "meaning": "The sanitized text also printed on stderr."
+      },
+      {
+        "name": "retryable",
+        "type": "boolean",
+        "meaning": "true only for a write-write conflict; a locked store is not retryable until its other opener exits."
+      },
+      {
+        "name": "statement",
+        "type": "number",
+        "meaning": "Multi-statement runs only: the 1-based index of the failed statement."
+      },
+      {
+        "name": "statements",
+        "type": "number",
+        "meaning": "With statement: how many statements the input held."
+      },
+      {
+        "name": "committed",
+        "type": "number",
+        "meaning": "With statement: how many earlier statements are durable (0 inside an open .begin transaction)."
+      },
+      {
+        "name": "column",
+        "type": "number",
+        "meaning": "Syntax errors only, when known: the 1-based character column within source."
+      },
+      {
+        "name": "source",
+        "type": "string",
+        "meaning": "Syntax errors only, when known: the statement line the parser echoed."
+      },
+      {
+        "name": "line",
+        "type": "number",
+        "meaning": "Syntax errors only, when the parser reported a position but no source line."
+      }
+    ],
+    "scope": "Query runs only (one-shot and piped stdin). Lifecycle commands and the interactive shell print no error object.",
+    "sources": [
+      "docs/api/cli/spec.md § Query-run errors",
+      "docs/website-update-brief.md § Things not to claim"
+    ]
+  },
+  "exit_codes": [
+    {
+      "id": "exit-0",
+      "exit": 0,
+      "code": "success",
+      "meaning": "Success, including an empty result. `--help` and `--version` also exit 0.",
+      "reserved": false
+    },
+    {
+      "id": "exit-1",
+      "exit": 1,
+      "code": "fatal_error",
+      "meaning": "Runtime failure: store open or I/O error, capacity limit, query execution failure, internal error, failed final checkpoint.",
+      "reserved": false
+    },
+    {
+      "id": "exit-2",
+      "exit": 2,
+      "code": "usage_error",
+      "meaning": "Unknown flag, bad or missing value, extra positional.",
+      "reserved": false
+    },
+    {
+      "id": "exit-3",
+      "exit": 3,
+      "code": "not_found",
+      "meaning": "Reserved (shared with neo4j-cli); not produced.",
+      "reserved": true
+    },
+    {
+      "id": "exit-4",
+      "exit": 4,
+      "code": "auth_error",
+      "meaning": "Reserved (shared with neo4j-cli); not produced.",
+      "reserved": true
+    },
+    {
+      "id": "exit-5",
+      "exit": 5,
+      "code": "conflict",
+      "meaning": "Write-write conflict, or the store is locked by another opener.",
+      "reserved": false
+    },
+    {
+      "id": "exit-6",
+      "exit": 6,
+      "code": "validation_error",
+      "meaning": "The statement is rejected: syntax, semantic, argument or type error, including a write on a `--read-only` database.",
+      "reserved": false
+    },
+    {
+      "id": "exit-7",
+      "exit": 7,
+      "code": "timeout",
+      "meaning": "A statement exceeded `--timeout`.",
+      "reserved": false,
+      "sources": [
+        "settled on the relate CLI source at upstream ac441ec (`--timeout` in --help, exit 7 in agent-context); confirm on the release binary (LAUNCH.md)"
+      ]
+    },
+    {
+      "id": "exit-8",
+      "exit": 8,
+      "code": "upstream_error",
+      "meaning": "Reserved (shared with neo4j-cli); not produced.",
+      "reserved": true
+    }
+  ],
+  "agent_mode": {
+    "summary": "Agent ergonomics (the 100-row cap default and the piped toon default) resolve through one ladder: the `--agent-mode`/`--no-agent-mode` flag, then `RELATE_AGENT_MODE=1/0`, then detection gated on stdout not being a terminal. Writes are not gated by harness detection.",
+    "detection_variables": [
+      "AI_AGENT",
+      "AGENT",
+      "CLAUDECODE",
+      "CLAUDE_CODE",
+      "COPILOT_AGENT",
+      "COPILOT_CLI",
+      "COPILOT_AGENT_SESSION_ID",
+      "REPL_ID",
+      "GEMINI_CLI",
+      "CODEX_SANDBOX",
+      "CODEX_THREAD_ID",
+      "OPENCODE",
+      "AUGMENT_AGENT",
+      "GOOSE_PROVIDER",
+      "CURSOR_AGENT"
+    ],
+    "detection_patterns": [
+      "devin in EDITOR (case-insensitive)",
+      "kiro in TERM_PROGRAM (case-insensitive)",
+      ".pi/agent in PATH (case-insensitive)"
+    ],
+    "messages": [
+      "relate agent mode on: --agent-mode (--no-agent-mode to turn off)"
+    ],
+    "disputed": true,
+    "readings": [
+      {
+        "text": "detection list includes AI_AGENT, AGENT and the COPILOT_* variables",
+        "sources": [
+          "docs/api/cli/spec.md § Row cap"
+        ]
+      },
+      {
+        "text": "detection list starts at CLAUDECODE (no AI_AGENT, AGENT, COPILOT_*)",
+        "sources": [
+          "docs/website-update-brief.md § 5"
+        ]
+      }
+    ],
+    "sources": [
+      "docs/api/cli/spec.md § Agent mode",
+      "docs/api/cli/spec.md § Row cap",
+      "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+    ]
+  }
+}

@@ -23,6 +23,12 @@ The graph looks like this:
 ```mermaid
 flowchart LR
   accTitle: Data model: messages, the entities they mention, and the facts and decisions drawn from them
+  accDescr {
+    Each Message is IN_SESSION of a Session and MENTIONS the Entity nodes it
+    names. Fact and Decision nodes are drawn FROM a Message and are ABOUT an
+    Entity. A newer Fact or Decision SUPERSEDES the one it replaces in the
+    same slot.
+  }
   Message(("<b>Message</b><br/>seq · text · at")) -- "<b>IN_SESSION</b>" --> Session(("<b>Session</b><br/>id · startedAt"))
   Message -- "<b>MENTIONS</b>" --> Entity(("<b>Entity</b><br/>key · name · kind"))
   Fact(("<b>Fact</b><br/>text · slot · seq · at<br/>supersededAt")) -- "<b>FROM</b>" --> Message
@@ -50,6 +56,13 @@ database, so the two sessions are consecutive steps against the same graph.
 ```mermaid
 flowchart TB
   accTitle: Session 1 turns chat into memory; session 2 answers from the graph alone
+  accDescr {
+    In session 1, chat messages go through LLM extraction of entities, facts
+    and decisions, and a Cypher MERGE writes them to the memory graph, where a
+    new item supersedes the one in its slot. In session 2, a question runs a
+    Cypher recall of the current items and what they replaced, and the answer
+    comes from the graph alone.
+  }
   subgraph S1["Session 1"]
     direction LR
     Chat("Chat messages") --> Extract["LLM extraction<br/>entities · facts · decisions"]

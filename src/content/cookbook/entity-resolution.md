@@ -33,6 +33,13 @@ ones `POSSIBLE_MATCH`, for a human to check. At the end, every entity's
 ```mermaid
 flowchart LR
   accTitle: Data model: records, the entities they resolve to, and the words and edges that match entities
+  accDescr {
+    Records from the CRM (Record:Crm) and from billing (Record:Billing) each
+    RESOLVES_TO an Entity. An Entity HAS_TOKEN the words of its name, and
+    tokens are SIMILAR to one another by a Dice score. Between two entities,
+    CANDIDATE holds a scored pair with its domain and city matches, SAME_AS a
+    scored match, and POSSIBLE_MATCH a doubtful pair with its reason.
+  }
   Crm(("<b>Record:Crm</b><br/>id · name · email<br/>domain · city · key")) -- "<b>RESOLVES_TO</b>" --> Entity(("<b>Entity</b><br/>key · domains · cities<br/>near · cluster"))
   Billing(("<b>Record:Billing</b><br/>id · name · email<br/>domain · city · key")) -- "<b>RESOLVES_TO</b>" --> Entity
   Entity -- "<b>HAS_TOKEN</b>" --> Token(("<b>Token</b><br/>text · bigrams · idf"))
@@ -51,6 +58,14 @@ The steps below build it in this order:
 ```mermaid
 flowchart TB
   accTitle: The resolver, from two exports to companies and a review queue
+  accDescr {
+    The resolver loads both exports as Record nodes, normalizes names into
+    Entity keys, weights tokens by IDF with bigram SIMILAR links for typos,
+    then blocks and scores CANDIDATE pairs using domain and city. Pairs above
+    the merge score become SAME_AS and are grouped by label propagation into
+    211 companies. Doubtful pairs become POSSIBLE_MATCH, leaving 7 pairs for a
+    human to review.
+  }
   subgraph Build[" "]
     direction LR
     Load["Load both exports<br/>as Records"] --> Norm["Normalize names<br/>into Entity keys"]

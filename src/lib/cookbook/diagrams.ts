@@ -1,7 +1,8 @@
 // Recipe diagrams (ADR-0135): ```mermaid blocks in the recipe, rendered
-// ahead of time to light and dark SVG files in src/content/cookbook/diagrams/,
-// plus, for a data model, the colour of each label it draws (a labels file),
-// which the result graph view uses. The page inlines the SVGs, so this reads
+// ahead of time to light and dark SVG files in src/content/cookbook/diagrams/
+// (for a docs page, in a diagrams/ directory beside the page; DOCS-PLAN.md
+// 7.6), plus, for a data model, the colour of each label it draws (a labels
+// file), which the result graph view uses. The page inlines the SVGs, so this reads
 // them back only when they were rendered from the block's current source and
 // hold nothing that can run, fetch, or navigate.
 
@@ -42,11 +43,80 @@ export function isDiagramFileOf(slug: string, name: string): boolean {
 /** The command that brings every rendering up to date. */
 export const RENDER_COMMAND = 'npm run cookbook:diagrams';
 
+/** The same for the docs pages, whose renderings sit in a `diagrams/` directory beside each page. */
+export const DOCS_RENDER_COMMAND = 'npm run docs:diagrams';
+
 /** The comment that opens a rendered file and records its source. */
 export const hashComment = (hash: string) => `<!-- mermaid source sha256:${hash} -->`;
 
 /** The name a diagram gives itself with `accTitle:`, or null. */
 export const diagramTitle = (source: string) => /^\s*accTitle:\s*(.+?)\s*$/m.exec(source)?.[1] ?? null;
+
+/**
+ * What a diagram says it shows, from its multi-line `accDescr { … }` block
+ * (the `{` ending its line, the `}` on a line of its own), as one paragraph;
+ * null when it has none. A single-line `accDescr:` does not count.
+ */
+export function diagramDescription(source: string): string | null {
+  const body = /^[ \t]*accDescr[ \t]*\{[ \t]*\r?\n([^}]*?)\r?\n[ \t]*\}[ \t]*$/m.exec(source)?.[1];
+  const text = body
+    ?.split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(' ');
+  return text || null;
+}
+
+/**
+ * What a diagram lacks for a reader who cannot see it (DOCS-PLAN.md 7.6): an
+ * `accTitle:` line and a multi-line `accDescr { … }` block. Empty when it has
+ * both.
+ */
+export function diagramProblems(source: string): string[] {
+  const out: string[] = [];
+  if (diagramTitle(source) === null) out.push('it has no `accTitle:` line (its caption and accessible name)');
+  if (diagramDescription(source) === null) {
+    out.push(
+      /^[ \t]*accDescr[ \t]*:/m.test(source)
+        ? 'its `accDescr:` is a single line; write a multi-line `accDescr {` … `}` block instead'
+        : 'it has no multi-line `accDescr {` … `}` block (two to four sentences saying what the picture shows)',
+    );
+  }
+  return out;
+}
+
+/**
+ * The ```mermaid (or ~~~mermaid) blocks of a markdown or MDX page, in order,
+ * numbered from 1, the way the recipe parser numbers a recipe's. Every other
+ * fence is skipped whole, so a mermaid block quoted inside one is not a
+ * diagram. A fence may be indented (inside a list, say); its body loses that
+ * indentation, as a markdown parser strips it, so the hash matches the code
+ * node's value. Throws on an unclosed fence.
+ */
+export function mermaidBlocks(text: string): Diagram[] {
+  const lines = text.split(/\r?\n/);
+  const out: Diagram[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const open = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(lines[i]);
+    if (!open) continue;
+    const [, indent, fence, info] = open;
+    if (fence[0] === '`' && info.includes('`')) continue; // inline code, not a fence
+    const close = new RegExp(`^[ \\t]*${fence[0] === '`' ? '`' : '~'}{${fence.length},}[ \\t]*$`);
+    let j = i + 1;
+    while (j < lines.length && !close.test(lines[j])) j++;
+    if (j === lines.length) throw new Error(`line ${i + 1}: unclosed code fence`);
+    if (info.trim().split(/\s+/)[0] === 'mermaid') {
+      const source = lines
+        .slice(i + 1, j)
+        .map((l) => l.replace(new RegExp(`^[ \\t]{0,${indent.length}}`), ''))
+        .join('\n')
+        .replace(/\n+$/, '');
+      out.push({ index: out.length + 1, source, line: i + 1 });
+    }
+    i = j;
+  }
+  return out;
+}
 
 // The text of the rendered file at `path` after its hash comment, or null
 // when the comment records another source than `diagram`'s.

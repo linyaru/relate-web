@@ -24,6 +24,13 @@ trace sits beside it, in the same graph:
 ```mermaid
 flowchart TB
   accTitle: Data model: the agent's memory, and the trace of every call beside it
+  accDescr {
+    A Session HAS_CALL each of its ToolCall nodes, with a timestamp; a
+    ToolCall records its sequence number, tool name, the user's ask, status,
+    row count and any error. Each ToolCall TOUCHED the Entity, Fact and
+    Decision nodes of the agent's memory that it returned, and facts and
+    decisions are ABOUT entities.
+  }
   Session(("<b>Session</b><br/>id")) -- "<b>HAS_CALL</b><br/>ts" --> ToolCall(("<b>ToolCall</b><br/>session · seq · name · ask<br/>status · rows · error"))
   ToolCall -- "<b>TOUCHED</b>" --> Entity(("<b>Entity</b><br/>key · kind"))
   ToolCall -- "<b>TOUCHED</b>" --> Fact(("<b>Fact</b><br/>text"))
@@ -111,6 +118,14 @@ nodes the call wrote or read. Then, in the same statement, the tracer:
 ```mermaid
 flowchart TB
   accTitle: One statement runs the tool call and writes its trace
+  accDescr {
+    When the agent calls a tool with Cypher and arguments, one Cypher
+    statement runs the tool's Cypher in a CALL subquery that returns the
+    answers and the touched nodes. The same statement collects them, creates a
+    ToolCall with its HAS_CALL timestamp, and merges a TOUCHED relationship to
+    each node, committing whole or not at all. The agent then reads the
+    answers.
+  }
   Ask("Agent calls a tool: Cypher + arguments")
   subgraph Statement["One Cypher statement: commits whole, or not at all"]
     direction LR

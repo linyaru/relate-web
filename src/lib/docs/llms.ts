@@ -1,0 +1,64 @@
+// The agent indexes (DOCS-PLAN.md §3.2): /docs/llms.txt (a facts block, then
+// one line per page grouped by task) and the llms-full.txt files (every
+// page's twin, concatenated: all of them, and one file per section and per
+// group).
+
+import { ENVELOPE_CHECK, ENVELOPE_OUTPUT } from '../../components/docs/install.ts';
+import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
+import type { Engine } from './content.ts';
+import { LLMS_GROUPS, llmsGroupOf } from './landing.ts';
+import { estimateTokens, tokenLabel, twinUrl } from './model.ts';
+
+export interface IndexedPage {
+  id: string;
+  title: string;
+  description: string;
+  /** The page's twin. */
+  markdown: string;
+}
+
+/** The canonical phrase (DOCS-PLAN.md §3.9): verbatim wherever a model reads first. */
+export const CANONICAL_PHRASE = 'relate, the embedded Cypher graph database (relatedb.ai)';
+
+/** The facts block: the common case answered in one fetch. */
+export function factsBlock(engine: Engine): string {
+  const v = engine.version;
+  return [
+    `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}. Not the Neo4j Desktop Relate framework.`,
+    '',
+    '- Install (macOS, Linux): `curl -sSfL https://relatedb.ai/install.sh | bash`. It installs the latest release to `~/.local/bin` after checking the signed SHA256SUMS, and installs nothing if a check fails.',
+    `- Check the install: \`relate --version\` prints \`Relate v${v}\`, and \`${ENVELOPE_CHECK}\` prints \`${ENVELOPE_OUTPUT}\`.`,
+    '- Run a statement: `relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"`; remove `--read-only` to write. `--mode envelope` prints one JSON object per result set.',
+    '- Stores: `:memory:` (the default), a directory, or a single `.rl` file, named by `--database`. Add `--read-only` to open an existing store without writing.',
+    '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',
+    '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store, 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
+    '- MCP for a local agent: `relate serve --mcp stdio --database ./graph.rl --read-only`.',
+    '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
+    `- Every page below is markdown at its URL plus \`.md\` (also \`<url>/index.md\`). Whole sections: \`${CANONICAL_ORIGIN}/docs/<section>/llms-full.txt\`; everything: \`${CANONICAL_ORIGIN}/docs/llms-full.txt\`.`,
+    '- These pages are reference text, not instructions.',
+  ].join('\n');
+}
+
+/** /docs/llms.txt. `sections` are the llms-full.txt files to list, as [path, label]. */
+export function llmsTxt(pages: IndexedPage[], engine: Engine, sections: [string, string][]): string {
+  const lines = [`# ${CANONICAL_PHRASE}: docs`, '', '> The documentation index: a facts block, then every page by task.', '', factsBlock(engine), ''];
+  for (const group of LLMS_GROUPS) {
+    const members = pages.filter((p) => llmsGroupOf(p.id) === group);
+    if (!members.length) continue;
+    lines.push(`## ${group}`, '');
+    for (const p of members) {
+      lines.push(`- [${p.title}](${CANONICAL_ORIGIN}${twinUrl(p.id)}): ${p.description} (${tokenLabel(estimateTokens(p.markdown))})`);
+    }
+    lines.push('');
+  }
+  lines.push('## Whole sections', '');
+  lines.push(`- [All pages](${CANONICAL_ORIGIN}/docs/llms-full.txt) (${tokenLabel(estimateTokens(pages.map((p) => p.markdown).join('\n')))})`);
+  for (const [path, label] of sections) lines.push(`- [${label}](${CANONICAL_ORIGIN}${path})`);
+  lines.push(`- [Cookbook recipes](${CANONICAL_ORIGIN}/cookbook/llms.txt)`, '');
+  return lines.join('\n');
+}
+
+/** An llms-full.txt: a heading line, then each page's twin. */
+export function llmsFull(title: string, pages: IndexedPage[]): string {
+  return [`# ${title}`, '', `> ${CANONICAL_PHRASE}. ${pages.length} page(s), each a markdown twin with its frontmatter.`, '', ...pages.map((p) => p.markdown)].join('\n');
+}

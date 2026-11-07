@@ -34,6 +34,12 @@ for advisories. The three packages you start from also carry `:Root`.
 ```mermaid
 flowchart LR
   accTitle: Data model: package versions, what they depend on, and the advisories that affect them
+  accDescr {
+    A root package version (Version:Root) DEPENDS_ON other Version nodes,
+    which depend on further versions in turn; each DEPENDS_ON relationship
+    records its version requirement. Any Version, the root included, can be
+    AFFECTED_BY an Advisory, which has an id, a title and a CVSS 3 score.
+  }
   Root(("<b>Version:Root</b><br/>key · system · name · version")) -- "<b>DEPENDS_ON</b><br/>requirement" --> Version(("<b>Version</b><br/>key · system · name · version"))
   Version -- "<b>DEPENDS_ON</b><br/>requirement" --> Version
   Root -- "<b>AFFECTED_BY</b>" --> Advisory(("<b>Advisory</b><br/>id · title · cvss3"))

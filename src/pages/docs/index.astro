@@ -1,9 +1,112 @@
 ---
-import Placeholder from '../../layouts/Placeholder.astro';
+// The docs landing (/docs/, DOCS-PLAN.md §2 "Landing"): three buttons, the
+// task index as the one primary navigation, the four doors under it, the
+// install strip and the agent strip. A task whose page is not written yet
+// renders as text, not a link.
+import { agentsMd } from '../../components/docs/install.ts';
+import TabsStrip from '../../components/docs/TabsStrip.astro';
+import Docs from '../../layouts/Docs.astro';
+import { isNotYetPublic } from '../../lib/cookbook/links.ts';
+import { esc } from '../../lib/cookbook/result-view.ts';
+import { highlighter } from '../../lib/docs/highlight.ts';
+import { PRIMARY, TASKS, taskHref } from '../../lib/docs/landing.ts';
+import { CANONICAL_PHRASE } from '../../lib/docs/llms.ts';
+import { SECTIONS } from '../../lib/docs/model.ts';
+import { docsSite } from '../../lib/docs/site.ts';
+
+const site = await docsSite();
+const published = site.links.pages;
+const highlight = await highlighter();
+let seq = 0;
+// A code block as the docs render one (dark, with a Copy button the script shows).
+const code = (text: string, lang: string) => {
+  const id = `landing-code-${++seq}`;
+  return (
+    `<div class="code-block">${highlight(text, lang)}<textarea id="${id}" hidden>${esc(text)}</textarea>` +
+    `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>`
+  );
+};
+const DOORS: Record<string, string> = {
+  'get-started': 'Tutorials: one path from nothing to a working result.',
+  guides: 'How-to guides: the steps for one task, for readers who know what they want.',
+  reference: 'The facts: every command, flag, clause, function and error.',
+  concepts: 'How relate works and why, and the trade-offs it makes.',
+};
+const releases = 'https://github.com/relatedb/relate/releases';
+const description = `Documentation for ${CANONICAL_PHRASE}: install it, connect an agent, look up a command or an error.`;
 ---
-<Placeholder title="Docs" description="Relate documentation (coming soon).">
-  <span class="soon">coming soon</span>
-  <h1>Docs</h1>
-  <p class="lead">Guides, API reference and examples for relate will live here.</p>
-  <p>In the meantime, the <a href="/#quickstart">quickstart</a> and <a href="/#reference">reference</a> on the home page cover the essentials, and <a href="/llms.txt">llms.txt</a> is the agent-readable overview.</p>
-</Placeholder>
+<Docs title="Docs" description={description} nav={site.nav} current="" twinHref="/docs/index.md">
+  <header class="doc-head landing-head">
+    <h1>relate docs</h1>
+    <p class="lede">{description}</p>
+    <p class="landing-buttons">
+      {PRIMARY.map((b, i) => {
+        const href = taskHref(b.page, published);
+        return href ? (
+          <a class={`btn${i === 0 ? ' primary' : ''}`} href={href}>{b.text}</a>
+        ) : (
+          <span class="btn is-pending" title="This page is not written yet">{b.text}</span>
+        );
+      })}
+    </p>
+  </header>
+
+  <section class="landing-tasks" aria-labelledby="i-want-to">
+    <h2 id="i-want-to">I want to…</h2>
+    <div class="task-groups">
+      {TASKS.map((g) => (
+        <div class="task-group">
+          <h3>{g.id}</h3>
+          <ul>
+            {g.tasks.map((t) => {
+              const href = taskHref(t.page, published);
+              return <li>{href ? <a href={href}>{t.text}</a> : <span class="is-pending" title="This page is not written yet">{t.text}</span>}</li>;
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class="landing-doors" aria-labelledby="the-sections">
+    <h2 id="the-sections">The sections</h2>
+    <ul class="doors">
+      {SECTIONS.map((s) => {
+        const href = taskHref(s.id, published);
+        return (
+          <li>
+            {href ? <a href={href}>{s.label}</a> : <span class="door-title">{s.label}</span>}
+            <span>{DOORS[s.id]}</span>
+          </li>
+        );
+      })}
+      <li><a href="/cookbook/">Cookbook</a><span>Worked examples, each run against the engine on every build.</span></li>
+    </ul>
+  </section>
+
+  <section class="landing-install" aria-labelledby="install">
+    <h2 id="install">Install</h2>
+    <TabsStrip detect="os" tabs={[{ key: 'macos-linux', label: 'macOS and Linux' }, { key: 'windows', label: 'Windows' }]}>
+      <Fragment slot="macos-linux">
+        <Fragment set:html={code('curl -sSfL https://relatedb.ai/install.sh | bash', 'bash')} />
+        <p>The script checks the release's signed SHA256SUMS and installs nothing if a check fails. It installs to <code>~/.local/bin</code>.</p>
+      </Fragment>
+      <Fragment slot="windows">
+        <p>
+          Download <code>relate-windows-amd64.exe</code> from the {isNotYetPublic(releases) ? 'releases page' : <a href={releases}>releases page</a>}.
+        </p>
+      </Fragment>
+    </TabsStrip>
+  </section>
+
+  <section class="landing-agents" aria-labelledby="for-agents">
+    <h2 id="for-agents">For agents</h2>
+    <p>
+      Point your agent at <a href="/docs/llms.txt">/docs/llms.txt</a>: a facts block, then every page by task. Every page is
+      also markdown: add <code>.md</code> to its URL. <code>relate skill install</code> adds the agent skill to the agents it
+      finds.
+    </p>
+    <p>Add this to your repository's <code>AGENTS.md</code> or <code>CLAUDE.md</code>:</p>
+    <Fragment set:html={code(agentsMd(site.engine.version), 'markdown')} />
+  </section>
+</Docs>

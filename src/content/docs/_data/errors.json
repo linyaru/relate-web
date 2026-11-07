@@ -1,0 +1,1722 @@
+{
+  "$schema_note": "Every error an agent can meet, for /docs/reference/errors and explain_error (DOCS-PLAN.md §2, §8 check 3d). `id` is a stable anchor (#<id>); renaming one needs a redirect. `message` is quoted from upstream character for character; `<name>` marks a variable part and `…` is upstream's own elision. null means the sources do not say. `disputed: true` marks a fact the sources disagree on, with both readings.",
+  "verified": "0.16.1",
+  "upstream": {
+    "repo": "relatedb/relate",
+    "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
+    "read": "2026-11-07"
+  },
+  "cli": [
+    {
+      "id": "cli-validation-error-syntax",
+      "surface": "cli",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Statement.SyntaxError",
+      "message": "syntax error: parse error: unexpected token \"<token>\"",
+      "cause": "The statement does not parse. The error object adds `column` and `source` when the parser reports a position.",
+      "remedy": "Fix the statement at the reported column; a did-you-mean line follows when the first word is close to a command name.",
+      "python_class": "ProgrammingError",
+      "http_status": 400,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/cli/examples/agents.md",
+        "docs/api/bolt/spec.md",
+        "docs/api/python/spec.md",
+        "recorded from the relate CLI built at upstream ac441ec"
+      ],
+      "note": "Another recorded form: `syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)`."
+    },
+    {
+      "id": "cli-validation-error-semantic",
+      "surface": "cli",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
+      "message": "semantic error: <detail>",
+      "cause": "The statement parses but is rejected before it runs: a missing parameter, an unknown namespace, a write on a read-only open, and similar.",
+      "remedy": "Read the detail after `semantic error:`; the typed engine errors (ParameterMissing, DatabaseNotFound and others) have their own entries.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/bolt/spec.md",
+        "docs/api/python/spec.md"
+      ]
+    },
+    {
+      "id": "cli-validation-error-argument",
+      "surface": "cli",
+      "code": "validation_error",
+      "kind": "argument",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.General.InvalidArguments",
+      "message": null,
+      "cause": "An argument value is rejected, for example a DDL `OPTIONS`/`indexConfig` value.",
+      "remedy": "Correct the rejected value.",
+      "python_class": "DataError",
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/bolt/spec.md",
+        "surfaces/relate-python/python/relate/exceptions.py"
+      ]
+    },
+    {
+      "id": "cli-validation-error-type",
+      "surface": "cli",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "22G03",
+      "neo4j_code": "Neo.ClientError.Statement.TypeError",
+      "message": "type error: <detail>",
+      "cause": "A value has the wrong type for the operation.",
+      "remedy": "Convert or check the value's type in the statement.",
+      "python_class": "DataError",
+      "http_status": 400,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/http/spec.md § Error envelope",
+        "docs/api/bolt/spec.md",
+        "surfaces/relate-python/python/relate/exceptions.py"
+      ]
+    },
+    {
+      "id": "cli-fatal-error-execution",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": null,
+      "cause": "A query execution failure discovered while producing rows.",
+      "remedy": "Read the message; execution failures are not retryable.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors"
+      ]
+    },
+    {
+      "id": "cli-conflict-conflict",
+      "surface": "cli",
+      "code": "conflict",
+      "kind": "conflict",
+      "exit_code": 5,
+      "retryable": true,
+      "gql_status": null,
+      "neo4j_code": "Neo.TransientError.Transaction.Outdated",
+      "message": "write-write conflict",
+      "cause": "Two transactions wrote the same data; the later one lost.",
+      "remedy": "Re-run the statement in a fresh transaction. This is the only retryable error.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/bolt/spec.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "cli-conflict-locked",
+      "surface": "cli",
+      "code": "conflict",
+      "kind": "locked",
+      "exit_code": 5,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.DatabaseError.General.UnknownError",
+      "message": "storage locked: <path>",
+      "cause": "Another process holds the store: a persistent store takes exclusive ownership of its directory and WAL, or its `.rl` file, at open.",
+      "remedy": "Close the other opener, or open with `--read-only` (a directory store can be read beside its writer; a `.rl` file only while no writer holds it). Not retryable until the other opener exits.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "docs/api/cli/spec.md § Query-run errors",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
+        "recorded from the relate CLI built at upstream ac441ec"
+      ],
+      "note": "The envelope's `message` is `storage locked: <path>`; stderr prints `Failed to open Relate: storage locked: <path>`."
+    },
+    {
+      "id": "cli-fatal-error-capacity",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "capacity",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.General.TransactionOutOfMemoryError",
+      "message": "capacity exceeded: used=… limit=…",
+      "cause": "A memory or capacity limit refused the work: the `--logical-graph-size-limit` cap, the per-allocation expression cap, or the 64 MiB per-record WAL payload cap.",
+      "remedy": "Raise the named limit, or commit the data in smaller transactions.",
+      "python_class": "DataError",
+      "http_status": 507,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/bolt/spec.md",
+        "docs/api/python/spec.md § Error mapping for namespace errors",
+        "docs/api/rust/errors.md"
+      ]
+    },
+    {
+      "id": "cli-fatal-error-storage",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "storage",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.DatabaseError.General.UnknownError",
+      "message": null,
+      "cause": "A storage failure, for example a corrupt snapshot or an unsupported stored value encoding at open.",
+      "remedy": "Restore from a backup clone; do not copy a snapshot without its WAL.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/rust/spec.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "cli-fatal-error-io",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "io",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.DatabaseError.General.UnknownError",
+      "message": null,
+      "cause": "An operating-system I/O failure, including a full disk.",
+      "remedy": "Check the path, permissions and free space.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors"
+      ]
+    },
+    {
+      "id": "cli-fatal-error-internal",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "internal",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": "50N42",
+      "neo4j_code": "Neo.DatabaseError.General.UnknownError",
+      "message": "internal error",
+      "cause": "An engine invariant failed; not the statement's fault.",
+      "remedy": "Report it with `relate --version` and the statement.",
+      "python_class": "InternalError",
+      "http_status": 500,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/bolt/spec.md",
+        "docs/api/http/spec.md § Error envelope",
+        "surfaces/relate-python/python/relate/exceptions.py"
+      ]
+    },
+    {
+      "id": "cli-timeout",
+      "surface": "cli",
+      "code": "timeout",
+      "kind": "execution",
+      "exit_code": 7,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: query timed out after <duration>",
+      "cause": "A statement ran longer than `--timeout`.",
+      "remedy": "Bound the work with `LIMIT` or a narrower pattern, or raise `--timeout`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/cli/spec.md § Query-engine flags",
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
+        "surfaces/relate-cli/src/errors.rs (kind execution)",
+        "surfaces/relate-cli/src/help/options.rs and agent_context_cmd.rs at upstream ac441ec (`--timeout` in --help, exit 7 in agent-context)"
+      ]
+    },
+    {
+      "id": "cli-usage-error",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: unknown flag: <flag>",
+      "cause": "A parser usage error: unknown flag, bad or missing value, extra positional. stderr carries the `Error:` line, the command's `Usage:` line and a `--help` hint; a close match adds `Did you mean '<flag>'?`.",
+      "remedy": "Run `relate <command> --help`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Help and usage errors"
+      ]
+    },
+    {
+      "id": "cli-command-not-included",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: the '<command>' command is not included in this build of relate",
+      "cause": "The command's feature is not compiled into this build bundle (release binaries are the full bundle).",
+      "remedy": "Use a full build.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/reference/cli-flags.md § Lifecycle commands"
+      ]
+    },
+    {
+      "id": "cli-invalid-param",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid --param value: parameter <name>: …",
+      "cause": "A `--param` value that looks like JSON does not parse, is a non-finite number, or is an integer above i64::MAX.",
+      "remedy": "Quote JSON values; JSON-quote a date that starts with digits.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-invalid-namespace",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid --namespace: unknown namespace '<name>' (expected neo4j, system or system_ontologies)",
+      "cause": "`--namespace` names something other than the three fixed namespaces.",
+      "remedy": "Use `neo4j`, `system` or `system_ontologies`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-pull-namespace",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --namespace is not valid with pull (pull always writes the neo4j namespace)",
+      "cause": "`--namespace` placed before the `pull` verb.",
+      "remedy": "Drop `--namespace`; pull always writes `neo4j`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-max-rows",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_MAX_ROWS: …",
+      "cause": "`RELATE_MAX_ROWS` is not a non-negative integer.",
+      "remedy": "Set an integer; `0` is unlimited.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-agent-mode",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_AGENT_MODE: …",
+      "cause": "`RELATE_AGENT_MODE` is not `1` or `0`.",
+      "remedy": "Set `1` or `0`, or unset it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-durability-mode",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_DURABILITY_MODE: …",
+      "cause": "`RELATE_DURABILITY_MODE` is not `full`, `everysecond` or `snapshot`.",
+      "remedy": "Use one of the three values.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-safe-mode",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_SAFE_MODE: '<v>' is not 1 or 0",
+      "cause": "`RELATE_SAFE_MODE` is not `1` or `0`.",
+      "remedy": "Set `1` or `0`, or unset it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-logical-graph-size-limit",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_LOGICAL_GRAPH_SIZE_LIMIT: …",
+      "cause": "The value does not parse as a size.",
+      "remedy": "Use bytes or mb/mib/gb/gib; `0` is unlimited.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-expression-memory-limit",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_EXPRESSION_MEMORY_LIMIT: …",
+      "cause": "The value does not parse as a size.",
+      "remedy": "Use a size, or `none`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-concurrent-logical-workspace-limit",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT: must be positive",
+      "cause": "The variable is `0`; a value that does not parse prints `Error: invalid RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT: …` instead.",
+      "remedy": "Use a positive size, or unset it to leave admission off.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-max-traversal-depth",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid RELATE_MAX_TRAVERSAL_DEPTH: …",
+      "cause": "`0`, a value over 2000, or a non-integer.",
+      "remedy": "Use an integer from 1 to 2000.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-invalid-env-preview",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: …: invalid RELATE_PREVIEW value: unknown preview feature '<name>' (known features: …)",
+      "cause": "`RELATE_PREVIEW` names a feature the engine does not know; the open fails closed.",
+      "remedy": "Use a name from the known-features list in the message.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "cli-final-checkpoint-failed",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: final checkpoint failed: <reason>",
+      "cause": "The checkpoint every persistent run takes on exit failed, for example on a full disk. A non-zero statement exit code is kept instead.",
+      "remedy": "Free disk space and check permissions; read-only runs also rewrite the snapshot on exit.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "docs/reference/cli-flags.md § Exit codes"
+      ]
+    },
+    {
+      "id": "cli-open-transaction-at-exit",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.",
+      "cause": "A `.begin` transaction was still open at exit. One-shot and piped runs exit 1; the interactive shell keeps exit 0.",
+      "remedy": "End the script with `.commit` (or `.rollback`).",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-stdin-read-error",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: could not read query input from stdin: <reason>",
+      "cause": "Piped stdin could not be read, including invalid UTF-8; nothing runs.",
+      "remedy": "Pipe valid UTF-8.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-load-csv-unavailable",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "LOAD CSV file unavailable",
+      "cause": "A `LOAD CSV` path escapes the configured root, is a symlink escape or a special file, or local files are denied (no `--load-csv-dir`).",
+      "remedy": "Pass `--load-csv-dir <dir>` and keep files under it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-load-csv-byte-limit",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "LOAD CSV file exceeds byte limit",
+      "cause": "The CSV file is over 8,388,608 bytes.",
+      "remedy": "Split the file; the limit cannot be raised from the CLI.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags"
+      ]
+    },
+    {
+      "id": "cli-parquet-not-compiled",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "parquet snapshot codec is not compiled into this build (enable the \"parquet\" feature)",
+      "cause": "`--snapshot-format parquet` in a build without the parquet feature.",
+      "remedy": "Use `--snapshot-format json`, or a full build.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/reference/cli-flags.md § Options"
+      ]
+    },
+    {
+      "id": "cli-skill-refusing-to-touch",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: skill: refusing to touch <dest>: no .relate-installed marker present (directory was not created by relate); pass --force to override",
+      "cause": "The skills destination exists and was not written by relate.",
+      "remedy": "Move the directory, or pass `--force` to overwrite it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Lifecycle commands",
+        "docs/reference/cli-flags.md"
+      ]
+    },
+    {
+      "id": "cli-skill-unknown-agent",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: skill: unknown agent: '<name>'",
+      "cause": "`--agent` names an agent the CLI does not know; a second line lists the valid agents.",
+      "remedy": "Use a name from the `valid agents:` line.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Help and usage errors"
+      ]
+    },
+    {
+      "id": "cli-row-cap-warning",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 0,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows",
+      "cause": "Not an error. The row cap cut the printed rows (100 by default under a detected agent harness with stdout not a terminal). The counts in the message vary.",
+      "remedy": "Pass `--max-rows 0` for all rows, or bound the work with `LIMIT`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Row cap"
+      ],
+      "severity": "warning"
+    },
+    {
+      "id": "cli-write-changed-nothing",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 0,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "note: write statement changed nothing; the graph is unchanged",
+      "cause": "Not an error. A write statement applied nothing, often because a zero-row `MATCH` short-circuited it. A transaction that persisted nothing prints `note: .commit changed nothing …`.",
+      "remedy": "Grep stderr for the prefix `note: write statement`; the exit code stays 0.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ],
+      "severity": "notice"
+    }
+  ],
+  "engine": [
+    {
+      "id": "engine-parameter-missing",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "42N02",
+      "neo4j_code": "Neo.ClientError.Statement.ParameterMissing",
+      "message": "semantic error: ParameterMissing: Expected parameter(s): <names>",
+      "cause": "The statement references a parameter that was not supplied; it is never bound as null.",
+      "remedy": "Bind every referenced parameter (`--param N=V`, or the params map of the client).",
+      "python_class": "ProgrammingError",
+      "http_status": 400,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/python/spec.md § Parameters",
+        "docs/api/http/spec.md § Error envelope",
+        "docs/api/cli/spec.md § Query-engine flags",
+        "surfaces/relate-cli/src/errors.rs"
+      ]
+    },
+    {
+      "id": "engine-database-not-found",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "42N00",
+      "neo4j_code": "Neo.ClientError.Database.DatabaseNotFound",
+      "message": "semantic error: DatabaseNotFound: Graph not found: <name>",
+      "cause": "A session namespace or a `USE` target is not one of `neo4j`, `system`, `system_ontologies`.",
+      "remedy": "Use one of the three fixed namespaces.",
+      "python_class": "OperationalError",
+      "http_status": 404,
+      "note": "Bolt sends the live Community Edition wire status 42001 with a 42N00 cause.",
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/python/spec.md",
+        "docs/api/http/spec.md",
+        "docs/api/bolt/spec.md",
+        "docs/api/c/spec.md",
+        "docs/limitations.md",
+        "surfaces/relate-cli/src/errors.rs"
+      ]
+    },
+    {
+      "id": "engine-undefined-variable",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Statement.SyntaxError",
+      "message": "syntax error: UndefinedVariable: variable '<name>' not defined",
+      "cause": "A variable has no binding in scope; an unbound variable never evaluates to null.",
+      "remedy": "Bind the variable in an earlier clause or carry it through `WITH`.",
+      "python_class": "ProgrammingError",
+      "http_status": null,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-division-by-zero",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "22G03",
+      "neo4j_code": "Neo.ClientError.Statement.ArithmeticError",
+      "message": "type error: / by zero",
+      "cause": "Integer division by zero. Modulo by zero renders `% by zero`.",
+      "remedy": "Guard the divisor.",
+      "python_class": null,
+      "http_status": 400,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/c/spec.md",
+        "docs/api/bolt/spec.md",
+        "docs/api/http/spec.md",
+        "surfaces/relate-cli/src/errors.rs"
+      ]
+    },
+    {
+      "id": "engine-rounding-necessary",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Statement.ArithmeticError",
+      "message": "ArithmeticError: rounding necessary",
+      "cause": "`round(x, p, 'UNNECESSARY')` on a value that needs rounding.",
+      "remedy": "Use another rounding mode.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-cancelled",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Transaction.TransactionTimedOut",
+      "message": "query cancelled",
+      "cause": "The statement was stopped through its cancel token, for example when the Bolt `--query-timeout-secs` bound expired.",
+      "remedy": "Bound the work, or raise the timeout.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-wal-payload-cap",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "capacity",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.General.TransactionOutOfMemoryError",
+      "message": "This statement tried to commit a single WAL record of at least <used>. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is <limit>; commit the data in smaller transactions.",
+      "cause": "A single commit record is over the 64 MiB per-record WAL payload cap; nothing is written.",
+      "remedy": "Commit the data in smaller transactions.",
+      "python_class": "DataError",
+      "http_status": 507,
+      "sources": [
+        "docs/api/rust/errors.md",
+        "docs/api/python/spec.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-graph-size-cap",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "capacity",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.General.TransactionOutOfMemoryError",
+      "message": "capacity exceeded: used=… limit=…",
+      "cause": "A growing write crossed `--logical-graph-size-limit`.",
+      "remedy": "Raise the limit or reduce the graph.",
+      "python_class": "DataError",
+      "http_status": null,
+      "sources": [
+        "docs/api/bolt/spec.md",
+        "docs/api/python/spec.md"
+      ]
+    },
+    {
+      "id": "engine-system-ontologies-not-queryable",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": null,
+      "exit_code": 6,
+      "retryable": null,
+      "gql_status": "42N17",
+      "neo4j_code": null,
+      "message": "This database is not queryable. Use the db.ontology.* procedures on the user database 'neo4j' instead.",
+      "cause": "A statement other than an administration command was routed to `system_ontologies`, reads included.",
+      "remedy": "Run `CALL db.ontology.get()` on `neo4j` with `RELATE_PREVIEW=ontology` set.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "sources": [
+        "docs/api/rust/spec.md",
+        "docs/reference/cli-flags.md § Options",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
+        "docs/limitations.md",
+        "docs/api/c/spec.md"
+      ]
+    },
+    {
+      "id": "engine-system-ontologies-write",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N18",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "A write against the read-only `system_ontologies` namespace.",
+      "remedy": "Write on `neo4j`; the ontology is set through `db.ontology.*`.",
+      "python_class": null,
+      "http_status": 400,
+      "sources": [
+        "docs/api/http/spec.md § Error envelope"
+      ]
+    },
+    {
+      "id": "engine-unsupported-administration-command",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "51N27",
+      "neo4j_code": null,
+      "message": "Unsupported administration command: <statement>",
+      "cause": "A database administration command beyond `SHOW DATABASE[S]`, `SHOW DEFAULT/HOME DATABASE` and `ALTER DATABASE … SET DEFAULT LANGUAGE CYPHER 5|25`.",
+      "remedy": "A store has three fixed namespaces; there is nothing to create, drop or alias.",
+      "python_class": "NotSupportedError",
+      "http_status": 400,
+      "sources": [
+        "docs/limitations.md",
+        "docs/api/http/spec.md",
+        "docs/api/python/spec.md"
+      ]
+    },
+    {
+      "id": "engine-use-on-administration-command",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N79",
+      "neo4j_code": null,
+      "message": "The `USE` clause is not required for administration commands. Retry your query without the `USE` clause, and it will be routed automatically.",
+      "cause": "An explicit `USE` targeting a non-system namespace on an administration command.",
+      "remedy": "Drop the `USE` clause.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/limitations.md"
+      ]
+    },
+    {
+      "id": "engine-with-on-system",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "The following clauses are not allowed on a system database: WITH.",
+      "cause": "A `WITH` composing an administration command routed to `system`.",
+      "remedy": "Run the administration command without composing it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/limitations.md"
+      ]
+    },
+    {
+      "id": "engine-composite-only-function",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N72",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "`graph.byName`, `graph.names` or `graph.propertiesByName`, which are composite-only.",
+      "remedy": "A statement runs against one graph; query each store separately.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/limitations.md"
+      ]
+    },
+    {
+      "id": "engine-multiple-use-targets",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42NA5",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Several distinct `USE` targets in one statement (across `UNION` arms, `CALL` subqueries or `NEXT`).",
+      "remedy": "Use one target per statement.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/limitations.md"
+      ]
+    },
+    {
+      "id": "engine-unknown-function",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N48",
+      "neo4j_code": null,
+      "message": "UnknownFunction: <name>",
+      "cause": "The function name is unknown, or it is a preview function whose gate is off.",
+      "remedy": "Check the name with `SHOW FUNCTIONS`; preview functions need `RELATE_PREVIEW`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment"
+      ]
+    },
+    {
+      "id": "engine-preview-feature-not-enabled",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>",
+      "cause": "A gated preview feature was used while disabled. For ontology the full text is `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology`.",
+      "remedy": "Set `RELATE_PREVIEW=<name>` in the environment of the process that opens the store.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Environment",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ]
+    },
+    {
+      "id": "engine-safe-mode-violation",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "42N06",
+      "neo4j_code": "Neo.ClientError.Statement.SyntaxError",
+      "message": "syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>`, or return an aggregate such as `count(*)`, so the read has a bounded result. This is a policy, not a database limit; reopen without --safe to allow it.",
+      "cause": "Safe mode (`--safe`) refused a new named node without a label, or a `MATCH` read whose final `RETURN`/`WITH` has no `LIMIT` and no reducing aggregate (`collect()` does not count).",
+      "remedy": "Add the label, or add a `LIMIT`.",
+      "python_class": null,
+      "http_status": 400,
+      "name": "SafeModeViolation",
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "docs/api/rust/spec.md",
+        "docs/limitations.md",
+        "docs/api/bolt/spec.md",
+        "recorded from the relate CLI built at upstream ac441ec"
+      ],
+      "note": "The message above is the unbounded-read refusal; an unlabeled new node gets its own message."
+    },
+    {
+      "id": "engine-traversal-depth-exceeded",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": "42N06",
+      "neo4j_code": "Neo.ClientError.Statement.SyntaxError",
+      "message": null,
+      "cause": "An explicit `*1..N` or `{1,N}` bound is above `--max-traversal-depth` (default 500).",
+      "remedy": "Lower the bound, or raise `--max-traversal-depth` (at most 2000).",
+      "python_class": null,
+      "http_status": 400,
+      "name": "TraversalDepthExceeded",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-nested-evaluation-budget",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
+      "message": "NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level (security budget).",
+      "cause": "Nested subqueries, conditional branches and `FOREACH` lists would exceed 100,000 evaluation passes in one statement.",
+      "remedy": "Flatten the nesting or split the statement.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/rust/spec.md",
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "engine-write-on-read-only",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": null,
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.",
+      "cause": "A write on a store opened `--read-only` (or an ephemeral `--load` into `:memory:`).",
+      "remedy": "Reopen without `--read-only` when the write is intended.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "name": "WriteOnReadOnlyAccessDatabase",
+      "note": "The Bolt server's message is `database is read-only`.",
+      "sources": [
+        "docs/api/cli/spec.md § Loading a store from a source",
+        "docs/api/cli/spec.md § Query-run errors",
+        "docs/api/python/spec.md",
+        "docs/api/bolt/spec.md",
+        "recorded from the relate CLI built at upstream ac441ec"
+      ]
+    },
+    {
+      "id": "engine-uniqueness-violation",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Schema.ConstraintValidationFailed",
+      "message": null,
+      "cause": "A write violates a uniqueness constraint.",
+      "remedy": "Use `MERGE` on the constrained key, or fix the duplicate.",
+      "python_class": "IntegrityError",
+      "http_status": null,
+      "sources": [
+        "docs/api/bolt/spec.md",
+        "surfaces/relate-python/python/relate/exceptions.py"
+      ]
+    },
+    {
+      "id": "engine-namespace-change-in-transaction",
+      "surface": "python",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Cannot change the namespace while a transaction is open.",
+      "cause": "`Connection.set_namespace` with a transaction open.",
+      "remedy": "Commit or roll back first.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "sources": [
+        "docs/api/python/spec.md § Session namespace"
+      ]
+    }
+  ],
+  "http": [
+    {
+      "id": "http-unauthorized",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42NFF",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Missing or wrong credential.",
+      "remedy": "Send `Authorization: Basic` with the `serve` credential (the generated token is printed at startup).",
+      "python_class": null,
+      "http_status": 401,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-not-found",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N00",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Unknown `{databaseName}`, or any unknown route.",
+      "remedy": "Use `neo4j` or `system`.",
+      "python_class": null,
+      "http_status": 404,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-transaction-expired",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N90",
+      "neo4j_code": null,
+      "message": "transaction <id> expired after <n>s idle",
+      "cause": "A managed transaction sat idle past `--tx-idle-timeout-secs`.",
+      "remedy": "Begin a new transaction; raise the idle timeout if needed.",
+      "python_class": null,
+      "http_status": 404,
+      "note": "Message pattern from the recorded example `transaction tx-7 expired after 60s idle`.",
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-transaction-registry-full",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N91",
+      "neo4j_code": null,
+      "message": "transaction registry full: 128 open transactions (close one or raise --max-open-transactions)",
+      "cause": "A begin over the `--max-open-transactions` cap. The count in the message is the configured cap.",
+      "remedy": "Close an open transaction or raise the cap.",
+      "python_class": null,
+      "http_status": 429,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-malformed-or-syntax",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42N06",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Malformed request body, or a Cypher syntax error.",
+      "remedy": "Fix the body or the statement.",
+      "python_class": null,
+      "http_status": 400,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-general",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42000",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Any other caller-facing engine error, undecodable `parameters`, or (with 405) a wrong method; with 500, an IO, storage or locked failure, genericized.",
+      "remedy": "Read the message.",
+      "python_class": null,
+      "http_status": 400,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-internal",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "50N42",
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Engine-internal error; the message is genericized.",
+      "remedy": "Report it with the server version.",
+      "python_class": null,
+      "http_status": 500,
+      "sources": [
+        "docs/api/http/spec.md"
+      ]
+    }
+  ],
+  "bolt": [
+    {
+      "id": "bolt-unauthorized",
+      "surface": "bolt",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Security.Unauthorized",
+      "message": "The client is unauthorized due to authentication failure.",
+      "cause": "A failed or missing auth token; the connection closes.",
+      "remedy": "Use the `serve` credential.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "bolt-request-invalid",
+      "surface": "bolt",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.Request.Invalid",
+      "message": null,
+      "cause": "A malformed message: a RUN without a string statement, a bad PULL/DISCARD `n` or `qid`, an unconvertible parameter, a HELLO without `user_agent`, or a protocol breach.",
+      "remedy": "Use a supported Neo4j driver.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/bolt/spec.md"
+      ]
+    },
+    {
+      "id": "bolt-result-too-large",
+      "surface": "bolt",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": "Neo.ClientError.General.TransactionOutOfMemoryError",
+      "message": "query result exceeds max-result-bytes limit of <N> bytes",
+      "cause": "A result over `--max-result-bytes` (default 256 MiB).",
+      "remedy": "Add `LIMIT` or page the result.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/bolt/spec.md"
+      ]
+    }
+  ],
+  "mcp": [
+    {
+      "id": "mcp-read-query-only",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Only MATCH queries are allowed for read-query",
+      "cause": "`read_cypher` received a write (`w`/`rw`) or schema DDL (`s`) statement. Any pure read passes, `OPTIONAL MATCH` included.",
+      "remedy": "Use `write_cypher` for writes, where the server lists it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-write-query-only",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Only write queries are allowed for write-query",
+      "cause": "`write_cypher` received a read-only statement.",
+      "remedy": "Use `read_cypher`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "`write_cypher` is absent when the store is opened `--read-only`.",
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-internal-error",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: internal error",
+      "cause": "An internal-class engine failure (engine-internal, IO, storage, locked); detail is genericized so it never reaches tool-call logs.",
+      "remedy": "Check the server's own stderr.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-method-not-found",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Unknown JSON-RPC method.",
+      "remedy": "Use `initialize`, `ping`, `tools/list` or `tools/call`.",
+      "python_class": null,
+      "http_status": null,
+      "jsonrpc_code": -32601,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-invalid-params",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": null,
+      "cause": "Malformed `tools/call` params.",
+      "remedy": "Match the tool's input schema.",
+      "python_class": null,
+      "http_status": null,
+      "jsonrpc_code": -32602,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-parse-error",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "malformed JSON-RPC message: <detail>",
+      "cause": "A body that is not JSON, omits `jsonrpc` or `method`, or carries an unknown member.",
+      "remedy": "Send a strict JSON-RPC 2.0 message.",
+      "python_class": null,
+      "http_status": null,
+      "jsonrpc_code": -32700,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-unsupported-version",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "unsupported JSON-RPC version '<version>'",
+      "cause": "A `jsonrpc` version other than `2.0`.",
+      "remedy": "Send `\"jsonrpc\": \"2.0\"`.",
+      "python_class": null,
+      "http_status": null,
+      "jsonrpc_code": -32600,
+      "sources": [
+        "docs/api/mcp/spec.md"
+      ]
+    }
+  ],
+  "python": {
+    "hierarchy": [
+      {
+        "id": "py-error",
+        "class": "Error",
+        "alias": "RelateError",
+        "parent": "Exception",
+        "meaning": "Base of every relate database error."
+      },
+      {
+        "id": "py-interface-error",
+        "class": "InterfaceError",
+        "parent": "Error",
+        "meaning": "Native module communication."
+      },
+      {
+        "id": "py-database-error",
+        "class": "DatabaseError",
+        "parent": "Error",
+        "meaning": "Fallback for an unmapped engine error."
+      },
+      {
+        "id": "py-data-error",
+        "class": "DataError",
+        "parent": "DatabaseError",
+        "meaning": "Bad type or value; every capacity refusal (kind MemoryLimitExceeded); an out-of-range int parameter."
+      },
+      {
+        "id": "py-operational-error",
+        "class": "OperationalError",
+        "parent": "DatabaseError",
+        "meaning": "Open, I/O, transaction; namespace errors; writes on a read-only database."
+      },
+      {
+        "id": "py-integrity-error",
+        "class": "IntegrityError",
+        "parent": "DatabaseError",
+        "meaning": "Constraint violations and deleting a still-connected node without DETACH."
+      },
+      {
+        "id": "py-internal-error",
+        "class": "InternalError",
+        "parent": "DatabaseError",
+        "meaning": "An engine invariant the caller cannot fix."
+      },
+      {
+        "id": "py-programming-error",
+        "class": "ProgrammingError",
+        "parent": "DatabaseError",
+        "meaning": "Syntax errors, missing parameters, parameter-shape mistakes, closed connections, wrong-thread use."
+      },
+      {
+        "id": "py-not-supported-error",
+        "class": "NotSupportedError",
+        "parent": "DatabaseError",
+        "meaning": "Unsupported administration commands."
+      },
+      {
+        "id": "py-result-not-single-error",
+        "class": "ResultNotSingleError",
+        "parent": "ProgrammingError",
+        "meaning": "`cursor.single()` got zero rows or more than one."
+      }
+    ],
+    "attributes": [
+      "kind",
+      "tck_class",
+      "neo4j_code",
+      "gql_status",
+      "stage",
+      "retryable"
+    ],
+    "kind_mapping": [
+      {
+        "kind": "DatabaseNotFound",
+        "class": "OperationalError"
+      },
+      {
+        "kind": "WriteOnReadOnlyAccessDatabase",
+        "class": "OperationalError"
+      },
+      {
+        "kind": "UnsupportedAdministrationCommand",
+        "class": "NotSupportedError"
+      },
+      {
+        "kind": "TransactionError",
+        "class": "OperationalError"
+      },
+      {
+        "kind": "WrongThread",
+        "class": "ProgrammingError"
+      },
+      {
+        "kind": "MemoryLimitExceeded",
+        "tck_class": "ArgumentError",
+        "class": "DataError"
+      },
+      {
+        "kind": "ParameterMissing",
+        "class": "ProgrammingError"
+      }
+    ],
+    "messages": [
+      "query parameters must be a dict …",
+      "… keys must be strings …"
+    ],
+    "sources": [
+      "docs/api/python/spec.md",
+      "surfaces/relate-python/python/relate/exceptions.py",
+      "surfaces/relate-cli/src/skill/bundle/references/client-python.md",
+      "settled on surfaces/relate-python/python/relate/exceptions.py at upstream ac441ec: a syntax error raises ProgrammingError; RelateError is an alias of Error"
+    ]
+  },
+  "notifications": [
+    {
+      "id": "notif-03n90",
+      "gql_status": "03N90",
+      "code": "Neo.ClientNotification.Statement.CartesianProduct",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE",
+      "title": "Cartesian product"
+    },
+    {
+      "id": "notif-03n91",
+      "gql_status": "03N91",
+      "code": "Neo.ClientNotification.Statement.UnboundedVariableLengthPattern",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE"
+    },
+    {
+      "id": "notif-01n50",
+      "gql_status": "01N50",
+      "code": "Neo.ClientNotification.Statement.UnknownLabelWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED"
+    },
+    {
+      "id": "notif-01n51",
+      "gql_status": "01N51",
+      "code": "Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED"
+    },
+    {
+      "id": "notif-01n52",
+      "gql_status": "01N52",
+      "code": "Neo.ClientNotification.Statement.UnknownPropertyKeyWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED"
+    },
+    {
+      "id": "notif-01n00",
+      "gql_status": "01N00",
+      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
+      "name": "CallSubqueryWithoutScope",
+      "category": "DEPRECATION"
+    },
+    {
+      "id": "notif-01n01",
+      "gql_status": "01N01",
+      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
+      "name": "DeprecatedFunction / DeprecatedProcedure",
+      "category": "DEPRECATION"
+    },
+    {
+      "id": "notif-03c90",
+      "gql_status": "03C90",
+      "code": "Relate.Notification.Statement.AllNodesScan",
+      "category": "PERFORMANCE"
+    },
+    {
+      "id": "notif-03c91",
+      "gql_status": "03C91",
+      "code": "Relate.Notification.Statement.MissingIndex",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE"
+    },
+    {
+      "id": "notif-03c92",
+      "gql_status": "03C92",
+      "code": "Relate.Notification.Statement.EagerAggregation",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE"
+    },
+    {
+      "id": "notif-03c93",
+      "gql_status": "03C93",
+      "name": "EstimationMiss",
+      "category": "PERFORMANCE",
+      "note": "PROFILE only."
+    }
+  ],
+  "gql_status_index": {
+    "22G03": [
+      "cli-validation-error-type",
+      "engine-division-by-zero"
+    ],
+    "42000": [
+      "http-general"
+    ],
+    "42N00": [
+      "engine-database-not-found",
+      "http-not-found"
+    ],
+    "42N02": [
+      "engine-parameter-missing"
+    ],
+    "42N06": [
+      "engine-safe-mode-violation",
+      "engine-traversal-depth-exceeded",
+      "http-malformed-or-syntax"
+    ],
+    "42N17": [
+      "engine-system-ontologies-not-queryable"
+    ],
+    "42N18": [
+      "engine-system-ontologies-write"
+    ],
+    "42N48": [
+      "engine-unknown-function"
+    ],
+    "42N72": [
+      "engine-composite-only-function"
+    ],
+    "42N79": [
+      "engine-use-on-administration-command"
+    ],
+    "42N90": [
+      "http-transaction-expired"
+    ],
+    "42N91": [
+      "http-transaction-registry-full"
+    ],
+    "42NA5": [
+      "engine-multiple-use-targets"
+    ],
+    "42NFF": [
+      "http-unauthorized"
+    ],
+    "50N42": [
+      "cli-fatal-error-internal",
+      "http-internal"
+    ],
+    "51N27": [
+      "engine-unsupported-administration-command"
+    ]
+  }
+}

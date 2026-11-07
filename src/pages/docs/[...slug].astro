@@ -1,0 +1,94 @@
+---
+// A docs page: src/content/docs/<id>.mdx at /docs/<id>/. Its constructs are
+// rendered by the remark pipeline (src/lib/docs/remark.ts); its markdown twin
+// is /docs/<id>.md ([...slug].md.ts).
+import { render } from 'astro:content';
+
+import Errors from '../../components/docs/Errors.astro';
+import Install from '../../components/docs/Install.astro';
+import PageActions from '../../components/docs/PageActions.astro';
+import Docs from '../../layouts/Docs.astro';
+import { resolveHref } from '../../lib/docs/links.ts';
+import { pageUrl } from '../../lib/docs/model.ts';
+import { breadcrumb, humanize, prevNext } from '../../lib/docs/nav.ts';
+import { docsSite, type DocsPage } from '../../lib/docs/site.ts';
+
+export async function getStaticPaths() {
+  const site = await docsSite();
+  return site.pages.map((page) => ({ params: { slug: page.id }, props: { page } }));
+}
+
+interface Props { page: DocsPage }
+const { page } = Astro.props;
+const site = await docsSite();
+const { Content, headings } = await render(page.entry);
+const data = page.entry.data;
+const crumbs = breadcrumb(site.nav, page.id);
+const { prev, next } = prevNext(site.nav, page.id);
+
+// A prerequisite or related entry (`get-started/install`, `reference/x#anchor`,
+// `cookbook/<slug>`) as a link, or as text when its page does not exist yet.
+const ref = (r: string) => {
+  const [path, hash] = r.split('#');
+  const href = resolveHref(`/${path.startsWith('cookbook/') ? `${path}/` : `docs/${path}`}${hash ? `#${hash}` : ''}`, site.links);
+  const target = site.byId.get(path);
+  const label = target ? target.entry.data.title : path.startsWith('cookbook/') ? `Cookbook: ${humanize(path.slice(9))}` : path;
+  return { href, label };
+};
+const prerequisites = data.prerequisites.map(ref);
+const related = data.related.map(ref);
+const editUrl = `https://github.com/relatedb/relate-web/blob/main/${page.entry.filePath}`;
+const showEdit = resolveHref(editUrl, site.links) !== null;
+---
+<Docs title={data.title} description={data.description ?? ''} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl}>
+  <nav class="breadcrumb" aria-label="Breadcrumb" data-pagefind-ignore>
+    <ol>
+      {crumbs.map((c) => <li>{c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}</li>)}
+    </ol>
+  </nav>
+  <header class="doc-head">
+    <h1>{data.title}</h1>
+    <p class="lede">{data.description}</p>
+    {(data.status === 'preview' || data.since || data.surfaces.length > 0) && (
+      <p class="doc-badges" data-pagefind-ignore>
+        {data.status === 'preview' && <span class="badge badge-status" data-status="preview">preview</span>}
+        {data.since && <span class="badge badge-since">since {data.since}</span>}
+        {data.surfaces.map((s) => <span class="badge badge-surface">{s}</span>)}
+      </p>
+    )}
+    <PageActions twinHref={page.twinUrl} verified={site.engine.verified} />
+  </header>
+  {prerequisites.length > 0 && (
+    <p class="doc-prereqs">
+      <strong>Before you start:</strong>{' '}
+      {prerequisites.map((p, i) => (
+        <>{i > 0 && ', '}{p.href ? <a href={p.href}>{p.label}</a> : <span>{p.label}</span>}</>
+      ))}
+    </p>
+  )}
+  <div class="docs-body">
+    <Content components={{ Install, Errors }} />
+  </div>
+  {related.length > 0 && (
+    <section class="doc-related" data-pagefind-ignore>
+      <h2 id="related">Related</h2>
+      <ul>
+        {related.map((r) => <li>{r.href ? <a href={r.href}>{r.label}</a> : <span>{r.label}</span>}</li>)}
+      </ul>
+    </section>
+  )}
+  {(prev || next) && (
+    <nav class="prev-next" aria-label="Previous and next" data-pagefind-ignore>
+      {prev ? <a class="prev" href={pageUrl(prev.id)}><span>Previous</span>{prev.label}</a> : <span></span>}
+      {next && <a class="next" href={pageUrl(next.id)}><span>Next</span>{next.label}</a>}
+    </nav>
+  )}
+  <footer class="doc-foot" data-pagefind-ignore>
+    <span>Verified against relate {site.engine.verified} · Updated {page.lastUpdated}</span>
+    <span class="links">
+      <a href={page.twinUrl}>Markdown</a>
+      <a href="/docs/llms.txt">llms.txt</a>
+      {showEdit && <a href={editUrl}>Edit on GitHub</a>}
+    </span>
+  </footer>
+</Docs>

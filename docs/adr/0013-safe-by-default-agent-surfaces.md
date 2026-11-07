@@ -1,0 +1,93 @@
+# ADR-0013: Agent-facing surfaces are safe by default and docs content is data
+
+Status: Accepted
+
+Date: 2026-11-07
+
+## Context
+
+The docs plan (DOCS-PLAN.md §3) gives agents pastable prompts, host config
+blocks, a skill, a hosted MCP endpoint and markdown twins. An adversarial
+review from a security and enterprise-trust persona found that, as drafted,
+every pastable block installed an unpinned binary through `curl | bash`,
+opened the store writable, and installed MCP config from an opaque
+base64 deeplink; that nothing in the plan treated page text, skill files or
+MCP tool results as untrusted input to an agent; that new agent artifacts
+(`relate-docs.rl`, the skills index, `capabilities.json`) were unsigned
+although upstream signs releases and the site already serves a signed
+`extensions.json`; that the hosted MCP had operating rules but no threat
+model; and that the privacy story contradicted itself (no query text kept,
+yet a metric on search queries). Enterprise agent policies block the first
+and audit the rest; unsafe defaults are an adoption blocker for the very
+audience the docs target. Upstream already has the primitives: a pinned
+SSHSIG signing key for `SHA256SUMS`, `--read-only`, `--safe`, agent mode,
+and structurally query-free telemetry.
+
+## Decision
+
+1. **Safe defaults where agents copy from.** Every host config block and
+   the pasted install prompt open the store with `--read-only` (and `--safe`
+   where it fits), with a one-line "to allow writes, remove `--read-only`"
+   toggle. The prompt pins a version, names the verification `install.sh`
+   performs (signed checksums against the pinned key; nothing installs on
+   failure), states the PATH line, says where `relate skill install`
+   writes, and ends with a verify step with the expected bytes. A second
+   tab shows the pinned binary with manual `sha256sum -c` and `ssh-keygen
+   -Y verify`. Any deeplink's decoded config is rendered beside the button
+   and generated from it, so it is reviewable.
+2. **Docs are data.** Markdown twins, skill files and MCP tool results are
+   reference text, not instructions. Tool results carry
+   `kind: "documentation"`; `SKILL.md` and every tool description say so.
+   Outside fenced prompt blocks, no page or tool result addresses the agent
+   in the second person imperative. `feedback.md` tells an agent to ask its
+   operator before posting anywhere. Every refresh of the upstream skill
+   bundle, and every skill authored here, is reviewed by a person as a diff
+   before it is published; `docs:check` records the upstream commit.
+3. **Signed agent artifacts.** The skills index carries a SHA-256 per
+   file; a `docs-artifacts.json` manifest listing `relate-docs.rl`,
+   `capabilities.json` and the skills index is signed with the release key
+   like `extensions.json`; `docs:check` verifies both; the `--load` block
+   shows the checksum.
+4. **A published threat model for the hosted MCP.** The engine opens
+   read-only (`new RelateDb(true)`); statement, memory and traversal caps;
+   a per-IP rate limit and a per-tool cost budget (shared egress behind
+   cloud harnesses makes per-IP both too strict and too loose); limits
+   published with `Retry-After`; CORS `*` with no cookies, stated; what
+   Cloudflare logs and for how long; an abuse contact. Tools that execute
+   caller input get a fresh engine per request. The smoke test asserts
+   write and procedure refusal.
+5. **Trust pages at launch.** `reference/security` (signing key
+   fingerprint and stable URL, manual verification, notarization,
+   supported versions, disclosure address, the MCP threat model),
+   `reference/privacy-and-telemetry` (CLI events verbatim from the spec,
+   `DO_NOT_TRACK=1`, what never phones home, no third-party scripts, what
+   the Worker logs), `security.txt` beside `/.well-known/skills/`, and a
+   permission matrix in `agent-safety` (`--read-only`, `--safe`, `LOAD CSV`
+   policy, `--fetch-params`/`--load` egress, extension tiers, `upgrade`,
+   by CLI, MCP stdio, MCP HTTP and the hosted docs MCP).
+
+## Alternatives considered
+
+- **Writable defaults with a safety note.** Shorter blocks, fewer flags.
+  Rejected: agents copy the block and skip the note; the cost of a
+  destructive first write is borne by the user.
+- **Treat docs as trusted because they are author-controlled.** True today;
+  rejected because the skill is re-served from upstream and the skills
+  library and MCP results are the injection path a reviewer will test
+  first. The rule costs one check and one sentence.
+- **No signatures on docs artifacts.** Rejected: the signing key and the
+  `.sig` pattern already exist in this repo; omitting them would be the
+  only unsigned agent-facing file on the site.
+
+## Consequences
+
+- The install block, the agent quickstart and the MCP guide are written to
+  this contract from the first proof pages (phase 0).
+- `docs:check` gains: no imperative text in tool results and twins outside
+  prompt fences, manifest signature verification, the upstream bundle
+  commit record, and the smoke-test refusals.
+- The metric "search queries with no good hit" is dropped in favour of a
+  zero-result count without query text, so §3.7's "no query text is kept"
+  holds.
+- Upstream asks: a `SECURITY.md`, statement deadline and memory caps in the
+  WASM build, and the `docs` URL in the error object.

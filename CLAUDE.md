@@ -2,6 +2,8 @@
 
 Public website for **relate** (formerly *cypherlite*) at `relatedb.ai`. Pre-launch / stealth: nothing is published yet, so package names, release URLs and install URLs on the site are launch-day targets and will 404 until launch. See [LAUNCH.md](LAUNCH.md).
 
+[AGENTS.md](AGENTS.md) is the agent contract for every change; its first rule is the decision log: anything about hosting, build tooling, content architecture, agent-facing surfaces, the design system, or the style guide gets an ADR in `docs/adr/` (format and the ADR-worthy test in `docs/adr/README.md`; `npm run adr:check` enforces the shape). The docs plan and style guide are in [DOCS-PLAN.md](DOCS-PLAN.md).
+
 ## Layout
 
 Astro (static output) site. Migration from the old single-file page is in progress on branch `astro-migration`:
@@ -36,6 +38,7 @@ npm run cookbook:record   # rewrite result blocks + README index from a run; rev
 npm run cookbook:test     # unit tests for src/lib/cookbook
 npm run cookbook:browser  # after a build, in headless Chrome: every recipe runs and matches, the playground loads and double-click expands a node, every recipe opens in the playground (needs Chrome; CHROME_PATH)
 npm run cookbook:diagrams # after `npm ci --prefix scripts/cookbook-diagrams`: render changed diagrams (`-- --force` for all; needs Chrome)
+npm run adr:check         # docs/adr/: unique sequential numbers, header and section order, line ceiling, public-record patterns, README index
 ```
 
 The cookbook tooling runs `.ts` directly on Node ≥ 22.18 (type stripping), so keep `src/lib/cookbook/` to erasable TypeScript (no enums, namespaces or parameter properties) and import with `.ts` extensions. `COOKBOOK_ONLY=<slug>[,…]` limits a check or record run.

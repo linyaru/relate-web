@@ -10,6 +10,7 @@
 //   node scripts/docs.ts --lint     write the vocabulary, then run Vale on the
 //                                   docs prose and STYLE.md (npm run docs:lint)
 //   node scripts/docs.ts --record   rewrite every page's results sidecar and
+//                                   (DOCS_ONLY=<id>[,…] limits it to those pages)
 //                                   static graph forms from a run of its cells
 //                                   on public/wasm; review the diff
 //
@@ -1290,7 +1291,10 @@ async function main(): Promise<number> {
   }
   if (args.record) {
     const pages = pageFiles();
-    const published = new Map(pages.filter((p) => p.data.status !== 'planned').map((p) => [p.id, p]));
+    const only = process.env.DOCS_ONLY ? new Set(process.env.DOCS_ONLY.split(',').map((s) => s.trim()).filter(Boolean)) : null;
+    const published = new Map(
+      pages.filter((p) => p.data.status !== 'planned' && (!only || only.has(p.id))).map((p) => [p.id, p]),
+    );
     const changed = await recordCells({ engine: readEngine(), published }, report, (line) => console.log(line));
     const errors = findings.filter((f) => f.severity === 'error');
     for (const f of errors) console.error(`${f.file}${f.line ? `:${f.line}` : ''}  ${f.message}`);

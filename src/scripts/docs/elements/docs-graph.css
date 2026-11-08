@@ -1,0 +1,85 @@
+/* :::docs-graph, the docs graph, live (src/scripts/docs/elements/docs-graph.ts). Tokens only; node colours are the graph palette, set inline. */
+.docs-graph { display: grid; gap: 10px; font-size: 14px; }
+.docs-graph .dg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.docs-graph .dg-search { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; min-width: 0; }
+.docs-graph .dg-search span { color: var(--fg-muted); font-weight: 600; }
+.docs-graph .dg-search input {
+  flex: 1; min-width: 0; padding: 6px 10px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.docs-graph .dg-said { margin: 0; color: var(--fg-muted); font-size: 13px; flex: 1 1 220px; }
+.docs-graph .dg-matches { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.docs-graph .dg-matches[hidden] { display: none; }
+.docs-graph .dg-match-kind, .docs-graph .dg-more { color: var(--fg-faint); }
+
+.docs-graph .dg-frame { position: relative; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.docs-graph .dg-stage { position: relative; height: clamp(320px, 62vh, 600px); touch-action: pan-y; }
+.docs-graph .dg-canvas { position: absolute; inset: 0; }
+/* One finger scrolls the page past the view until the reader taps into it, or in full screen. */
+.docs-graph.is-engaged .dg-stage, .docs-graph.is-full .dg-stage, .docs-graph:fullscreen .dg-stage { touch-action: none; }
+.docs-graph .dg-tools {
+  position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 2px; padding: 2px;
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+}
+.docs-graph .dg-tool {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--fg-muted); cursor: pointer;
+}
+.docs-graph .dg-tool:hover { background: var(--bg-inset); color: var(--fg); }
+.docs-graph .dg-tool[aria-pressed="true"] { color: var(--accent); }
+.docs-graph .dg-inspector {
+  position: absolute; top: 8px; left: 8px; width: min(320px, calc(100% - 64px)); max-height: calc(100% - 16px); overflow: auto;
+  padding: 8px 10px; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow-overlay); font-size: 13px; line-height: 1.45; pointer-events: none;
+}
+.docs-graph .dg-inspector.is-pinned { pointer-events: auto; border-color: var(--border-strong); }
+.docs-graph .dg-inspector[hidden] { display: none; }
+.docs-graph .dg-inspector-head { display: flex; align-items: center; gap: 8px; }
+.docs-graph .dg-chip { padding: 1px 6px; border-radius: 10px; color: var(--on-highlight); font-size: 12px; font-weight: 600; }
+.docs-graph .dg-close { margin-left: auto; padding: 0 6px; font: inherit; font-size: 16px; line-height: 1; color: var(--fg-muted); background: transparent; border: 0; cursor: pointer; }
+.docs-graph .dg-inspector-title { margin: 6px 0 2px; font-weight: 600; color: var(--fg); }
+.docs-graph .dg-inspector-text { margin: 0 0 6px; color: var(--fg-muted); }
+.docs-graph .dg-inspector dl { margin: 4px 0; }
+.docs-graph .dg-inspector dt { margin-top: 4px; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+.docs-graph .dg-inspector dd { margin: 0; }
+.docs-graph .dg-inspector-none { margin: 4px 0 0; color: var(--fg-faint); }
+.docs-graph .dg-open { display: inline-block; margin-top: 4px; }
+.docs-graph .dg-hint {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 10px; max-width: calc(100% - 24px);
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; color: var(--fg-muted); text-align: center;
+}
+.docs-graph .dg-hint[hidden] { display: none; }
+
+.docs-graph .dg-controls { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px; }
+.docs-graph fieldset { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
+.docs-graph legend { padding: 0 4px; font-weight: 600; color: var(--fg-muted); font-size: 13px; }
+.docs-graph .dg-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; flex-basis: 100%; font-size: 13px; }
+.docs-graph .dg-key-name { color: var(--fg-muted); }
+.docs-graph .dg-key-item, .docs-graph .dg-toggle { display: inline-flex; align-items: center; gap: 6px; }
+.docs-graph .dg-toggle { cursor: pointer; }
+.docs-graph .dg-toggle input { margin: 0; accent-color: var(--accent); }
+.docs-graph .dg-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--border-strong); }
+.docs-graph .dg-line { display: inline-block; width: 22px; border-top: 1px solid var(--fg-faint); }
+.docs-graph .dg-line.is-strong { border-top: 2px solid var(--fg-muted); }
+.docs-graph code { font-size: 12px; }
+
+.docs-graph .dg-table summary { cursor: pointer; color: var(--fg-muted); }
+.docs-graph .dg-table-wrap { max-height: 420px; overflow: auto; margin-top: 6px; }
+.docs-graph .dg-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.docs-graph .dg-table caption { text-align: left; color: var(--fg-muted); padding-bottom: 4px; }
+.docs-graph .dg-table th, .docs-graph .dg-table td { padding: 3px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.docs-graph .dg-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.docs-graph .dg-counts .dg-table-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+
+/* The overlay where the Fullscreen API is missing for an element (iPhone Safari); the API's own :fullscreen gets the same layout. */
+.docs-graph.is-full, .docs-graph:fullscreen {
+  position: fixed; inset: 0; z-index: 1000; margin: 0; padding: 12px; overflow: auto; background: var(--bg-alt);
+  grid-template-rows: auto auto 1fr auto auto auto; align-content: start;
+}
+.docs-graph.is-full .dg-stage, .docs-graph:fullscreen .dg-stage { height: calc(100vh - 220px); min-height: 280px; }
+:root.dg-no-scroll { overflow: hidden; }
+
+@media (max-width: 640px) {
+  .docs-graph .dg-controls { grid-template-columns: minmax(0, 1fr); }
+  .docs-graph .dg-stage { height: clamp(300px, 96vw, 460px); }
+}

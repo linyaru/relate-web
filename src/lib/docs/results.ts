@@ -202,9 +202,14 @@ export function resultGraphCell(stem: string, name: string): string | null {
   return m ? m[1] : null;
 }
 
-/** The hash a static graph form is stamped with: of the graph it draws, and the drawing's version. */
-export const graphHash = (graph: RecordedGraph) =>
-  createHash('sha256').update(`${GRAPH_DRAWING_VERSION}\n${JSON.stringify(graph)}`).digest('hex');
+/**
+ * The hash a static graph form is stamped with: of the graph it draws, the
+ * drawing's version, and `extras`, what the cell's graph view words change
+ * in the picture (elements/_graph-extras-static.ts `extrasKey`; '' for a
+ * plain picture, whose stamp stays the graph's alone).
+ */
+export const graphHash = (graph: RecordedGraph, extras = '') =>
+  createHash('sha256').update(`${GRAPH_DRAWING_VERSION}\n${JSON.stringify(graph)}${extras ? `\n${extras}` : ''}`).digest('hex');
 
 export const graphHashComment = (hash: string) => `<!-- result graph sha256:${hash} -->`;
 
@@ -216,9 +221,9 @@ export const pageDiagrams = (file: string) => ({ dir: join(dirname(file), 'diagr
  * checked as the page will inline it. Throws when a file is missing, was
  * drawn from another graph, or holds anything active.
  */
-export function readResultGraph(file: string, cellId: string, graph: RecordedGraph): Record<Theme, string> {
+export function readResultGraph(file: string, cellId: string, graph: RecordedGraph, extras = ''): Record<Theme, string> {
   const { dir, stem } = pageDiagrams(file);
-  const head = `${graphHashComment(graphHash(graph))}\n`;
+  const head = `${graphHashComment(graphHash(graph, extras))}\n`;
   const out = {} as Record<Theme, string>;
   for (const theme of THEMES) {
     const path = join(dir, resultGraphFile(stem, cellId, theme));

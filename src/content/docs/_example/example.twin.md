@@ -184,6 +184,21 @@ RETURN 1 / 0
 error: type error: / by zero
 ```
 
+### An interactive element
+
+The rows each cell returns as recorded, beside the rows it returns when your browser runs it.
+
+| Cell     | Rows (recorded) |
+| -------- | --------------- |
+| `create` | 0               |
+| `cell-2` | 2               |
+| `ada`    | 1               |
+| `path`   | 2               |
+
+Live: the table adds the rows and milliseconds of each cell as it runs in your browser; one button counts the nodes in the page's database, and one tries a write on a read-only database, which the engine refuses.
+
+![Rows each cell returned when the page was recorded](https://relatedb.ai/docs/_example/example/element-row-counts-1-light.svg)
+
 ### Language samples
 
 A `python run` or `js run` fence is a whole program, run against the client, with its recorded output under it:

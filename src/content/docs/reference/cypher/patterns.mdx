@@ -204,6 +204,27 @@ RETURN [rel IN r | type(rel)] AS types, x.name AS reached
 ORDER BY size(types), reached
 ```
 
+A variable-length pattern follows a hierarchy to any depth. This cell writes a small package tree and returns every dependency path from `app`. The graph view draws the result in layers, `app` at the top and each package one layer below the deepest package that depends on it; its Layout menu switches to the force and circular layouts:
+
+```cypher run name=dependency-tree layout=hierarchical
+CREATE (app:Package {name: 'app'}),
+       (cli:Package {name: 'cli'}),
+       (engine:Package {name: 'engine'}),
+       (parser:Package {name: 'parser'}),
+       (storage:Package {name: 'storage'}),
+       (lexer:Package {name: 'lexer'}),
+       (app)-[:DEPENDS_ON]->(cli),
+       (app)-[:DEPENDS_ON]->(engine),
+       (cli)-[:DEPENDS_ON]->(parser),
+       (engine)-[:DEPENDS_ON]->(parser),
+       (engine)-[:DEPENDS_ON]->(storage),
+       (parser)-[:DEPENDS_ON]->(lexer);
+MATCH p = (:Package {name: 'app'})-[:DEPENDS_ON*]->(:Package)
+RETURN p
+```
+
+The seven rows are seven paths. `parser` and `lexer` are reached two ways, through `cli` and through `engine`, so they appear in more than one path but once in the graph.
+
 Group variables of a quantified path pattern are lists, one entry per repetition:
 
 ```cypher run name=group-variables
@@ -219,6 +240,24 @@ MATCH p = SHORTEST 2 (:Person {name: 'Noor'})-[]-+(:Person {name: 'Grace'})
 RETURN [n IN nodes(p) | n.name] AS route, length(p) AS hops
 ORDER BY hops
 ```
+
+A path variable binds what the pattern matched. This cell returns the path from Ada through Grace to `opencypher-tck` as `p`, and the people graph beside it as `people`. The graph view draws the path's three nodes and two relationships on top and dims the rest, and its legend names the path:
+
+```cypher run name=named-path highlight=path
+MATCH p = (:Person {name: 'Ada'})-[:KNOWS]->(:Person)-[:WORKS_ON]->(:Project {name: 'opencypher-tck'})
+MATCH g = (:Person)-->()
+RETURN p, collect(g) AS people
+```
+
+`shortestPath` binds one shortest path. From Noor to Grace in either direction it runs through `relate`, two hops; the route through Ada takes three:
+
+```cypher run name=shortest-path highlight=path
+MATCH p = shortestPath((:Person {name: 'Noor'})-[*]-(:Person {name: 'Grace'}))
+MATCH g = (:Person)-->()
+RETURN p, length(p) AS hops, collect(g) AS people
+```
+
+Only a column of type `PATH` is highlighted: `people` is a list of paths too, and stays dimmed. Without a `PATH` column, every path in the rows is highlighted. Every graph view with a path in its result has the Highlight path button; these two cells start with it on.
 
 `TRAIL` allows a path back to Ada around the Ada, Grace and relate triangle; `ACYCLIC` does not:
 

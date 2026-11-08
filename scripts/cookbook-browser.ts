@@ -34,6 +34,23 @@
 //   deeplink button's href decodes to the JSON shown beside it, and the link
 //   printed as text is the href. A construct no built page has is skipped
 //   with a note.
+// - Interactive elements (DOCS-PLAN.md §7.5, src/lib/docs/elements.ts): every
+//   case file in scripts/browser-cases/ (`<name>.ts`, default export
+//   {element, cases}; scripts/browser-cases/_kit.ts documents the scenario
+//   language) runs on the first built docs page that carries its element
+//   (`data-element="<name>"`, or a cell whose `data-elements` names it).
+//   Before its cases, each element's static form must show with scripts
+//   disabled (at 1400 px, and at 390 px without sideways scrolling), and its
+//   module and the engine must not load with the page while it is out of
+//   reach. After them, its first case runs again at phone width (390 x 844:
+//   no sideways scrolling, every host fits) and under prefers-reduced-motion
+//   (no CSS animation or transition runs inside a host). An element on a
+//   built page without a case file fails.
+// - The script budget, measured (src/lib/docs/checks/budget.ts counts it
+//   statically): every built docs page with the page runtime, and one
+//   without, loads no more JavaScript before any interaction than the static
+//   count says, and stays under 60 KB. Element modules and the graph view,
+//   which load when they come near the viewport, are left out.
 // - Before any browser runs, the built files are checked: the playground is
 //   built and bundles no engine of its own, each recipe's recipe.json is
 //   format 1 and lists exactly its steps, and each step's playground link
@@ -44,22 +61,27 @@
 // loaded from /wasm/.
 //
 //   node scripts/cookbook-browser.ts            (npm run cookbook:browser)
+//   DIST=<dir> node scripts/cookbook-browser.ts  (a build other than ./dist)
 //
 // Chrome comes from CHROME_PATH, else the usual install locations. Talks to
 // Chrome over the DevTools protocol with Node's own WebSocket: no
-// dependencies. COOKBOOK_ONLY=<slug>[,<slug>…] limits the recipes.
+// dependencies. COOKBOOK_ONLY=<slug>[,<slug>…] limits the recipes;
+// ELEMENT_ONLY=<element>[,…] limits the element case files (a dev loop, not CI).
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { twinCells } from '../src/lib/cookbook/cells.ts';
 import { COOKBOOK_DIR, loadRecipes, projectRoot } from '../src/lib/cookbook/load.ts';
+import { distReader, eagerScripts, kb, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
+import type { BrowserCases, BrowserTab, Outcome } from './browser-cases/_kit.ts';
 
-const DIST = join(projectRoot(), 'dist');
+const DIST = process.env.DIST ? resolve(process.env.DIST) : join(projectRoot(), 'dist');
 const CHROMES = [
   process.env.CHROME_PATH,
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -129,6 +151,8 @@ interface CdpMessage {
 async function launchChrome() {
   const binary = CHROMES.find((p) => p && existsSync(p));
   if (!binary) fail('no Chrome found; set CHROME_PATH');
+  // A throwaway profile, removed when Chrome exits (a run leaves about 100 MB behind otherwise).
+  const profile = mkdtempSync(join(tmpdir(), 'cookbook-chrome-'));
   const args = [
     '--headless=new',
     '--disable-gpu',
@@ -136,7 +160,7 @@ async function launchChrome() {
     // A desktop-sized window: at Chrome's headless default (800x600) the
     // playground switches to its mobile layout, with the editor behind a tab.
     '--window-size=1400,900',
-    `--user-data-dir=${mkdtempSync(join(tmpdir(), 'cookbook-chrome-'))}`,
+    `--user-data-dir=${profile}`,
     'about:blank',
   ];
   // CI runners restrict the user namespaces Chrome's sandbox needs.
@@ -156,11 +180,40 @@ async function launchChrome() {
     });
     chrome.on('exit', (code) => reject(new Error(`Chrome exited (${code}):\n${err}`)));
   });
-  return { http: new URL(endpoint).origin.replace('ws:', 'http:'), kill: () => chrome.kill() };
+  const removeProfile = () => rmSync(profile, { recursive: true, force: true });
+  // `fail()` exits the process without reaching the kill below: take Chrome and its profile with it.
+  process.on('exit', () => {
+    if (chrome.exitCode === null) chrome.kill('SIGKILL');
+    removeProfile();
+  });
+  /** Stop Chrome, wait for it to exit (SIGKILL after five seconds), then remove its profile. */
+  const kill = () =>
+    new Promise<void>((resolve) => {
+      if (chrome.exitCode !== null) {
+        removeProfile();
+        resolve();
+        return;
+      }
+      const hard = setTimeout(() => chrome.kill('SIGKILL'), 5_000);
+      chrome.once('exit', () => {
+        clearTimeout(hard);
+        removeProfile();
+        resolve();
+      });
+      chrome.kill();
+    });
+  return { http: new URL(endpoint).origin.replace('ws:', 'http:'), kill };
+}
+
+/** How a tab opens: `scripts: false` disables the page's scripts; `viewport` and `reducedMotion` apply before the page loads. */
+interface OpenOptions {
+  scripts?: boolean;
+  viewport?: { width: number; height: number; mobile?: boolean };
+  reducedMotion?: boolean;
 }
 
 /** Open `url` in a new tab; evaluate expressions there; collect console errors. */
-async function openPage(http: string, url: string) {
+async function openPage(http: string, url: string, { scripts = true, viewport, reducedMotion }: OpenOptions = {}) {
   const target = (await (await fetch(`${http}/json/new?about:blank`, { method: 'PUT' })).json()) as {
     id: string;
     webSocketDebuggerUrl: string;
@@ -171,11 +224,16 @@ async function openPage(http: string, url: string) {
   const waiting = new Map<number, (m: CdpMessage) => void>();
   const errors: string[] = [];
   let loaded = false;
+  /** How the top frame last navigated ('Navigation', or 'BackForwardCacheRestore'). */
+  let navType: string | null = null;
   ws.addEventListener('message', (event) => {
     const msg = JSON.parse(String(event.data)) as CdpMessage;
     if (msg.id && waiting.has(msg.id)) {
       waiting.get(msg.id)!(msg);
       waiting.delete(msg.id);
+    } else if (msg.method === 'Page.frameNavigated') {
+      const frame = msg.params?.frame as { parentId?: string } | undefined;
+      if (frame && !frame.parentId) navType = String(msg.params?.type ?? 'Navigation');
     } else if (msg.method === 'Page.loadEventFired') {
       loaded = true;
     } else if (msg.method === 'Runtime.exceptionThrown') {
@@ -190,18 +248,56 @@ async function openPage(http: string, url: string) {
       waiting.set(id, resolve);
       ws.send(JSON.stringify({ id, method, params }));
     });
+  const setViewport = (width: number, height: number, { mobile = false }: { mobile?: boolean } = {}) =>
+    send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: mobile ? 3 : 1, mobile }).then(() => undefined);
+  const setReducedMotion = (reduced: boolean) =>
+    send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: reduced ? 'reduce' : 'no-preference' }] }).then(() => undefined);
+  const evaluate = async <T,>(expression: string): Promise<T> => {
+    const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 600));
+    return r.result?.result?.value as T;
+  };
+  const go = async (to: string) => {
+    loaded = false;
+    await send('Page.navigate', { url: to });
+    for (let i = 0; i < 200 && !loaded; i++) await sleep(50);
+    if (!loaded) throw new Error(`${to} did not load`);
+  };
   await send('Runtime.enable');
   await send('Page.enable');
-  await send('Page.navigate', { url });
-  for (let i = 0; i < 200 && !loaded; i++) await sleep(50);
-  if (!loaded) throw new Error(`${url} did not load`);
+  // Headless Chrome stops producing animation frames after a CDP key event
+  // unless the page is told it has focus; NVL draws (and zooms) on frames.
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  if (!scripts) await send('Emulation.setScriptExecutionDisabled', { value: true });
+  if (viewport) await setViewport(viewport.width, viewport.height, viewport);
+  if (reducedMotion !== undefined) await setReducedMotion(reducedMotion);
+  await go(url);
   return {
     errors,
-    async evaluate<T>(expression: string): Promise<T> {
-      const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
-      if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 600));
-      return r.result?.result?.value as T;
+    viewport: setViewport,
+    emulateMedia: ({ reducedMotion: reduced }: { reducedMotion: boolean }) => setReducedMotion(reduced),
+    /** Navigate to `to` (relative to the page) and wait for its load event. */
+    async navigate(to: string) {
+      await go(new URL(to, url).href);
     },
+    /** One history entry back; resolves once the page shows, saying whether it came from the back/forward cache. */
+    async back() {
+      const history = (await send('Page.getNavigationHistory')).result as unknown as { currentIndex: number; entries: { id: number; url: string }[] };
+      const entry = history.entries[history.currentIndex - 1];
+      if (!entry) throw new Error('no history entry to go back to');
+      navType = null;
+      loaded = false;
+      await send('Page.navigateToHistoryEntry', { entryId: entry.id });
+      // A restore from the back/forward cache fires no load event; the page is simply there again.
+      for (let i = 0; i < 200; i++) {
+        if (navType !== null && (loaded || navType === 'BackForwardCacheRestore')) break;
+        await sleep(50);
+      }
+      const shown = await evaluate<boolean>(`location.href === ${JSON.stringify(entry.url)} && document.readyState === 'complete'`).catch(() => false);
+      if (!shown) throw new Error(`going back to ${entry.url} did not finish`);
+      return { restored: navType === 'BackForwardCacheRestore' };
+    },
+    evaluate,
     /** A real double-click (CDP input events) at viewport point x, y. */
     async doubleClick(x: number, y: number) {
       await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
@@ -216,10 +312,22 @@ async function openPage(http: string, url: string) {
       await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
     },
-    /** A real key press (CDP input events), such as Escape. */
-    async press(key: string, code = key, keyCode = key === 'Escape' ? 27 : 0) {
-      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
+    /** A real one-finger swipe (CDP touch events, touch emulation on in this tab only); the browser scrolls or not, and cancels the pointer or not, as for a finger. */
+    async swipe(x0: number, y0: number, x1: number, y1: number, steps = 10) {
+      await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+      await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
+      for (let i = 1; i <= steps; i++) {
+        await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + ((x1 - x0) * i) / steps, y: y0 + ((y1 - y0) * i) / steps }] });
+        await sleep(16);
+      }
+      await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    },
+    /** A real key press (CDP input events), such as Escape; `modifiers` is CDP's bit field (Alt 1, Ctrl 2, Meta 4, Shift 8). */
+    async press(key: string, code = key, keyCode = key === 'Escape' ? 27 : 0, modifiers = 0) {
+      // Enter carries its character, so it activates a focused button as a real key does.
+      const text = key === 'Enter' ? { text: '\r', unmodifiedText: '\r' } : {};
+      await send('Input.dispatchKeyEvent', { type: key === 'Enter' ? 'keyDown' : 'rawKeyDown', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode, modifiers, ...text });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode, modifiers });
     },
     async close() {
       ws.close();
@@ -927,6 +1035,214 @@ async function checkExpand() {
     await page.close();
   }
 }
+// ---------------------------------------------------------------- interactive elements
+
+const CASES_DIR = join(projectRoot(), 'scripts/browser-cases');
+let elementsRun = 0;
+/** `ELEMENT_ONLY=<name>[,…]` limits the element cases to those case files (the page checks still run). */
+const ELEMENT_ONLY = process.env.ELEMENT_ONLY ? process.env.ELEMENT_ONLY.split(',') : null;
+
+/** Every case file in scripts/browser-cases/ (not `_*.ts`), loaded. */
+async function caseFiles(): Promise<BrowserCases[]> {
+  if (!existsSync(CASES_DIR)) return [];
+  const out: BrowserCases[] = [];
+  for (const f of readdirSync(CASES_DIR).filter((n) => n.endsWith('.ts') && !n.startsWith('_') && (!ELEMENT_ONLY || ELEMENT_ONLY.includes(n.slice(0, -3)))).sort()) {
+    const mod = (await import(pathToFileURL(join(CASES_DIR, f)).href)) as { default?: BrowserCases } & Partial<BrowserCases>;
+    const file = mod.default ?? (mod.element ? (mod as BrowserCases) : undefined);
+    if (!file || typeof file.element !== 'string' || !Array.isArray(file.cases)) {
+      problems.push(`[elements] scripts/browser-cases/${f}: export default {element, cases: [{name, scenario}]}`);
+      continue;
+    }
+    if (file.element !== f.slice(0, -3)) problems.push(`[elements] scripts/browser-cases/${f} names element \`${file.element}\`; the file is named for its element`);
+    out.push(file);
+  }
+  return out;
+}
+
+/** The element names a built page carries: directive hosts and cell-word modules. */
+const elementsIn = (html: string) =>
+  new Set([
+    ...[...html.matchAll(/<docs-element\b[^>]*\sdata-element="([^"]+)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<cypher-cell\b[^>]*\sdata-elements="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)),
+  ]);
+
+/** The hosts of element `name` on a page, as a JavaScript expression: directive hosts, or the cells carrying it as a word. */
+const hostsOf = (name: string) =>
+  `[...document.querySelectorAll('docs-element[data-element=${JSON.stringify(name)}], cypher-cell[data-elements~=${JSON.stringify(name)}]')]`;
+
+/** At phone width: the page does not scroll sideways, and every host fits the viewport. */
+const elementFits = (name: string) => `(() => {
+  const failures = [];
+  const w = innerWidth, sw = document.documentElement.scrollWidth;
+  if (sw > w + 1) failures.push('the page scrolls sideways at ' + w + ' px (scrollWidth ' + sw + ')');
+  const hosts = ${hostsOf(name)};
+  hosts.forEach((h, i) => {
+    const r = h.getBoundingClientRect();
+    if (r.left < -1 || r.right > w + 1) failures.push('host ' + (i + 1) + ' does not fit: ' + Math.round(r.left) + '..' + Math.round(r.right) + ' of ' + w + ' px');
+  });
+  return { log: [w + ' px wide, ' + hosts.length + ' host(s) fit, no sideways scroll'], failures };
+})()`;
+
+/** Under prefers-reduced-motion: no CSS animation or transition runs, or would run, inside a host (a cell's element panes for a cell word). */
+const elementStill = (name: string) => `(() => {
+  const failures = [];
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) failures.push('prefers-reduced-motion: reduce is not in effect');
+  const scopes = ${hostsOf(name)}.map((h) => h.localName === 'cypher-cell' ? h.querySelector('.cell-slot') : h).filter(Boolean);
+  const moving = [];
+  for (const scope of scopes) {
+    for (const el of [scope, ...scope.querySelectorAll('*')]) {
+      const cs = getComputedStyle(el);
+      const t = cs.transitionDuration.split(',').some((d) => parseFloat(d) > 0) && cs.transitionProperty !== 'none';
+      const a = cs.animationName !== 'none' && cs.animationDuration.split(',').some((d) => parseFloat(d) > 0);
+      if (t || a) moving.push(el.localName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : '') + (t ? ' (transition)' : ' (animation)'));
+    }
+  }
+  const running = document.getAnimations().filter((x) => x.playState === 'running' && x.effect && x.effect.target && scopes.some((s) => s.contains(x.effect.target)));
+  if (moving.length) failures.push('would animate: ' + moving.slice(0, 5).join(', '));
+  if (running.length) failures.push(running.length + ' animation(s) running');
+  return { log: [scopes.length + ' scope(s) still under reduced motion'], failures };
+})()`;
+
+/** With scripts disabled: the element's static form shows, and its live pane does not. */
+const elementStatic = (name: string) => `(() => {
+  const hosts = [...document.querySelectorAll('docs-element[data-element=${JSON.stringify(name)}]')];
+  if (!hosts.length) return { log: ["a cell word: its static form is the cell's recorded result"], failures: document.querySelector('cypher-cell[data-elements~=${JSON.stringify(name)}] .out-label') ? [] : ['no cell carries it'] };
+  const failures = [];
+  hosts.forEach((h, i) => {
+    const s = h.querySelector(':scope > .element-static');
+    if (!s || s.hidden || s.getBoundingClientRect().height === 0) failures.push('element ' + (i + 1) + ': the static form does not show');
+    else if (!s.textContent.trim() && !s.querySelector('svg')) failures.push('element ' + (i + 1) + ': the static form is empty');
+    if (!/Live: /.test(s?.textContent ?? '')) failures.push('element ' + (i + 1) + ': the static form has no Live line');
+    const l = h.querySelector(':scope > .element-live');
+    if (l && !l.hidden) failures.push('element ' + (i + 1) + ': the live pane shows without JavaScript');
+  });
+  return { log: [hosts.length + ' host(s), static form shown'], failures };
+})()`;
+
+/** On load: an element out of reach has not loaded its module, and nothing loaded the engine. */
+const elementLazy = (name: string) => `(async () => {
+  await new Promise((r) => setTimeout(r, 300));
+  const host = document.querySelector('docs-element[data-element=${JSON.stringify(name)}], cypher-cell[data-elements~=${JSON.stringify(name)}]');
+  const failures = [];
+  const names = performance.getEntriesByType('resource').map((e) => e.name);
+  if (names.some((n) => /relate_bg\\.wasm|\\/wasm\\/relate\\.js/.test(n))) failures.push('the engine loaded with the page');
+  const far = host && host.getBoundingClientRect().top > innerHeight + 700;
+  const chunk = names.find((n) => n.includes('/_astro/' + ${JSON.stringify(name)} + '.') && n.endsWith('.js'));
+  if (far && chunk) failures.push('its module loaded with the page, out of reach: ' + chunk);
+  return { log: [far ? 'out of reach on load, module not loaded' : 'within reach on load (the module may load at once)'], failures };
+})()`;
+
+/** Each element case file on the first built page with its element; an element with no case file fails. */
+async function checkElements(builtDocs: string[]) {
+  const files = await caseFiles();
+  const byElement = new Map(files.map((f) => [f.element, f]));
+  const carried = new Map<string, string>();
+  for (const file of builtDocs) {
+    for (const name of elementsIn(readFileSync(file, 'utf8'))) {
+      if (!carried.has(name)) carried.set(name, `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`);
+    }
+  }
+  for (const name of carried.keys()) {
+    if (!byElement.has(name) && !ELEMENT_ONLY) problems.push(`[elements] ${carried.get(name)} carries \`${name}\`, which has no case file (scripts/browser-cases/${name}.ts)`);
+  }
+  for (const file of files) {
+    const path = carried.get(file.element);
+    if (!path) {
+      console.log(`- docs: no built docs page carries \`${file.element}\`; its cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)`);
+      continue;
+    }
+    const label = path.slice(1, -1);
+    elementsRun++;
+    for (const [width, open] of [[1400, { scripts: false }], [390, { scripts: false, viewport: PHONE }]] as const) {
+      const off = await openPage(chrome.http, `${site.url}${path}`, open);
+      try {
+        const shown = await off.evaluate<Outcome>(elementStatic(file.element));
+        const fits = width === 390 ? await off.evaluate<Outcome>(elementFits(file.element)) : { log: [], failures: [] };
+        const failures = [...shown.failures, ...fits.failures];
+        console.log(`${failures.length ? '✖' : '✔'} ${label} · ${file.element}: static form without JavaScript at ${width} px: ${shown.log[0] ?? ''}`);
+        problems.push(...failures.map((f) => `[${label}] ${file.element} static form at ${width} px: ${f}`));
+      } finally {
+        await off.close();
+      }
+    }
+    await check(`${file.element}: lazy`, label, path, elementLazy(file.element));
+    for (const c of file.cases) await runCase(`${file.element}: ${c.name}`, label, path, c.scenario);
+    const first = file.cases[0];
+    if (first) {
+      await runCase(`${file.element}: ${first.name} (390 px)`, label, path, first.scenario, { viewport: PHONE }, elementFits(file.element));
+      await runCase(`${file.element}: ${first.name} (reduced motion)`, label, path, first.scenario, { reducedMotion: true }, elementStill(file.element));
+    }
+  }
+}
+
+/** A phone's viewport (CSS px), for the element checks at phone width. */
+const PHONE = { width: 390, height: 844, mobile: true };
+
+/** One element case in a fresh tab opened with `open`; `after`, an expression resolving to {log, failures}, then runs in the same tab. */
+async function runCase(name: string, label: string, path: string, scenario: string | ((tab: BrowserTab) => Promise<Outcome>), open: OpenOptions = {}, after?: string) {
+  const tab = await openPage(chrome.http, `${site.url}${path}`, open);
+  try {
+    const out = typeof scenario === 'string' ? await tab.evaluate<Outcome>(scenario) : await scenario(tab as BrowserTab);
+    const then = after ? await tab.evaluate<Outcome>(after) : { log: [], failures: [] };
+    const bad = [...out.failures, ...then.failures, ...tab.errors.map((e) => `console error: ${e}`)];
+    console.log(`${bad.length ? '✖' : '✔'} ${label} · ${name}: ${[out.log[0], then.log[0]].filter(Boolean).join('; ')}`);
+    problems.push(...bad.map((b) => `[${label}] ${name}: ${b}`));
+  } finally {
+    await tab.close();
+  }
+}
+
+// ---------------------------------------------------------------- the script budget, measured
+
+/**
+ * What each docs page with the page runtime (and one page without) loads
+ * before any interaction, against the static count of budget.ts: a page
+ * that loads a script the count does not see (an `import()` run as the page
+ * loads), or more than the budget, fails. What loads when it comes near the
+ * viewport (element modules, the graph view, and what they import) is left
+ * out, as the budget leaves out lazy chunks.
+ */
+async function checkLoadedScripts(builtDocs: string[]) {
+  if (!builtDocs.length) return;
+  const read = distReader(DIST);
+  const astro = join(DIST, '_astro');
+  const elementDir = join(projectRoot(), 'src/scripts/docs/elements');
+  const nearChunks = new Set(['graph', ...(existsSync(elementDir) ? readdirSync(elementDir).filter((f) => f.endsWith('.ts') && !f.startsWith('_')).map((f) => f.slice(0, -3)) : [])]);
+  const lazy = new Set<string>();
+  for (const f of existsSync(astro) ? readdirSync(astro) : []) {
+    if (!f.endsWith('.js') || !nearChunks.has(f.replace(/\.[\w-]+\.js$/, ''))) continue;
+    for (const x of eagerScripts(`<script type="module" src="/_astro/${f}"></script>`, '/', read).files) lazy.add(x.path);
+  }
+  const withRuntime = builtDocs.filter((f) => /id="engineBar"/.test(readFileSync(f, 'utf8')));
+  const without = builtDocs.find((f) => !withRuntime.includes(f));
+  let largest = { page: '', bytes: 0 };
+  const before = problems.length;
+  for (const file of without ? [...withRuntime, without] : withRuntime) {
+    const path = `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`;
+    const label = path.slice(1, -1);
+    const counted = eagerScripts(readFileSync(file, 'utf8'), path, read);
+    const eager = new Set(counted.files.map((f) => f.path));
+    const tab = await openPage(chrome.http, `${site.url}${path}`);
+    try {
+      const loaded = await tab.evaluate<string[]>(`(async () => {
+        await new Promise((r) => setTimeout(r, 600));
+        return [...new Set(performance.getEntriesByType('resource').map((e) => new URL(e.name)).filter((u) => u.origin === location.origin && u.pathname.endsWith('.js')).map((u) => u.pathname))];
+      })()`);
+      const counting = loaded.filter((p) => eager.has(p) || !lazy.has(p));
+      const size = (p: string) => Buffer.byteLength(read(p) ?? '');
+      const bytes = counted.inline + counting.reduce((n, p) => n + size(p), 0);
+      const unseen = counting.filter((p) => !eager.has(p));
+      if (bytes > largest.bytes) largest = { page: path, bytes };
+      if (unseen.length) problems.push(`[${label}] script budget: loads ${unseen.map((p) => `${p} (${kb(size(p))})`).join(', ')} before any interaction, which the static count (budget.ts) does not see`);
+      if (bytes > PAGE_JS_BUDGET) problems.push(`[${label}] script budget: loads ${kb(bytes)} of JavaScript before any interaction, over ${kb(PAGE_JS_BUDGET)}`);
+      problems.push(...tab.errors.map((e) => `[${label}] script budget: console error: ${e}`));
+    } finally {
+      await tab.close();
+    }
+  }
+  console.log(`${problems.length > before ? '✖' : '✔'} docs · script budget, measured on ${withRuntime.length + (without ? 1 : 0)} page(s): the largest loads ${kb(largest.bytes)} before any interaction (${largest.page})`);
+}
+
 const recipePage = (slug: string) => `/cookbook/${slug}/`;
 const playgroundLink = (slug: string, cell: string | null = null) =>
   `/playground/#recipe=${encodeURIComponent(slug)}${cell ? `&cell=${encodeURIComponent(cell)}` : ''}`;
@@ -989,6 +1305,8 @@ try {
     }
     for (const [i, scenario] of scenarios.entries()) await check(i ? `${name} (a new tab)` : name, path.slice(1, -1), path, scenario);
   }
+  await checkElements(builtDocs);
+  await checkLoadedScripts(builtDocs);
   const graphPage = docsPages.find((p) => /data-graph-nodes="1"/.test(p.html));
   if (graphPage) await checkDocsGraph(graphPage);
   else if (docsPages.length) console.log('- docs: no docs page has a one-node graph result; the expansion case is skipped');
@@ -1010,7 +1328,7 @@ try {
     }
   }
 } finally {
-  chrome.kill();
+  await chrome.kill();
   site.close();
 }
 
@@ -1021,5 +1339,6 @@ if (problems.length) {
 console.log(
   `cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings; ` +
     'the playground loads and expands a node, and every recipe opens in it; ' +
-    `${docsPages.length} docs page(s) with cells run, match and open in the playground`,
+    `${docsPages.length} docs page(s) with cells run, match and open in the playground; ` +
+    `${elementsRun} interactive element(s) pass their cases`,
 );

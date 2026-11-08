@@ -374,6 +374,502 @@
       },
       "expectError": false
     },
+    "dependency-tree": {
+      "kind": "gram",
+      "text": "// 7 rows · nodes created: 6, relationships created: 6, properties set: 6, labels added: 6\n(n5:Package {name: \"app\"})-[r6:DEPENDS_ON]->(n7:Package {name: \"engine\"})\n(n5)-[r6]->(n7)-[r9:DEPENDS_ON]->(n9:Package {name: \"storage\"})\n(n5)-[r6]->(n7)-[r8:DEPENDS_ON]->(n8:Package {name: \"parser\"})\n(n5)-[r6]->(n7)-[r8]->(n8)-[r10:DEPENDS_ON]->(n10:Package {name: \"lexer\"})\n(n5)-[r5:DEPENDS_ON]->(n6:Package {name: \"cli\"})\n(n5)-[r5]->(n6)-[r7:DEPENDS_ON]->(n8)\n(n5)-[r5]->(n6)-[r7]->(n8)-[r10]->(n10)",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 5,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "app"
+            }
+          },
+          {
+            "id": 7,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "engine"
+            }
+          },
+          {
+            "id": 9,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "storage"
+            }
+          },
+          {
+            "id": 8,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "parser"
+            }
+          },
+          {
+            "id": 10,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "lexer"
+            }
+          },
+          {
+            "id": 6,
+            "kind": "node",
+            "labels": [
+              "Package"
+            ],
+            "properties": {
+              "name": "cli"
+            }
+          }
+        ],
+        "rels": [
+          {
+            "end_node": 7,
+            "id": 6,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 5,
+            "type": "DEPENDS_ON"
+          },
+          {
+            "end_node": 9,
+            "id": 9,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 7,
+            "type": "DEPENDS_ON"
+          },
+          {
+            "end_node": 8,
+            "id": 8,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 7,
+            "type": "DEPENDS_ON"
+          },
+          {
+            "end_node": 10,
+            "id": 10,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 8,
+            "type": "DEPENDS_ON"
+          },
+          {
+            "end_node": 6,
+            "id": 5,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 5,
+            "type": "DEPENDS_ON"
+          },
+          {
+            "end_node": 8,
+            "id": 7,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 6,
+            "type": "DEPENDS_ON"
+          }
+        ]
+      },
+      "envelope": {
+        "columnTypes": [
+          "PATH"
+        ],
+        "columns": [
+          "p"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 7,
+                "id": 6,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 7,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "engine"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 7,
+                "id": 6,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 7,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "engine"
+                }
+              },
+              {
+                "end_node": 9,
+                "id": 9,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 7,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 9,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "storage"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 7,
+                "id": 6,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 7,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "engine"
+                }
+              },
+              {
+                "end_node": 8,
+                "id": 8,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 7,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 8,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "parser"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 7,
+                "id": 6,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 7,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "engine"
+                }
+              },
+              {
+                "end_node": 8,
+                "id": 8,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 7,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 8,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "parser"
+                }
+              },
+              {
+                "end_node": 10,
+                "id": 10,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 8,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 10,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "lexer"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 6,
+                "id": 5,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 6,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "cli"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 6,
+                "id": 5,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 6,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "cli"
+                }
+              },
+              {
+                "end_node": 8,
+                "id": 7,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 6,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 8,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "parser"
+                }
+              }
+            ]
+          },
+          {
+            "p": [
+              {
+                "id": 5,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "app"
+                }
+              },
+              {
+                "end_node": 6,
+                "id": 5,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 5,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 6,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "cli"
+                }
+              },
+              {
+                "end_node": 8,
+                "id": 7,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 6,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 8,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "parser"
+                }
+              },
+              {
+                "end_node": 10,
+                "id": 10,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 8,
+                "type": "DEPENDS_ON"
+              },
+              {
+                "id": 10,
+                "kind": "node",
+                "labels": [
+                  "Package"
+                ],
+                "properties": {
+                  "name": "lexer"
+                }
+              }
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
     "group-variables": {
       "kind": "table",
       "text": "| from             | via                   | reached          |\n|------------------|-----------------------|------------------|\n| [\"Ada\", \"Grace\"] | [\"KNOWS\", \"WORKS_ON\"] | \"opencypher-tck\" |\n| [\"Ada\", \"Grace\"] | [\"KNOWS\", \"WORKS_ON\"] | \"relate\"         |\n2 rows",
@@ -510,6 +1006,737 @@
               "relate",
               "Ada",
               "Grace"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "named-path": {
+      "kind": "gram",
+      "text": "// 1 row\n[ | (n0:Person {name: \"Ada\", role: \"engineer\"})-[r4:KNOWS]->(n1:Person {name: \"Grace\", role: \"engineer\"})-[r2:WORKS_ON {since: 2022}]->(n4:Project {language: \"Gherkin\", name: \"opencypher-tck\"}), [ | (n0)-[r0:WORKS_ON {since: 2024}]->(n3:Project {language: \"Rust\", name: \"relate\"}), (n0)-[r4]->(n1), (n1)-[r2]->(n4), (n1)-[r1:WORKS_ON {since: 2023}]->(n3), (n2:Person {name: \"Noor\", role: \"maintainer\"})-[r3:MAINTAINS]->(n3)]]",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Ada",
+              "role": "engineer"
+            }
+          },
+          {
+            "id": 1,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Grace",
+              "role": "engineer"
+            }
+          },
+          {
+            "id": 4,
+            "kind": "node",
+            "labels": [
+              "Project"
+            ],
+            "properties": {
+              "language": "Gherkin",
+              "name": "opencypher-tck"
+            }
+          },
+          {
+            "id": 3,
+            "kind": "node",
+            "labels": [
+              "Project"
+            ],
+            "properties": {
+              "language": "Rust",
+              "name": "relate"
+            }
+          },
+          {
+            "id": 2,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Noor",
+              "role": "maintainer"
+            }
+          }
+        ],
+        "rels": [
+          {
+            "end_node": 1,
+            "id": 4,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "KNOWS"
+          },
+          {
+            "end_node": 4,
+            "id": 2,
+            "kind": "relationship",
+            "properties": {
+              "since": 2022
+            },
+            "start_node": 1,
+            "type": "WORKS_ON"
+          },
+          {
+            "end_node": 3,
+            "id": 0,
+            "kind": "relationship",
+            "properties": {
+              "since": 2024
+            },
+            "start_node": 0,
+            "type": "WORKS_ON"
+          },
+          {
+            "end_node": 3,
+            "id": 1,
+            "kind": "relationship",
+            "properties": {
+              "since": 2023
+            },
+            "start_node": 1,
+            "type": "WORKS_ON"
+          },
+          {
+            "end_node": 3,
+            "id": 3,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 2,
+            "type": "MAINTAINS"
+          }
+        ]
+      },
+      "envelope": {
+        "columnTypes": [
+          "PATH",
+          "LIST"
+        ],
+        "columns": [
+          "p",
+          "people"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "p": [
+              {
+                "id": 0,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Ada",
+                  "role": "engineer"
+                }
+              },
+              {
+                "end_node": 1,
+                "id": 4,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 0,
+                "type": "KNOWS"
+              },
+              {
+                "id": 1,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Grace",
+                  "role": "engineer"
+                }
+              },
+              {
+                "end_node": 4,
+                "id": 2,
+                "kind": "relationship",
+                "properties": {
+                  "since": 2022
+                },
+                "start_node": 1,
+                "type": "WORKS_ON"
+              },
+              {
+                "id": 4,
+                "kind": "node",
+                "labels": [
+                  "Project"
+                ],
+                "properties": {
+                  "language": "Gherkin",
+                  "name": "opencypher-tck"
+                }
+              }
+            ],
+            "people": [
+              [
+                {
+                  "id": 0,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Ada",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 0,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2024
+                  },
+                  "start_node": 0,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 0,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Ada",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 1,
+                  "id": 4,
+                  "kind": "relationship",
+                  "properties": {},
+                  "start_node": 0,
+                  "type": "KNOWS"
+                },
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 4,
+                  "id": 2,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2022
+                  },
+                  "start_node": 1,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 4,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Gherkin",
+                    "name": "opencypher-tck"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 1,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2023
+                  },
+                  "start_node": 1,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 2,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Noor",
+                    "role": "maintainer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 3,
+                  "kind": "relationship",
+                  "properties": {},
+                  "start_node": 2,
+                  "type": "MAINTAINS"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "shortest-path": {
+      "kind": "gram",
+      "text": "// 1 row\n[{hops: 2} | (n2:Person {name: \"Noor\", role: \"maintainer\"})-[r3:MAINTAINS]->(n3:Project {language: \"Rust\", name: \"relate\"})<-[r1:WORKS_ON {since: 2023}]-(n1:Person {name: \"Grace\", role: \"engineer\"}), [ | (n0:Person {name: \"Ada\", role: \"engineer\"})-[r0:WORKS_ON {since: 2024}]->(n3), (n0)-[r4:KNOWS]->(n1), (n1)-[r2:WORKS_ON {since: 2022}]->(n4:Project {language: \"Gherkin\", name: \"opencypher-tck\"}), (n1)-[r1]->(n3), (n2)-[r3]->(n3)]]",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 2,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Noor",
+              "role": "maintainer"
+            }
+          },
+          {
+            "id": 3,
+            "kind": "node",
+            "labels": [
+              "Project"
+            ],
+            "properties": {
+              "language": "Rust",
+              "name": "relate"
+            }
+          },
+          {
+            "id": 1,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Grace",
+              "role": "engineer"
+            }
+          },
+          {
+            "id": 0,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Ada",
+              "role": "engineer"
+            }
+          },
+          {
+            "id": 4,
+            "kind": "node",
+            "labels": [
+              "Project"
+            ],
+            "properties": {
+              "language": "Gherkin",
+              "name": "opencypher-tck"
+            }
+          }
+        ],
+        "rels": [
+          {
+            "end_node": 3,
+            "id": 3,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 2,
+            "type": "MAINTAINS"
+          },
+          {
+            "end_node": 3,
+            "id": 1,
+            "kind": "relationship",
+            "properties": {
+              "since": 2023
+            },
+            "start_node": 1,
+            "type": "WORKS_ON"
+          },
+          {
+            "end_node": 3,
+            "id": 0,
+            "kind": "relationship",
+            "properties": {
+              "since": 2024
+            },
+            "start_node": 0,
+            "type": "WORKS_ON"
+          },
+          {
+            "end_node": 1,
+            "id": 4,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "KNOWS"
+          },
+          {
+            "end_node": 4,
+            "id": 2,
+            "kind": "relationship",
+            "properties": {
+              "since": 2022
+            },
+            "start_node": 1,
+            "type": "WORKS_ON"
+          }
+        ]
+      },
+      "envelope": {
+        "columnTypes": [
+          "PATH",
+          "INTEGER",
+          "LIST"
+        ],
+        "columns": [
+          "p",
+          "hops",
+          "people"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "hops": 2,
+            "p": [
+              {
+                "id": 2,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Noor",
+                  "role": "maintainer"
+                }
+              },
+              {
+                "end_node": 3,
+                "id": 3,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 2,
+                "type": "MAINTAINS"
+              },
+              {
+                "id": 3,
+                "kind": "node",
+                "labels": [
+                  "Project"
+                ],
+                "properties": {
+                  "language": "Rust",
+                  "name": "relate"
+                }
+              },
+              {
+                "end_node": 3,
+                "id": 1,
+                "kind": "relationship",
+                "properties": {
+                  "since": 2023
+                },
+                "start_node": 1,
+                "type": "WORKS_ON"
+              },
+              {
+                "id": 1,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Grace",
+                  "role": "engineer"
+                }
+              }
+            ],
+            "people": [
+              [
+                {
+                  "id": 0,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Ada",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 0,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2024
+                  },
+                  "start_node": 0,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 0,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Ada",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 1,
+                  "id": 4,
+                  "kind": "relationship",
+                  "properties": {},
+                  "start_node": 0,
+                  "type": "KNOWS"
+                },
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 4,
+                  "id": 2,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2022
+                  },
+                  "start_node": 1,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 4,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Gherkin",
+                    "name": "opencypher-tck"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 1,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Grace",
+                    "role": "engineer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 1,
+                  "kind": "relationship",
+                  "properties": {
+                    "since": 2023
+                  },
+                  "start_node": 1,
+                  "type": "WORKS_ON"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ],
+              [
+                {
+                  "id": 2,
+                  "kind": "node",
+                  "labels": [
+                    "Person"
+                  ],
+                  "properties": {
+                    "name": "Noor",
+                    "role": "maintainer"
+                  }
+                },
+                {
+                  "end_node": 3,
+                  "id": 3,
+                  "kind": "relationship",
+                  "properties": {},
+                  "start_node": 2,
+                  "type": "MAINTAINS"
+                },
+                {
+                  "id": 3,
+                  "kind": "node",
+                  "labels": [
+                    "Project"
+                  ],
+                  "properties": {
+                    "language": "Rust",
+                    "name": "relate"
+                  }
+                }
+              ]
             ]
           }
         ],

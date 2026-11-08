@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "plan",
+  "hash": "6739a3bbfd6d925d2cb6f6c5c983cf933d1d2732ecf13f475c0bccbbcbd6caf2",
+  "inputs": [],
+  "live": "the plan is drawn as a tree, and PROFILE runs the statement on the page's database in your browser and adds each operator's rows, time and database hits as bars; the index button creates the index on the page's database, plans the statement with and without it side by side with the changes, and drops it again; a PROFILE downloads as a speedscope file.",
+  "engine": true,
+  "text": "The plan recorded for cell `explain-language`, as `relate --mode table` prints it:\n\n```text\nQuery: MATCH (p:Project {language: 'Rust'}) RETURN p.name AS name\nPlan:\n+---------------------+----+-------------+----------------+\n| Operator            | Id | Details     | Estimated Rows |\n+---------------------+----+-------------+----------------+\n| + ProduceResults    | 0  | 1 item(s)   | -              |\n+---------------------+----+-------------+----------------+\n| | + NodeByLabelScan | 1  | (p:Project) | 2              |\n+---------------------+----+-------------+----------------+\nNotifications:\nId 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on language filters :Project without a range index on (:Project {language}) Remedy: CREATE INDEX relate_Project__language FOR (n:Project) ON (n.language)\n```\n\nNotifications, each with its remedy:\n\n- [`03C91` Missing index](/docs/reference/errors#notif-03c91) on operator 1: the equality predicate on language filters :Project without a range index on (:Project {language}). Remedy: `CREATE INDEX relate_Project__language FOR (n:Project) ON (n.language)`\n\nIn a browser, the viewer's comparison runs `CREATE INDEX relate_Project__language FOR (n:Project) ON (n.language)` on the page's in-memory database only.",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "68dc33bbfa394f9e1d531766d35d41b5364ce6114b6a4f176713b3047662a653"
+}

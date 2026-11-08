@@ -14,7 +14,10 @@
 //   node scripts/docs.ts --record   rewrite every page's results sidecar and
 //                                   (DOCS_ONLY=<id>[,…] limits it to those pages)
 //                                   static graph forms from a run of its cells
-//                                   on public/wasm; review the diff
+//                                   on public/wasm, then its interactive
+//                                   elements' static forms; review the diff
+//
+// DIST=<dir> points the --built checks at a build other than ./dist.
 //
 // From the source (no build needed):
 //   - frontmatter: the schema of DOCS-PLAN.md §5 on every page (planned ones
@@ -110,6 +113,10 @@
 //     _capabilities/ file well formed, its citations and verify run resolve,
 //     the generated section of concepts/problems-relate-solves current
 //   - surfaces.json is well formed (src/components/docs/matrix.ts validate)
+//   - interactive elements (src/lib/docs/checks/elements.ts): each element's
+//     files exist (build file, browser module, browser case file); every
+//     directive passes its element's validate and has a current, non-empty
+//     recorded static form; every cell word names a browser module
 //
 // From dist/ (--built, after `npm run build`):
 //   - every published page has its HTML page and its `.md` twin; each built
@@ -125,6 +132,9 @@
 //   - the built skills indexes' digests and docs-artifacts.json's hashes match
 //     the served bytes; the legacy files equal /skills/relate/; security.txt,
 //     when built, has Contact and an unexpired Expires
+//   - the script budget (src/lib/docs/checks/budget.ts): every built docs page
+//     runs under 60 KB of JavaScript before its lazy chunks; the three largest
+//     are printed
 //
 // The imperative heuristic (trust check, ADR-0013): in a twin, outside fenced
 // blocks, headings and tables, a sentence of three or more words whose first
@@ -148,7 +158,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import GithubSlugger from 'github-slugger';
@@ -205,6 +215,9 @@ import { parsePage } from '../src/lib/docs/parse.ts';
 import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
 import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
+import { checkElements, recordElements } from '../src/lib/docs/checks/elements.ts';
+import { kb, measureDocs, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
+import { elementFileId } from '../src/lib/docs/elements.ts';
 import { cliCheck } from '../src/lib/docs/checks/cli.ts';
 import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
 import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
@@ -385,6 +398,8 @@ interface Site {
   builtIds: Map<string, Set<string>> | null;
   /** The ids of glossary terms some page links with `:term`. */
   termsUsed: Set<string>;
+  /** The build the --built checks read: DIST, else ./dist. Every check that reads dist/ takes it from here. */
+  dist: string;
 }
 
 /** The anchors a page's HTML will carry, from its source: heading slugs, cell ids, generated tables. */
@@ -490,7 +505,7 @@ function checkHref(href: string, site: Site, from: string | null): LinkVerdict {
 function assetVerdict(href: string): LinkVerdict {
   const path = decodeURIComponent(href.split(/[?#]/)[0]);
   const candidates = [join(ROOT, 'public', path), join(ROOT, 'public', path, 'index.html')];
-  if (args.built) candidates.push(join(ROOT, 'dist', path), join(ROOT, 'dist', path, 'index.html'));
+  if (args.built) candidates.push(join(DIST, path), join(DIST, path, 'index.html'));
   if (candidates.some((c) => existsSync(c))) return { ok: true };
   // Generated endpoints (twins, llms.txt) exist only after a build.
   if (!args.built && /^\/(?:docs|cookbook)\/.*\.(?:md|txt|json)$|^\/(?:llms\.txt|sitemap\.xml)$/.test(path)) return { ok: true };
@@ -1060,8 +1075,8 @@ function strayRenderings(pages: PageFile[]) {
     if (!existsSync(dir)) continue;
     const slugs = pages.filter((p) => join(dirname(p.file), 'diagrams') === dir).map((p) => p.file.split(sep).pop()!.replace(/\.mdx$/, ''));
     for (const name of readdirSync(dir)) {
-      // A cell's static graph form: the cells check owns it.
-      if (slugs.some((s) => resultGraphCell(s, name) !== null)) continue;
+      // A cell's static graph form, or an element's static form: the cells and elements checks own them.
+      if (slugs.some((s) => resultGraphCell(s, name) !== null || elementFileId(s, name) !== null)) continue;
       if (!slugs.some((s) => isDiagramFileOf(s, name))) report(join(dir, name), null, 'warning', 'diagram', 'a rendering no page draws; delete it');
     }
   }
@@ -1179,7 +1194,7 @@ function checkVersions(site: Site) {
 // ---------------------------------------------------------------------------
 // Built-site checks (--built)
 
-const DIST = join(ROOT, 'dist');
+const DIST = process.env.DIST ? resolvePath(process.env.DIST) : join(ROOT, 'dist');
 const decodeEntities = (s: string) =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&amp;/g, '&');
 
@@ -1204,11 +1219,29 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
   return out;
 }
 
+/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs page's eager JavaScript, and the three largest printed. */
+function checkBudget() {
+  const rows = measureDocs(DIST);
+  for (const { page, scripts } of rows) {
+    const file = join(DIST, page, 'index.html');
+    if (scripts.bytes > PAGE_JS_BUDGET) {
+      const top = scripts.files.slice(0, 3).map((f) => `${f.path} ${kb(f.bytes)}`).join(', ');
+      report(file, null, 'error', 'js-budget', `${page} runs ${kb(scripts.bytes)} of JavaScript before its lazy chunks, over the ${kb(PAGE_JS_BUDGET)} budget (inline ${kb(scripts.inline)}; ${top})`);
+    }
+    for (const m of scripts.missing) report(file, null, 'error', 'js-budget', `${page} loads ${m}, which is not in the build`);
+  }
+  if (rows.length) {
+    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs page(s):`);
+    for (const { page, scripts } of rows.slice(0, 3)) console.log(`  ${kb(scripts.bytes).padStart(9)}  ${page}  (${scripts.files.length} file(s), inline ${kb(scripts.inline)})`);
+  }
+}
+
 function checkBuilt(site: Site) {
   if (!existsSync(join(DIST, 'docs'))) {
     report(DIST, null, 'error', 'built', 'dist/docs/ does not exist; run `npm run build` before `docs:check -- --built`');
     return;
   }
+  checkBudget();
   if (!existsSync(join(DIST, 'playground/index.html'))) report(DIST, null, 'error', 'built', 'dist/playground/index.html is missing; links to /playground/ would 404');
   for (const p of site.published.values()) {
     const htmlFile = join(DIST, pageUrl(p.id), 'index.html');
@@ -1333,7 +1366,9 @@ async function main(): Promise<number> {
     const published = new Map(
       pages.filter((p) => p.data.status !== 'planned' && (!only || only.has(p.id))).map((p) => [p.id, p]),
     );
-    const changed = await recordCells({ engine: readEngine(), published }, report, (line) => console.log(line));
+    let changed = await recordCells({ engine: readEngine(), published }, report, (line) => console.log(line));
+    // After the cells: an element's static form is made from the page's recordings.
+    changed += await recordElements({ published, only }, report, (line) => console.log(line));
     const errors = findings.filter((f) => f.severity === 'error');
     for (const f of errors) console.error(`${f.file}${f.line ? `:${f.line}` : ''}  ${f.message}`);
     console.log(`docs --record: ${changed} file(s) changed${errors.length ? `, ${errors.length} page problem(s) left unrecorded` : ''}`);
@@ -1353,6 +1388,7 @@ async function main(): Promise<number> {
     anchors: new Map(),
     builtIds: null,
     termsUsed: new Set(),
+    dist: DIST,
   };
   const texts = new Map(pages.map((p) => [p.id, readFileSync(p.file, 'utf8')]));
   const unparsable = new Set<string>();
@@ -1398,9 +1434,10 @@ async function main(): Promise<number> {
   }
   strayRenderings([...published.values()]);
   await checkCells(site, report);
+  await checkElements(site, report);
   checkSamples(site, report, clientEnv());
   checkGlossary(site);
-  checkGenerated(site, report);
+  checkGenerated(site, report, DIST);
   for (const g of GENERATED) {
     try {
       twinProse(parseMarkdown(splitFrontmatter(g.render(genCtx).markdown, g.meta.id).body), 'reference', join(ROOT, 'src/lib/docs/generated', `${g.meta.id.split('/').at(-1)}.ts`));

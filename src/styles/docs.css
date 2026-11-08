@@ -66,7 +66,7 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 /* ---------- Grid: sidebar | content | on this page ---------- */
 .docs-grid { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 48px; }
 .docs-grid.has-toc { grid-template-columns: 236px minmax(0, 1fr); }
-.docs-main { min-width: 0; max-width: 780px; padding-bottom: 32px; }
+.docs-main { min-width: 0; max-width: 780px; padding-bottom: 32px; container: docs-main / inline-size; }
 .docs-grid > .docs-toc { grid-column: 2; grid-row: 1; }
 .docs-grid > .docs-main { grid-column: 2; grid-row: 2; }
 .docs-grid > .docs-sidebar { grid-column: 1; grid-row: 1 / span 2; }
@@ -252,6 +252,34 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .code-block + .sample-output { margin: -8px 0 16px; }
 @media (max-width: 900px) { .docs-shell .engine-bar { position: static; } }
 
+/* Interactive elements (src/lib/docs/elements.ts, src/scripts/docs/elements.ts):
+   the host and its two panes. Each element's own styles ship with its module
+   (src/scripts/docs/elements/<name>.css), not here. */
+docs-element { display: block; margin: 20px 0; padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt); max-width: 100%; overflow-x: auto; }
+docs-element > .element-static > :first-child { margin-top: 0; }
+docs-element > .element-static > :last-child { margin-bottom: 0; }
+docs-element .element-figure { margin: 12px 0; }
+docs-element .element-note { font-size: 13px; color: var(--fg-muted); }
+docs-element > [hidden] { display: none; }
+.cell-output > .cell-slot { border-top: 1px solid var(--border); padding: 8px 12px; }
+.cell-output > .cell-slot:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  docs-element *, .cell-slot * { animation: none !important; transition: none !important; }
+}
+/* A terminal directly followed by an MCP tryout (concepts/agent-native,
+   DOCS-PLAN.md §7.4): side by side where the column is wide enough for two
+   panes, stacked below that. The terminal floats; the tryout, a block
+   formatting context (overflow-x above), takes the rest of the line; what
+   follows clears both. No wrapper, so no new construct. */
+@container docs-main (min-width: 720px) {
+  /* No top margins: the float's would not collapse with the block above, the tryout's would, and the pair would start apart. */
+  docs-element[data-element='terminal']:has(+ docs-element[data-element='mcp-tryout']) { float: left; width: calc(50% - 8px); margin: 0 16px 20px 0; }
+  docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout'] { margin-top: 0; }
+  docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout'] + * { clear: both; }
+  /* When the pair ends its section, the section holds the float. */
+  :has(> docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout']) { display: flow-root; }
+}
+
 /* ---------- Page end: related, prev/next, footer ---------- */
 .doc-related { margin-top: 40px; }
 .doc-related h2 { font-size: 18px; margin: 0 0 8px; }
@@ -278,6 +306,8 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .btn.is-pending { opacity: 0.6; cursor: default; }
 .is-pending { color: var(--fg-faint); }
 .docs-main section { margin-top: 44px; }
+/* An element's own <section>s (plan panes, MCP calls, ranked lists) are not page sections: their grid spaces them. */
+.docs-main docs-element section { margin-top: 0; }
 .docs-main section > h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 14px; }
 .task-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px 32px; }
 .task-group h3 {

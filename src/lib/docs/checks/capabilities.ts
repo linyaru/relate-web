@@ -76,10 +76,11 @@ export interface CapabilitiesCheckSite {
   anchors: Map<string, Set<string>>;
   /** Built HTML ids per site path, with --built; null from the source alone. */
   builtIds: Map<string, Set<string>> | null;
+  /** The build those ids come from (scripts/docs.ts DIST); ./dist when left out. */
+  dist?: string;
 }
 
 const RULE = 'capabilities';
-const DIST = join(ROOT, 'dist');
 
 /** Whether a page or recipe text cites capability `id` on the catalog page. */
 export function citesCapability(text: string, id: string, related: unknown = []): boolean {
@@ -193,6 +194,7 @@ export function checkCapabilities(site: CapabilitiesCheckSite, report: Report): 
 }
 
 function checkBuilt(site: CapabilitiesCheckSite, caps: Capability[], report: Report) {
+  const DIST = site.dist ?? join(ROOT, 'dist');
   const where = join(ROOT, 'src/pages/docs/capabilities.json.ts');
   const built = join(DIST, 'docs/capabilities.json');
   if (!existsSync(built)) {

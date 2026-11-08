@@ -1,0 +1,54 @@
+/* :::plan, the query plan viewer (src/scripts/docs/elements/plan.ts). Tokens only; the plan text stays dark in both themes. */
+.plan-viewer { font-size: 14px; }
+.plan-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.plan-modes { display: inline-flex; gap: 0; }
+.plan-modes .btn { border-radius: 0; }
+.plan-modes .btn:first-child { border-radius: 6px 0 0 6px; }
+.plan-modes .btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.plan-viewer .btn[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+/* aria-disabled while a run is in progress (the button keeps focus); disabled only for PROFILE on a statement that writes. */
+.plan-viewer .btn:disabled, .plan-viewer .btn[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.plan-status { margin: 10px 0 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+.plan-panes { display: grid; gap: 12px; margin-top: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.plan-pane { min-width: 0; border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; background: var(--bg); }
+.plan-viewer .plan-pane-title { margin: 0; font-size: 15px; }
+.plan-pane-source { margin: 2px 0 8px; font-size: 13px; color: var(--fg-muted); }
+.plan-tree { list-style: none; margin: 0; padding: 0; }
+.plan-tree .plan-tree { margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border-strong); }
+.plan-tree li { margin: 6px 0 0; }
+.plan-root > li { margin-top: 0; }
+.plan-op { min-width: 0; }
+.plan-op-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.plan-op-name { font-weight: 600; }
+.plan-op-id, .plan-op-est { font-size: 12px; color: var(--fg-muted); }
+/* Scoped past docs.css's inline-code box (`.docs-shell :not(pre) > code`): a detail is a line of the plan, not a code span in prose. */
+.plan-viewer .plan-op code.plan-op-details { display: block; font-size: 12.5px; overflow-wrap: anywhere; white-space: normal; background: none; border: 0; border-radius: 0; padding: 0; color: var(--fg); }
+.plan-op-warn { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: var(--fg-muted); }
+/* Advice (INFORMATION) stays muted; only a WARNING or an ERROR takes the error colour. The severity word leads either way. */
+.plan-op-warn.is-warning { color: var(--danger); }
+.plan-op-never { margin: 2px 0 0; font-size: 13px; color: var(--fg-muted); }
+.plan-metrics { display: grid; grid-template-columns: max-content 1fr; gap: 2px 8px; margin: 4px 0 0; font-size: 12.5px; }
+.plan-metric { display: contents; }
+.plan-metric dt { color: var(--fg-muted); }
+.plan-metric dd { margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.plan-track { flex: 1 1 auto; max-width: 160px; height: 8px; border-radius: 4px; background: var(--bg-inset); overflow: hidden; }
+.plan-bar { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.plan-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plan-text { margin: 0; padding: 10px; border-radius: 6px; background: var(--bg-code); color: var(--code-fg); font-size: 12px; overflow-x: auto; }
+.plan-text code { background: none; color: inherit; padding: 0; white-space: pre; }
+.plan-export { display: inline-block; margin-top: 8px; font-size: 13px; }
+.plan-export-note { margin: 4px 0 0; font-size: 13px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.plan-export-refused { margin: 8px 0 0; font-size: 13px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.plan-changes-title { margin: 12px 0 4px; color: var(--fg-muted); font-size: 13px; }
+.plan-changes-scroll { overflow-x: auto; }
+.plan-changes table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.plan-changes caption { text-align: left; color: var(--fg-muted); padding-bottom: 4px; }
+/* Words never break mid-word here: on a narrow column the table scrolls inside .plan-changes-scroll instead. */
+.plan-changes th, .plan-changes td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); overflow-wrap: normal; word-break: normal; vertical-align: top; }
+.plan-changes th[scope='row'] { white-space: nowrap; }
+.plan-notes { margin-top: 12px; }
+.plan-viewer .plan-notes-title { margin: 8px 0 4px; font-size: 14px; }
+.plan-notes ul { margin: 0; padding-left: 18px; }
+.plan-notes li { overflow-wrap: anywhere; }
+.plan-notes-none { margin: 6px 0 0; color: var(--fg-muted); }
+.plan-remedy-label { font-weight: 600; }

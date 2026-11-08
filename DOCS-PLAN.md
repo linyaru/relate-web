@@ -1417,10 +1417,16 @@ drawn by hand (7.3).
 ### 7.7 Decisions this needs
 
 Decision 17 (NVL under permission, the visual policy) is recorded as
-ADR-0010. Open: whether the plan viewer is an NVL hierarchical layout or a
-plain HTML tree (phase 2 spike), and whether the scale demo's default size
-is a hundred thousand nodes or lower on first paint (measure on a mid-range
-phone).
+ADR-0010. Decided in phase 2: the plan viewer is a plain HTML tree, not an
+NVL hierarchical layout (ADR-0038): every operator's details and measures
+show at once, wrap at any width and stay selectable text, and the graph
+module does not load for a plan. A spike at 390 px drew the tune-a-query
+comparison both ways (graph.ts's hierarchical layout against the tree):
+NVL gave one two-operator plan a full phone screen with operator names only,
+while the tree showed both measured plans with every detail and measure.
+Open: whether the scale demo's
+default size is a hundred thousand nodes or lower on first paint (measure
+on a mid-range phone).
 
 ## 8. Checks and CI
 
@@ -1686,6 +1692,53 @@ error. The integration step added the client-library refusals to
 `errors.json` (a `client` list), let a verify step start its own loopback
 server (ADR-0034), and corrected the vector search to exact top-k across
 the search reference, the glossary and two task skills.
+
+*As built (phase 2, part C, the interactive elements):* one framework
+(ADR-0035): an element is a container directive, or a word on a
+```` ```cypher run ```` fence, with a build side that records its static
+form (text, and light and dark SVGs laid out from the site's tokens) into
+the page's `diagrams/` sidecar, hash-stamped and checked by `docs:check`
+(the record also stamps the form's words, so a text-only form edited by
+hand fails like a picture); a browser module loaded when its host comes
+near; and cookbook:browser cases, each found by directory and driven by
+real CDP input (mouse, keys and one-finger touch swipes). The page runtime loads only on pages with
+cells or elements, and every docs page runs under 60 KB of its own
+JavaScript before lazy chunks (measured by `docs:check -- --built`, and in
+Chrome, where a script the count misses fails). Placed: graph view extras (path highlighting, a layout switch, a caption
+picker, pinned nodes that hold through layouts and expansions, a
+relationship-type legend and full screen) on every graph view, docs and
+cookbook, with the cell words `layout=`, `highlight=path` and `caption=`
+set on `reference/cypher/patterns` (ADR-0036); the phase timing bar,
+cell word `timing` on `concepts/architecture` and "Show timing" on every
+page with cells (ADR-0038); the agent-mode terminal, `:::terminal`, on
+`concepts/agent-native` beside the MCP tryout, `get-started/agent-quickstart`,
+`drive-relate-from-an-agent` and the exit-code reference (ADR-0037); the
+plan viewer, `:::plan`, on `concepts/architecture`, `tune-a-query`,
+`explain-and-profile` and `indexes-and-constraints`, an HTML tree (§7.7,
+ADR-0038); the live schema, `:::schema-live`, on `get-started/first-graph`
+and `model-agent-memory`, and the vector search explorer,
+`:::vector-explorer`, on `vector-search` and `full-text-and-hybrid-search`
+(ADR-0039); the geospatial explorer, `:::geo-explorer`, on `geospatial`
+(ADR-0040); the MCP tryout, `:::mcp-tryout`, on `connect-over-mcp`, the MCP
+reference and `agent-native`, and agent trace playback, `:::agent-trace`,
+on `get-started/agent-memory` (ADR-0041); the docs graph, `:::docs-graph`,
+on `reference/docs-graph`, drawn by the one graph module (ADR-0042).
+The elements speak as one family: every status line opens with "Recorded
+on relate <version> when the page was built." or "From this tab's run on
+relate <version>, <time> ms in the engine.", durations print at one decimal
+(the step of a timer in a page that is not cross-origin isolated), focus
+uses the site's ring, and the Live sentence is inline markdown
+(`src/lib/docs/elements/_wording.ts`, ADR-0035).
+Deferred to phase 3: elements on cookbook recipe pages (the nearby-places
+and hybrid-recall recipes, an agent trace from a recipe), because the
+framework serves docs pages and the cookbook keeps its own runtime; the
+vector explorer on the `search` reference, which keeps its CLI recordings
+until a weighted fusion runs on that page's own cells (ADR-0039), and agent
+traces in `guides/integrations/`, whose pages run no cells for a trace to
+replay; a twin that links a large data block instead of inlining it
+(the vector-search twin carries its 40 vectors, about 76 KB), because it
+needs a per-page data endpoint; and a seeded read-only database for elements (ADR-0035 declines writing
+to the reader's browser storage).
 
 **Phase 3 — the long tail.** `query_docs_graph` once the engine has a
 deadline; the storage animator, the scale demo,

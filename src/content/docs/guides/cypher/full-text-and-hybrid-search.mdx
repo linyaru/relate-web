@@ -117,11 +117,27 @@ FOR (n:Note) ON (n.embedding)
 OPTIONS {indexConfig: {`vector.dimensions`: 3, `vector.similarity_function`: 'cosine'}}
 ```
 
-The question is `wal tests` again, with its embedding. `CALL () { … UNION ALL … }` runs both searches in one statement; each branch numbers its results by position, and the outer query adds up the shares and walks from each note to its project:
+The question is `wal tests` again, with its embedding. On its own, each search returns a ranked list of `$k` notes:
 
 ```json data=question
 {"q": "wal tests", "v": [0.5, 0.8, 0.1], "k": 3}
 ```
+
+```cypher run name=vector-list params=question
+MATCH (n:Note)
+SEARCH n IN (VECTOR INDEX note_embedding FOR $v LIMIT $k) SCORE AS score
+RETURN n.id AS id, score
+ORDER BY score DESC, id
+```
+
+```cypher run name=fulltext-list params=question
+MATCH (n:Note)
+SEARCH n IN (FULLTEXT INDEX note_text FOR $q LIMIT $k) SCORE AS score
+RETURN n.id AS id, score
+ORDER BY score DESC, id
+```
+
+`CALL () { … UNION ALL … }` runs both searches in one statement; each branch numbers its results by position, and the outer query adds up the shares and walks from each note to its project:
 
 ```cypher run name=fuse params=question
 CALL () {
@@ -146,6 +162,11 @@ ORDER BY rrf DESC, n.id LIMIT $k
 MATCH (n)-[:ABOUT]->(p:Project)
 RETURN n.id AS id, vector_rank, fulltext_rank, round(rrf, 4) AS rrf, p.name AS project
 ```
+
+The view runs the two lists and the fused statement with the chosen `k`, up to the six notes the page holds, and shows the arithmetic beside the engine's fused score:
+
+:::vector-explorer{lists="vector-list,fulltext-list" fuse=fuse max=6}
+:::
 
 `n6` leads both lists. `n1` holds the word `wal` but is not among the nearest vectors, and `n3` is near in meaning but holds neither word; the fusion keeps both, tied, with `n.id` breaking the tie. The constant 60 keeps one list's first place from outweighing the other list.
 

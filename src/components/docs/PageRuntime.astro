@@ -1,0 +1,13 @@
+---
+// The docs page runtime (src/scripts/docs/runtime.ts: runnable cells and
+// interactive elements), on a page that has either. [...slug].astro renders
+// this component only there, and a component's script ships only on the
+// pages that render it, so a page without cells or elements loads none of
+// it. The import is static, which is what it is in effect (the runtime
+// starts with the page), so the script budget (src/lib/docs/checks/
+// budget.ts) counts the runtime and the cell runtime it imports; the engine,
+// NVL and every element module stay lazy chunks behind it.
+---
+<script>
+  import '../../scripts/docs/runtime.ts';
+</script>

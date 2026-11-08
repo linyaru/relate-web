@@ -36,6 +36,28 @@ CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
 
 Notice that a `CREATE` with no `RETURN` returns no rows; the counts tell you what it wrote.
 
+The graph has two labels and three relationship types. Drawn as a model, one circle per label:
+
+```mermaid
+flowchart LR
+  accTitle: Data model: people, the projects they work on or maintain, and who knows whom
+  accDescr {
+    A Person WORKS_ON a Project, with the year it started as since, or
+    MAINTAINS it. A Person KNOWS another Person. A Person has a name and a
+    role; a Project has a name and a language.
+  }
+  Person(("<b>Person</b><br/>name · role")) -- "<b>WORKS_ON</b><br/>since" --> Project(("<b>Project</b><br/>name · language"))
+  Person -- "<b>MAINTAINS</b>" --> Project
+  Person -- "<b>KNOWS</b>" --> Person
+  class Person l2
+  class Project l6
+```
+
+`CALL db.schema.visualization()` reports the same model from the data: one node per label and one relationship per type that connects them.
+
+:::schema-live{cell=seed}
+:::
+
 ## Query it
 
 A `MATCH` describes a pattern, and `RETURN` picks what comes back. Who works on which project, and since when:

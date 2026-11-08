@@ -1,0 +1,17 @@
+{
+  "format": 2,
+  "element": "terminal",
+  "hash": "0e95170504e3e44cfaed548e21d4aa602f00860652cf5c709d4704e45580f1d4",
+  "inputs": [
+    "src/content/docs/_data/cli.json",
+    "src/content/docs/_data/errors.json",
+    "src/lib/docs/elements/_terminal-facts.json"
+  ],
+  "live": "the statement runs in your browser on an empty read-only database, as `relate --read-only` opens one, and the pane shows what relate prints in the mode you pick, with the exit code and, under \"Run as an agent harness\", the row cap; the statement can be edited or swapped for a preset.",
+  "engine": true,
+  "text": "The statement as relate 0.16.1 prints it in four of its output modes, rendered from this page's recorded result by the terminal's renderers, which match the relate 0.16.1 binary byte for byte on the recorded runs. Exit code 0, as relate 0.16.1 returns it.\n\n`--mode table` prints six lines on stdout:\n\n```bash\nrelate --read-only --mode table \"UNWIND [{name: 'Ada', since: 2024}, {name: 'Grace', since: 2023}] AS p RETURN p.name AS person, p.since AS since, p AS row\"\n```\n\n```text\n+---------+-------+------------------------------+\n| person  | since | row                          |\n+---------+-------+------------------------------+\n| \"Ada\"   | 2024  | {name: \"Ada\", since: 2024}   |\n| \"Grace\" | 2023  | {name: \"Grace\", since: 2023} |\n+---------+-------+------------------------------+\n```\n\n`--mode envelope` prints one line on stdout:\n\n```bash\nrelate --read-only --mode envelope \"UNWIND [{name: 'Ada', since: 2024}, {name: 'Grace', since: 2023}] AS p RETURN p.name AS person, p.since AS since, p AS row\"\n```\n\n```text\n{\"columnTypes\":[\"STRING\",\"INTEGER\",\"MAP\"],\"columns\":[\"person\",\"since\",\"row\"],\"notifications\":[],\"rows\":[{\"person\":\"Ada\",\"row\":{\"name\":\"Ada\",\"since\":2024},\"since\":2024},{\"person\":\"Grace\",\"row\":{\"name\":\"Grace\",\"since\":2023},\"since\":2023}],\"truncated\":false}\n```\n\n`--mode jsonl` prints two lines on stdout:\n\n```bash\nrelate --read-only --mode jsonl \"UNWIND [{name: 'Ada', since: 2024}, {name: 'Grace', since: 2023}] AS p RETURN p.name AS person, p.since AS since, p AS row\"\n```\n\n```text\n{\"person\":\"Ada\",\"row\":{\"name\":\"Ada\",\"since\":2024},\"since\":2024}\n{\"person\":\"Grace\",\"row\":{\"name\":\"Grace\",\"since\":2023},\"since\":2023}\n```\n\n`--mode toon` prints three lines on stdout:\n\n```bash\nrelate --read-only --mode toon \"UNWIND [{name: 'Ada', since: 2024}, {name: 'Grace', since: 2023}] AS p RETURN p.name AS person, p.since AS since, p AS row\"\n```\n\n```text\nrows[2]{person,since,row}:\n  Ada,2024,{\"name\":\"Ada\",\"since\":2024}\n  Grace,2023,{\"name\":\"Grace\",\"since\":2023}\n```\n\nUnder a detected agent harness, relate prints at most 100 rows per statement; this statement returns two rows, so the cap leaves it whole.",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "af571edc26d94d4651b239ff0122e5db4ba3edad77b743d888fc482c9e3ca92c"
+}

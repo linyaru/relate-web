@@ -11,8 +11,18 @@
 // graph views of a recording need no fetch. The status bar names the engine
 // version once it loads, and says so when it is not the version the page was
 // verified against (the bar's `data-verified`).
+//
+// The page's interactive elements (src/scripts/docs/elements.ts) start here
+// too, on the same engine and database: each element's module loads when the
+// element comes near the viewport or the reader reaches it.
+//
+// This module starts with the page (src/components/docs/PageRuntime.astro
+// imports it statically, only on a page with cells or elements), so it and
+// what it imports statically count in the script budget; keep them small and
+// put anything heavy behind a dynamic import.
 
 import { startCells, type Data } from '../cookbook/session.ts';
+import { startElements } from './elements.ts';
 
 const bar = document.getElementById('engineBar');
 const verified = bar?.dataset.verified ?? null;
@@ -35,15 +45,20 @@ if (bar && typeof Worker !== 'undefined') {
   for (const figure of document.querySelectorAll<HTMLElement>('cypher-cell .out-static')) figure.hidden = true;
 }
 
-startCells({
+// A page with elements but no cells talks about its examples.
+const noun = document.querySelector('cypher-cell') ? 'cell' : 'example';
+
+const page = startCells({
   base: new URL(location.pathname.replace(/\/?$/, '/'), location.origin),
-  noun: 'cell',
+  noun,
   recorded,
   ready: ({ loadMs, version }) => {
-    const loaded = `relate ${version ?? '(version unknown)'} loaded in ${Math.round(loadMs)} ms. Every cell runs in this tab.`;
+    const loaded = `relate ${version ?? '(version unknown)'} loaded in ${Math.round(loadMs)} ms. Every ${noun} runs in this tab.`;
     if (verified && version && version !== verified) {
       return `${loaded} This page was verified against relate ${verified}, so a result can differ from its recording.`;
     }
     return loaded;
   },
 });
+
+if (page) startElements(page);

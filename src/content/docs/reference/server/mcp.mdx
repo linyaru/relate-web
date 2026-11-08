@@ -97,6 +97,32 @@ relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'})
        (ada)-[:KNOWS]->(grace)"
 ```
 
+The same graph is in this page's in-browser database, and the tryout answers the three tools on it with the calls this section records. Each reply is built from the engine's result the way the server builds it; apart from the timings, it is the reply the recorded runs below print:
+
+```cypher run name=team
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```json data=calls
+{"calls": [
+  {"tool": "get_schema", "arguments": {}},
+  {"tool": "read_cypher", "arguments": {"statement": "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since", "parameters": {"project": "relate"}}},
+  {"tool": "write_cypher", "arguments": {"statement": "CREATE (:Person {name: $name, role: $role})", "parameters": {"name": "Ada", "role": "engineer"}}}
+]}
+```
+
+:::mcp-tryout{calls=calls}
+:::
+
 ### get_schema
 
 | Input | Type | Default | Meaning |

@@ -1,0 +1,20 @@
+/* :::schema-live (src/scripts/docs/elements/schema-live.ts). Tokens only; the drawing is static, so nothing moves. */
+.schema-live { font-size: 14px; }
+/* The drawing's relationship lines: the palette's neutral grey by day (set from palette.ts on the root), --fg-faint by night, as diagram-theme.ts draws them. */
+.schema-live { --ls-rel: var(--ls-neutral); }
+:root[data-theme="dark"] .schema-live { --ls-rel: var(--fg-faint); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .schema-live { --ls-rel: var(--fg-faint); }
+}
+.schema-live .ls-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.schema-live .ls-bar code { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.schema-live .ls-status { margin: 8px 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+.schema-live .ls-figure { margin: 8px 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-alt); }
+.schema-live .ls-art svg { display: block; margin: 0 auto; height: auto; }
+.schema-live figcaption { font-size: 13px; color: var(--fg-muted); margin-top: 6px; }
+.schema-live .ls-diff { margin: 8px 0; overflow-wrap: anywhere; }
+.schema-live .ls-scroll { overflow-x: auto; max-width: 100%; }
+.schema-live table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.schema-live caption { text-align: left; color: var(--fg-muted); padding-bottom: 6px; }
+.schema-live th, .schema-live td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.schema-live .ls-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; border: 1px solid var(--border-strong); vertical-align: baseline; }

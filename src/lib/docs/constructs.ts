@@ -30,6 +30,9 @@
 //   :::deeplink{host=cursor name=relate} holding one ```json fence (the server entry, --read-only)
 //       page: the host's install button, its link generated from the JSON shown beside it, and the link as text
 //                                                        twin: the fence verbatim, then the link as inline code
+//   :::<element>{attrs} holding its static form's authored part (elements.ts; one per file in src/lib/docs/elements/)
+//       page: <docs-element data-element=…> with the static form (children, recorded text, light and dark SVG, the Live line) in .element-static and an empty .element-live the browser module fills
+//                                                        twin: the children, the recorded text, "Live: …", then a link to the light SVG
 //   <Component /> (JSX, generated and interactive things only)
 //       page: the Astro component                        twin: the component's toMarkdown
 // Links render only when their target exists (links.ts); an unknown text
@@ -72,6 +75,9 @@ import {
 } from './results.ts';
 import { emptySampleSeq, parseSampleInfo, readSidecar, RECORD_COMMAND as SAMPLES_RECORD_COMMAND, sampleId, type SampleInfo, type SampleLang, type Sidecar } from './samples.ts';
 import { configProblems, DEEPLINK_HOSTS, deeplinkHref, NAME_PATTERN, type ServerConfig } from './deeplink.ts';
+import { elementNames, elementUse, markdownNodes, readForm, type FormContext } from './elements.ts';
+import { extrasKey } from './elements/_graph-extras-static.ts';
+import { wordModules } from '../cookbook/cells.ts';
 
 export const CALLOUTS = ['note', 'tip', 'warning', 'danger'] as const;
 export const STATUS_BADGES = ['preview', 'deprecated'] as const;
@@ -130,6 +136,12 @@ interface State {
   cells: PageCells;
   /** The depth of the last heading the walk passed (2 before any), for a construct's twin sub-headings. */
   headingDepth: number;
+  /** The element directives pages may use (elements.ts), and how many of each the walk has passed. */
+  elements: Set<string>;
+  elementSeq: Map<string, number>;
+  elementIds: Set<string>;
+  /** Whether the walk is inside an element's children (elements do not nest). */
+  inElement: string | null;
 }
 
 const text = (value: string): Text => ({ type: 'text', value });
@@ -159,6 +171,10 @@ export function renderConstructs(tree: Root, target: Target, ctx: PageContext): 
     sidecar: undefined,
     cells: collectCells(tree),
     headingDepth: 2,
+    elements: new Set(elementNames()),
+    elementSeq: new Map(),
+    elementIds: new Set(),
+    inElement: null,
   };
   // Info strings are reported where each fence renders; the rest here.
   st.problems.push(...st.cells.problems.filter((p) => !/`cypher run` takes/.test(p)));
@@ -240,6 +256,7 @@ function container(node: ContainerDirective, st: State): Node[] {
   if (kind === 'tabs') return tabs(node, st);
   if (kind === 'agentic') return agentic(node, st);
   if (kind === 'deeplink') return deeplink(node, st);
+  if (st.elements.has(kind)) return element(node, st);
   if (kind === 'tab') {
     st.problems.push(`line ${line(node)}: a \`:::tab\` belongs inside a \`::::tabs\` container`);
     return [node];
@@ -248,7 +265,100 @@ function container(node: ContainerDirective, st: State): Node[] {
     st.problems.push(`line ${line(node)}: a \`:::${kind}\` belongs inside a \`::::agentic\` container`);
     return [node];
   }
-  st.problems.push(`line ${line(node)}: unknown container \`:::${kind}\` (known: ${[...CALLOUTS, ...CONTAINERS].join(', ')})`);
+  st.problems.push(
+    `line ${line(node)}: unknown container \`:::${kind}\` (known: ${[...CALLOUTS, ...CONTAINERS].join(', ')}; elements: ${[...st.elements].join(', ') || 'none'})`,
+  );
+  return [node];
+}
+
+/** The page's recorded cell results, read once (a malformed sidecar is a problem, reported once). */
+function pageResults(st: State): Results | null {
+  if (st.results === undefined) {
+    try {
+      st.results = readResults(st.ctx.file);
+    } catch (e) {
+      st.problems.push((e as Error).message);
+      st.results = null;
+    }
+  }
+  return st.results;
+}
+
+/** Where the build serves an element's picture (light), for the twin. */
+export const elementSvgUrl = (pageId: string, elementId: string) => `${pageUrl(pageId)}element-${elementId}-light.svg`;
+
+/**
+ * An interactive element (elements.ts): `:::<name>{attrs}` around the
+ * authored part of its static form. The page gets the element's host,
+ * `<docs-element>`, holding the static form (the children, the recorded
+ * text, the recorded light and dark picture, and the "Live:" line) and an
+ * empty live pane; the page runtime imports the element's browser module
+ * when the host comes near the viewport or the reader reaches it, and the
+ * module swaps the panes once it is up. The twin gets the static form as
+ * markdown: the children, the recorded text, the Live line, then a link to
+ * the light picture. A missing or stale recording fails the build.
+ */
+/** A copy of parsed nodes without positions: a small parse's positions would point into the page's source at the wrong place. */
+function unplaced<T>(n: T): T {
+  return JSON.parse(JSON.stringify(n, (k, v) => (k === 'position' ? undefined : v)));
+}
+
+function element(node: ContainerDirective, st: State): Node[] {
+  const index = (st.elementSeq.get(node.name) ?? 0) + 1;
+  st.elementSeq.set(node.name, index);
+  const { use, problems } = elementUse(node, st.ctx.source, index);
+  const where = `line ${line(node)}`;
+  for (const p of problems) st.problems.push(`${where}: ${p}`);
+  if (st.inElement) st.problems.push(`${where}: \`:::${node.name}\` sits inside \`:::${st.inElement}\`; elements do not nest`);
+  if (st.elementIds.has(use.id)) st.problems.push(`${where}: a second element with id \`${use.id}\``);
+  st.elementIds.add(use.id);
+  const ctx: FormContext = { recordings: pageResults(st)?.cells ?? {}, dataBlocks: Object.fromEntries(st.cells.data) };
+  let form;
+  try {
+    form = readForm(st.ctx.file, use, ctx);
+  } catch (e) {
+    st.problems.push(`${where}: ${(e as Error).message}`);
+    return [node];
+  }
+  if (problems.length) return [node];
+  const outer = st.inElement;
+  st.inElement = node.name;
+  walk(node, st);
+  const generated: Parent = { type: 'root', children: markdownNodes(form.text) } as Root;
+  walk(generated, st);
+  st.inElement = outer;
+  const pageId = pageIdOf(st.ctx.file);
+  // The live sentence is inline markdown (a command or a path in a code span), parsed so the twin and the page
+  // show code rather than escaped backticks; anything beyond one paragraph is refused.
+  const parsedLive = markdownNodes(`Live: ${form.live}`);
+  const onePara = parsedLive.length === 1 && parsedLive[0].type === 'paragraph' ? (parsedLive[0] as Paragraph) : null;
+  if (!onePara) st.problems.push(`${where}: \`${node.name}\`'s \`live\` sentence must be one paragraph of inline markdown`);
+  const liveLine: Paragraph = onePara ? { type: 'paragraph', children: unplaced(onePara.children) } : { type: 'paragraph', children: [text(`Live: ${form.live}`)] };
+  if (st.target === 'markdown') {
+    const out: Node[] = [...(node.children as Node[]), ...(generated.children as Node[]), liveLine];
+    if (form.svg) {
+      const image: Image = { type: 'image', url: absoluteUrl(elementSvgUrl(pageId, use.id)), alt: form.caption ?? '', title: null };
+      out.push({ type: 'paragraph', children: [image] });
+    }
+    return out;
+  }
+  const art = (theme: 'light' | 'dark') => `<div class="diagram-art diagram-${theme}">${prepareSvg(form.svg![theme])}</div>`;
+  const figure = form.svg ? [html(`<figure class="diagram element-figure">${art('light')}${art('dark')}<figcaption>${esc(form.caption ?? '')}</figcaption></figure>`)] : [];
+  liveLine.data = hast({ hProperties: { className: ['element-note'] } });
+  node.data = hast({
+    hName: 'docs-element',
+    hProperties: { id: `element-${use.id}`, dataElement: use.name, dataElementId: use.id, dataAttrs: JSON.stringify(use.attributes) },
+  });
+  node.children = [
+    {
+      type: 'containerDirective',
+      name: 'element-static',
+      attributes: {},
+      data: hast({ hName: 'div', hProperties: { className: ['element-static'] } }),
+      children: [...(node.children as Node[]), ...(generated.children as Node[]), ...figure, liveLine],
+    },
+    html('<div class="element-live" hidden></div>'),
+  ] as never;
   return [node];
 }
 
@@ -548,15 +658,7 @@ function cell(node: Code, name: string | null, st: State): Node[] {
   const index = ++st.cellSeq;
   const id = name ?? `cell-${index}`;
   const info = st.cells.cells[index - 1];
-  if (st.results === undefined) {
-    try {
-      st.results = readResults(st.ctx.file);
-    } catch (e) {
-      st.problems.push((e as Error).message);
-      st.results = null;
-    }
-  }
-  const recorded = st.results?.cells[id];
+  const recorded = pageResults(st)?.cells[id];
   if (!recorded) {
     st.problems.push(`line ${line(node)}: cell \`${id}\` has no recorded result in ${relative(ROOT, resultsFile(st.ctx.file))}`);
     return [node];
@@ -567,7 +669,7 @@ function cell(node: Code, name: string | null, st: State): Node[] {
   let svg: Record<'light' | 'dark', string> | null = null;
   if (drawsStatic(graph)) {
     try {
-      svg = readResultGraph(st.ctx.file, id, graph);
+      svg = readResultGraph(st.ctx.file, id, graph, extrasKey(info?.words, recorded.envelope));
     } catch (e) {
       st.problems.push(`line ${line(node)}: ${(e as Error).message}`);
     }
@@ -590,6 +692,8 @@ function cell(node: Code, name: string | null, st: State): Node[] {
     `data-result-kind="${recorded.kind}"`,
     expectError ? 'data-expect-error' : '',
     drawable ? `data-has-graph data-graph-nodes="${graph!.nodes.length}"` : '',
+    // Element words (CELL_WORDS): the browser modules that upgrade this cell, and what the words say.
+    info?.words ? `data-elements="${esc(wordModules(info.words).join(' '))}" data-words="${attrJson(info.words)}"` : '',
     `data-recorded="${attrJson({ envelope: recorded.envelope ?? null, graph })}"`,
   ].filter(Boolean);
   const table = recorded.table ? tableHtml(recorded.table) : '';

@@ -37,6 +37,17 @@ relate --mode envelope "RETURN 1 AS ok"
 
 The output should be exactly that line. Every statement this page runs passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
 
+The envelope is one of relate's [output modes](/docs/reference/cli/output-modes). This statement runs in your browser, on the engine this page loads, and the terminal below shows it in four of those modes: `table`, `envelope`, `jsonl` and `toon`.
+
+```cypher run name=names
+UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name
+```
+
+The terminal prints the same statement the way relate prints it, one view per mode, with the exit code. It runs on an empty database opened read-only, which is what `relate --read-only` opens. Now edit the statement, or pick a preset that fails and run it: notice that the JSON modes add an error object on stdout and the exit code becomes 6. "Run as an agent harness" plays `CLAUDECODE=1`, so a statement over 100 rows comes back cut, with a warning on stderr.
+
+:::terminal{cell=names}
+:::
+
 ## Install the skill
 
 The skill is relate's cheat sheet for agents: the CLI, Cypher, and what to read for vectors, storage and safety. It ships inside the binary. This step installs it for Claude Code; the other names `--agent` accepts are `cursor`, `windsurf`, `copilot`, `antigravity`, `gemini-cli`, `cline`, `codex`, `pi`, `opencode` and `junie`.

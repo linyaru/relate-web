@@ -28,6 +28,8 @@ parts of both (see [Checks](#checks)).
 | `_data/errors.json` | Every error an agent can meet, one stable id per entry |
 | `_data/changelog.json` | The release notes, one entry per release, newest first, and the deprecation policy; rendered to `/docs/reference/changelog/`, its twin and `/docs/changelog.json` |
 | `_data/skill.json` | The upstream commit, sync date, stamped version and SHA-256 of every file of the published skill bundle (`public/skills/relate/`); written by `npm run skill:sync`, never by hand |
+| `<section>/…/diagrams/<page>-element-<id>.json` | An interactive element's recorded static form, with `-light.svg` and `-dark.svg` when it has a picture ([Interactive elements](#interactive-elements)) |
+| `src/lib/docs/elements/`, `src/scripts/docs/elements/`, `scripts/browser-cases/` | Outside this directory: each element's build side (and `_<name>-*.ts` helpers), browser module and styles, and cookbook:browser cases, found by directory ([Interactive elements](#interactive-elements)) |
 | `_example/` | A throwaway page that exercises every construct; built only with `DOCS_EXAMPLES=1` |
 | `STYLE.md`, `README.md` | The two contracts; not pages |
 
@@ -104,7 +106,9 @@ To bump `verified`, re-record every page against the new engine and change
 Prose constructs are remark directives, rendered by one pipeline to HTML
 for the page and to markdown for the twin (ADR-0015). JSX is reserved for
 generated and interactive components. The full vocabulary follows; each
-entry shows the source and what the twin gets.
+entry shows the source and what the twin gets. Interactive elements (the
+plan viewer, the explorers, the terminal) are directives too, one per
+element; see [Interactive elements](#interactive-elements).
 
 ### Callouts
 
@@ -282,6 +286,7 @@ meta drives behavior:
 | ```` ```cypher run ```` | A runnable cell; its id is `cell-<n>`, the n-th run cell on the page |
 | ```` ```cypher run name=<id> ```` | A runnable cell with a stable id (letters, digits, `-`, `_`); prefer it, so a reordering does not rename cells |
 | ```` ```cypher run params=<name> expect=error ```` | A cell that takes the page's ```` ```json data=<name> ```` block as parameters, and one that must fail ([Runnable cells](#runnable-cells)) |
+| ```` ```cypher run timing layout=hierarchical ```` | A cell with element words: what the page does with its result in a browser ([Interactive elements](#interactive-elements)) |
 | ```` ```python run ```` / ```` ```js run ```` / ```` ```rust run ```` / ```` ```java run ```` / ```` ```go run ```` / ```` ```swift run ```` / ```` ```c run ```` | A verified sample: a whole program run against the relate client for its language; its id is `<lang>-<n>`, the n-th sample of that language ([Verified samples](#verified-samples)) |
 | ```` ```python run env=crewai ```` | A Python sample run in the named second venv (`RELATE_PY_CREWAI`) |
 | ```` ```python run name=<id> title="app.py" ```` | A verified sample with a stable id, written to the named file |
@@ -310,6 +315,7 @@ comes into view, never with the page.
 | `name=<id>` | The cell's stable id (letters, digits, `-`, `_`); without it the id is `cell-<n>` |
 | `params=<name>` | The cell runs with the page's ```` ```json data=<name> ```` block as its parameters |
 | `expect=error` | The cell must fail; its recorded result is the error |
+| `timing`, `layout=…`, `highlight=path`, `caption=<property>` | Element words: they change what the page shows of the result in a browser, never what the cell runs ([Interactive elements](#interactive-elements)) |
 
 A ```` ```json data=<name> ```` block is a JSON object of named parameters.
 The page shows it inside the cell that names it, editable; the twin keeps
@@ -374,6 +380,138 @@ A cell without a recorded result fails the build. Twin: the fence, then a
 drawn graph a link to its light SVG. Each cell, and the engine bar, links
 `/playground/#docs=<page>[&cell=<id>]`, which loads the page's cells from
 its twin.
+
+### Interactive elements
+
+An interactive element is a live view the engine drives in the reader's
+browser: a plan viewer, an explorer, a terminal (DOCS-PLAN.md §7.3). Each
+answers the question its page asks, with the engine's own numbers, and each
+is complete without JavaScript (ADR-0035, the interactive element framework).
+
+**The directive family.** An element is a container directive named after
+it. Its attributes configure it; its children are the authored part of its
+static form, plain markdown and constructs. It takes no `[label]`, and
+elements do not nest. `id=` gives it a stable id; without one its id is
+`<name>-<n>`, the n-th of that name on the page.
+
+````markdown
+:::plan{cell=nearest}
+The plan of the nearest-places query, before and after the point index.
+:::
+````
+
+What changes how a cell's own result shows is a word on the cell instead:
+`timing` (the parse, plan and execute bar under the result; the engine bar
+also gets a "Show timing" toggle), `layout=hierarchical|circular|force`,
+`highlight=path` and `caption=<property>` (graph view extras). The set is
+closed in `src/lib/cookbook/cells.ts` (`CELL_WORDS`), which the build and the
+playground share; a word whose browser module does not exist yet fails
+`docs:check`.
+
+**The static form.** Every element has one, built and never drawn by hand:
+the children, then what the element's `staticForm` generates from the
+page's recordings (markdown, and optionally a light and a dark SVG in the
+site's colours), then a "Live:" sentence saying what the element does in a
+browser. The sentence is one paragraph of inline markdown, parsed like the
+rest of the form, with commands, flags and paths in code spans; the place is
+"the page's database in your browser". `npm run docs:record` writes the generated part to the page's
+`diagrams/` sidecar (`<page>-element-<id>.json`, `-light.svg`, `-dark.svg`),
+stamped with a hash of its inputs: the directive, the page's recordings and
+data blocks, the element's build file, the helpers it imports from
+`src/lib/docs/elements/`, `src/lib/docs/element-kit.ts`, the colour tokens
+when it has a picture, and the files it names in `inputs`. The JSON holds
+each picture's SHA-256 too, and one of its words (the text, the live line
+and the caption), so a text-only form edited by hand fails like a picture. The build and `docs:check` fail on a missing,
+stale, empty or hand-edited one. Review the diff like the cells' graph
+pictures.
+
+**The twin.** The children as markdown, the generated text, the line
+`Live: <what the element does in a browser>`, then a link to the light SVG
+when the element has a picture. The build serves the pictures at
+`/docs/<page>/element-<id>-light.svg` and `-dark.svg`.
+
+**Lazy loading.** A page with cells or elements gets the page runtime
+(`src/components/docs/PageRuntime.astro`, rendered only there) and the
+engine bar. An element whose build file says `engine: false` runs no
+engine; on a page without cells and without an element that runs one, the
+bar stays out of sight until something starts the engine. The runtime
+imports an element's module when its host comes within 600 px of the
+viewport or the reader points at, touches or focuses it, never with the
+page. The engine loads on the first Run or when an element asks for it; NVL
+only through the one graph module. Until the module is up the static form
+shows; layout animation stops under `prefers-reduced-motion`. Elements and
+cells share one exclusive lock, so runs never overlap. Elements are
+destroyed when the page unloads; a page the browser keeps in its
+back/forward cache keeps them working.
+
+**The budget.** A docs page runs under 60 KB of its own JavaScript before
+its lazy chunks: inline scripts, the script files it loads, and the modules
+those import statically, uncompressed. The page runtime and the cell
+runtime it imports count on the pages that have them (about 31 KB on the
+example page). `docs:check -- --built` measures every built docs page and
+prints the three largest; `cookbook:browser` loads each page with the
+runtime and fails one that loads, before any interaction, a script that
+count misses or more than 60 KB.
+
+**The checks.** `docs:check` fails an element whose build file, browser
+module or case file is missing, a directive its `validate` refuses, a
+recorded form that is missing, empty, stale or edited by hand, a form left
+without its directive, and a cell word with no browser module;
+`docs:check -- --built` adds the budget. `cookbook:browser` runs every case
+file on the first built page that carries its element, after checking the
+static form without scripts at 1400 and 390 px and that nothing loads while
+the host is out of reach, then reruns the first case at 390 px and under
+`prefers-reduced-motion`. An element on a built page with no case file
+fails.
+
+**What a number says about itself.** Every element's status line opens
+with one of two phrases from `src/lib/docs/elements/_wording.ts`, then its
+own clause: `recordedLine` ("Recorded on relate 0.16.1 when the page was
+built.", with the version the page's recordings were verified on, or the
+binary's for a CLI or server recording) before anything runs, and
+`liveLine` ("From this tab's run on relate 0.16.1, 0.8 ms in the engine.")
+after a run, the time being the engine's own `elapsed_ms`. The place is
+always "this tab". Durations print with its `formatMs`: one decimal, `<0.1`
+below it, whole milliseconds from 100 up. A docs page is not cross-origin
+isolated, so the browser's timer the engine reads ticks in 0.1 ms steps; a
+second decimal would claim a precision no reading has. The timing bar says
+so once, in its pane.
+
+**Two elements side by side.** A `:::terminal` directly followed by a
+`:::mcp-tryout` sits beside it where the column is at least 720 px wide and
+stacks below that (concepts/agent-native, DOCS-PLAN.md §7.4). The layout is
+CSS on the two hosts in `docs.css`, not a construct.
+
+**Adding an element** is four files named after it, and nothing else:
+
+| File | What it holds |
+| --- | --- |
+| `src/lib/docs/elements/<name>.ts` | The build side: `export default { live, validate, staticForm, inputs } satisfies ElementSpec` (`src/lib/docs/elements.ts`); drawing helpers in `src/lib/docs/element-kit.ts` |
+| `src/scripts/docs/elements/<name>.ts` | The browser module: `export function mount(ctx)` (`src/scripts/docs/element-api.ts` types the page API) |
+| `src/scripts/docs/elements/<name>.css` | Its styles, imported as text (`?inline`) and put on the page with `ctx.adoptStyles` |
+| `scripts/browser-cases/<name>.ts` | Its cookbook:browser cases (`scripts/browser-cases/_kit.ts`) |
+
+A cell word (`timing`, the graph view extras) is not a directive: it has no
+build file, because the cell's own recording is its static form. It is the
+browser module, its styles and its case file, with any shared helpers in
+`src/lib/docs/elements/_<name>-*.ts` (`_timing-model.ts`,
+`_graph-extras-static.ts`), and its name in `CELL_WORDS`.
+
+A new element is a decision: an ADR and a row here.
+
+| Element | Authoring | What it shows | Static form | Status |
+| --- | --- | --- | --- | --- |
+| `row-counts` | `:::row-counts{cells="a,b"}` | The rows each cell returns, recorded and live, with a node count on the page's database and a write refused on a read-only one | A table and bars of the recorded row counts | The framework's example, on `_example/` only (ADR-0035) |
+| Graph view extras | cell words `layout=hierarchical\|circular\|force`, `highlight=path`, `caption=<property>` (module `graph-extras`) | On every graph view, docs and cookbook (graph.ts): path highlighting with a toggle, a layout switch, a caption picker, pinned nodes that keep their place through layouts, expansions and runs (drag, a double-tap on a touch screen, Pin all, or Pin in the inspector), a relationship-type legend, full screen; the words set a cell's defaults, and a pane under the result says in words what they did | The cell's recorded result and its graph picture laid out to the words (layers, a circle, the caption, the path drawn on top); the words join the picture's stamp | On reference/cypher/patterns (ADR-0036) |
+| Phase timing bar | cell word `timing`; "Show timing" on the engine bar | Parse, plan and execute milliseconds of each statement of a live run, as a stacked bar with the numbers as text | The cell's recorded result, which keeps no timings (a recording strips them) | On concepts/architecture; the bar toggle on every page with cells (ADR-0038) |
+| Query plan viewer | `:::plan{cell=<EXPLAIN cell> [compare=<cell>] [index="CREATE INDEX …"]}` | The operator tree with estimates and notifications; PROFILE adds rows, time and database hits as bars; Compare with the index plans without and with it side by side and holds the index until Drop or Reset (Drop removes only an index the viewer created; with `compare=`, EXPLAIN and PROFILE always compare, leaving the database as it was); a speedscope download of a PROFILE | The plan as `relate --mode table` prints it, each notification with its remedy and errors anchor; with `compare=`, the second plan and what changed | On concepts/architecture, guides/cypher/tune-a-query, reference/cypher/explain-and-profile, guides/cypher/indexes-and-constraints (ADR-0038) |
+| Agent-mode terminal | `:::terminal{cell=<first cell> [mode=table\|envelope\|jsonl\|toon] [harness=on]}`; the cell's statement must be one of the fixtures in `_terminal-record.ts` | The statement, editable or a preset, on an empty read-only database, printed as relate prints it in four modes with the stderr lines, the exit code and its class (also in the status live region), and the row cap under "Run as an agent harness"; the pane draws the first 500 lines and says how much more relate prints, and names the one known engine wording difference | The recording rendered in all four modes, each command with `--read-only`, the exit code and failure class labelled with the binary version from `cli.json` and `errors.json` | On concepts/agent-native (beside the MCP tryout), get-started/agent-quickstart, guides/agents/drive-relate-from-an-agent, reference/cli/exit-codes-and-errors (ADR-0037) |
+| Live schema | `:::schema-live{cell=<id>}` under a data-model figure; `cell` (default: every cell) is the last cell run first | A button runs the cells, then `CALL db.schema.visualization()`, and draws its labels and relationship types with the data-model drawing code in the figure's colours, beside a table of each label's indexes and constraints and the labels the figure and the database disagree on | The authored figure above it, and a sentence on what the procedure reports and what the cells wrote when recorded | On get-started/first-graph and guides/agents/model-agent-memory (ADR-0039) |
+| Vector search explorer | Scatter: `:::vector-explorer{data=<json block> cell=<ranking cell> [filter=<cell>] [euclidean=<cell>] [group=<field>]}`. Hybrid: `:::vector-explorer{lists="<cell>,<cell>" [fuse=<cell>] [weights="0.7,0.3"] [constant=60] [max=<n>]}`; each cell takes `$k` | The block's vectors on two principal components (computed at record time), the question, the engine's top k ringed as k, the pre-filter and the similarity function change; or two ranked lists fused by reciprocal rank beside the page's own fused statement | The recorded top k and a light and dark scatter SVG; or the recorded lists and the fusion arithmetic, which docs:check holds to the `fuse` cell's recording | On guides/cypher/vector-search (scatter) and guides/cypher/full-text-and-hybrid-search (hybrid) (ADR-0039) |
+| Geospatial explorer | `:::geo-explorer{points=<cell> radius=<cell> [box=<cell>] [index=<cell>] [extent=<meters>]}` | The page's places on a plane; the circle and box drag (or move with the arrow keys, resize with + and -), and each move re-runs the page's radius or box cell with `PROFILE`; the point index button, with the parse, plan and execute times and the scan's database hits with the index off and on | The radius cell's recorded table, the places beyond the plane, and the first frame (light and dark SVG) | On guides/cypher/geospatial (ADR-0040) |
+| MCP tryout | `:::mcp-tryout{calls=<json data block> readonly=on\|off}`; the block is `{"calls": [{tool, arguments}]}`, all three tools, at most six calls | Each `tools/call` answered in the page by `relate serve`'s mapping (EXPLAIN, the read/write gate on the plan's operators, the run), the request and the reply, arguments editable; "Serve read-only" drops `write_cypher` and shows the server's recorded tool error beside the engine's own refusal (42N18) | Each call's request and reply recorded on the page's cells (timings as `<ms>`), with its rows, counters or schema; the recorded `--read-only` run from errors.json, with its version | On concepts/agent-native, guides/agents/connect-over-mcp, reference/server/mcp (ADR-0041) |
+| Agent trace playback | `:::agent-trace{steps=<json data block> from=<cell>}`; the block is `{"steps": [{tool, arguments, note, expect?}]}`, at most twelve | The steps sent one by one (Step, Play all, Restart) on the database the cells up to `from` build; each statement is one the page already runs whole, each parameter object data the page holds; a step that repeats a cell must match its recording | The transcript recorded on the same database: each step's note, request and result | On get-started/agent-memory (ADR-0041) |
+| The docs graph, live | `:::docs-graph` | The published pages by section with their links, and toggles for terms, capabilities, recipes, CLI commands and flags, surfaces and problems, drawn from `/docs/graph-view.json` through graph.ts `renderNetwork`; a title search, an inspector naming each node's neighbors, a click through to each page, and the whole graph's counts | Each section's page count, how the view treats each label and type, and the pages where the view first draws them (a layout that depends only on the page list) | On reference/docs-graph (ADR-0042) |
 
 ### Verified samples
 
@@ -764,8 +902,8 @@ run skills:record` (`-- --dist dist` after a build) records it.
 
 | Command | What it does |
 | --- | --- |
-| `npm run docs:check` | Frontmatter against the schema; links and anchors resolve (docs, cookbook, playground); banned words, synonyms and glossary aliases; headings, fences, exclamation marks, link text; page shape per type; the twin round-trip; the trust checks (`--read-only` in every copyable config block and on every store-opening command in an AGENTS.md block, the install prompt pins the engine version, no imperative or injection text in twins outside fences, `verified` lags the engine by at most one minor, for `errors.json`, `cli.json` and `surfaces.json` too); diagrams (fresh, inert, accTitle and accDescr); the glossary (`src/lib/docs/checks/glossary.ts`: the term files and their bodies, the Short-definitions rule, distinct aliases, every `:term` id resolves, the trust rules on every body fence, unused terms reported, a page that uses a term three or more times without linking it warned while it links fewer than five terms, with the common words in `FIRST_USE_IGNORED` not counted, and the twin's Terms section exactly the linked terms in order) and the Vale vocabulary; every page's cells replayed on `public/wasm` against their recordings and static graph forms; every sample recorded; the CLI facts' recordings well formed and consistent with the data, nothing disputed; the generated pages render with well-formed twins; `_data/surfaces.json` well formed; the skill bundle against upstream at the recorded commit (when a checkout is present, `RELATE_UPSTREAM`, default `../relate`) and its indexes; the task skills in `public/skills/<name>/` (`src/lib/docs/checks/skill.ts` `checkTaskSkills`): frontmatter (name, description with the canonical phrase, version from engine.json), SKILL.md plus linked references/*.md only, the docs-are-data sentence and the disambiguation line, every cited URL a published page's twin (`/docs/<id>.md`), an existing recipe's `/cookbook/<slug>/index.md` or a served path (dist/ under `--built`), at least one cited recipe, no imperative or injection prose, `--read-only` on every shell store open (a binary named by a path counts; a `--read-only` in a comment or a query string does not), `read_only=True` / `readOnly: true` on every Python / JavaScript client open, outside a `writes` fence; any other fence language but cypher, json, yaml, text, shell, python and javascript refused; no cited directory without an index.html; version strings from engine.json; and the `_data/skill.json` `task_skills` record: the files as reviewed and each cited recipe's source (and, under `--built`, its results.json with timings removed) unchanged since; every cypher fence of every task skill run on `public/wasm` (`checkTaskSkillCypher`); the skills CLI install form (`skill-install-form`): `npx skills add https://relatedb.ai` without `--skill <name>`, or with a path URL, is an error in /skill.md, public/llms.txt and every docs page; /skill.md names no version other than _data/engine.json's; the docs graph (`src/lib/docs/graph.ts`, replayed on the WASM): no orphan page, every `_data/cli.json` command and flag named on a reference page (an error since the CLI command pages exist), no published page with a planned prerequisite, every `:term` id exists; no page that is its own prerequisite (`graph-prereq-cycle`); the seed creates the full-text indexes `docs` and `problems` and the vector index `docs_vector` and sets as many section vectors as `_data/embeddings.json` has current entries; `DOCS_GRAPH_SEVERITY=<rule>=<error\|warning\|off>` changes a rule's severity; the embeddings (`src/lib/docs/checks/embeddings.ts`): every section has a vector whose SHA-256 matches the text it would embed now, no vector is orphaned or malformed, the cookbook recipe's questions have current vectors, and the `docs` data block of `query-the-relate-docs.md` equals the subset the graph gives now (all errors; `DOCS_EMBEDDINGS_SEVERITY=warning\|off` lowers them locally); the capability catalog (`src/lib/docs/checks/capabilities.ts`): every `_capabilities/` file well formed; its cited pages, anchors and recipes and its verify run resolve; intents unique and free of injection phrasing; data models drawn only with circles and rendered; the generated section of concepts/problems-relate-solves current; `/docs/capabilities.json` well formed (with `--built`, byte-equal in dist/ and every `schema_url` built). From the source; `npm run docs:check -- --built` adds the dist/ checks after a build (every twin opens its description with the canonical phrase, and so does the first line of `/docs/llms.txt`; `/docs/glossary.json` equals the glossary and the glossary page carries its JSON-LD). |
-| `npm run docs:record` | Rewrites every page's results sidecar and static graph forms from a run of its cells on `public/wasm` (`node scripts/docs.ts --record`); keeps the samples' entries; review the diff |
+| `npm run docs:check` | Frontmatter against the schema; links and anchors resolve (docs, cookbook, playground); banned words, synonyms and glossary aliases; headings, fences, exclamation marks, link text; page shape per type; the twin round-trip; the trust checks (`--read-only` in every copyable config block and on every store-opening command in an AGENTS.md block, the install prompt pins the engine version, no imperative or injection text in twins outside fences, `verified` lags the engine by at most one minor, for `errors.json`, `cli.json` and `surfaces.json` too); diagrams (fresh, inert, accTitle and accDescr); the glossary (`src/lib/docs/checks/glossary.ts`: the term files and their bodies, the Short-definitions rule, distinct aliases, every `:term` id resolves, the trust rules on every body fence, unused terms reported, a page that uses a term three or more times without linking it warned while it links fewer than five terms, with the common words in `FIRST_USE_IGNORED` not counted, and the twin's Terms section exactly the linked terms in order) and the Vale vocabulary; every page's cells replayed on `public/wasm` against their recordings and static graph forms; interactive elements (`src/lib/docs/checks/elements.ts`): each element's build file, browser module and browser case file exist, every directive passes its element's `validate` and has a current, non-empty recorded static form whose pictures are the recorded ones, no recorded form is left without its directive (on a page with an unknown container, the unknown container is reported instead), and every cell word names a browser module that exists; every sample recorded; the CLI facts' recordings well formed and consistent with the data, nothing disputed; the generated pages render with well-formed twins; `_data/surfaces.json` well formed; the skill bundle against upstream at the recorded commit (when a checkout is present, `RELATE_UPSTREAM`, default `../relate`) and its indexes; the task skills in `public/skills/<name>/` (`src/lib/docs/checks/skill.ts` `checkTaskSkills`): frontmatter (name, description with the canonical phrase, version from engine.json), SKILL.md plus linked references/*.md only, the docs-are-data sentence and the disambiguation line, every cited URL a published page's twin (`/docs/<id>.md`), an existing recipe's `/cookbook/<slug>/index.md` or a served path (dist/ under `--built`), at least one cited recipe, no imperative or injection prose, `--read-only` on every shell store open (a binary named by a path counts; a `--read-only` in a comment or a query string does not), `read_only=True` / `readOnly: true` on every Python / JavaScript client open, outside a `writes` fence; any other fence language but cypher, json, yaml, text, shell, python and javascript refused; no cited directory without an index.html; version strings from engine.json; and the `_data/skill.json` `task_skills` record: the files as reviewed and each cited recipe's source (and, under `--built`, its results.json with timings removed) unchanged since; every cypher fence of every task skill run on `public/wasm` (`checkTaskSkillCypher`); the skills CLI install form (`skill-install-form`): `npx skills add https://relatedb.ai` without `--skill <name>`, or with a path URL, is an error in /skill.md, public/llms.txt and every docs page; /skill.md names no version other than _data/engine.json's; the docs graph (`src/lib/docs/graph.ts`, replayed on the WASM): no orphan page, every `_data/cli.json` command and flag named on a reference page (an error since the CLI command pages exist), no published page with a planned prerequisite, every `:term` id exists; no page that is its own prerequisite (`graph-prereq-cycle`); the seed creates the full-text indexes `docs` and `problems` and the vector index `docs_vector` and sets as many section vectors as `_data/embeddings.json` has current entries; `DOCS_GRAPH_SEVERITY=<rule>=<error\|warning\|off>` changes a rule's severity; the embeddings (`src/lib/docs/checks/embeddings.ts`): every section has a vector whose SHA-256 matches the text it would embed now, no vector is orphaned or malformed, the cookbook recipe's questions have current vectors, and the `docs` data block of `query-the-relate-docs.md` equals the subset the graph gives now (all errors; `DOCS_EMBEDDINGS_SEVERITY=warning\|off` lowers them locally); the capability catalog (`src/lib/docs/checks/capabilities.ts`): every `_capabilities/` file well formed; its cited pages, anchors and recipes and its verify run resolve; intents unique and free of injection phrasing; data models drawn only with circles and rendered; the generated section of concepts/problems-relate-solves current; `/docs/capabilities.json` well formed (with `--built`, byte-equal in dist/ and every `schema_url` built). From the source; `npm run docs:check -- --built` adds the dist/ checks after a build (every twin opens its description with the canonical phrase, and so does the first line of `/docs/llms.txt`; `/docs/glossary.json` equals the glossary and the glossary page carries its JSON-LD; the script budget: every built docs page runs under 60 KB of JavaScript before its lazy chunks, the three largest printed; `DIST=<dir>` points the built checks at another build). |
+| `npm run docs:record` | Rewrites every page's results sidecar and static graph forms from a run of its cells on `public/wasm` (`node scripts/docs.ts --record`), then every interactive element's static form; keeps the samples' entries; review the diff |
 | `npm run docs:samples` | Runs every verified sample (```` ```python run ````, ```` ```js run ````, ```` ```rust run ````, ```` ```java run ````, ```` ```go run ````, ```` ```swift run ````, ```` ```c run ````) against the clients `scripts/samples/setup.sh` builds and compares each output with its record; `-- --record` rewrites, `-- --lang <lang>[,…]` limits the languages, `-- --require` fails on a missing client, `-- --clients` prints each client's version. A language whose client is not set up is skipped with a line naming the variable; with none set up it prints skipped and exits 0. A page argument that is not a page is a one-line error, exit 1. Weekly in CI (`docs-samples.yml`, a Linux job and a macOS job for Swift) |
 | `npm run docs:evals` | The cold-start eval (DOCS-PLAN.md §3.8, ADR-0029). It runs the task suite in `scripts/evals/tasks.json` through the headless agent command `DOCS_EVALS_AGENT` under the four conditions (none, agents-md, skill, docs-mcp). Each run is graded by Cypher assertions on the store it leaves (relate binary, `--read-only`), file assertions and transcript assertions (relate commands in command position only). It counts first-command correctness and error round trips, prints a markdown summary and records the scores in `_data/evals.json` (`DOCS_EVALS_HARNESS` names the agent). The agent gets only an allowlist of environment variables. Without `DOCS_EVALS_AGENT`, or without a relate binary, it prints `skipped` and exits 0. `-- --dry-run` with `DOCS_EVALS_AGENT="bash scripts/evals/fixtures/pass.sh"` proves the harness with no model (every task green); `fail.sh` fails one assertion and `write.sh` fails two (a write to a store that must not change), each exiting 1. Live runs: `.github/workflows/docs-evals.yml`, by hand or on a `relate-release` dispatch once the operator sets `DOCS_EVALS_AGENT_PACKAGE` and `DOCS_EVALS_HARNESS` |
 | `npm run docs:usage` | Collects the hosted docs MCP server's calls, cost-budget refusals, failures and zero-result calls per tool, and calls per client family, from the Worker's log line through Cloudflare's Workers Observability telemetry API into `_data/usage.json` (at most the last 7 days; `-- --print-query` shows the requests). Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; without them it prints `skipped` and exits 0. Fails closed when the log lines lack a field every line carries (evt, path, ua, status); a period with no tool call is written with no tool listed |
@@ -779,7 +917,7 @@ run skills:record` (`-- --dist dist` after a build) records it.
 | `npm run skill:sync` | Copies upstream's skill bundle into `public/skills/relate/` with the engine's version stamped and records the commit and hashes in `_data/skill.json` (keeping its `task_skills` record); run it with every WASM refresh and review the diff (ADR-0013) |
 | `npm run skills:record` | Records the task skills after a review: each file's SHA-256 and, per cited recipe, its source hash and (with `-- --dist dist`, after a build) its results digest, into `_data/skill.json` `task_skills`; docs:check fails until it runs after a skill or a cited recipe changes |
 | `node src/lib/docs/capabilities.ts --write` | Rewrites the generated section of `concepts/problems-relate-solves` from `_capabilities/`; refuses while a capability has a problem; docs:check fails while the section is stale |
-| `npm run cookbook:browser` | After a build, in headless Chrome. For the docs: the cell pages run and open in the playground; on the first built page with each, a tab set switches, a glossary toggletip opens and closes, an `::::agentic` set switches and a new tab reopens on the chosen view; the language picker switches every tab set that has the chosen language (any key spelling), `docs-tab` keeps every spelling of each language after clicks on another language's tab and on a tab that names no language, and a new tab keeps the choice; each deeplink's href decodes to the JSON shown beside it, and the link printed as text is the href. Prints a skip note for a construct no built page has (`DOCS_EXAMPLES=1 npm run build` adds the example page). Needs Chrome (`CHROME_PATH`) |
+| `npm run cookbook:browser` | After a build, in headless Chrome. For the docs: the cell pages run and open in the playground; on the first built page with each, a tab set switches, a glossary toggletip opens and closes, an `::::agentic` set switches and a new tab reopens on the chosen view; the language picker switches every tab set that has the chosen language (any key spelling), `docs-tab` keeps every spelling of each language after clicks on another language's tab and on a tab that names no language, and a new tab keeps the choice; each deeplink's href decodes to the JSON shown beside it, and the link printed as text is the href; every interactive element's case file (`scripts/browser-cases/<name>.ts`) on the first built page that carries it, after checking that its static form shows with scripts disabled (at 1400 px, and at 390 px without sideways scrolling) and that its module and the engine stay unloaded while it is out of reach, then its first case again at 390 px (no sideways scrolling, every host fits) and under `prefers-reduced-motion: reduce` (no CSS animation or transition inside a host); an element on a built page with no case file fails; the script budget measured on every docs page with the page runtime and one without: nothing loads before any interaction that the static count misses, and nothing over 60 KB (`DIST=<dir>` tests another build; `ELEMENT_ONLY=<element>[,…]` runs only those case files, for a quick loop, not CI). Prints a skip note for a construct no built page has (`DOCS_EXAMPLES=1 npm run build` adds the example page). Needs Chrome (`CHROME_PATH`) |
 | `npm run docs:lint` | Vale (Google style plus the relate vocabulary generated from `_glossary/`) on every page and STYLE.md, and on the glossary's term files with their frontmatter blanked out line for line (Vale lints front-matter string values, and a term's lowercase `id` and `context` would trip the vocabulary's case check); needs `vale` on PATH (`brew install vale`) |
 | `node scripts/docs.ts --vocab` | Rewrites `scripts/vale/styles/config/vocabularies/relate/accept.txt` after a glossary change (docs:check fails while it is stale) |
 | `npm run docs:test` | Unit tests for `src/lib/docs`, including the pinned example twin (`UPDATE=1 npm run docs:test` rewrites `_example/example.twin.md`; review the diff) |
@@ -789,6 +927,6 @@ run skills:record` (`-- --dist dist` after a build) records it.
 To lift a rule for one block, put `{/* docs-check-ignore <rule> */}` on the line before it.
 
 The build also fails, on its own, when a construct is malformed, a cell or
-sample has no recorded result, a cell's static graph form is missing or
-stale, a diagram has no current rendering, or the changelog has no entry for
+sample has no recorded result, a cell's static graph form or an element's
+static form is missing or stale, an element directive names no element, a diagram has no current rendering, or the changelog has no entry for
 the verified engine version.

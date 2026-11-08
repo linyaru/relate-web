@@ -117,7 +117,18 @@ ORDER BY name
 
 ## Check that the planner uses an index
 
-`EXPLAIN` plans a statement without running it. In a terminal, `--mode table` prints the plan and the planner's notifications. This step writes the example graph to a new store, `team.rl`:
+`EXPLAIN` plans a statement without running it, and returns the plan and the planner's notifications. In this page's cells, the uniqueness constraint's index serves a lookup by project name, but nothing serves a lookup by language: the text index on `language` serves `CONTAINS`, not equality, so the planner scans every `Project` and names the range index that would help:
+
+```cypher run name=explain-language
+EXPLAIN MATCH (p:Project {language: 'Rust'}) RETURN p.name AS name
+```
+
+In a browser, the plan viewer draws the plan as a tree. **Compare with the index** creates the range index the notification names on this page's database, plans the statement without it and with it, and shows the two side by side; pressed again, it drops the index.
+
+:::plan{cell=explain-language}
+:::
+
+In a terminal, `--mode table` prints the plan and the notifications. This step writes the example graph to a new store, `team.rl`:
 
 ```bash verify
 relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),

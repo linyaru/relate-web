@@ -1,0 +1,55 @@
+/* :::geo-explorer, the geospatial explorer (src/scripts/docs/elements/geo-explorer.ts). Tokens only; the statement panes stay dark in both themes. */
+.geo-explorer { font-size: 14px; }
+.geo-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.geo-modes { display: inline-flex; gap: 0; }
+.geo-modes .btn { border-radius: 0; }
+.geo-modes .btn:first-child { border-radius: 6px 0 0 6px; }
+.geo-modes .btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.geo-modes .btn:only-child { border-radius: 6px; margin-left: 0; }
+.geo-explorer .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* While its statement runs the index button stays focusable (aria-disabled, not disabled), so a keyboard user keeps their place. */
+.geo-explorer .btn[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+
+.geo-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .geo-main { grid-template-columns: minmax(0, 1fr); } }
+.geo-figure { margin: 0; min-width: 0; }
+/* Chrome reads touch-action on the <svg> root only: a finger on the open plane scrolls the page, and the shape claims its own touches with a non-passive touchstart in the module. */
+.geo-plane { display: block; width: 100%; height: auto; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.geo-plane text { font-family: var(--font-sans); }
+.geo-ground { fill: var(--bg); stroke: var(--border); }
+.geo-area { fill: color-mix(in srgb, var(--accent) 16%, var(--bg)); fill-opacity: 0.7; stroke: var(--accent); stroke-width: 2; cursor: move; }
+.geo-center { stroke: var(--fg-muted); stroke-width: 1.5; fill: none; pointer-events: none; }
+.geo-handle { fill: var(--bg); stroke: var(--accent); stroke-width: 2.5; cursor: nwse-resize; }
+.geo-handle-hit { fill: transparent; cursor: nwse-resize; }
+.geo-shape { outline: none; }
+.geo-shape:focus-visible .geo-area { stroke: var(--fg); stroke-width: 3; stroke-dasharray: 8 4; }
+.geo-points { pointer-events: none; }
+.geo-place circle { fill: var(--bg); stroke: var(--fg-muted); stroke-width: 1.5; }
+.geo-place text { font-size: calc(12px * var(--k, 1)); fill: var(--fg-muted); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+.geo-place.is-hit circle { fill: var(--accent); stroke: var(--fg); }
+.geo-place.is-hit text { font-size: calc(13px * var(--k, 1)); font-weight: 600; fill: var(--fg); }
+.geo-hint, .geo-off { margin: 6px 0 0; font-size: 13px; color: var(--fg-muted); }
+
+.geo-results { min-width: 0; overflow-x: auto; }
+.geo-explorer table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.geo-explorer caption { text-align: left; color: var(--fg-muted); font-size: 13px; padding-bottom: 6px; }
+.geo-explorer th, .geo-explorer td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.geo-explorer td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.geo-status { margin: 12px 0 0; overflow-wrap: anywhere; }
+
+.geo-code { margin-top: 12px; }
+.geo-label { margin: 0 0 4px; font-size: 13px; color: var(--fg-muted); }
+.geo-code pre { margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--bg-code); color: var(--code-fg); font-family: var(--font-mono); font-size: 13px; line-height: 1.5; overflow-x: auto; white-space: pre; }
+.geo-code pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+.geo-params { margin: 4px 0 0; font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+
+.geo-timing { margin-top: 12px; }
+.geo-timing td:nth-child(2) { width: 100%; }
+.geo-bar { display: flex; height: 12px; margin: 3px 0 4px; border-radius: 4px; overflow: hidden; background: var(--bg-inset); }
+.geo-seg { display: block; height: 100%; min-width: 0; }
+.geo-seg + .geo-seg { border-left: 2px solid var(--bg-alt); }
+/* The timing element's look (timing.css): parse accent, plan hatched, execute --fg, so a phase reads the same in every bar on the site, and differs in more than hue. */
+.geo-seg.parse { background: var(--accent); }
+.geo-seg.plan { background: repeating-linear-gradient(135deg, var(--fg-muted) 0 3px, var(--bg-inset) 3px 5px); }
+.geo-seg.execute { background: var(--fg); }
+.geo-nums { font-size: 13px; color: var(--fg-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

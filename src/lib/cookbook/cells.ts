@@ -31,11 +31,33 @@ export interface RunInfo {
   /** The ```json data=<name> block the cell takes its parameters from. */
   params: string | null;
   expectError: boolean;
+  /** The interactive-element words (CELL_WORDS) the cell carries, `timing` → '' and `layout=force` → 'force'; absent when it has none. */
+  words?: Record<string, string>;
 }
 
 const CELL_ID = /^[A-Za-z0-9_-]+$/;
 
-/** The info string of a runnable cell: `cypher run` with optional `name=<id>`, `params=<name>`, `expect=error`; null for any other fence. Throws on a malformed one. */
+/**
+ * The interactive-element words a cell's info string may carry (DOCS-PLAN.md
+ * §7.3, the docs README "Interactive elements"): each names the browser
+ * module (src/scripts/docs/elements/<module>.ts) that upgrades the cell, and
+ * the values it takes (null: a bare word). A word changes what the page does
+ * in a browser, never what the cell runs, so the recording and the twin's
+ * fence stay as they are. The set is closed here because the playground's
+ * hand-off and the build share this parser.
+ */
+export const CELL_WORDS: Record<string, { module: string; values: RegExp | null; hint: string }> = {
+  timing: { module: 'timing', values: null, hint: '`timing`' },
+  layout: { module: 'graph-extras', values: /^(?:hierarchical|circular|force)$/, hint: '`layout=hierarchical|circular|force`' },
+  highlight: { module: 'graph-extras', values: /^path$/, hint: '`highlight=path`' },
+  caption: { module: 'graph-extras', values: /^[A-Za-z_][A-Za-z0-9_]*$/, hint: '`caption=<property>`' },
+};
+
+/** The browser modules a cell's words need, each once, in word order. */
+export const wordModules = (words: Record<string, string> | undefined): string[] =>
+  [...new Set(Object.keys(words ?? {}).map((w) => CELL_WORDS[w].module))];
+
+/** The info string of a runnable cell: `cypher run` with optional `name=<id>`, `params=<name>`, `expect=error` and element words (CELL_WORDS); null for any other fence. Throws on a malformed one. */
 export function parseRunInfo(lang: string | null | undefined, meta: string | null | undefined): RunInfo | null {
   if (lang !== 'cypher') return null;
   const words = (meta ?? '').trim().split(/\s+/).filter(Boolean);
@@ -48,9 +70,13 @@ export function parseRunInfo(lang: string | null | undefined, meta: string | nul
     if (key === 'name' && CELL_ID.test(value)) info.name = value;
     else if (key === 'params' && CELL_ID.test(value)) info.params = value;
     else if (key === 'expect' && value === 'error') info.expectError = true;
-    else {
+    else if (key in CELL_WORDS && (CELL_WORDS[key].values === null ? eq < 0 : CELL_WORDS[key].values!.test(value))) {
+      if (info.words && key in info.words) throw new Error(`\`cypher run\` takes \`${key}\` once`);
+      info.words = { ...info.words, [key]: value };
+    } else {
       throw new Error(
-        `\`cypher run\` takes \`name=<id>\`, \`params=<name>\` (letters, digits, - and _) and \`expect=error\`, not \`${w}\``,
+        `\`cypher run\` takes \`name=<id>\`, \`params=<name>\` (letters, digits, - and _), \`expect=error\` and the element words ` +
+          `${Object.values(CELL_WORDS).map((w) => w.hint).join(', ')}, not \`${w}\``,
       );
     }
   }

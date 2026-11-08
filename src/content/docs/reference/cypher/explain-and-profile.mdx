@@ -165,7 +165,10 @@ WITH proj, count(p) AS people WHERE people > 1
 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5
 ```
 
-The recorded JSON view holds a `relate.plan/v1` tree: `ProduceResults` (`2 item(s), ordered, limit`) over `EagerAggregation` (`2 item(s), keys: proj, aggregation, WHERE filter`) over `Expand` (`(proj:Project)<-[:WORKS_ON]-(p:Person)`).
+The recorded JSON view holds a `relate.plan/v1` tree: `ProduceResults` (`2 item(s), ordered, limit`) over `EagerAggregation` (`2 item(s), keys: proj, aggregation, WHERE filter`) over `Expand` (`(proj:Project)<-[:WORKS_ON]-(p:Person)`). The plan viewer reads the same document. In a browser it draws the tree; **PROFILE** runs the statement on this page's database and adds each operator's rows, time and database hits as bars (the table's `Rows`, `Time (ms)` and `Db Hits` columns), with a download of the profile in the `--mode speedscope` format; **Plan as text** shows the table `--mode table` prints.
+
+:::plan{cell=explain-aggregation}
+:::
 
 ```cypher run name=explain-optional
 EXPLAIN MATCH (p:Person) OPTIONAL MATCH (p)-[:KNOWS]->(f) RETURN p.name AS name, f.name AS friend

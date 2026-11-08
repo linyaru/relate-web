@@ -1,0 +1,18 @@
+/* The phase timing bar (src/scripts/docs/elements/timing.ts), in a cell's `timing` pane. Tokens only. */
+.cell-slot-pane[data-slot='timing'] { margin-top: 8px; }
+.timing { font-size: 13px; }
+.timing-head, .timing-label, .timing-note { margin: 0 0 4px; color: var(--fg-muted); font-size: 13px; }
+.timing-label { margin-top: 6px; color: var(--fg); }
+.timing-row + .timing-row { margin-top: 6px; }
+.timing-bar { display: flex; height: 12px; border-radius: 4px; overflow: hidden; background: var(--bg-inset); }
+.timing-seg { display: block; height: 100%; min-width: 0; }
+.timing-seg + .timing-seg { border-left: 2px solid var(--bg-alt); }
+/* Three fills from the tokens, and a hatch on plan, so the phases differ in more than hue; the text names every number. */
+.timing-parse { background: var(--accent); }
+.timing-plan { background: repeating-linear-gradient(135deg, var(--fg-muted) 0 3px, var(--bg-inset) 3px 5px); }
+.timing-execute { background: var(--fg); }
+.timing-text { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.timing-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.timing-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.timing-elapsed { color: var(--fg-muted); }
+/* No transition: each run draws its bar afresh, so nothing moves under any motion preference. */

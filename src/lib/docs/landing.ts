@@ -176,6 +176,7 @@ export const TASKS: TaskGroup[] = [
       { text: 'Look up the storage formats', page: 'reference/storage/formats' },
       { text: 'Look up the WAL and checkpoint formats', page: 'reference/storage/wal-and-checkpoints' },
       { text: 'Look up limits and sizing', page: 'reference/storage/limits-and-sizing' },
+      { text: 'Query these docs as a graph', page: 'reference/docs-graph' },
       { text: 'Check how releases are signed and verified', page: 'reference/security' },
       { text: 'See what relate collects and sends', page: 'reference/privacy-and-telemetry' },
       { text: 'Read the changelog', page: 'reference/changelog' },

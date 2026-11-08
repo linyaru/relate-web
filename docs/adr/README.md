@@ -112,3 +112,11 @@ Copy `template.md`.
 | [0032](0032-task-skills-library.md) | Task skills are authored here, listed beside the CLI bundle, installed by name, and re-reviewed when a cited recipe changes | Proposed |
 | [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Proposed |
 | [0034](0034-verify-steps-start-loopback-servers.md) | A verify step may start and stop its own loopback server | Proposed |
+| [0035](0035-interactive-element-framework.md) | Interactive elements are directives with recorded static forms, found by directory and loaded lazily on the page's one engine | Proposed |
+| [0036](0036-graph-view-extras.md) | Graph view extras live in the one graph module and work on every graph view; cell words set their defaults and the static picture | Proposed |
+| [0037](0037-agent-mode-terminal.md) | The agent-mode terminal renders the engine's envelopes as the CLI prints them, on an empty read-only database, with CLI-only facts from recordings | Proposed |
+| [0038](0038-plan-viewer-and-timing-bar.md) | The plan viewer is an HTML tree whose static form is the CLI's plan table, and the timing bar shows only a live run | Proposed |
+| [0039](0039-live-schema-and-vector-explorer.md) | The live schema reuses the data-model drawing, and the vector explorer projects at record time and checks fusion against the page | Proposed |
+| [0040](0040-geospatial-explorer.md) | The geospatial explorer searches the page's own cells on a plane, with a first frame laid out at record time | Proposed |
+| [0041](0041-mcp-tryout-and-agent-trace.md) | The MCP tryout and the agent trace answer tool calls in the page by relate serve's mapping, with recorded server answers where the engine cannot speak | Proposed |
+| [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |

@@ -211,6 +211,17 @@ rows[3]{name,role}:
   Noor,maintainer
 ```
 
+To compare the modes on one result, run a statement in the terminal on this page. It runs in your browser on an empty database opened read-only, as `relate --read-only` opens one, and prints the bytes relate prints in `table`, `envelope`, `jsonl` and `toon`, with the exit code. The `row` column holds a map, which TOON and JSON Lines print as inline JSON and the table prints in Cypher's notation:
+
+```cypher run name=pairs
+UNWIND [{name: 'Ada', since: 2024}, {name: 'Grace', since: 2023}] AS p RETURN p.name AS person, p.since AS since, p AS row
+```
+
+:::terminal{cell=pairs mode=toon}
+:::
+
+Turn on "Run as an agent harness", pick the 250-row preset and run it to see the cap cut the rows and the warning on stderr; the exit code stays 0.
+
 An explicit `--mode` always wins, so a pipeline that parses JSON pins it:
 
 | Mode | Prints | A row-cap cut shows as |

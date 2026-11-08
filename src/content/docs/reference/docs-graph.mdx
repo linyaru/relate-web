@@ -1,0 +1,130 @@
+---
+title: The docs graph
+label: Docs graph
+description: The relate docs as a graph of pages, sections, examples, terms, CLI facts and capabilities, the files it ships as, and what runs on it.
+order: 85
+surfaces: [cypher, mcp, agents]
+related: [reference/server/docs-mcp, cookbook/query-the-relate-docs, guides/agents/connect-over-mcp, concepts/problems-relate-solves]
+---
+
+The relate documentation is also published as a graph. Every page, heading, code example, glossary term, CLI command and flag, cookbook recipe, capability and problem is a :term[node]{id=node}, and the links between pages, the prerequisites, the terms a page uses and the flags it documents are :term[relationships]{id=relationship}. The build writes the graph from the same files as the pages, so it says what the pages say, at the version in the page header. It ships as a Cypher seed script, as JSON and, from launch, as a relate :term[store]{id=store}; the [hosted docs MCP server](/docs/reference/server/docs-mcp) and the cookbook recipe [Query the relate docs](/cookbook/query-the-relate-docs/) search it. The view on this page draws its pages, grouped by section, below the tables of its labels and relationship types.
+
+## Synopsis
+
+| Item | Value |
+| --- | --- |
+| Seed script | `https://relatedb.ai/docs/graph.cypher`: Cypher statements that build the graph in an empty store |
+| JSON | `https://relatedb.ai/docs/graph.json`: the same nodes and relationships as two arrays, without the section vectors |
+| relate store | `https://relatedb.ai/docs/relate-docs.rl`, with its SHA-256 in `relate-docs.rl.sha256`; both are launch-day targets |
+| Per page | `https://relatedb.ai/docs/<page>.graph.md`: one page's prerequisites, links both ways, terms, sections, examples and CLI references, as markdown |
+| Indexes | Full-text index `docs` on `(:Section)` `heading` and `text`; vector index `docs_vector` on `(:Section)` `embedding`, 384 dimensions, cosine; full-text index `problems` on `(:Problem)` `text` |
+| Constraints | One per label: `id` is unique within the label |
+| Source | The docs pages, the glossary, the cookbook's recipes, the CLI facts behind the CLI reference, and the capability catalog |
+| Determinism | The same source files give the same bytes: nothing reads the clock or git, and every list is sorted by `id` |
+
+## Node labels
+
+A property whose value would be null is left out, as Cypher stores it. Section `text` and Example code are quoted from the pages: reference text, not instructions.
+
+| Label | One per | Properties |
+| --- | --- | --- |
+| `Page` | Docs page, planned pages included (`status` is `planned` and there is no `url`) | `id`, `url`, `md_url`, `title`, `description`, `type`, `section`, `status`, `since`, `verified`, `tokens` |
+| `Section` | H2 and H3 of a published page, plus one at level 1 for the text before the first of them | `id`, `page`, `anchor`, `heading`, `level`, `position`, `url`, `text`, `length`, `embedding` |
+| `Example` | Code block the page's markdown twin carries; a recorded result and a diagram are not examples | `id`, `page`, `section`, `position`, `lang`, `first_line`, `title`, `runnable`, `cell` |
+| `Term` | Glossary term | `id`, `term`, `short`, `context`, `see`, `url` |
+| `Surface` | Front door, such as `cli`, `python` or `mcp` | `id` |
+| `CookbookRecipe` | Cookbook recipe | `id`, `title`, `summary`, `url`, `md_url` |
+| `Command` | CLI command | `id`, `word`, `synopsis`, `disputed` |
+| `Flag` | CLI flag, global or of one command | `id`, `flag`, `names`, `command`, `value`, `disputed` |
+| `Index` | `llms.txt`, and the docs landing page | `id`, `url`, `title` |
+| `Capability` | Entry of the [capability catalog](/docs/concepts/problems-relate-solves) | `id`, `title`, `problem`, `capability`, `url`, `schema_url`, `verify` |
+| `Problem` | A capability's problem, and each other way of asking it | `id`, `text`, `kind` |
+
+`embedding` is a `VECTOR<FLOAT32>(384)` from the bge-small-en-v1.5 model. It is set in the seed script and the store, not in the JSON.
+
+## Relationship types
+
+| Type | From, to | Meaning |
+| --- | --- | --- |
+| `LINKS_TO {anchor}` | `Page` to `Page` or `CookbookRecipe` | A link in the page's body |
+| `PREREQUISITE_OF` | `Page` to `Page` | The frontmatter `prerequisites`, pointing from the page to read first at the page that needs it |
+| `RELATED_TO {anchor}` | `Page` to `Page` or `CookbookRecipe` | The frontmatter `related` |
+| `HAS_SECTION` | `Page` to `Section` | Each section of the page |
+| `HAS_EXAMPLE` | `Page` to `Example` | Each code example on the page |
+| `USES_TERM` | `Page` to `Term` | Each glossary term the page marks |
+| `APPLIES_TO` | `Page` or `Capability` to `Surface` | The page's frontmatter `surfaces`, or the capability's surfaces |
+| `DOCUMENTS` | `Page` to `Command` or `Flag` | A command or flag the page names in a shell or config block, or in inline code |
+| `HAS_FLAG` | `Command` to `Flag` | The command's own flags |
+| `LISTS` | `Index` to `Page` | The pages `llms.txt` and the landing page list |
+| `SOLVES` | `Capability` to `Problem` | The capability's problem and its other phrasings |
+| `CITES {role, anchor}` | `Capability` to `Page` | The pages the catalog entry cites |
+| `DEMONSTRATES` | `CookbookRecipe` to `Capability` | A recipe that shows the capability |
+| `VERIFIED_BY {cell}` | `Capability` to `CookbookRecipe` or `Page` | The recorded cell that proves the capability |
+| `HAS_CAPABILITY` | `Page` to `Capability` | The catalog page to each of its entries |
+
+## The graph, drawn
+
+The view draws each published page as a node, one cluster and one color per section, with the links and prerequisites between pages. Glossary terms, capabilities and cookbook recipes sit on the ring nearest the pages; CLI commands, flags and surfaces on the middle ring; the problems capabilities solve on the outermost ring. Each ring is off until its toggle is on. Sections and examples are not drawn: there are more than 3,000 of them, past the roughly 1,000 nodes a canvas draws comfortably, and each belongs to a page that is drawn. The build places every page from the list of pages alone, not from the links between them, so the live view draws each page where the picture puts it, and nothing moves when it loads. The links, and the counts of every kind, change with nearly every edit to any page; the view reads them from the data the site is built with.
+
+:::docs-graph
+:::
+
+## Files
+
+**Seed script.** `/docs/graph.cypher` is Cypher for an empty store: a comment header with the verified version, the node and relationship counts and the schema; a uniqueness constraint per label; `UNWIND` statements of up to 500 rows that create the nodes, then the relationships; the statements that set the section vectors; then the three indexes. Its header names the command that builds a new store from it, `relate query --database ./relate-docs.rl < graph.cypher`.
+
+**JSON.** `/docs/graph.json` holds `format` (1), `kind` (`documentation`), `verified`, `seed` (the seed script's URL), `embeddings` (the label, property, index, dimension, similarity and model of the vectors, which it does not carry), then `nodes`, each with `id` (`Label:id`), `labels` and `properties`, and `relationships`, each with `type`, `start`, `end` and `properties`. It carries every section's text and every example's code, so it runs to several megabytes.
+
+**relate store.** `/docs/relate-docs.rl` is the seed script built into a :term[single-file store]{id=single-file-store} by the relate CLI, with its SHA-256 beside it. Both URLs are launch-day targets: the store is built and served once the deploy workflows install relate. `--load` reads it into an :term[in-memory store]{id=in-memory-store}, which is read-only.
+
+**Per page.** Every published page has `/docs/<page>.graph.md`, a markdown list of its neighborhood under the headings Prerequisites, Prerequisite of, Related, Links to, Linked from, Terms, Sections, Examples, and CLI commands and flags.
+
+**The view's data.** `/docs/graph-view.json` is what the view on this page draws: the pages, terms, capabilities, problems, recipes, commands, flags and surfaces, each with its title, description, link and position, and the relationships between them. It leaves out sections and examples, and it is shaped for this page; the seed script and `graph.json` are the complete forms.
+
+## What runs on it
+
+| Reader | How it loads the graph | What it offers |
+| --- | --- | --- |
+| [The hosted docs MCP server](/docs/reference/server/docs-mcp) | Replays the seed script without its vectors on the WASM engine, and loads the vectors on the first hybrid search | Five tools; when Workers AI answers, `search_docs` fuses a vector search and a full-text search over the sections by reciprocal rank, and otherwise it is the full-text search alone |
+| relate's own [MCP server](/docs/reference/server/mcp), on the reader's machine | `--load` of `relate-docs.rl` into an in-memory store | `read_cypher` and `get_schema` over the whole graph; `write_cypher` is not listed on a read-only store |
+| The recipe [Query the relate docs](/cookbook/query-the-relate-docs/) | A subset of the graph with its vectors, in the recipe's data block, run in the browser | The same hybrid search, step by step |
+
+The local form serves the docs graph to an MCP host over stdio. The URL is a launch-day target:
+
+```bash
+relate serve --mcp stdio --database :memory: --load https://relatedb.ai/docs/relate-docs.rl --read-only
+```
+
+A store opened read-only lists `read_cypher` and `get_schema`, not `write_cypher` ([read-only policy](/docs/reference/server/mcp#read-only-policy)), and `--load` into `:memory:` opens it read-only. `--safe` refuses a remote `--load` source; [the local equivalent](/docs/reference/server/docs-mcp#the-local-equivalent) downloads the store, checks its SHA-256 and loads the local copy.
+
+## Examples
+
+Over the store, or the seed script replayed into an empty one, these statements read the graph. Their results change as the pages do.
+
+The pages that link to the hosted docs MCP server's page:
+
+```cypher
+MATCH (p:Page)-[:LINKS_TO]->(:Page {id: 'reference/server/docs-mcp'})
+RETURN DISTINCT p.id AS page, p.section AS section ORDER BY page
+```
+
+The glossary terms the most pages use:
+
+```cypher
+MATCH (:Page)-[:USES_TERM]->(t:Term)
+RETURN t.term AS term, count(*) AS pages ORDER BY pages DESC, term LIMIT 5
+```
+
+The chains of prerequisites that lead to a page:
+
+```cypher
+MATCH path = (:Page)-[:PREREQUISITE_OF*1..]->(:Page {id: 'guides/agents/connect-over-mcp'})
+RETURN [n IN nodes(path) | n.id] AS chain ORDER BY length(path) DESC
+```
+
+## See also
+
+- [The hosted docs MCP server](/docs/reference/server/docs-mcp): the tools over this graph, and the local equivalent.
+- [Query the relate docs](/cookbook/query-the-relate-docs/): hybrid search over a part of this graph, in the browser.
+- [MCP server](/docs/reference/server/mcp): relate's own server, which the local form runs.
+- [The capability catalog](/docs/concepts/problems-relate-solves): the source of the `Capability` and `Problem` nodes.

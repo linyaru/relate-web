@@ -28,6 +28,36 @@ This guide shows you how to connect an agent host to a relate store over :term[M
 
 Opened with `--read-only`, the server lists two tools, `read_cypher` and `get_schema`, and takes no writer lease. `write_cypher` is listed only when the store is writable. A directory store can be served read-only beside a process that writes it; a `.rl` file opens only while no writer holds it. [relate serve flags](/docs/reference/cli/flags#relate-serve) lists every flag.
 
+## What the agent sees
+
+Once the host has started the server, the agent calls its tools with `tools/call` requests, and each reply carries the result as JSON text. The tryout below sends those calls to an in-browser database on this page that holds the same graph as the `graph.rl` that [Verify](#verify) creates, three people and two projects:
+
+```cypher run name=graph
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```json data=calls
+{"calls": [
+  {"tool": "get_schema", "arguments": {}},
+  {"tool": "read_cypher", "arguments": {"statement": "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since", "parameters": {"project": "relate"}}},
+  {"tool": "write_cypher", "arguments": {"statement": "CREATE (:Person {name: $name, role: $role})", "parameters": {"name": "Eve", "role": "engineer"}}}
+]}
+```
+
+:::mcp-tryout{calls=calls readonly=on}
+:::
+
+In a browser the tryout starts with **Serve read-only** on, because every block in the next section opens the store read-only: the tool list has no `write_cypher`, and a call to it is refused before the engine sees it. Turned off, `write_cypher` writes to this page's in-browser database and nothing else. The rows and the plan come from the engine; apart from the timings, a host gets the same reply from `relate serve`.
+
 ## Add the server to your host
 
 Each block starts relate on stdio against `graph.rl`, read-only. Host configuration formats change between releases. Each host's block follows that host's own documentation as of 2026-11-07.

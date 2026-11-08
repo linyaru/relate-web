@@ -70,6 +70,29 @@ Detection changes output only. It never gates writes and never turns on `--safe`
 
 **MCP.** `relate serve --database <path> --read-only --mcp stdio` serves one store to an agent host as two tools, `read_cypher` and `get_schema`; without `--read-only` it also lists `write_cypher`. A result is one JSON object with the `rows`, `columns`, `columnTypes` and `notifications` the envelope has, plus `stats`, the `plan` and timings; it has no `truncated` or `rowCap` field. The server classifies each statement from its plan before running it, so `read_cypher` refuses a write with `Only MATCH queries are allowed for read-query`. Internal failures reach the host as `Error: internal error`, so engine detail stays out of tool-call logs.
 
+The terminal and the tryout below run on an empty database in this page, opened by the engine the page loads. The terminal takes this statement, the one in the row-cap and harness examples:
+
+```cypher run name=names
+UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name
+```
+
+It prints the statement as relate does in four output modes, `table`, `envelope`, `jsonl` and `toon`, with the exit code, and opens on TOON with "Run as an agent harness" on, as Claude Code runs it; its 250-row preset shows the cap. The tryout sends the MCP tools: `read_cypher` with the same statement, the same tool with a `CREATE`, which the plan check refuses before it runs, then `write_cypher` and `get_schema`. Each reply carries the plan, the notifications and the timings of its own run, and no `truncated` or `rowCap`.
+
+```json data=mcp-calls
+{"calls": [
+  {"tool": "read_cypher", "arguments": {"statement": "UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name"}},
+  {"tool": "read_cypher", "arguments": {"statement": "CREATE (:Person {name: $name})", "parameters": {"name": "Ada"}}},
+  {"tool": "write_cypher", "arguments": {"statement": "CREATE (:Person {name: $name})", "parameters": {"name": "Ada"}}},
+  {"tool": "get_schema", "arguments": {}}
+]}
+```
+
+:::terminal{cell=names mode=toon harness=on}
+:::
+
+:::mcp-tryout{calls=mcp-calls}
+:::
+
 ## What it costs
 
 | Choice | What it buys | What it costs |

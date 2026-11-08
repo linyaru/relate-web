@@ -85,6 +85,19 @@ The CLI error object carries no GQL status code. Where an engine error has one, 
 
 Exit codes 0 and 2 never come with an error object: 0 is success, and a usage error is caught before any statement runs. The message of each error, with its cause and remedy, is in the [CLI errors](/docs/reference/errors#cli-errors) and [engine errors](/docs/reference/errors#engine-errors) tables.
 
+### A failure in four output modes
+
+The statement in this cell divides by zero, which the engine rejects as a type error:
+
+```cypher run name=divide expect=error
+RETURN 1/0 AS x
+```
+
+The terminal prints what relate prints for the same statement in `table`, `envelope`, `jsonl` and `toon`, with the exit code. The statement runs in the browser on the engine the page loads, on an empty database opened read-only, as `relate --read-only` opens one. The exit code and the error's class follow from the error kind through the classes in the errors reference. Its presets include a syntax error, a missing parameter, a refused write and a run of three statements that stops at the second.
+
+:::terminal{cell=divide}
+:::
+
 ## Recorded runs
 
 Each run shows stderr and stdout as one stream, in the order relate wrote them, then the exit code. A path inside the run's directory prints as `<dir>`.

@@ -25,6 +25,7 @@ import { MAX_RESULT_ROWS } from '../../cookbook/recipe.ts';
 import { lastEnvelope } from '../../cookbook/result-view.ts';
 import { expandProblem, loadEngine, type Engine as Wasm } from '../../cookbook/run.ts';
 import { drawSchema, layoutSchema } from '../../cookbook/schema-graph.ts';
+import { drawResultGraphWith, extrasKey } from '../elements/_graph-extras-static.ts';
 import type { Font } from '../../cookbook/schema-text.ts';
 import { DOCS_DIR, ROOT, splitFrontmatter, type Engine, type PageFile } from '../content.ts';
 import { parsePage } from '../parse.ts';
@@ -221,8 +222,17 @@ const cut = (s: string) => (s.length > CAPTION_MAX ? `${s.slice(0, CAPTION_MAX -
  * A recorded graph drawn as the cookbook draws a data model (d3-force,
  * ADR-0135): each node a circle in its label's colour holding its caption
  * and labels, each relationship an arrow with its type. Light and dark.
+ * `extras` (the cell's words and recorded envelope) applies the graph view
+ * extras the live view starts with: `layout=`, `caption=`, `highlight=path`.
  */
-export function drawResultGraph(graph: RecordedGraph, cellId: string, title: string): Record<Theme, string> {
+export function drawResultGraph(
+  graph: RecordedGraph,
+  cellId: string,
+  title: string,
+  extras?: { words?: Record<string, string>; envelope?: unknown },
+): Record<Theme, string> {
+  const withExtras = extras ? drawResultGraphWith(graph, cellId, title, { words: extras.words, envelope: extras.envelope, measure }) : null;
+  if (withExtras) return withExtras;
   const colors = new Map<string, string>();
   const model = {
     direction: 'LR',
@@ -300,7 +310,7 @@ export async function checkCells(site: CellsSite, report: Report): Promise<void>
       if (!drawsStatic(graph)) continue;
       drawn.add(cell.id);
       try {
-        readResultGraph(page.file, cell.id, graph);
+        readResultGraph(page.file, cell.id, graph, extrasKey(cell.words, recorded.cells[cell.id]?.envelope));
       } catch (e) {
         report(page.file, line(cell), 'error', 'cells', (e as Error).message);
       }
@@ -365,12 +375,13 @@ export async function recordCells(site: CellsSite, report: Report, log: (line: s
     for (const cell of page.cells) {
       const graph = run.results.cells[cell.id].graph;
       if (!drawsStatic(graph)) continue;
-      const svg = drawResultGraph(graph, cell.id, graphCaption(cell.title));
+      const envelope = run.results.cells[cell.id].envelope;
+      const svg = drawResultGraph(graph, cell.id, graphCaption(cell.title), { words: cell.words, envelope });
       mkdirSync(dir, { recursive: true });
       for (const theme of THEMES) {
         const name = resultGraphFile(stem, cell.id, theme);
         keep.add(name);
-        write(join(dir, name), `${graphHashComment(graphHash(graph))}\n${svg[theme]}\n`);
+        write(join(dir, name), `${graphHashComment(graphHash(graph, extrasKey(cell.words, envelope)))}\n${svg[theme]}\n`);
       }
     }
     if (existsSync(dir)) {

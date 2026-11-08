@@ -20,11 +20,16 @@
 //   when one comes near the viewport. A double-click on a node adds its
 //   neighbours from the page's database, running the cells it needs first
 //   (ADR-0151).
+// - Interactive elements on docs pages (src/scripts/docs/elements.ts) share
+//   the engine, the database and the exclusive lock through `pageApi()`
+//   (the API is typed in src/scripts/docs/element-api.ts); `startCells`
+//   returns it. Nothing in it runs until an element asks.
 
 import { failed, surprise, type LastEnvelope } from '../../lib/cookbook/cells.ts';
 import { expandNode, type Graph } from '../../lib/cookbook/graph-model.ts';
 import { canDraw, lastEnvelope, tableHtml, type TableCells } from '../../lib/cookbook/result-view.ts';
 import type { GraphView, Outcome } from './graph.ts';
+import type { CellHandle, CellResult, ElementRun, EngineInfo, Envelope, PageApi } from '../docs/element-api.ts';
 
 /** How a page starts its cells. */
 export interface CellsOptions {
@@ -142,6 +147,16 @@ class Engine extends EventTarget {
     return this.call({ type: 'run', code, params }) as unknown as Promise<RunReply>;
   }
 
+  /**
+   * Run on a fresh read-only in-memory database in the worker, freed after.
+   * The page's database does not see the statement, but it shares the one
+   * wasm module instance: a trap here discards the worker, and with it the
+   * page's database, as after any trap.
+   */
+  runReadOnly(code: string, params: string | null) {
+    return this.call({ type: 'run-read-only', code, params }) as unknown as Promise<RunReply>;
+  }
+
   async reset() {
     if (this.worker) await this.call({ type: 'reset' });
   }
@@ -175,6 +190,11 @@ class Session {
   bar: HTMLElement;
   options: CellsOptions;
   messages: ReturnType<typeof messages>;
+  /** The element API's listeners: every cell run, and every time the database goes. */
+  resultListeners = new Set<(cell: CypherCell, reply: RunReply, problem: string | null) => void>();
+  resetListeners = new Set<() => void>();
+  idleWaiters: (() => void)[] = [];
+  engineInfo: EngineInfo | null = null;
 
   constructor(bar: HTMLElement, options: CellsOptions) {
     this.bar = bar;
@@ -186,7 +206,9 @@ class Session {
     bar.querySelector('[data-action=run-all]')?.addEventListener('click', () => this.runAll());
     bar.querySelector('[data-action=reset]')?.addEventListener('click', () => this.reset());
     bar.querySelector('[data-action=stop]')?.addEventListener('click', () => this.stop());
-    bar.hidden = false;
+    // A quiet bar (a page whose elements need no engine, and no cells) shows
+    // once something starts the engine, so Stop and Reset are within reach.
+    if (!('quiet' in bar.dataset)) bar.hidden = false;
   }
 
   register(cell: CypherCell) {
@@ -195,6 +217,9 @@ class Session {
 
   onStatus(detail: StatusDetail) {
     this.bar.dataset.status = detail.status;
+    if (detail.status === 'loading') this.bar.hidden = false;
+    if (detail.status === 'ready') this.engineInfo = { version: detail.version ?? null, loadMs: detail.loadMs ?? 0 };
+    else if (detail.status !== 'emptied') this.engineInfo = null;
     if (detail.version) this.bar.dataset.engineVersion = detail.version;
     const message = this.messages[detail.status];
     if (message) this.bar.querySelector('.engine-text')!.textContent = message(detail);
@@ -207,14 +232,55 @@ class Session {
       b.disabled = busy;
     }
     for (const c of this.cells) c.setBusy(busy);
+    if (!busy) for (const wake of this.idleWaiters.splice(0)) wake();
+  }
+
+  /** Tell the element API's listeners about a cell's run. */
+  emitResult(cell: CypherCell, reply: RunReply, problem: string | null) {
+    for (const l of this.resultListeners) {
+      try {
+        l(cell, reply, problem);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  /**
+   * Run `code` for an element on the page's database, under the lock, after
+   * the cells `upTo` names have run (see PageApi.run). Throws why not when it
+   * could not run.
+   */
+  async runForElement(code: string, params: string | null, upTo: string | null, readOnly: boolean): Promise<RunReply> {
+    const target = upTo === null ? null : upTo === 'all' ? (this.cells.at(-1) ?? null) : this.cells.find((c) => c.dataset.cell === upTo);
+    if (target === undefined) throw new Error(`the page has no cell \`${upTo}\``);
+    // Check and take the lock in one tick: nothing may await between the last
+    // look at `busy` and exclusive()'s setBusy(true), or two waiters both see
+    // it free and both run (each running the pending cells again).
+    while (this.busy) await new Promise<void>((r) => this.idleWaiters.push(r));
+    let reply: RunReply | null = null;
+    const problem = await this.exclusive(async (signal) => {
+      if (target) {
+        const blocked = await this.bringUpTo(target, signal);
+        if (blocked) return blocked;
+      }
+      await this.engine.start();
+      if (signal.aborted) return 'stopped.';
+      reply = readOnly ? await this.engine.runReadOnly(code, params) : await this.engine.run(code, params);
+      return null;
+    });
+    if (problem !== null || reply === null) throw new Error(problem ?? 'stopped.');
+    return reply;
   }
 
   /**
    * Run `task(signal)` while nothing else runs: Run and Reset are disabled
    * and Stop aborts `signal`. Resolves to what `task` returns, or to a
-   * problem string when it throws.
+   * problem string when it throws. Every caller checks `busy` in the same
+   * tick as it calls this, so the check and the take are one step.
    */
   async exclusive(task: (signal: AbortSignal) => Promise<string | null>): Promise<string | null> {
+    if (this.busy) throw new Error('exclusive() called while a run holds the lock');
     this.setBusy(true);
     const run = (this.current = new AbortController());
     try {
@@ -295,6 +361,13 @@ class Session {
   forget() {
     this.done.clear();
     for (const c of this.cells) c.showRecorded();
+    for (const l of this.resetListeners) {
+      try {
+        l();
+      } catch (err) {
+        console.error(err);
+      }
+    }
   }
 
   async reset() {
@@ -411,6 +484,12 @@ class CypherCell extends HTMLElement {
   view: View = 'text';
   /** The graph view of `result`, drawn once per result so expansions last while the reader switches tabs. */
   graph: { result: Result; view: Promise<GraphView | null> } | null = null;
+  /** The element API's graph listeners (CellHandle.onGraph): a new view, or null when the view goes. */
+  graphListeners = new Set<(view: GraphView | null) => void>();
+  /** The current graph view once drawn (what a new onGraph listener hears first), else null. */
+  drawnView: GraphView | null = null;
+  /** The reply of the run on screen, or null while the step shows its recording or an error (CellHandle.lastRun). */
+  lastReply: RunReply | null = null;
 
   connectedCallback() {
     if (this.upgraded || !session) return;
@@ -540,8 +619,10 @@ class CypherCell extends HTMLElement {
       this.outLabel.textContent = parts.join(' · ');
       this.classList.toggle('is-error', problem !== null);
       this.classList.add('is-live');
+      this.lastReply = res;
       // A reader looking at the JSON goes on looking at it.
       this.paint(result, this.view === 'json' ? 'json' : defaultView(result));
+      this.session.emitResult(this, res, problem);
       return problem;
     } catch (err) {
       if (err instanceof StoppedError) {
@@ -560,6 +641,7 @@ class CypherCell extends HTMLElement {
   }
 
   showError(message: string) {
+    this.lastReply = null;
     this.outLabel.textContent = 'Could not run';
     this.classList.add('is-error');
     this.paint(errorResult(message), 'text');
@@ -571,9 +653,52 @@ class CypherCell extends HTMLElement {
   }
 
   showRecorded() {
+    this.lastReply = null;
     this.classList.remove('is-live', 'is-error', 'is-blocked', 'is-running');
     this.outLabel.textContent = this.expectError ? 'Expected error' : 'Recorded result';
     this.paint(this.recorded, defaultView(this.recorded));
+  }
+
+  /** The Cypher as the page wrote it (CellHandle.authoredCode). */
+  authoredCode() {
+    return this.editor.defaultValue;
+  }
+
+  /** The Cypher a Run would send now. */
+  currentCode() {
+    return this.editing ? this.editor.value : this.editor.defaultValue;
+  }
+
+  /**
+   * The element pane named `name` at the end of the output (PageApi
+   * CellHandle.slot), made on first use: one per module, inside one
+   * .cell-slot, so two modules on a cell never write over each other.
+   */
+  elementSlot(name: string): HTMLElement {
+    const output = this.querySelector('.cell-output')!;
+    let slot = output.querySelector<HTMLElement>(':scope > .cell-slot');
+    if (!slot) {
+      slot = Object.assign(document.createElement('div'), { className: 'cell-slot' });
+      output.append(slot);
+    }
+    let pane = [...slot.children].find((c) => (c as HTMLElement).dataset.slot === name) as HTMLElement | undefined;
+    if (!pane) {
+      pane = Object.assign(document.createElement('div'), { className: 'cell-slot-pane' });
+      pane.dataset.slot = name;
+      slot.append(pane);
+    }
+    return pane;
+  }
+
+  /** Tell the element API's graph listeners about a new view, or null when the view went. */
+  emitGraph(view: GraphView | null) {
+    for (const l of this.graphListeners) {
+      try {
+        l(view);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   }
 
   /** `{envelope, graph}` of the result on screen; the recording's come from results.json. */
@@ -639,11 +764,21 @@ class CypherCell extends HTMLElement {
     const result = this.result;
     if (this.graph?.result !== result) {
       this.dropGraph();
-      const view = Promise.all([this.data(), import('./graph.ts')]).then(([data, { renderGraph }]) =>
-        this.result === result && data.graph
-          ? renderGraph(this.outGraph, data.graph, { onExpand: (id, drawn) => this.expand(id, drawn) })
-          : null,
-      );
+      const view = Promise.all([this.data(), import('./graph.ts')]).then(([data, { renderGraph }]) => {
+        if (this.result !== result || !data.graph) return null;
+        const drawn = renderGraph(this.outGraph, data.graph, {
+          onExpand: (id, nodes) => this.expand(id, nodes),
+          // The graph view extras: the result's paths, and the cell's words (layout=, caption=, highlight=path).
+          envelope: data.envelope,
+          words: this.dataset.words ? (JSON.parse(this.dataset.words) as Record<string, string>) : null,
+        });
+        // Only a view that is still this cell's current one reaches the listeners.
+        if (this.graph?.view === view) {
+          this.drawnView = drawn;
+          this.emitGraph(drawn);
+        }
+        return drawn;
+      });
       // A failed load is tried again the next time the graph shows.
       view.catch(() => {
         if (this.graph?.view === view) this.graph = null;
@@ -655,12 +790,15 @@ class CypherCell extends HTMLElement {
 
   /** Destroy the graph view, and empty its pane. */
   dropGraph() {
-    this.graph?.view.then(
+    const had = this.graph;
+    had?.view.then(
       (v) => v?.destroy(),
       () => {},
     );
     this.graph = null;
     this.outGraph.replaceChildren();
+    this.drawnView = null;
+    if (had) this.emitGraph(null);
   }
 
   /**
@@ -677,10 +815,114 @@ class CypherCell extends HTMLElement {
 
 // ---------------------------------------------------------------- boot
 
-/** Make the page's cells runnable, if it has an engine bar (#engineBar) and the browser has workers. */
-export function startCells(options: CellsOptions) {
+/**
+ * Make the page's cells runnable, if it has an engine bar (#engineBar) and
+ * the browser has workers. Returns the element API (null without either).
+ */
+export function startCells(options: CellsOptions): PageApi | null {
   const bar = document.getElementById('engineBar');
-  if (!bar || typeof Worker === 'undefined' || session) return;
+  if (!bar || typeof Worker === 'undefined' || session) return null;
   session = new Session(bar, options);
   customElements.define('cypher-cell', CypherCell);
+  return pageApi(session);
+}
+
+// ---------------------------------------------------------------- element API
+
+function elementRun(reply: RunReply): ElementRun {
+  const envelopes = reply.envelopes.map((t) => JSON.parse(t) as Envelope);
+  return { envelopes, text: reply.envelopes, recording: reply.recording, ms: reply.ms, error: envelopes.at(-1)?.error ?? null };
+}
+
+/** The element API over a session (src/scripts/docs/element-api.ts documents each member). */
+function pageApi(s: Session): PageApi {
+  const handles = new WeakMap<CypherCell, CellHandle>();
+  const handle = (c: CypherCell): CellHandle => {
+    let h = handles.get(c);
+    if (!h) {
+      let words: Record<string, string> = {};
+      try {
+        words = JSON.parse(c.dataset.words ?? '{}');
+      } catch {
+        // Written by the build; a cell without words has none.
+      }
+      h = {
+        id: c.dataset.cell!,
+        index: Number(c.dataset.step),
+        element: c,
+        words,
+        code: () => c.currentCode(),
+        authoredCode: () => c.authoredCode(),
+        params: () => c.paramsEditor?.value ?? null,
+        recordedText: c.recorded.text,
+        recordedKind: c.recorded.kind,
+        recorded: async () => {
+          const data = (await s.options.recorded())[c.dataset.cell!];
+          return { envelope: data?.envelope ?? null, graph: data?.graph ?? null };
+        },
+        state: () =>
+          c.classList.contains('is-running') ? 'running'
+          : c.classList.contains('is-blocked') ? 'blocked'
+          : c.classList.contains('is-error') ? 'error'
+          : c.classList.contains('is-live') ? 'live'
+          : 'recorded',
+        lastRun: () => (c.lastReply ? elementRun(c.lastReply) : null),
+        slot: (name = 'default') => c.elementSlot(name),
+        graphView: () => c.graph?.view.catch(() => null) ?? Promise.resolve(null),
+        onGraph: (listener) => {
+          c.graphListeners.add(listener);
+          // A view already drawn is heard first; one still drawing reaches the listener when it is drawn.
+          const now = c.drawnView;
+          if (now) {
+            queueMicrotask(() => {
+              if (c.graphListeners.has(listener) && c.drawnView === now) listener(now);
+            });
+          }
+          return () => c.graphListeners.delete(listener);
+        },
+      };
+      handles.set(c, h);
+    }
+    return h;
+  };
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  return {
+    run: async (code, params = null, options = {}) => elementRun(await s.runForElement(code, params, options.upTo === undefined ? 'all' : options.upTo, false)),
+    runReadOnly: async (code, params = null) => elementRun(await s.runForElement(code, params, null, true)),
+    onResult: (listener) => {
+      const l = (cell: CypherCell, reply: RunReply, problem: string | null) => listener({ ...elementRun(reply), cell: handle(cell), problem } satisfies CellResult);
+      s.resultListeners.add(l);
+      return () => s.resultListeners.delete(l);
+    },
+    onReset: (listener) => {
+      s.resetListeners.add(listener);
+      return () => s.resetListeners.delete(listener);
+    },
+    cells: () => s.cells.map(handle),
+    cell: (id) => {
+      const c = s.cells.find((x) => x.dataset.cell === id);
+      return c ? handle(c) : null;
+    },
+    engineReady: async () => {
+      await s.engine.start();
+      return s.engineInfo ?? { version: s.bar.dataset.engineVersion ?? null, loadMs: 0 };
+    },
+    engine: () => s.engineInfo,
+    busy: () => s.busy,
+    status: {
+      bar: s.bar,
+      say: (text) => {
+        s.bar.querySelector('.engine-text')!.textContent = text;
+      },
+    },
+    get reducedMotion() {
+      return motion.matches;
+    },
+    onReducedMotion: (listener) => {
+      const l = () => listener(motion.matches);
+      motion.addEventListener('change', l);
+      return () => motion.removeEventListener('change', l);
+    },
+    graph: () => import('./graph.ts'),
+  };
 }

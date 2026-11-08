@@ -131,6 +131,11 @@ Plan:
 
 `Expand` became `NodeIndexSeek`: the walk now starts from the one node the index finds, and the plan estimates one row. The `Notifications:` block is gone, and the envelope's `notifications` is an empty list.
 
+The plan viewer holds both recorded plans and what changed between them. In a browser it draws each plan as a tree. **Compare with the index** creates `relate_Person__name` on this page's database, plans the statement without it and with it, and shows the two side by side; pressed again, it drops the index it created (an index the `create-index` cell made stays). **PROFILE** runs the statement for each plan and adds the rows, time and database hits of every operator.
+
+:::plan{cell=explain-before compare=explain-after}
+:::
+
 ## Measure with PROFILE
 
 `PROFILE` runs the statement and returns its rows, then adds the measured columns to the plan. This command opens the store read-only:
@@ -158,7 +163,7 @@ Plan:
 +-------------------+----+---------------------------------------------------------------------------------------------------------------------+----------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+------------+
 ```
 
-The same `PROFILE` before the index, measured on the same store:
+The same `PROFILE` before the index, measured on the same store (the plan viewer's **PROFILE** measures both in your browser):
 
 | Plan | Operator | `Rows` | `Db Hits` | `Nodes` |
 | --- | --- | --- | --- | --- |

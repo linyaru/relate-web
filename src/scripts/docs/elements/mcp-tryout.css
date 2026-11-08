@@ -1,0 +1,40 @@
+/* :::mcp-tryout (src/scripts/docs/elements/mcp-tryout.ts); the reply view parts are shared with :::agent-trace. */
+.mcp-tryout { display: grid; gap: 14px; min-width: 0; }
+.mcp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.mcp-listed { margin: 0; font-size: 14px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.mcp-listed code { font-size: 13px; }
+.mcp-ro[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.mcp-ro-state { font-weight: 600; }
+.mcp-call { border-top: 1px solid var(--border); padding-top: 12px; display: grid; gap: 8px; min-width: 0; }
+.mcp-call-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.mcp-send { font-family: var(--font-mono); font-size: 13px; }
+.mcp-desc { font-size: 14px; color: var(--fg-muted); }
+.mcp-flag { font-size: 13px; font-weight: 600; color: var(--danger); }
+.mcp-flag::before { content: "\2715  "; }
+.mcp-args { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 10px; align-items: start; }
+.mcp-args label { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); padding-top: 6px; }
+.mcp-args textarea, .mcp-args input { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--font-mono); color: var(--fg); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 4px; padding: 6px 8px; resize: vertical; }
+.mcp-args input { max-width: 14em; }
+@media (max-width: 560px) { .mcp-args { grid-template-columns: minmax(0, 1fr); } .mcp-args label { padding-top: 0; } }
+.mcp-said { margin: 0; font-size: 14px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.mcp-said:empty { display: none; }
+.mcp-out { display: grid; gap: 8px; min-width: 0; }
+.mcp-block { min-width: 0; }
+.mcp-label { margin: 0 0 4px; font-size: 13px; color: var(--fg-muted); }
+.mcp-json { margin: 0; max-height: 14em; overflow: auto; padding: 8px 10px; border-radius: 6px; background: var(--bg-code); color: var(--code-fg); font: 12.5px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mcp-json code { background: none; color: inherit; padding: 0; font: inherit; }
+.mcp-text summary { cursor: pointer; font-size: 13px; color: var(--fg-muted); }
+.mcp-text[open] summary { margin-bottom: 4px; }
+.mcp-table { max-width: 100%; overflow-x: auto; }
+.mcp-table table { border-collapse: collapse; font-size: 13.5px; min-width: 50%; }
+.mcp-table caption { text-align: left; color: var(--fg-muted); font-size: 13px; padding-bottom: 4px; }
+.mcp-table th, .mcp-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.mcp-error, .mcp-engine-ro { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.mcp-error code, .mcp-engine-ro code { overflow-wrap: anywhere; }
+.mcp-note { margin: 0; font-size: 13px; color: var(--fg-muted); }
+.mcp-more { margin: 4px 0 0; font-size: 13px; color: var(--fg-muted); }
+/* The static form's own table or sentence, copied beside a recorded reply: scrolled inside its box on a phone. */
+.mcp-recorded-decoded { max-width: 100%; overflow-x: auto; font-size: 14px; }
+.mcp-recorded-decoded > * { margin: 0; }
+.mcp-recorded-decoded table { border-collapse: collapse; font-size: 13.5px; }
+.mcp-recorded-decoded th, .mcp-recorded-decoded td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }

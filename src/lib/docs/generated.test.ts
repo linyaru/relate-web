@@ -5,6 +5,9 @@
 // data files, so a regenerated cli.json or a new glossary term is covered.
 
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
 import { test } from 'node:test';
 
 import { parse as parseYaml } from 'yaml';
@@ -196,4 +199,22 @@ test('the docs:check module reports no error on the real data', () => {
     (_f, _l, severity, _r, message) => severity === 'error' && claimed.push(message),
   );
   assert.ok(claimed.some((m) => m.includes('claims the id of a generated page')));
+});
+
+test('the built checks read the build they are given (docs:check DIST), never ./dist behind its back', () => {
+  const dist = mkdtempSync(join(tmpdir(), 'relate-docs-dist-'));
+  try {
+    mkdirSync(join(dist, 'docs'));
+    const files: string[] = [];
+    checkGenerated(
+      { engine: ctx.engine, published: new Map([...ctx.pages].filter((p) => !GENERATED_IDS.has(p)).map((p) => [p, {}])), planned: new Set(), anchors: new Map(), builtIds: new Map() },
+      (file, _line, severity) => severity === 'error' && files.push(file),
+      dist,
+    );
+    // An empty build: every dist/ finding names a file in it, none in the repository's own dist/.
+    assert.ok(files.some((f) => f.startsWith(dist)), 'an empty build is reported missing');
+    assert.deepEqual(files.filter((f) => f.includes(`${sep}dist${sep}`) && !f.startsWith(dist)), []);
+  } finally {
+    rmSync(dist, { recursive: true, force: true });
+  }
 });

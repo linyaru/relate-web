@@ -434,6 +434,78 @@
       },
       "expectError": false
     },
+    "explain-language": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [
+          {
+            "category": "PERFORMANCE",
+            "code": "Relate.Notification.Statement.MissingIndex",
+            "description": "the equality predicate on language filters :Project without a range index on (:Project {language})",
+            "gql_status": "03C91",
+            "operator_id": 1,
+            "remedy": "CREATE INDEX relate_Project__language FOR (n:Project) ON (n.language)",
+            "severity": "INFORMATION",
+            "title": "Missing index"
+          }
+        ],
+        "plan": {
+          "profiled": false,
+          "root": {
+            "actual": null,
+            "children": [
+              {
+                "actual": null,
+                "children": [],
+                "details": "(p:Project)",
+                "estimated_rows": 2,
+                "identifiers": [],
+                "operator": "NodeByLabelScan",
+                "warnings": [
+                  {
+                    "category": "PERFORMANCE",
+                    "code": "Relate.Notification.Statement.MissingIndex",
+                    "description": "the equality predicate on language filters :Project without a range index on (:Project {language})",
+                    "gql_status": "03C91",
+                    "remedy": "CREATE INDEX relate_Project__language FOR (n:Project) ON (n.language)",
+                    "severity": "INFORMATION",
+                    "title": "Missing index"
+                  }
+                ]
+              }
+            ],
+            "details": "1 item(s)",
+            "estimated_rows": null,
+            "identifiers": [],
+            "operator": "ProduceResults",
+            "warnings": []
+          },
+          "schema": "relate.plan/v1",
+          "statement": "MATCH (p:Project {language: 'Rust'}) RETURN p.name AS name"
+        },
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
     "drop": {
       "kind": "table",
       "text": "(no rows) · indexes removed: 1, constraints removed: 1",

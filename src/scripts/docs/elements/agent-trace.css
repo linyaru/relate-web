@@ -1,0 +1,23 @@
+/* :::agent-trace (src/scripts/docs/elements/agent-trace.ts); the reply views come from mcp-tryout.css. */
+.agent-trace { display: grid; gap: 10px; min-width: 0; }
+.trace-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.trace-status { margin: 0; font-size: 14px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.trace-warn { margin: 0; font-size: 14px; color: var(--fg); border-left: 3px solid var(--border-strong); padding-left: 8px; }
+.trace-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.trace-item { border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 6px; min-width: 0; }
+.trace-head { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.trace-n { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 13px; font-variant-numeric: tabular-nums; }
+.trace-item[data-state="done"] .trace-n { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.trace-item[data-state="error"] .trace-n { border-color: var(--danger); color: var(--danger); }
+.trace-state { font-size: 13px; color: var(--fg-muted); }
+.trace-item[data-state="error"] .trace-state { color: var(--danger); font-weight: 600; }
+.trace-item[data-state="running"] .trace-state::after { content: "\2026"; }
+.trace-note { margin: 0; font-size: 14px; }
+.trace-result:empty { display: none; }
+.trace-result { display: grid; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; }
+/* The static form's table, copied beside a step until it is sent. */
+.trace-result table { border-collapse: collapse; font-size: 13.5px; }
+.trace-result th, .trace-result td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.trace-result > p { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.trace-match[data-match="false"] { color: var(--danger); font-weight: 600; }
+.trace-recorded-label { margin: 0; font-size: 13px; color: var(--fg-muted); }

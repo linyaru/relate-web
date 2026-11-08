@@ -312,6 +312,406 @@
       },
       "expectError": false
     },
+    "load-notes": {
+      "kind": "table",
+      "text": "| notes | sessions |\n|-------|----------|\n| 40    | 3        |\n1 row · nodes created: 40, properties set: 200, labels added: 40, indexes added: 1",
+      "table": {
+        "columns": [
+          "notes",
+          "sessions"
+        ],
+        "numeric": [
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "40",
+            "3"
+          ]
+        ],
+        "summary": "1 row · nodes created: 40, properties set: 200, labels added: 40, indexes added: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "notes",
+          "sessions"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "notes": 40,
+            "sessions": 3
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "recall": {
+      "kind": "table",
+      "text": "| id    | session     | score  | text                                                                            |\n|-------|-------------|--------|---------------------------------------------------------------------------------|\n| \"n02\" | \"session-1\" | 0.6252 | \"Customer login goes through Auth0; refresh tokens live in HttpOnly cookies.\"   |\n| \"n25\" | \"session-2\" | 0.5692 | \"Refresh tokens rotate on every use once Okta is live.\"                         |\n| \"n03\" | \"session-1\" | 0.5585 | \"OAuth callbacks are published to Kafka so the audit service sees every login.\" |\n| \"n15\" | \"session-2\" | 0.5536 | \"Migrate customer login from Auth0 to Okta before the April renewal.\"           |\n| \"n04\" | \"session-1\" | 0.5435 | \"Each tenant gets its own Kafka topic for ticket events.\"                       |\n5 rows",
+      "table": {
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "numeric": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"n02\"",
+            "\"session-1\"",
+            "0.6252",
+            "\"Customer login goes through Auth0; refresh tokens live in HttpOnly cookies.\""
+          ],
+          [
+            "\"n25\"",
+            "\"session-2\"",
+            "0.5692",
+            "\"Refresh tokens rotate on every use once Okta is live.\""
+          ],
+          [
+            "\"n03\"",
+            "\"session-1\"",
+            "0.5585",
+            "\"OAuth callbacks are published to Kafka so the audit service sees every login.\""
+          ],
+          [
+            "\"n15\"",
+            "\"session-2\"",
+            "0.5536",
+            "\"Migrate customer login from Auth0 to Okta before the April renewal.\""
+          ],
+          [
+            "\"n04\"",
+            "\"session-1\"",
+            "0.5435",
+            "\"Each tenant gets its own Kafka topic for ticket events.\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT",
+          "STRING"
+        ],
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n02",
+            "score": 0.6252,
+            "session": "session-1",
+            "text": "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."
+          },
+          {
+            "id": "n25",
+            "score": 0.5692,
+            "session": "session-2",
+            "text": "Refresh tokens rotate on every use once Okta is live."
+          },
+          {
+            "id": "n03",
+            "score": 0.5585,
+            "session": "session-1",
+            "text": "OAuth callbacks are published to Kafka so the audit service sees every login."
+          },
+          {
+            "id": "n15",
+            "score": 0.5536,
+            "session": "session-2",
+            "text": "Migrate customer login from Auth0 to Okta before the April renewal."
+          },
+          {
+            "id": "n04",
+            "score": 0.5435,
+            "session": "session-1",
+            "text": "Each tenant gets its own Kafka topic for ticket events."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "recall-session": {
+      "kind": "table",
+      "text": "| id    | session     | score  | text                                                                                                                                                                           |\n|-------|-------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| \"n31\" | \"session-3\" | 0.5386 | \"Magic-link login is requested by three enterprise customers.\"                                                                                                                 |\n| \"n35\" | \"session-3\" | 0.5383 | \"Tempo retention is fourteen days; older traces are sampled out.\"                                                                                                              |\n| \"n29\" | \"session-3\" | 0.5287 | \"Okta cutover is done; Auth0 stays read-only for thirty days.\"                                                                                                                 |\n| \"n26\" | \"session-3\" | 0.5279 | \"Incident KAFKA-142: a broker disk filled overnight because retention on the audit stream was unbounded; retention is now capped and a disk alert pages the on-call engineer.\" |\n| \"n34\" | \"session-3\" | 0.5271 | \"Deploy freeze for the billing launch starts on the 23rd.\"                                                                                                                     |\n5 rows",
+      "table": {
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "numeric": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"n31\"",
+            "\"session-3\"",
+            "0.5386",
+            "\"Magic-link login is requested by three enterprise customers.\""
+          ],
+          [
+            "\"n35\"",
+            "\"session-3\"",
+            "0.5383",
+            "\"Tempo retention is fourteen days; older traces are sampled out.\""
+          ],
+          [
+            "\"n29\"",
+            "\"session-3\"",
+            "0.5287",
+            "\"Okta cutover is done; Auth0 stays read-only for thirty days.\""
+          ],
+          [
+            "\"n26\"",
+            "\"session-3\"",
+            "0.5279",
+            "\"Incident KAFKA-142: a broker disk filled overnight because retention on the audit stream was unbounded; retention is now capped and a disk alert pages the on-call engineer.\""
+          ],
+          [
+            "\"n34\"",
+            "\"session-3\"",
+            "0.5271",
+            "\"Deploy freeze for the billing launch starts on the 23rd.\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT",
+          "STRING"
+        ],
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n31",
+            "score": 0.5386,
+            "session": "session-3",
+            "text": "Magic-link login is requested by three enterprise customers."
+          },
+          {
+            "id": "n35",
+            "score": 0.5383,
+            "session": "session-3",
+            "text": "Tempo retention is fourteen days; older traces are sampled out."
+          },
+          {
+            "id": "n29",
+            "score": 0.5287,
+            "session": "session-3",
+            "text": "Okta cutover is done; Auth0 stays read-only for thirty days."
+          },
+          {
+            "id": "n26",
+            "score": 0.5279,
+            "session": "session-3",
+            "text": "Incident KAFKA-142: a broker disk filled overnight because retention on the audit stream was unbounded; retention is now capped and a disk alert pages the on-call engineer."
+          },
+          {
+            "id": "n34",
+            "score": 0.5271,
+            "session": "session-3",
+            "text": "Deploy freeze for the billing launch starts on the 23rd."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "recall-euclidean": {
+      "kind": "table",
+      "text": "| id    | session     | score  | text                                                                            |\n|-------|-------------|--------|---------------------------------------------------------------------------------|\n| \"n02\" | \"session-1\" | 0.4001 | \"Customer login goes through Auth0; refresh tokens live in HttpOnly cookies.\"   |\n| \"n25\" | \"session-2\" | 0.3672 | \"Refresh tokens rotate on every use once Okta is live.\"                         |\n| \"n03\" | \"session-1\" | 0.3615 | \"OAuth callbacks are published to Kafka so the audit service sees every login.\" |\n| \"n15\" | \"session-2\" | 0.359  | \"Migrate customer login from Auth0 to Okta before the April renewal.\"           |\n| \"n04\" | \"session-1\" | 0.3539 | \"Each tenant gets its own Kafka topic for ticket events.\"                       |\n5 rows",
+      "table": {
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "numeric": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"n02\"",
+            "\"session-1\"",
+            "0.4001",
+            "\"Customer login goes through Auth0; refresh tokens live in HttpOnly cookies.\""
+          ],
+          [
+            "\"n25\"",
+            "\"session-2\"",
+            "0.3672",
+            "\"Refresh tokens rotate on every use once Okta is live.\""
+          ],
+          [
+            "\"n03\"",
+            "\"session-1\"",
+            "0.3615",
+            "\"OAuth callbacks are published to Kafka so the audit service sees every login.\""
+          ],
+          [
+            "\"n15\"",
+            "\"session-2\"",
+            "0.359",
+            "\"Migrate customer login from Auth0 to Okta before the April renewal.\""
+          ],
+          [
+            "\"n04\"",
+            "\"session-1\"",
+            "0.3539",
+            "\"Each tenant gets its own Kafka topic for ticket events.\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT",
+          "STRING"
+        ],
+        "columns": [
+          "id",
+          "session",
+          "score",
+          "text"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n02",
+            "score": 0.4001,
+            "session": "session-1",
+            "text": "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."
+          },
+          {
+            "id": "n25",
+            "score": 0.3672,
+            "session": "session-2",
+            "text": "Refresh tokens rotate on every use once Okta is live."
+          },
+          {
+            "id": "n03",
+            "score": 0.3615,
+            "session": "session-1",
+            "text": "OAuth callbacks are published to Kafka so the audit service sees every login."
+          },
+          {
+            "id": "n15",
+            "score": 0.359,
+            "session": "session-2",
+            "text": "Migrate customer login from Auth0 to Okta before the April renewal."
+          },
+          {
+            "id": "n04",
+            "score": 0.3539,
+            "session": "session-1",
+            "text": "Each tenant gets its own Kafka topic for ticket events."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
     "scores": {
       "kind": "table",
       "text": "| same | orthogonal | opposite | euclidean           | distance |\n|------|------------|----------|---------------------|----------|\n| 1.0  | 0.5        | 0.0      | 0.03846153989434242 | 5.0      |\n1 row",
@@ -387,7 +787,7 @@
     },
     "verify": {
       "kind": "table",
-      "text": "| name           | type     | labelsOrTypes | properties        | state    |\n|----------------|----------|---------------|-------------------|----------|\n| \"person_focus\" | \"VECTOR\" | [\"Person\"]    | [\"focus\", \"role\"] | \"ONLINE\" |\n1 row",
+      "text": "| name             | type     | labelsOrTypes | properties               | state    |\n|------------------|----------|---------------|--------------------------|----------|\n| \"note_embedding\" | \"VECTOR\" | [\"Note\"]      | [\"embedding\", \"session\"] | \"ONLINE\" |\n| \"person_focus\"   | \"VECTOR\" | [\"Person\"]    | [\"focus\", \"role\"]        | \"ONLINE\" |\n2 rows",
       "table": {
         "columns": [
           "name",
@@ -405,6 +805,13 @@
         ],
         "rows": [
           [
+            "\"note_embedding\"",
+            "\"VECTOR\"",
+            "[\"Note\"]",
+            "[\"embedding\", \"session\"]",
+            "\"ONLINE\""
+          ],
+          [
             "\"person_focus\"",
             "\"VECTOR\"",
             "[\"Person\"]",
@@ -412,7 +819,7 @@
             "\"ONLINE\""
           ]
         ],
-        "summary": "1 row"
+        "summary": "2 rows"
       },
       "graph": null,
       "envelope": {
@@ -434,6 +841,18 @@
         "notifications": [],
         "plan": null,
         "rows": [
+          {
+            "labelsOrTypes": [
+              "Note"
+            ],
+            "name": "note_embedding",
+            "properties": [
+              "embedding",
+              "session"
+            ],
+            "state": "ONLINE",
+            "type": "VECTOR"
+          },
           {
             "labelsOrTypes": [
               "Person"

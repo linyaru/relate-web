@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "element": "docs-graph",
+  "hash": "9093dd6cb4e266247e79e1093c8b17143ba08fe48b9617f3cc2ef13316d21c63",
+  "inputs": [],
+  "live": "the view draws the pages with the links and prerequisites between them from `/docs/graph-view.json` and counts every kind; a search box enlarges the nodes whose title matches and dims the rest, toggles add glossary terms, capabilities and the other kinds, hovering a node shows its description and the nodes it is joined to, and a click opens its page.",
+  "engine": false,
+  "text": "The live view draws the 142 published pages, one cluster per section: Get started 12, Guides 64, Reference 57, Concepts 9. The picture places them where the live view first draws them. The links and prerequisites between them, and the number of nodes and relationships of each kind, change with nearly every edit, so the live view draws and counts them from the data the site is built with; the seed script's header lists the same counts.\n\n| Label | In the live view |\n| --- | --- |\n| `Page` | drawn at first: each published page, colored by section (planned pages are not drawn) |\n| `Section` | left out: one per heading, part of its page |\n| `Example` | left out: one per code block, part of its page |\n| `Term` | a toggle, on the nearest ring around the pages |\n| `Surface` | a toggle, on the middle ring around the pages |\n| `CookbookRecipe` | a toggle, on the nearest ring around the pages |\n| `Command` | a toggle, on the middle ring around the pages |\n| `Flag` | a toggle, on the middle ring around the pages |\n| `Index` | left out: llms.txt and the landing list nearly every page |\n| `Capability` | a toggle, on the nearest ring around the pages |\n| `Problem` | a toggle, on the outermost ring around the pages |\n\n| Relationship | In the live view |\n| --- | --- |\n| `LINKS_TO` | a toggle, on at first |\n| `PREREQUISITE_OF` | a toggle, on at first |\n| `RELATED_TO` | a toggle, off at first |\n| `HAS_SECTION` | not drawn: its far end is a kind the view leaves out |\n| `HAS_EXAMPLE` | not drawn: its far end is a kind the view leaves out |\n| `USES_TERM` | drawn when both ends are |\n| `APPLIES_TO` | drawn when both ends are |\n| `DOCUMENTS` | drawn when both ends are |\n| `HAS_FLAG` | drawn when both ends are |\n| `LISTS` | not drawn: its far end is a kind the view leaves out |\n| `SOLVES` | drawn when both ends are |\n| `CITES` | drawn when both ends are |\n| `DEMONSTRATES` | drawn when both ends are |\n| `VERIFIED_BY` | drawn when both ends are |\n| `HAS_CAPABILITY` | drawn when both ends are |",
+  "caption": "The published docs pages, one cluster per section, where the live view first draws them",
+  "svg": true,
+  "svgSha256": {
+    "light": "4c74307219cc58158eec5689db8add9bab8ba0b0d1f44924ffaa754f05e72aaa",
+    "dark": "6223435dec74662ae9f88121db17cec134e191859cf2588847912f58097b0262"
+  },
+  "textSha256": "f5846bc3e837e6ebdab417bae99d33964834d8325618ac57c5637a78820279ea"
+}

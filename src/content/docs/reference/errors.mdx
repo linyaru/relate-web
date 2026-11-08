@@ -12,7 +12,7 @@ Each error relate reports has a stable id, and each id is an anchor on this page
 
 On the CLI, a failed statement prints its message on stderr and exits with the :term[exit code]{id=exit-code} of its class. In `--mode envelope`, `--json` and `--jsonl`, it also prints an error object on stdout. The object's `code` is the class, `kind` is the engine's error variant, `retryable` is `true` only for a write-write conflict, and `message` repeats the stderr text.
 
-```bash
+```bash verify
 relate --mode envelope 'RETURN $x AS x'
 ```
 

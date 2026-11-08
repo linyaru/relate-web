@@ -1,5 +1,5 @@
 {
-  "$schema_note": "Facts about the relate CLI for the docs pipeline (DOCS-PLAN.md §8 check 3, the <ExitCodes>/<Flags>/<EnvVars> components). Summaries are paraphrases; strings in `messages` and in backticks are quoted from the sources character for character. `disputed: true` marks a fact the sources disagree on; both readings are recorded and the release binary decides (DOCS-PLAN.md §9).",
+  "$schema_note": "Facts about the relate CLI for the docs pipeline (DOCS-PLAN.md §8 check 3, the <ExitCodes>/<Flags>/<EnvVars> components). Summaries are paraphrases; strings in `messages` and in backticks are quoted from the binary or the sources character for character. Facts the sources disagreed on were settled against the binary named in `recorded_with` (`settled_by`); before launch that is a source build, not a published release (engine.json `source_build`). `verify` marks what the binary cannot show. `recorded` holds a replayable run of the binary (see `recording`); `help` and `agent_context` hold the recorded `--help` pages and agent briefings.",
   "binary": "relate",
   "verified": "0.16.1",
   "upstream": {
@@ -32,7 +32,7 @@
     {
       "id": "clone",
       "word": "clone",
-      "synopsis": "relate clone [--wal-dir DIR] [--to-snapshot-format F] SOURCE DEST",
+      "synopsis": "relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST",
       "feature": null,
       "bundles": [
         "full",
@@ -54,33 +54,47 @@
         {
           "id": "clone-to-snapshot-format",
           "flag": "--to-snapshot-format",
-          "value": "F",
+          "value": "parquet|json|markdown",
           "default": "the source codec",
-          "summary": "Destination snapshot codec; transcodes the published checkpoint.",
-          "disputed": true,
-          "readings": [
-            {
-              "text": "json or parquet, when compiled in",
-              "sources": [
-                "docs/api/cli/spec.md § clone flag table",
-                "docs/reference/cli-flags.md § lifecycle commands table"
-              ]
-            },
-            {
-              "text": "json, parquet or markdown",
-              "sources": [
-                "docs/reference/cli-flags.md § Clone"
-              ]
-            }
-          ],
+          "summary": "Destination snapshot codec (`parquet`, `json` or `markdown`); transcodes the published checkpoint.",
           "sources": [
             "docs/api/cli/spec.md"
+          ],
+          "settled_by": "relate 0.16.1 (ac441ec), source build"
+        },
+        {
+          "id": "clone-markdown-body-properties",
+          "flag": "--markdown-body-properties",
+          "value": "LIST",
+          "default": "the source's recorded configuration, else body",
+          "summary": "Body properties of a markdown destination (`LIST` or `Label=LIST`; entries separated by `;`).",
+          "sources": [
+            "relate clone --help"
           ]
         }
       ],
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
+      ],
+      "messages": [
+        "Failed to clone database: storage error: clone destination already exists",
+        "Failed to clone database: storage error: clone source must be a native directory or .rl bundle path"
+      ],
+      "recorded": [
+        {
+          "command": "relate clone ./s.rl ./s.rl",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "stdout": "",
+          "stderr": "Failed to clone database: storage error: clone destination already exists\n",
+          "exit": 1
+        },
+        {
+          "command": "relate clone :memory: ./copy.rl",
+          "stdout": "",
+          "stderr": "Failed to clone database: storage error: clone source must be a native directory or .rl bundle path\n",
+          "exit": 1
+        }
       ]
     },
     {
@@ -118,6 +132,265 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
+      ],
+      "messages": [
+        "Error: info cannot use :memory: or an empty --database path (info reads an on-disk store)"
+      ],
+      "recorded": {
+        "command": "relate info --database :memory:",
+        "stdout": "",
+        "stderr": "Error: info cannot use :memory: or an empty --database path (info reads an on-disk store)\nUsage: relate info --database PATH [--json]\nRun 'relate info --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "pull",
+      "word": "pull",
+      "synopsis": "relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH",
+      "feature": "pull",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Pull a Neo4j or Aura subgraph over HTTP Query API v2 into `--database` (union and upsert on the source `elementId`). `Q` is a statement, a `;`-separated list, a file path, or `-` for stdin. Always writes the `neo4j` namespace.",
+      "flags": [
+        {
+          "id": "pull-from",
+          "flag": "--from",
+          "value": "FILE",
+          "default": "the process environment",
+          "summary": "Env file with `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`; omitted, those process environment variables are used.",
+          "sources": [
+            "relate pull --help"
+          ]
+        },
+        {
+          "id": "pull-query",
+          "flag": "--query",
+          "value": "Q",
+          "default": "required",
+          "summary": "A statement, a `;`-separated list, a file path, or `-` for stdin; every statement must `RETURN` graph elements. All run in one process, with one checkpoint at the end.",
+          "sources": [
+            "relate pull --help"
+          ]
+        },
+        {
+          "id": "pull-param",
+          "flag": "--param",
+          "value": "N=V",
+          "default": "unset",
+          "summary": "Bind a source query parameter (repeatable).",
+          "sources": [
+            "relate pull --help"
+          ]
+        },
+        {
+          "id": "pull-allow-plaintext",
+          "flag": "--allow-plaintext",
+          "default": "off",
+          "summary": "Permit Basic auth to a non-loopback `http://` Query API (insecure; prints a warning).",
+          "sources": [
+            "relate pull --help"
+          ]
+        },
+        {
+          "id": "pull-database",
+          "flag": "--database",
+          "short": "-d",
+          "value": "PATH",
+          "default": "required",
+          "summary": "Destination directory or `.rl` bundle; not `:memory:`.",
+          "sources": [
+            "relate pull --help"
+          ]
+        }
+      ],
+      "messages": [
+        "Error: --namespace is not valid with pull (pull always writes the neo4j namespace)"
+      ],
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ],
+      "recorded": {
+        "command": "relate --namespace neo4j pull --query 'MATCH (n) RETURN n' --database ./pulled.rl",
+        "stdout": "",
+        "stderr": "Error: --namespace is not valid with pull (pull always writes the neo4j namespace)\nUsage: relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH\nRun 'relate pull --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "push",
+      "word": "push",
+      "synopsis": "relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]",
+      "feature": "push",
+      "bundles": [
+        "full",
+        "agent"
+      ],
+      "summary": "Push a scoped subgraph of `--database` into a Neo4j or Aura remote over HTTP Query API v2. `--dry-run` prints the plan without touching the remote.",
+      "flags": [
+        {
+          "id": "push-to",
+          "flag": "--to",
+          "value": "CREDS",
+          "default": "required",
+          "summary": "Env file (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, optional `NEO4J_DATABASE`), or a Query API URI with the username and password from the process environment.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-database",
+          "flag": "--database",
+          "short": "-d",
+          "value": "PATH",
+          "default": "required",
+          "summary": "Source store directory or `.rl` bundle; not `:memory:`.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-query",
+          "flag": "--query",
+          "value": "Q",
+          "default": "the whole store",
+          "summary": "Push only what the statements return (nodes, relationships, paths); a `;`-list, file path, or `-` for stdin. One of `--query`, `--labels`, `--types`.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-labels",
+          "flag": "--labels",
+          "value": "L1,L2",
+          "default": "unset",
+          "summary": "Only nodes with these labels, and the relationships between them.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-types",
+          "flag": "--types",
+          "value": "T1,T2",
+          "default": "unset",
+          "summary": "Only relationships of these types, with both their endpoints.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-batch-size",
+          "flag": "--batch-size",
+          "value": "N",
+          "default": "5000",
+          "summary": "Rows per batched statement.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-nodes-update",
+          "flag": "--nodes-update",
+          "value": "POLICY",
+          "default": "add",
+          "summary": "`add` (`SET +=`, keeps remote-only properties), `replace` (`SET =`) or `skip` (create missing only), per label or global.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-rels-update",
+          "flag": "--rels-update",
+          "value": "POLICY",
+          "default": "add",
+          "summary": "The same policies, per relationship type or global.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-updated-at",
+          "flag": "--updated-at",
+          "value": "NAME[,NAME]",
+          "default": "unset",
+          "summary": "Candidate timestamp properties; when both sides carry one, a strictly newer remote row is skipped.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-rel-mode",
+          "flag": "--rel-mode",
+          "value": "MODE",
+          "default": "keyed",
+          "summary": "`keyed` (merge on the type's resolved key), `structural` (one relationship of a type between two nodes) or `create` (non-idempotent).",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-merge-key",
+          "flag": "--merge-key",
+          "value": "LABEL:PROP[,PROP]",
+          "default": "the constraint-derived key",
+          "summary": "Merge key for one label (repeatable).",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-rel-key",
+          "flag": "--rel-key",
+          "value": "TYPE:PROP[,PROP]",
+          "default": "the constraint-derived key",
+          "summary": "Merge key for one relationship type (repeatable).",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-unkeyed-labels",
+          "flag": "--unkeyed-labels",
+          "value": "ACTION",
+          "default": "skip",
+          "summary": "`skip` (reported and counted) or `create` (non-idempotent) for a label with no merge key.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-dry-run",
+          "flag": "--dry-run",
+          "default": "off",
+          "summary": "Print the plan without touching the remote.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-json",
+          "flag": "--json",
+          "default": "off",
+          "summary": "Print the run report as one JSON object instead of the table.",
+          "sources": [
+            "relate push --help"
+          ]
+        },
+        {
+          "id": "push-allow-plaintext",
+          "flag": "--allow-plaintext",
+          "default": "off",
+          "summary": "Permit Basic auth to a non-loopback `http://` Query API (insecure; prints a warning).",
+          "sources": [
+            "relate push --help"
+          ]
+        }
+      ],
+      "sources": [
+        "docs/api/cli/spec.md"
       ]
     },
     {
@@ -158,12 +431,42 @@
         }
       ],
       "messages": [
-        "Error: skill: refusing to touch <dest>: no .relate-installed marker present (directory was not created by relate); pass --force to override"
+        "Error: skill: refusing to touch <dest>: no .relate-installed marker present (directory was not created by relate); pass --force to override",
+        "Error: skill: unknown agent: '<name>'",
+        "installed relate skill into <dest>",
+        "Error: unexpected argument to skill: --force"
       ],
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ],
+      "recorded": [
+        {
+          "command": "relate skill install --agent cursor",
+          "setup": "mkdir -p \"$HOME/.cursor/skills/relate\" && touch \"$HOME/.cursor/skills/relate/notes.md\"",
+          "stdout": "",
+          "stderr": "Error: skill: refusing to touch <home>/.cursor/skills/relate: no .relate-installed marker present (directory was not created by relate); pass --force to override\n",
+          "exit": 1
+        },
+        {
+          "command": "relate skill install --agent bogus",
+          "stdout": "",
+          "stderr": "Error: skill: unknown agent: 'bogus'\nvalid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie\n",
+          "exit": 2
+        },
+        {
+          "command": "relate skill install --agent claude-code",
+          "stdout": "installed relate skill into <home>/.claude/skills/relate\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "command": "relate skill list --force",
+          "stdout": "",
+          "stderr": "Error: unexpected argument to skill: --force\nDid you mean '--force'?\nUsage: relate skill install|remove|list|check [--agent NAME] [--force]\nRun 'relate skill --help' for more information.\n",
+          "exit": 2
+        }
       ]
     },
     {
@@ -215,20 +518,36 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
-      ]
+      ],
+      "recorded": {
+        "command": "relate telemetry status",
+        "stdout": "disabled (DO_NOT_TRACK)\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
-      "id": "pull",
-      "word": "pull",
-      "synopsis": "relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH",
-      "feature": "pull",
+      "id": "run",
+      "word": "run",
+      "synopsis": "relate run <name> [flags]",
+      "feature": "extensions",
       "bundles": [
         "full",
         "agent"
       ],
-      "summary": "Pull a Neo4j or Aura subgraph over HTTP Query API v2 into `--database` (union and upsert on the source `elementId`). `Q` is a statement, a `;`-separated list, a file path, or `-` for stdin. Always writes the `neo4j` namespace.",
-      "messages": [
-        "Error: --namespace is not valid with pull (pull always writes the neo4j namespace)"
+      "summary": "Dispatch an installed extension package: the host parses the action's flags from its manifest, drives the child over MCP into a host-owned store, and prints the child's summary. First-party packages: `fs-to-graph`, `git-to-graph`.",
+      "flags": [
+        {
+          "id": "run-database",
+          "flag": "--database",
+          "short": "-d",
+          "value": "PATH",
+          "default": ":memory:",
+          "summary": "Store to import into; an explicit `--database` exits after the import, and without it a terminal opens the shell on the in-memory graph.",
+          "sources": [
+            "relate run --help"
+          ]
+        }
       ],
       "sources": [
         "docs/api/cli/spec.md",
@@ -236,29 +555,26 @@
       ]
     },
     {
-      "id": "push",
-      "word": "push",
-      "synopsis": "relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]",
-      "feature": "push",
-      "bundles": [
-        "full",
-        "agent"
-      ],
-      "summary": "Push a scoped subgraph of `--database` into a Neo4j or Aura remote over HTTP Query API v2. `--dry-run` prints the plan without touching the remote.",
-      "sources": [
-        "docs/api/cli/spec.md"
-      ]
-    },
-    {
       "id": "serve",
       "word": "serve",
-      "synopsis": "relate serve --database PATH [--load SOURCE] [--host HOST] [--http PORT] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING]] [--read-only[=FRESHNESS]] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]",
+      "synopsis": "relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]",
       "feature": "http, mcp, bolt",
       "bundles": [
         "full"
       ],
       "summary": "Host the network surfaces (HTTP Query API v2, MCP over stdio or streamable HTTP, Bolt) on one open store until SIGINT or SIGTERM. At least one surface flag is required. Binds `127.0.0.1` by default; ports have no defaults.",
       "flags": [
+        {
+          "id": "serve-database",
+          "flag": "--database",
+          "short": "-d",
+          "value": "PATH",
+          "default": "required",
+          "summary": "The store to serve: a directory, a `.rl` bundle, or `:memory:`.",
+          "sources": [
+            "relate serve --help"
+          ]
+        },
         {
           "id": "serve-host",
           "flag": "--host",
@@ -439,22 +755,42 @@
       ],
       "sources": [
         "docs/api/cli/spec.md"
-      ]
+      ],
+      "messages": [
+        "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT"
+      ],
+      "recorded": {
+        "command": "relate serve --database ./s.rl",
+        "stdout": "",
+        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "exit": 2
+      }
     },
     {
-      "id": "run",
-      "word": "run",
-      "synopsis": "relate run <name> [flags]",
-      "feature": "extensions",
+      "id": "agent-context",
+      "word": "agent-context",
+      "synopsis": "relate agent-context [COMMAND]",
+      "feature": "agent-context",
       "bundles": [
         "full",
         "agent"
       ],
-      "summary": "Dispatch an installed extension package: the host parses the action's flags from its manifest, drives the child over MCP into a host-owned store, and prints the child's summary. First-party packages: `fs-to-graph`, `git-to-graph`.",
+      "summary": "Print the compact agent briefing: the binary version, one line per compiled-in command, the query-run flag names and the exit-code table; with a command word, that command's synopsis, flags, examples and the exit-code table. An unknown command word is a usage error (exit 2).",
       "sources": [
         "docs/api/cli/spec.md",
-        "docs/reference/cli-flags.md"
-      ]
+        "docs/reference/cli-flags.md",
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ],
+      "messages": [
+        "Error: agent-context: unknown command '<name>' (expected one of: query, clone, info, pull, push, skill, upgrade, telemetry, run, serve, agent-context, extension)"
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate agent-context bogus",
+        "stdout": "",
+        "stderr": "Error: agent-context: unknown command 'bogus' (expected one of: query, clone, info, pull, push, skill, upgrade, telemetry, run, serve, agent-context, extension)\nUsage: relate agent-context [COMMAND]\nRun 'relate agent-context --help' for more information.\n",
+        "exit": 2
+      }
     },
     {
       "id": "extension",
@@ -473,43 +809,381 @@
         "remove",
         "check"
       ],
-      "sources": [
-        "docs/api/cli/spec.md",
-        "docs/reference/cli-flags.md"
-      ]
-    },
-    {
-      "id": "agent-context",
-      "word": "agent-context",
-      "synopsis": "relate agent-context [COMMAND]",
-      "feature": "agent-context",
-      "bundles": [
-        "full",
-        "agent"
-      ],
-      "summary": "Print the compact agent briefing: the binary version, one line per compiled-in command, the query-run flag names and the exit-code table; with a command word, that command's synopsis, flags and examples. Always exits 0 once its arguments parse.",
-      "disputed": true,
-      "readings": [
+      "flags": [
         {
-          "text": "shipped (in the full and agent bundles)",
+          "id": "extension-lang",
+          "flag": "--lang",
+          "value": "sh|py|ts|rust",
+          "default": "py",
+          "summary": "`init`: the template language.",
           "sources": [
-            "docs/api/cli/spec.md",
-            "docs/reference/cli-flags.md",
-            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+            "relate extension --help"
           ]
         },
         {
-          "text": "not shipped (\"No `--timeout`, `--dry-run`, `agent-context` ... yet\")",
+          "id": "extension-github",
+          "flag": "--github",
+          "value": "REPO@TAG|@SHA",
+          "default": "unset",
+          "summary": "`install`: a GitHub release pinned to a commit; the tag's commit and the asset's SHA-256 are recorded.",
           "sources": [
-            "docs/website-update-brief.md § Things not to claim"
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-url",
+          "flag": "--url",
+          "value": "URL",
+          "default": "unset",
+          "summary": "`install`: the tarball at an `https` URL (third party).",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-from",
+          "flag": "--from",
+          "value": "DIR",
+          "default": "unset",
+          "summary": "`install`: an unpacked package directory (local; no network, no signature).",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-version",
+          "flag": "--version",
+          "value": "V",
+          "default": "the newest listed",
+          "summary": "`install`: the channel version.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-force",
+          "flag": "--force",
+          "default": "off",
+          "summary": "`install`: clobber a target directory without the install marker.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-re-approve",
+          "flag": "--re-approve",
+          "default": "off",
+          "summary": "`install --github`: re-approve whatever the pin resolves to now.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-approve",
+          "flag": "--approve",
+          "value": "SHA",
+          "default": "unset",
+          "summary": "`install --github`: re-approve only this commit.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-available",
+          "flag": "--available",
+          "default": "off",
+          "summary": "`list`: the channel's catalog (the signed `extensions.json` index); fails closed offline.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-trust",
+          "flag": "--trust",
+          "default": "off",
+          "summary": "`list`: the recorded GitHub pins.",
+          "sources": [
+            "relate extension --help"
+          ]
+        },
+        {
+          "id": "extension-forget-pin",
+          "flag": "--forget-pin",
+          "default": "off",
+          "summary": "`remove`: also clear the name's recorded GitHub pin.",
+          "sources": [
+            "relate extension --help"
           ]
         }
       ],
       "sources": [
         "docs/api/cli/spec.md",
-        "docs/reference/cli-flags.md",
-        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+        "docs/reference/cli-flags.md"
       ]
+    }
+  ],
+  "help": [
+    {
+      "id": "help",
+      "command_id": null,
+      "recorded": {
+        "command": "relate --help",
+        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal (ADR-0231); on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-query",
+      "command_id": "query",
+      "recorded": {
+        "command": "relate query --help",
+        "stdout": "Usage: relate query [STATEMENT] [--database PATH]\n\nquery runs a statement session (ADR-0200): a positional STATEMENT or\n-c/--command (one statement or a `;`-separated list). With no\nSTATEMENT, a script is read from stdin, or the interactive shell opens\non a terminal. The path-first form with no QUERY opens the same shell on a\nterminal (ADR-0231); on piped or redirected stdin it prints help instead.\n-d / --database sets\nthe store; omitted, it is :memory:. The same flag is the store on\nthe path-first form, on pull, and on info.\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional STATEMENT)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-clone",
+      "command_id": "clone",
+      "recorded": {
+        "command": "relate clone --help",
+        "stdout": "Usage: relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST\n\nclone copies a database into a new store and exits. Each side is a\nnative directory, or a single-file bundle when its path ends in .rl.\nIt reads the LSN visible on open, does not follow, and does not write\nthe source. Refused for :memory:. --wal-dir is the source WAL\n(directory sources only; a .rl bundle embeds its WAL); the clone's\nWAL is <DEST>/wal for a directory destination.\n  --wal-dir DIR           Source WAL of a directory source (default <SOURCE>/wal)\n  --to-snapshot-format F  Destination snapshot codec (parquet|json|markdown); default: the source codec\n  --markdown-body-properties LIST  Body properties of a markdown destination\n                         (LIST or Label=LIST; entries separated by ';'); default:\n                         the source's recorded configuration, else body\n\nExamples:\n  # Copy a database into a new store\n  relate clone ./mydata ./backup\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-info",
+      "command_id": "info",
+      "recorded": {
+        "command": "relate info --help",
+        "stdout": "Usage: relate info --database PATH [--json]\n\ninfo prints store metadata for --database without opening it and exits.\n  -d, --database PATH  Native directory or a .rl bundle; refused for :memory:.\n  --json   Emit one JSON object on stdout (default: key/value table)\n  Reports layout, codec, snapshot format version, size on disk,\n  checkpoint-time node/rel counts (labeled with the checkpoint LSN),\n  WAL segments past the checkpoint, and the index/constraint catalog.\n  A JSON-codec store reports the codec envelope only; the format\n  version, counts, indexes and constraints print as unavailable.\n\nExamples:\n  # Describe a database without opening it, as JSON\n  relate info --database ./mydata --json\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-pull",
+      "command_id": "pull",
+      "recorded": {
+        "command": "relate pull --help",
+        "stdout": "Usage: relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH\n\npull copies a Neo4j/Aura subgraph (HTTP Query API v2) into --database.\n  --from FILE   Env file (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, NEO4J_DATABASE);\n                omitted: use those process environment variables\n  --query Q     Cypher statement, `;`-separated statement list, file path, or `-` (stdin);\n               every statement must RETURN graph elements; all run in one process,\n               one checkpoint at the end (ADR-0158)\n  -d, --database PATH  Destination directory or .rl bundle (required; not :memory:)\n  --param N=V   Bind a source query parameter (repeatable)\n  --allow-plaintext  Permit Basic auth to a non-loopback http:// Query API\n                     (insecure; prints a warning); default off\n\nExamples:\n  # Copy a Neo4j/Aura subgraph into a local database\n  relate pull --from .env --query 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100' --database ./graph\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-push",
+      "command_id": "push",
+      "recorded": {
+        "command": "relate push --help",
+        "stdout": "Usage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]\n\npush copies a scoped subgraph of --database into a Neo4j/Aura remote over\nHTTP Query API v2 (ADR-0401) — pull's mirror, over the same client.\n  --to CREDS   Env file (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, optional\n               NEO4J_DATABASE), or a Query API URI (username/password then\n               come from the process environment)\n  -d, --database PATH  Source store directory or .rl bundle (required; not :memory:)\n  --query Q    Only what the statements RETURN (nodes/rels/paths; a `;`-list,\n               file path, or `-` for stdin). One of --query/--labels/--types;\n               none pushes the whole store\n  --labels L1,L2  Only nodes with these labels, and the rels between them\n  --types T1,T2   Only rels of these types, with both their endpoints\n  --batch-size N   Rows per batched statement (default 5000)\n  --nodes-update POLICY  add (default) | replace | skip, per label or global\n               (Movie=replace,Person=skip). add: SET += keeps remote-only\n               properties; replace: SET = overwrites; skip: create missing only\n  --rels-update POLICY  Same policy vocabulary, per relationship type or global\n  --updated-at NAME[,NAME]  Candidate timestamp properties; when both sides\n               carry one, a strictly newer remote row is skipped (counted\n               remote-newer), newer-or-equal local applies (equal is\n               idempotent), incomparable pairs apply with a warning count\n  --rel-mode MODE  keyed (default; merge on the type's resolved key — a\n               --rel-key override, else its relationship uniqueness/key\n               constraint — falling back to one rel of a type between two\n               nodes when neither exists), structural (force the pair even\n               when a key exists; parallel rels collapse), create\n               (non-idempotent escape hatch)\n  --merge-key LABEL:PROP[,PROP]  Merge key for one label, overriding the\n               constraint-derived key (repeatable)\n  --rel-key TYPE:PROP[,PROP]  Merge key for one relationship type, overriding\n               its constraint-derived key or supplying one where no\n               constraint exists (repeatable)\n  --unkeyed-labels ACTION  skip (default; reported and counted) or create\n               (one-shot seeding rows; non-idempotent)\n  --dry-run    Print the plan (counts, merge keys, statement shapes, batch\n               counts, policies) without touching the remote\n  --json       Print the run report as one JSON object instead of the table\n  --allow-plaintext  Permit Basic auth to a non-loopback http:// Query API\n                     (insecure; prints a warning); default off\n\nMerge keys come from the store's uniqueness and node/relationship key\nconstraints (composite keys included), overridable per label and per type;\na label with none is reported, never guessed. Nothing is ever deleted\nremotely; a failed batch fails the push naming the statement and row range,\nand the report lists exactly which batches landed.\n\nExamples:\n  # Push the whole store into an Aura instance, planning first\n  relate push --to .env --database ./graph --dry-run\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-skill",
+      "command_id": "skill",
+      "recorded": {
+        "command": "relate skill --help",
+        "stdout": "Usage: relate skill install|remove|list|check [--agent NAME] [--force]\n\nskill manages the embedded agent skill bundle (ADR-0242 for list/check).\n  install   Copy the bundle into every target agent's skills dir\n  remove    Remove the installed bundle (marker-owned dirs only)\n  list      Print each target agent's install state and path\n  check     Verify installed bundles match this binary's bundle (drift\n            detection); exit 1 on any drift, 0 when clean\n  --agent NAME  Target one agent (default: all detected)\n  --force       Clobber <skills dir>/relate even when the command would\n                otherwise refuse it (install: an unmarked, unrecognizable\n                dir; remove: any unmarked dir); not valid with list|check\n\nExamples:\n  # Install the agent skill into every detected agent\n  relate skill install\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-upgrade",
+      "command_id": "upgrade",
+      "recorded": {
+        "command": "relate upgrade --help",
+        "stdout": "Usage: relate upgrade [--yes] [--check]\n       relate update  [--yes] [--check]  (alias of upgrade)\n\nupgrade checks the latest release listed by the website's releases.json\n(ADR-0250) and replaces the running binary (macOS and Linux only);\n`update` is an alias.\n  --yes    Auto-accept the post-upgrade skill refresh\n  --check  Report current-vs-latest only; download and modify nothing\n\nExamples:\n  # See whether a newer release exists, without installing it\n  relate upgrade --check\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-telemetry",
+      "command_id": "telemetry",
+      "recorded": {
+        "command": "relate telemetry --help",
+        "stdout": "Usage: relate telemetry on|off|status\n\ntelemetry manages anonymous usage metrics.\n  on      Enable and persist the setting\n  off     Disable and persist the setting\n  status  Print the effective state and the layer that decided it\n\nExamples:\n  # See whether anonymous usage metrics are on\n  relate telemetry status\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-run",
+      "command_id": "run",
+      "recorded": {
+        "command": "relate run --help",
+        "stdout": "Usage: relate run <name> [flags]\n\nRun an installed command-kind extension (ADR-0429): the child walks its\nsource and emits rows over the wire; the host alone owns the store, the\ncaps and the exit codes (ADR-0430).\n\nInstalled actions:\n  none (relate extension install <name> adds one)\n\n  -d, --database PATH   Database to import into (default :memory:).\n                         An explicit --database exits after the import; without\n                         it, a TTY opens the shell on the in-memory graph.\n\nAn uninstalled name fails closed with the discovery error — nothing is\nfetched (ADR-0429 §7); the flags an action accepts are its own\nmanifest's flag table.\n\nExamples:\n  # Run an installed action into a store the host owns\n  relate run greet ./src -d ./graph\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-serve",
+      "command_id": "serve",
+      "recorded": {
+        "command": "relate serve --help",
+        "stdout": "Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\n\nserve hosts Relate's network surfaces on one open database until\nSIGINT/SIGTERM (ADR-0232). At least one surface flag is required; ports\nhave no defaults, and a taken port is a startup error.\n  -d, --database PATH  The store to serve (directory, .rl bundle, or :memory:)\n  --host HOST    Bind host for every served surface (ADR-0248). Default\n                       127.0.0.1 (loopback only). Any other host deliberately\n                       exposes the PLAINTEXT surfaces to the network — serve\n                       has no TLS — and a loud WARNING prints at startup\n  --http PORT    HTTP Query API v2 endpoint (POST /db/<name>/query/v2; plus the\n                       public GET / discovery document) on --host:PORT\n  --origin ORIGIN  Allow a browser Origin on the HTTP surface (repeatable;\n                   an exact URL or * for any). Default: loopback origins plus\n                   https://browser.neo4j.io and https://console.neo4j.io\n  --tx-idle-timeout-secs N\n                   Expire an HTTP managed transaction after N seconds idle\n                   (ADR-0435); the next registry operation sweeps it. Default:\n                   RELATE_TX_IDLE_TIMEOUT_SECS, else 60. 0 disables expiry\n  --max-open-transactions N\n                   Cap on open HTTP managed transactions (ADR-0435). Over cap\n                   is a typed 429 naming this flag. Default:\n                   RELATE_MAX_OPEN_TRANSACTIONS, else 128. 0 is unlimited\n  --mcp PORT|stdio\n                   MCP server: PORT serves the streamable HTTP transport\n                   on --host:PORT; the `stdio` keyword serves the stdio\n                   transport in the foreground (newline-delimited JSON-RPC\n                   on stdin/stdout, for MCP hosts) until the host closes\n                   stdin — no auth challenge (ADR-0232, LABS-381, ADR-0368)\n  --bolt PORT    Bolt server (Bolt + Bolt-over-WebSocket) on --host:PORT.\n                   WebSocket Origins default to loopback (any port) plus the\n                   hosted Neo4j Browser and Neo4j Console; another Origin\n                   needs --ws-allow-origin (ADR-0266, ADR-0459)\n  --ws-allow-origin ORIGIN\n                   Allow this Origin on Bolt-over-WebSocket upgrades\n                   (repeatable; an exact http(s) URL or * for any). Overrides\n                   the default: loopback plus https://browser.neo4j.io and\n                   https://console.neo4j.io with auth on, loopback only with\n                   --auth none\n  --bolt-identity STRING\n                   HELLO `server` agent string for the Bolt surface\n                   (ADR-0293). Default: RELATE_IDENTITY, else\n                   Relate/<version>. Sent verbatim — a Neo4j-shaped\n                   value (Neo4j/5.26.0) admits strict tooling like\n                   cypher-shell without claiming feature parity\n  --ws-max-connections N\n                   Opt-in cap on concurrent WebSocket sessions (ADR-0459).\n                   Default: RELATE_WS_MAX_CONNECTIONS, else unlimited —\n                   bulk data transfers legitimately run many sessions. The\n                   process-wide --max-connections cap still applies\n  --read-only[=FRESHNESS]  Open the existing store read-only\n                   (ADR-0306): no writer lease, never creates it; every\n                   write fails. FRESHNESS is snapshot (default: a frozen\n                   snapshot at open) or live (ADR-0480): tail the WAL and\n                   follow the writer's commits; refuses .rl and :memory:.\n                   Attach the value; once per run\n  --load SOURCE   Load the served store's content from SOURCE — a\n                   .rl bundle, a store directory, or an https URL\n                   (LABS-872/903, ADR-0500) — into --database. A :memory:\n                   target (the default) turns the source into the\n                   in-memory store: read-only, nothing held open or\n                   locked, a fetched copy released after the load. A path\n                   target creates the store there (the path must not\n                   exist) and opens it writable by default\n  --auth USER:PASSWORD  Basic-auth credential shared by every served\n                       surface; `none` disables auth. Default:\n                       RELATE_AUTH, else a generated token printed at\n                       startup (persisted as <dir>.auth-token, 0600)\n  --max-connections N  Process-wide session cap shared by every surface\n                       (ADR-0333). Over cap is accept-then-close. Default:\n                       RELATE_MAX_CONNECTIONS, else 128\n  --header-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request header\n                   block (ADR-0451). Trickled headers are dropped at the\n                   deadline. Default: RELATE_HEADER_DEADLINE_SECS, else 10. 0 disables the deadline\n  --body-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request body\n                   (ADR-0451). Trickled bodies are dropped at the deadline.\n                   Default: RELATE_BODY_DEADLINE_SECS, else 60. 0 disables the deadline\n  --concurrent-logical-workspace-limit SIZE\n                       Admit queries against a shared logical-workspace\n                       pool (bytes or mb/mib/gb/gib; ADR-0452). A positive\n                       value turns admission on. Omit, or an unset\n                       RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT, leaves\n                       it off. 0 is rejected. Same resolution as the query\n                       session's flag\n  --max-traversal-depth N\n                       Largest explicit traversal hop bound a served\n                       statement may ask for (1 through 2000; LABS-610,\n                       ADR-0466). Default: RELATE_MAX_TRAVERSAL_DEPTH,\n                       else 500. An *1..N or {1,N} bound above it fails at\n                       admission with TraversalDepthExceeded\n  --expression-memory-limit SIZE\n                       Per-value expression build cap for the served store\n                       (bytes, mb/mib/gb/gib, or none; ADR-0463). Default:\n                       256 MiB, or raise/lower it here; none disables the\n                       cap for known bulk pipelines\n  --safe, --no-safe\n                       Refuse agent-typical dangerous statement shapes on\n                       the served store (LABS-680, ADR-0477). Default:\n                       RELATE_SAFE_MODE=1/0, else off. --no-safe\n                       negates an enabled environment default\n  --logical-graph-size-limit SIZE\n                       Live graph + index cap for the served store (bytes\n                       or mb/mib/gb/gib; ADR-0390). Default:\n                       RELATE_LOGICAL_GRAPH_SIZE_LIMIT, else unlimited —\n                       the same resolution as the query session's flag\n  --durability-mode MODE\n                       Commit durability policy for the served store\n                       (ADR-0077): full, everysecond, or snapshot. Default:\n                       RELATE_DURABILITY_MODE, else full — the same\n                       resolution as the query session's flag (ADR-0470)\n\nExamples:\n  # Serve the HTTP Query API and MCP on one store\n  relate serve --database ./mydata --http 7474 --mcp 8000\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-agent-context",
+      "command_id": "agent-context",
+      "recorded": {
+        "command": "relate agent-context --help",
+        "stdout": "Usage: relate agent-context [COMMAND]\n\nagent-context prints the compact discovery readout for agent harnesses\n(ADR-0242), rendered from the same command table as --help, so the two\ncannot drift. With no COMMAND it prints the command index, the query-run\nflag names, and the exit-code table; with a COMMAND word it prints that\ncommand's synopsis, flags and examples. Output is always compact text.\n\nExamples:\n  # Show one command's flags and examples\n  relate agent-context query\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "help-extension",
+      "command_id": "extension",
+      "recorded": {
+        "command": "relate extension --help",
+        "stdout": "Usage: relate extension init <name> [--lang sh|py|ts|rust]\n       relate extension install <name> [--github REPO@TAG|@SHA] [--url URL] [--from DIR] [--version V] [--force] [--re-approve | --approve SHA]\n       relate extension list [--available | --trust]\n       relate extension remove <name> [--forget-pin]\n       relate extension check <dir>\n\nextension manages the command-kind extensions that mount as `relate run <name>`\n(ADR-0431). Packages live under $XDG_CONFIG_HOME/relate/extensions/<name>/.\n\nActions:\n  init <name>     Scaffold a package directory — extension.json, an executable\n                  that is a generated MCP client (the glue is inlined; nothing to\n                  install), and a README quickstart; then `extension install <name>\n                  --from <name>/`\n  --lang L       Template language: sh, py (default), ts or rust\n  install <name>  Install a package: from the signed first-party channel\n                  by default; --github REPO@TAG|@SHA is a GitHub release pinned to a commit;\n                  --url URL is the explicit third-party trust act; --from DIR the\n                  local-directory one (no network, no signature). The tarball is\n                  verified (channel: signature + SHA256; GitHub: the resolved asset SHA256),\n                  unpacked under the closed contract, and load-checked before it lands —\n                  never a silent fetch\n  --github R@T   Install the package from a GitHub release: R is owner/repo, T a release\n                  tag or a full 40-hex commit sha. Resolution records the tag's commit\n                  and the platform asset's SHA256; a moved tag or changed asset refuses\n                  before any fetch unless re-approved\n  --url URL      Install the tarball at URL, https only (third-party: you named the\n                  source; a non-https URL refuses before any fetch)\n  --from DIR     Install the unpacked package directory (local: the directory is the\n                  trust act, like pull --from; the executable must resolve\n                  inside it)\n  --version V    Install channel version V (default: the newest listed)\n  --force        Clobber a target directory without the install marker (never a\n                  name collision or a tier's own reinstall path)\n  --re-approve   With --github: re-approve whatever the pin resolves to now, replacing a\n                  recorded pin that moved (the new asset must verify first)\n  --approve SHA  With --github: re-approve only the commit SHA the pin resolves to;\n                  any other resolution refuses\n  list          Print the installed set — name, version, tier, source; offline,\n                  dependency-free, never a fetch\n  list --available\n                  Print the channel's catalog (the signed extensions.json index): one row\n                  per package — name, newest version, protocol, installed — hidden\n                  packages omitted. Offline it fails closed naming the index URL\n  list --trust\n                  Print the recorded GitHub pins — name, repo, tag, commit, asset SHA256 —\n                  from $XDG_CONFIG_HOME/relate/extensions-trust.json; offline\n  remove <name>  Remove the installed package (the provenance marker is required;\n                  a foreign or unknown directory is a refusal, and there is no --force)\n  remove --forget-pin\n                  Also clear the name's recorded GitHub pin. Without it the pin outlives\n                  the package, so a reinstall is still compared against it\n  check <dir>   Run a package directory through the mount's six stages — manifest,\n                  executable, spawn, initialize, notifications/initialized, tools/list —\n                  printing one line per stage, then one on the recorded GitHub pin\n                  (approved / drifted / not from a GitHub source; the pin line never\n                  changes the exit code). It opens no store, fetches nothing and runs no\n                  tool, so it is safe before installing: exit 2 for a manifest or\n                  packaging problem, 1 for what the package does when run, 0 when it\n                  would mount\n\nTrust tiers: first-party (the signed channel, verified against the release\nsigning key upgrade verifies), github-pin (--github: the release's tag, commit\nand asset SHA256 are recorded on first install — the invocation is the approval;\na moved tag or changed asset refuses without --re-approve/--approve), third-party\n(--url: the invocation is the trust act, the install line names what landed),\nlocal (--from: whoever provisions the directory owns what is in it).\n\nExamples:\n  # Scaffold a Python extension package\n  relate extension init my-ext\n  # Install a first-party extension from the signed channel\n  relate extension install git-to-graph\n",
+        "stderr": "",
+        "exit": 0
+      }
+    }
+  ],
+  "agent_context": [
+    {
+      "id": "agent-context",
+      "command_id": null,
+      "recorded": {
+        "command": "relate agent-context",
+        "stdout": "relate v0.16.1 — agent context\n\nCommands (detail: relate agent-context <COMMAND>):\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nQuery-run flags (relate [OPTIONS] [QUERY]):\n  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command\n\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-query",
+      "command_id": "query",
+      "recorded": {
+        "command": "relate agent-context query",
+        "stdout": "query — Run a statement session (oneshot, stdin, or shell)\nUsage: relate query [STATEMENT] [--database PATH]\nFlags:\n  --help\n  --version\n  --database\n  --json\n  --csv\n  --markdown\n  --jsonl\n  --toon\n  --noheader\n  --mode\n  --format\n  --pretty\n  --param\n  --fetch-params\n  --snapshot-format\n  --markdown-body-properties\n  --wal-dir\n  --checkpoint-interval-secs\n  --durability-mode\n  --logical-graph-size-limit\n  --expression-memory-limit\n  --concurrent-logical-workspace-limit\n  --max-traversal-depth\n  --safe\n  --no-safe\n  --agent-mode\n  --no-agent-mode\n  --max-rows\n  --width\n  --timeout\n  --load\n  --read-only\n  --load-csv-dir\n  --namespace\n  --command\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-clone",
+      "command_id": "clone",
+      "recorded": {
+        "command": "relate agent-context clone",
+        "stdout": "clone — Copy a database into a new store and exit\nUsage: relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST\nFlags:\n  --wal-dir\n  --to-snapshot-format\n  --markdown-body-properties\nExamples:\n  # Copy a database into a new store\n  relate clone ./mydata ./backup\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-info",
+      "command_id": "info",
+      "recorded": {
+        "command": "relate agent-context info",
+        "stdout": "info — Print store metadata for a database without opening it\nUsage: relate info --database PATH [--json]\nFlags:\n  --database\n  --json\nExamples:\n  # Describe a database without opening it, as JSON\n  relate info --database ./mydata --json\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-pull",
+      "command_id": "pull",
+      "recorded": {
+        "command": "relate agent-context pull",
+        "stdout": "pull — Copy a Neo4j/Aura subgraph into a database\nUsage: relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH\nFlags:\n  --from\n  --query\n  --param\n  --allow-plaintext\n  --database\nExamples:\n  # Copy a Neo4j/Aura subgraph into a local database\n  relate pull --from .env --query 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100' --database ./graph\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-push",
+      "command_id": "push",
+      "recorded": {
+        "command": "relate agent-context push",
+        "stdout": "push — Copy a database subgraph into Neo4j/Aura\nUsage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]\nFlags:\n  -d\n  --database\n  --to\n  --query\n  --labels\n  --types\n  --batch-size\n  --nodes-update\n  --rels-update\n  --updated-at\n  --rel-mode\n  --merge-key\n  --rel-key\n  --unkeyed-labels\n  --dry-run\n  --json\n  --allow-plaintext\nExamples:\n  # Push the whole store into an Aura instance, planning first\n  relate push --to .env --database ./graph --dry-run\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-skill",
+      "command_id": "skill",
+      "recorded": {
+        "command": "relate agent-context skill",
+        "stdout": "skill — Install, inspect, or remove the embedded agent skill bundle\nUsage: relate skill install|remove|list|check [--agent NAME] [--force]\nFlags:\n  --agent\n  --force\nExamples:\n  # Install the agent skill into every detected agent\n  relate skill install\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-upgrade",
+      "command_id": "upgrade",
+      "recorded": {
+        "command": "relate agent-context upgrade",
+        "stdout": "upgrade — Update the relate binary (alias: update)\nUsage: relate upgrade [--yes] [--check]\nFlags:\n  --yes\n  --check\nExamples:\n  # See whether a newer release exists, without installing it\n  relate upgrade --check\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-telemetry",
+      "command_id": "telemetry",
+      "recorded": {
+        "command": "relate agent-context telemetry",
+        "stdout": "telemetry — Manage anonymous usage metrics (on, off, status)\nUsage: relate telemetry on|off|status\nExamples:\n  # See whether anonymous usage metrics are on\n  relate telemetry status\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-run",
+      "command_id": "run",
+      "recorded": {
+        "command": "relate agent-context run",
+        "stdout": "run — Run an installed extension action into a store the host owns\nUsage: relate run <name> [flags]\nFlags:\n  -d\n  --database\nExamples:\n  # Run an installed action into a store the host owns\n  relate run greet ./src -d ./graph\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-serve",
+      "command_id": "serve",
+      "recorded": {
+        "command": "relate agent-context serve",
+        "stdout": "serve — Host the HTTP Query API and MCP surfaces on a database\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nFlags:\n  --database\n  --host\n  --http\n  --origin\n  --tx-idle-timeout-secs\n  --max-open-transactions\n  --mcp\n  --bolt\n  --bolt-identity\n  --ws-allow-origin\n  --ws-max-connections\n  --read-only\n  --load\n  --auth\n  --max-connections\n  --header-deadline-secs\n  --body-deadline-secs\n  --concurrent-logical-workspace-limit\n  --max-traversal-depth\n  --expression-memory-limit\n  --safe\n  --no-safe\n  --logical-graph-size-limit\n  --durability-mode\nExamples:\n  # Serve the HTTP Query API and MCP on one store\n  relate serve --database ./mydata --http 7474 --mcp 8000\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-agent-context",
+      "command_id": "agent-context",
+      "recorded": {
+        "command": "relate agent-context agent-context",
+        "stdout": "agent-context — Print the compact agent briefing (commands, flags, exit codes)\nUsage: relate agent-context [COMMAND]\nExamples:\n  # Show one command's flags and examples\n  relate agent-context query\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
+      "id": "agent-context-extension",
+      "command_id": "extension",
+      "recorded": {
+        "command": "relate agent-context extension",
+        "stdout": "extension — Scaffold, install, check, list, or remove command extensions\nUsage: relate extension init <name> [--lang sh|py|ts|rust]\n       relate extension install <name> [--github REPO@TAG|@SHA] [--url URL] [--from DIR] [--version V] [--force] [--re-approve | --approve SHA]\n       relate extension list [--available | --trust]\n       relate extension remove <name> [--forget-pin]\n       relate extension check <dir>\nFlags:\n  --lang\n  --github\n  --url\n  --from\n  --version\n  --force\n  --re-approve\n  --approve\n  --available\n  --trust\n  --forget-pin\nExamples:\n  # Scaffold a Python extension package\n  relate extension init my-ext\n  # Install a first-party extension from the signed channel\n  relate extension install git-to-graph\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stderr": "",
+        "exit": 0
+      }
     }
   ],
   "global_flags_note": "The query-run flags: accepted on the path-first form and on `relate query`. Lifecycle-command flags are listed under each command.",
@@ -537,7 +1211,16 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
-      ]
+      ],
+      "messages": [
+        "Error: --command cannot be combined with a positional query"
+      ],
+      "recorded": {
+        "command": "relate --command \"RETURN 1 AS a\" \"RETURN 2 AS b\"",
+        "stdout": "",
+        "stderr": "Error: --command cannot be combined with a positional query\n",
+        "exit": 2
+      }
     },
     {
       "id": "load",
@@ -554,42 +1237,50 @@
       "id": "mode",
       "flag": "--mode",
       "value": "MODE",
-      "default": "table on a terminal; jsonl when stdout is piped or redirected; toon when agent mode is in effect and stdout is piped",
+      "default": "table on a terminal; jsonl when stdout is piped or redirected; toon instead of jsonl when agent mode is on",
       "summary": "Output mode: `table`, `csv`, `json`, `jsonl`, `envelope`, `markdown`, `cypher`, `toon`, `speedscope`. An explicit mode always overrides the default.",
-      "verify": "DOCS-PLAN.md §9 asks to verify the toon default against the release binary",
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-      ]
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate --agent-mode \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\n",
+        "stderr": "relate agent mode on: --agent-mode (--no-agent-mode to turn off)\n",
+        "exit": 0
+      }
     },
     {
       "id": "format",
       "flag": "--format",
       "value": "MODE",
       "default": "as --mode",
-      "summary": "Alias of `--mode` (the neo4j-cli spelling). `--output` and `-o` are errors whose did-you-mean names `--format`.",
-      "disputed": true,
-      "readings": [
-        {
-          "text": "documented alias of --mode (ADR-0239)",
-          "sources": [
-            "docs/api/cli/spec.md",
-            "docs/reference/cli-flags.md",
-            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-          ]
-        },
-        {
-          "text": "\"No `--format` or `-o/--output` flag ... A `--format` alias is tracked as LABS-232 and is not shipped.\"",
-          "sources": [
-            "docs/website-update-brief.md § Things not to claim"
-          ]
-        }
-      ],
+      "summary": "Alias of `--mode` (the neo4j-cli spelling). `--output` and `-o` are unknown flags whose did-you-mean names `--format`.",
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ],
+      "messages": [
+        "Error: unknown flag: --output",
+        "Did you mean '--format'?"
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": [
+        {
+          "command": "relate --format envelope \"RETURN 1 AS ok\"",
+          "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"ok\"],\"notifications\":[],\"rows\":[{\"ok\":1}],\"truncated\":false}\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "command": "relate --output json \"RETURN 1 AS ok\"",
+          "stdout": "",
+          "stderr": "Error: unknown flag: --output\nDid you mean '--format'?\nUsage: relate [OPTIONS] [--database PATH] [QUERY]\nRun 'relate --help' for more information.\n",
+          "exit": 2
+        }
       ]
     },
     {
@@ -603,7 +1294,13 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
-      ]
+      ],
+      "recorded": {
+        "command": "relate --json \"RETURN 1 AS ok, [1, 2] AS list\"",
+        "stdout": "[{\"list\":[1,2],\"ok\":1}]\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "csv",
@@ -649,24 +1346,36 @@
       "flag": "--toon",
       "default": "off",
       "summary": "Shortcut for `--mode toon`.",
-      "verify": "DOCS-PLAN.md §9",
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-      ]
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate --toon \"UNWIND [1, 2] AS x RETURN x, {a: x} AS m\"",
+        "stdout": "rows[2]{x,m}:\n  1,{\"a\":1}\n  2,{\"a\":2}\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "pretty",
       "flag": "--pretty",
       "default": "off",
       "summary": "Force indented `json` output when stdout is not a terminal; ignored by the other modes.",
-      "verify": "DOCS-PLAN.md §9",
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-      ]
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate --json --pretty \"RETURN 1 AS ok, [1, 2] AS list\"",
+        "stdout": "[\n  {\n    \"list\": [\n      1,\n      2\n    ],\n    \"ok\": 1\n  }\n]\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "noheader",
@@ -694,7 +1403,13 @@
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-      ]
+      ],
+      "recorded": {
+        "command": "relate --mode envelope --param name=Eli --param n=3 --param 'tags=[\"a\",\"b\"]' 'RETURN $name AS name, $n AS n, $tags AS tags'",
+        "stdout": "{\"columnTypes\":[\"STRING\",\"INTEGER\",\"LIST\"],\"columns\":[\"name\",\"n\",\"tags\"],\"notifications\":[],\"rows\":[{\"n\":3,\"name\":\"Eli\",\"tags\":[\"a\",\"b\"]}],\"truncated\":false}\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "fetch-params",
@@ -717,6 +1432,25 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
+      ],
+      "messages": [
+        "Error: invalid --snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)"
+      ],
+      "recorded": {
+        "command": "relate --snapshot-format csv --database ./store \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: invalid --snapshot-format: storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "markdown-body-properties",
+      "flag": "--markdown-body-properties",
+      "value": "LIST",
+      "default": "body",
+      "summary": "Body properties of a markdown-codec store (`LIST` or `Label=LIST`; entries separated by `;`; the first is written bare, the rest as `##` sections).",
+      "sources": [
+        "relate 0.16.1 (ac441ec) --help"
       ]
     },
     {
@@ -740,7 +1474,16 @@
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md"
-      ]
+      ],
+      "messages": [
+        "Error: invalid --checkpoint-interval-secs: '<value>' is not a number"
+      ],
+      "recorded": {
+        "command": "relate --checkpoint-interval-secs soon \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: invalid --checkpoint-interval-secs: 'soon' is not a number\n",
+        "exit": 2
+      }
     },
     {
       "id": "durability-mode",
@@ -821,13 +1564,28 @@
       "default": "unset (no bound)",
       "summary": "Per-statement wall-clock bound: a bare number is seconds, `ms`/`s`/`m` suffixes, fractions allowed; `0` disables. A timed-out statement exits 7 with `code: \"timeout\"`.",
       "messages": [
-        "Error: query timed out after <duration>"
+        "Error: query timed out after <duration>",
+        "Error: invalid --timeout: '<value>' is not a duration (try 500ms, 10s, 2m)"
       ],
       "sources": [
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
-        "surfaces/relate-cli/src/skill/bundle/SKILL.md",
-        "settled on the relate CLI source at upstream ac441ec (`--timeout` in --help, exit 7 in agent-context); confirm on the release binary (LAUNCH.md)"
+        "surfaces/relate-cli/src/skill/bundle/SKILL.md"
+      ],
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": [
+        {
+          "command": "relate --mode envelope --timeout 100ms \"UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs\"",
+          "stdout": "{\"error\":{\"code\":\"timeout\",\"exit_code\":7,\"kind\":\"execution\",\"message\":\"query timed out after 100ms\",\"retryable\":false}}\n",
+          "stderr": "Error: query timed out after 100ms\n",
+          "exit": 7
+        },
+        {
+          "command": "relate --timeout soon \"RETURN 1 AS ok\"",
+          "stdout": "",
+          "stderr": "Error: invalid --timeout: 'soon' is not a duration (try 500ms, 10s, 2m)\n",
+          "exit": 2
+        }
       ]
     },
     {
@@ -845,6 +1603,20 @@
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md",
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ],
+      "recorded": [
+        {
+          "command": "CLAUDECODE=1 relate --mode envelope \"UNWIND range(1, 250) AS x RETURN x\"",
+          "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"rowCap\":{\"kept\":100,\"total\":250},\"rows\":[{\"x\":1},{\"x\":2},{\"x\":3},{\"x\":4},{\"x\":5},{\"x\":6},{\"x\":7},{\"x\":8},{\"x\":9},{\"x\":10},{\"x\":11},{\"x\":12},{\"x\":13},{\"x\":14},{\"x\":15},{\"x\":16},{\"x\":17},{\"x\":18},{\"x\":19},{\"x\":20},{\"x\":21},{\"x\":22},{\"x\":23},{\"x\":24},{\"x\":25},{\"x\":26},{\"x\":27},{\"x\":28},{\"x\":29},{\"x\":30},{\"x\":31},{\"x\":32},{\"x\":33},{\"x\":34},{\"x\":35},{\"x\":36},{\"x\":37},{\"x\":38},{\"x\":39},{\"x\":40},{\"x\":41},{\"x\":42},{\"x\":43},{\"x\":44},{\"x\":45},{\"x\":46},{\"x\":47},{\"x\":48},{\"x\":49},{\"x\":50},{\"x\":51},{\"x\":52},{\"x\":53},{\"x\":54},{\"x\":55},{\"x\":56},{\"x\":57},{\"x\":58},{\"x\":59},{\"x\":60},{\"x\":61},{\"x\":62},{\"x\":63},{\"x\":64},{\"x\":65},{\"x\":66},{\"x\":67},{\"x\":68},{\"x\":69},{\"x\":70},{\"x\":71},{\"x\":72},{\"x\":73},{\"x\":74},{\"x\":75},{\"x\":76},{\"x\":77},{\"x\":78},{\"x\":79},{\"x\":80},{\"x\":81},{\"x\":82},{\"x\":83},{\"x\":84},{\"x\":85},{\"x\":86},{\"x\":87},{\"x\":88},{\"x\":89},{\"x\":90},{\"x\":91},{\"x\":92},{\"x\":93},{\"x\":94},{\"x\":95},{\"x\":96},{\"x\":97},{\"x\":98},{\"x\":99},{\"x\":100}],\"truncated\":true}\n",
+          "stderr": "warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows\n",
+          "exit": 0
+        },
+        {
+          "command": "relate --max-rows 2 --mode envelope \"UNWIND range(1, 5) AS x RETURN x\"",
+          "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"rowCap\":{\"kept\":2,\"total\":5},\"rows\":[{\"x\":1},{\"x\":2}],\"truncated\":true}\n",
+          "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+          "exit": 0
+        }
       ]
     },
     {
@@ -855,7 +1627,16 @@
       "summary": "Wrap the human `table` output to N columns; a value under 20 exits 2.",
       "sources": [
         "docs/api/cli/spec.md"
-      ]
+      ],
+      "messages": [
+        "Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default"
+      ],
+      "recorded": {
+        "command": "relate --width 10 \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default\n",
+        "exit": 2
+      }
     },
     {
       "id": "read-only",
@@ -867,6 +1648,42 @@
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+      ],
+      "messages": [
+        "semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.",
+        "Error: --read-only takes its value attached: --read-only=live",
+        "Error: relate --read-only may be given only once",
+        "Failed to open Relate: semantic error: live freshness (WAL follow) is only supported for native directory databases"
+      ],
+      "recorded": [
+        {
+          "command": "relate --database ./s.rl --read-only --mode envelope \"CREATE (:Person {name: 'Bo'})\"",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.\",\"retryable\":false}}\n",
+          "stderr": "semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.\n",
+          "exit": 6
+        },
+        {
+          "command": "relate --database ./s.rl --read-only live \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "stdout": "",
+          "stderr": "Error: --read-only takes its value attached: --read-only=live\nUsage: relate [OPTIONS] [--database PATH] [QUERY]\nRun 'relate --help' for more information.\n",
+          "exit": 2
+        },
+        {
+          "command": "relate --database ./s.rl --read-only --read-only \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "stdout": "",
+          "stderr": "Error: relate --read-only may be given only once\nUsage: relate [OPTIONS] [--database PATH] [QUERY]\nRun 'relate --help' for more information.\n",
+          "exit": 2
+        },
+        {
+          "command": "relate --database ./s.rl --read-only=live --mode envelope \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: live freshness (WAL follow) is only supported for native directory databases\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: semantic error: live freshness (WAL follow) is only supported for native directory databases\n",
+          "exit": 1
+        }
       ]
     },
     {
@@ -893,7 +1710,13 @@
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-      ]
+      ],
+      "recorded": {
+        "command": "relate --namespace graph \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: invalid --namespace: unknown namespace 'graph' (expected neo4j, system or system_ontologies)\nUsage: relate [OPTIONS] [--database PATH] [QUERY]\nRun 'relate --help' for more information.\n",
+        "exit": 2
+      }
     },
     {
       "id": "agent-mode",
@@ -905,7 +1728,16 @@
       "sources": [
         "docs/api/cli/spec.md § Agent mode",
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
-      ]
+      ],
+      "messages": [
+        "relate agent mode on: --agent-mode (--no-agent-mode to turn off)"
+      ],
+      "recorded": {
+        "command": "relate --agent-mode \"RETURN 1 AS x\"",
+        "stdout": "rows[1]{x}:\n  1\n",
+        "stderr": "relate agent mode on: --agent-mode (--no-agent-mode to turn off)\n",
+        "exit": 0
+      }
     },
     {
       "id": "help",
@@ -931,6 +1763,20 @@
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "docs/api/cli/examples/agents.md"
+      ],
+      "recorded": [
+        {
+          "command": "relate --version",
+          "stdout": "Relate v0.16.1\nLicense: Apache 2.0 (binary)\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "command": "relate -v",
+          "stdout": "Relate v0.16.1\nLicense: Apache 2.0 (binary)\n",
+          "stderr": "",
+          "exit": 0
+        }
       ]
     },
     {
@@ -1336,46 +2182,56 @@
       "id": "mode-csv",
       "mode": "csv",
       "summary": "RFC 4180 CSV with control escaping and a spreadsheet-formula guard (a leading `=`, `+`, `-`, `@` gets a `'` prefix, so `-5` prints as `'-5`).",
-      "row_cap_in_band": null
+      "row_cap_in_band": null,
+      "recorded": {
+        "command": "relate --csv \"RETURN -5 AS n, '=1+1' AS formula\"",
+        "stdout": "n,formula\n'-5,'=1+1\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "mode-json",
       "mode": "json",
       "summary": "One JSON array; indented on a terminal, compact when piped (`--pretty` forces indentation).",
-      "row_cap_in_band": "the rows are wrapped: {\"data\": [...], \"rowCap\": {...}}"
+      "row_cap_in_band": "the rows are wrapped: {\"data\": [...], \"rowCap\": {...}}",
+      "recorded": {
+        "command": "relate --max-rows 2 --mode json \"UNWIND range(1, 5) AS x RETURN x\"",
+        "stdout": "{\"data\":[{\"x\":1},{\"x\":2}],\"rowCap\":{\"kept\":2,\"total\":5}}\n",
+        "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+        "exit": 0
+      }
     },
     {
       "id": "mode-jsonl",
       "mode": "jsonl",
       "summary": "One JSON object per row; the default when stdout is piped and agent mode is off.",
-      "row_cap_in_band": "a terminal line {\"rowCap\":{\"kept\":100,\"total\":250}}"
+      "row_cap_in_band": "a terminal line {\"rowCap\":{\"kept\":100,\"total\":250}}",
+      "recorded": {
+        "command": "relate --max-rows 2 --mode jsonl \"UNWIND range(1, 5) AS x RETURN x\"",
+        "stdout": "{\"x\":1}\n{\"x\":2}\n{\"rowCap\":{\"kept\":2,\"total\":5}}\n",
+        "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+        "exit": 0
+      }
     },
     {
       "id": "mode-envelope",
       "mode": "envelope",
-      "summary": "One compact JSON object per result set: `columns`, `columnTypes`, `rows` (keys sorted), `truncated`, `rowCap` when cut, `notifications`, `plan` on EXPLAIN/PROFILE.",
+      "summary": "One compact JSON object per result set, keys sorted: `columnTypes`, `columns`, `notifications`, `plan` on EXPLAIN/PROFILE, `rowCap` when cut, `rows`, `truncated`.",
       "row_cap_in_band": "\"truncated\": true plus \"rowCap\": {\"kept\": 100, \"total\": 250}",
-      "disputed": true,
-      "readings": [
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": [
         {
-          "text": "fields columns, columnTypes, rows, truncated, rowCap (when cut), notifications (always), plan (EXPLAIN/PROFILE)",
-          "sources": [
-            "docs/api/cli/spec.md § Result envelope"
-          ]
+          "command": "relate --max-rows 2 --mode envelope \"UNWIND range(1, 5) AS x RETURN x\"",
+          "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"rowCap\":{\"kept\":2,\"total\":5},\"rows\":[{\"x\":1},{\"x\":2}],\"truncated\":true}\n",
+          "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+          "exit": 0
         },
         {
-          "text": "{\"columns\",\"rows\",\"truncated\"} per result set",
-          "sources": [
-            "docs/reference/cli-flags.md § Options",
-            "docs/api/cli/examples/agents.md (recorded output)",
-            "docs/website-update-brief.md"
-          ]
-        },
-        {
-          "text": "{columns, columnTypes, rows, truncated}",
-          "sources": [
-            "surfaces/relate-cli/src/skill/bundle/SKILL.md"
-          ]
+          "command": "relate --mode envelope \"RETURN 1 AS a; RETURN 2 AS b\"",
+          "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"a\"],\"notifications\":[],\"rows\":[{\"a\":1}],\"truncated\":false}\n{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"b\"],\"notifications\":[],\"rows\":[{\"b\":2}],\"truncated\":false}\n",
+          "stderr": "",
+          "exit": 0
         }
       ]
     },
@@ -1383,7 +2239,13 @@
       "id": "mode-markdown",
       "mode": "markdown",
       "summary": "A GFM table; `|` is escaped.",
-      "row_cap_in_band": "a footer line > truncated: 100 of 250 rows shown"
+      "row_cap_in_band": "a footer line > truncated: 100 of 250 rows shown",
+      "recorded": {
+        "command": "relate --max-rows 2 --mode markdown \"UNWIND range(1, 5) AS x RETURN x\"",
+        "stdout": "| x |\n|---|\n| 1 |\n| 2 |\n> truncated: 2 of 5 rows shown\n",
+        "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+        "exit": 0
+      }
     },
     {
       "id": "mode-cypher",
@@ -1395,8 +2257,14 @@
       "id": "mode-toon",
       "mode": "toon",
       "summary": "Compact TOON tabular form: one `rows[N]{cols}:` header plus one line per row, nested values as inline JSON. The piped default when agent mode is in effect.",
-      "row_cap_in_band": "a terminal rowCap: entry",
-      "verify": "DOCS-PLAN.md §9"
+      "row_cap_in_band": "a terminal `rowCap:` line, then the cap as inline JSON",
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate --max-rows 2 --mode toon \"UNWIND range(1, 5) AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\nrowCap:\n  {\"kept\":2,\"total\":5}\n",
+        "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
+        "exit": 0
+      }
     },
     {
       "id": "mode-speedscope",
@@ -1473,6 +2341,20 @@
     "sources": [
       "docs/api/cli/spec.md § Query-run errors",
       "docs/website-update-brief.md § Things not to claim"
+    ],
+    "recorded": [
+      {
+        "command": "relate --mode envelope \"MATCH (n RETURN n\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"column\":10,\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: parse error: expected RightParen, got \\\"RETURN\\\" (RETURN)   MATCH (n RETURN n            ^\",\"retryable\":false,\"source\":\"MATCH (n RETURN n\"}}\n",
+        "stderr": "syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)\n  MATCH (n RETURN n\n           ^\n",
+        "exit": 6
+      },
+      {
+        "command": "relate --mode table 'RETURN $x AS x'",
+        "stdout": "",
+        "stderr": "semantic error: ParameterMissing: Expected parameter(s): x\n",
+        "exit": 6
+      }
     ]
   },
   "exit_codes": [
@@ -1481,21 +2363,39 @@
       "exit": 0,
       "code": "success",
       "meaning": "Success, including an empty result. `--help` and `--version` also exit 0.",
-      "reserved": false
+      "reserved": false,
+      "recorded": {
+        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
+        "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"ok\"],\"notifications\":[],\"rows\":[{\"ok\":1}],\"truncated\":false}\n",
+        "stderr": "",
+        "exit": 0
+      }
     },
     {
       "id": "exit-1",
       "exit": 1,
       "code": "fatal_error",
       "meaning": "Runtime failure: store open or I/O error, capacity limit, query execution failure, internal error, failed final checkpoint.",
-      "reserved": false
+      "reserved": false,
+      "recorded": {
+        "command": "relate --database ./missing.rl --read-only --mode envelope \"RETURN 1 AS ok\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: database not found: <dir>/missing.rl\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: database not found: <dir>/missing.rl\n",
+        "exit": 1
+      }
     },
     {
       "id": "exit-2",
       "exit": 2,
       "code": "usage_error",
       "meaning": "Unknown flag, bad or missing value, extra positional.",
-      "reserved": false
+      "reserved": false,
+      "recorded": {
+        "command": "relate --bogus \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: unknown flag: --bogus\nUsage: relate [OPTIONS] [--database PATH] [QUERY]\nRun 'relate --help' for more information.\n",
+        "exit": 2
+      }
     },
     {
       "id": "exit-3",
@@ -1516,14 +2416,28 @@
       "exit": 5,
       "code": "conflict",
       "meaning": "Write-write conflict, or the store is locked by another opener.",
-      "reserved": false
+      "reserved": false,
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"RETURN 1 AS ok\"",
+        "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+        "hold": "relate query --database ./s.rl",
+        "stdout": "{\"error\":{\"code\":\"conflict\",\"exit_code\":5,\"kind\":\"locked\",\"message\":\"storage locked: <dir>/s.rl\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage locked: <dir>/s.rl\n",
+        "exit": 5
+      }
     },
     {
       "id": "exit-6",
       "exit": 6,
       "code": "validation_error",
       "meaning": "The statement is rejected: syntax, semantic, argument or type error, including a write on a `--read-only` database.",
-      "reserved": false
+      "reserved": false,
+      "recorded": {
+        "command": "relate --mode envelope \"MATCH (n RETURN n\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"column\":10,\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: parse error: expected RightParen, got \\\"RETURN\\\" (RETURN)   MATCH (n RETURN n            ^\",\"retryable\":false,\"source\":\"MATCH (n RETURN n\"}}\n",
+        "stderr": "syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)\n  MATCH (n RETURN n\n           ^\n",
+        "exit": 6
+      }
     },
     {
       "id": "exit-7",
@@ -1531,9 +2445,13 @@
       "code": "timeout",
       "meaning": "A statement exceeded `--timeout`.",
       "reserved": false,
-      "sources": [
-        "settled on the relate CLI source at upstream ac441ec (`--timeout` in --help, exit 7 in agent-context); confirm on the release binary (LAUNCH.md)"
-      ]
+      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "recorded": {
+        "command": "relate --mode envelope --timeout 100ms \"UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs\"",
+        "stdout": "{\"error\":{\"code\":\"timeout\",\"exit_code\":7,\"kind\":\"execution\",\"message\":\"query timed out after 100ms\",\"retryable\":false}}\n",
+        "stderr": "Error: query timed out after 100ms\n",
+        "exit": 7
+      }
     },
     {
       "id": "exit-8",
@@ -1568,27 +2486,137 @@
       ".pi/agent in PATH (case-insensitive)"
     ],
     "messages": [
-      "relate agent mode on: --agent-mode (--no-agent-mode to turn off)"
-    ],
-    "disputed": true,
-    "readings": [
-      {
-        "text": "detection list includes AI_AGENT, AGENT and the COPILOT_* variables",
-        "sources": [
-          "docs/api/cli/spec.md § Row cap"
-        ]
-      },
-      {
-        "text": "detection list starts at CLAUDECODE (no AI_AGENT, AGENT, COPILOT_*)",
-        "sources": [
-          "docs/website-update-brief.md § 5"
-        ]
-      }
+      "relate agent mode on: --agent-mode (--no-agent-mode to turn off)",
+      "relate agent mode on: RELATE_AGENT_MODE=1 (--no-agent-mode to turn off)"
     ],
     "sources": [
       "docs/api/cli/spec.md § Agent mode",
       "docs/api/cli/spec.md § Row cap",
       "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+    ],
+    "detection_note": "A detection variable counts when it is set to any non-empty value (`AI_AGENT=0` counts; an empty value does not). Detection is silent; the flag and `RELATE_AGENT_MODE` print a one-line announcement on stderr.",
+    "settled_by": "relate 0.16.1 (ac441ec), source build",
+    "recorded": [
+      {
+        "command": "CLAUDECODE=1 relate \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\n",
+        "stderr": "",
+        "exit": 0
+      },
+      {
+        "command": "AI_AGENT=1 relate \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\n",
+        "stderr": "",
+        "exit": 0
+      },
+      {
+        "command": "RELATE_AGENT_MODE=1 relate \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\n",
+        "stderr": "relate agent mode on: RELATE_AGENT_MODE=1 (--no-agent-mode to turn off)\n",
+        "exit": 0
+      },
+      {
+        "command": "relate --agent-mode \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "rows[2]{x}:\n  1\n  2\n",
+        "stderr": "relate agent mode on: --agent-mode (--no-agent-mode to turn off)\n",
+        "exit": 0
+      },
+      {
+        "command": "CLAUDECODE=1 relate --no-agent-mode \"UNWIND [1, 2] AS x RETURN x\"",
+        "stdout": "{\"x\":1}\n{\"x\":2}\n",
+        "stderr": "",
+        "exit": 0
+      }
+    ]
+  },
+  "recording": "Each `recorded` run: the bash command line in `command`, with the binary on PATH as `relate`, in a fresh empty directory, with a fresh HOME and an environment of PATH, HOME, TMPDIR and DO_NOT_TRACK=1 only; `setup` runs first, `hold` keeps a second process on the store while `command` runs. In the output the directory is written `<dir>` and the home directory `<home>`. `npm run docs:cli-check` replays every one against a binary.",
+  "recorded_with": "relate 0.16.1 (ac441ec), source build",
+  "page_steps": {
+    "get-started/agent-quickstart.mdx": [
+      {
+        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
+        "expected_sha256": "8c44206e1ba1ce745f814ff625cb956483ff47b6aae88d0cd9fd4826d85c9e49"
+      },
+      {
+        "command": "relate skill install --agent claude-code",
+        "expected_sha256": "a5c5b4b19d67b5c005488a4f618bf9384d5039d5d6703b0e5325b0fe0b87c242"
+      },
+      {
+        "command": "relate agent-context",
+        "expected_sha256": "87bfc3d4cacfb415f88c9df3f97ddcfa0810e833acae185e563af7b70439986f"
+      },
+      {
+        "command": "cat > friends.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', likes: 'tea'}),\n       (bo:Person {name: 'Bo', likes: 'chess'}),\n       (cy:Person {name: 'Cy', likes: 'kites'}),\n       (dot:Person {name: 'Dot', likes: 'tea'}),\n       (eli:Person {name: 'Eli', likes: 'puzzles'}),\n       (ada)-[:KNOWS {since: 2019}]->(bo),\n       (bo)-[:KNOWS {since: 2021}]->(cy),\n       (cy)-[:KNOWS {since: 2020}]->(dot),\n       (dot)-[:KNOWS {since: 2023}]->(ada);\nMATCH (p:Person) RETURN count(p) AS people;\nEOF",
+        "expected_sha256": null
+      },
+      {
+        "command": "sha256sum friends.cypher",
+        "expected_sha256": "9fb58f455fc0652e9128b71e436bb70e9e68a6f9c9e633bb4eede877cdb9e59b"
+      },
+      {
+        "command": "relate query --database ./friends.rl --mode envelope < friends.cypher",
+        "expected_sha256": "a93ed3afa5bff44e35220682c960ee22f020201e265efa07c3aacf9a2286fc3b"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode envelope \"MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person\"",
+        "expected_sha256": "1fdd4ecc792053bbced0d01d03823c454d5c86f6abe23a85487b2534752ac4ef"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode table --param name=Eli --param friend=Ada 'EXPLAIN MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend'",
+        "expected_sha256": "a5f97d5b6327a665ee25915426721fdbe70914dec1b2a0221b6b2f426e6bbdc9"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --safe --mode envelope \"MATCH (p:Person) RETURN p.name AS name\"",
+        "expected_sha256": "feebf8d701f6a4d63945e55f2af84889048aac52bc91944079110deb792800c1"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --safe --mode envelope \"MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3\"",
+        "expected_sha256": "3090addda18ed33d49d186672ace2e39473077ff6ac50f7006b8a76aaf5c3912"
+      },
+      {
+        "command": "relate --load ./friends.rl --database ./rehearsal.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'",
+        "expected_sha256": "4ea85fef284b0fb2b8667e01f5c91dd1036d1acfa86f0cb9fa5aa5634322aeb5"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode envelope \"MATCH (:Person {name: 'Eli'})-[k:KNOWS]->() RETURN count(k) AS friendships\"",
+        "expected_sha256": "266851614298c46443f34972c02b4fafc68b97afb3fa221e58c3a8c4a6b8055e"
+      },
+      {
+        "command": "rm ./rehearsal.rl",
+        "expected_sha256": null
+      },
+      {
+        "command": "relate --database ./friends.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'",
+        "expected_sha256": "de06c0f712c7cd0ae27fa6a252e48330c8e0c46d62a4381a99ca17d196da87c3"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode envelope \"MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person\"",
+        "expected_sha256": "f291994d8b6108564cb7fa1f48ead456616b582b797ddb6f70922b0a66e4f4e8"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'\necho \"exit=$?\"",
+        "expected_sha256": "4270b82f01d08c325ba12ff4166c445dc702c3a0a08717fc794f82d2f964988f"
+      },
+      {
+        "command": "relate --database ./friends.rl --read-only --mode envelope --param name=Eli 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'",
+        "expected_sha256": "0679fe7732a7127a746d53c4775d0bd751d7ed10779dd3b8ca91664660dd8ba3"
+      }
+    ],
+    "get-started/install.mdx": [
+      {
+        "command": "relate --version",
+        "expected_sha256": "f4e921a5875e373517d59ea132b78374a87619978bea7a3c75b3de19a4f9cc77"
+      },
+      {
+        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
+        "expected_sha256": "8c44206e1ba1ce745f814ff625cb956483ff47b6aae88d0cd9fd4826d85c9e49"
+      }
+    ],
+    "reference/errors.mdx": [
+      {
+        "command": "relate --mode envelope 'RETURN $x AS x'",
+        "expected_sha256": "7a531d596f869a9b5763523015a31f0fd31ac2f1f62183ae3f1dcadd6274a66a"
+      }
     ]
   }
 }

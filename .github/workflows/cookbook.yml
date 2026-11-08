@@ -8,8 +8,14 @@
 #
 # The docs (src/content/docs) are checked from the source before the build
 # (`docs:check`: frontmatter, links, words, the twins, the trust and diagram
-# checks), their prose is linted with Vale (`docs:lint`), and after the build
-# `docs:check -- --built` checks the built pages, twins and llms.txt.
+# checks, every page's cells replayed on public/wasm, every language sample
+# recorded, the CLI recordings consistent with the data, the generated pages,
+# the skill bundle and its indexes, and the docs graph replayed on the WASM
+# with its structural checks), their prose is linted with Vale (`docs:lint`),
+# and after the build `docs:check -- --built` checks the built pages, twins,
+# llms.txt, the generated pages' files, the sitemap and the skills indexes.
+# Replaying CLI recordings and language samples needs a relate binary or the
+# clients, so those run weekly in docs-cli-check.yml and docs-samples.yml.
 #
 # There is no paths filter, so the job always reports and can be a required
 # status check on main. It takes well under a minute.

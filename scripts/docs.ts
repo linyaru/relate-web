@@ -9,6 +9,9 @@
 //   node scripts/docs.ts --vocab    write the Vale vocabulary from the glossary
 //   node scripts/docs.ts --lint     write the vocabulary, then run Vale on the
 //                                   docs prose and STYLE.md (npm run docs:lint)
+//   node scripts/docs.ts --record   rewrite every page's results sidecar and
+//                                   static graph forms from a run of its cells
+//                                   on public/wasm; review the diff
 //
 // From the source (no build needed):
 //   - frontmatter: the schema of DOCS-PLAN.md §5 on every page (planned ones
@@ -27,7 +30,7 @@
 //   - headings: sentence case, no trailing punctuation, no `!`/`?`, no skipped
 //     level, no H1 in the body (the title is the H1)
 //   - fences: every block has a language; shell blocks have no `$` prompt; a
-//     `run` fence is Cypher
+//     `run` fence is a Cypher cell or a verified `python run` / `js run` sample
 //   - page shape: the required sections for the page's type (README.md)
 //   - the twin round-trip (3a), rendered from the source exactly as the build
 //     renders it (src/lib/docs/twin.ts): it parses, carries the frontmatter
@@ -41,11 +44,44 @@
 //     reader in the imperative outside a fence (heuristic below); no twin
 //     carries prompt-injection phrasing; results sidecars and data files were
 //     recorded against the current engine
+//   - cells (item 2, src/lib/docs/checks/cells.ts): every page's `cypher run`
+//     cells run in page order on one in-memory database on public/wasm, each
+//     as its info string says, and match the page's results sidecar entry for
+//     entry; each recorded graph has a fresh, inert static form (light and
+//     dark) and its first node expands in the graph view; public/wasm is the
+//     engine _data/engine.json names. The example page is included
+//   - samples (src/lib/docs/checks/samples.ts): every ```python run / ```js run
+//     sample has a recorded "text" entry in its page's sidecar, ids are unique
+//     and clash with no cell, no stale entries; the outputs themselves are
+//     replayed by scripts/docs-samples.ts (npm run docs:samples)
+//   - CLI facts (src/lib/docs/checks/cli.ts): every recorded run in _data/ is
+//     well formed; each quoted message is in its recorded output and agrees
+//     with the recorded exit code and error object; the recorded agent-context
+//     lists exactly cli.json's commands and flags; the recorded version names
+//     _data/engine.json's; nothing is still disputed; `verify` only on bash
+//     fences (npm run docs:cli-check replays them against a binary)
 //   - diagrams (3f): every `mermaid` block has `accTitle` and a multi-line
 //     `accDescr`, and a fresh light and dark rendering whose hash matches and
 //     whose SVG is inert (src/lib/cookbook/diagrams.ts); stray renderings
 //   - the glossary (STYLE.md §4.11): ids, well-formed `short` definitions,
 //     `related` and `see` resolve, unused terms; the Vale vocabulary is current
+//   - generated pages (src/lib/docs/checks/generated.ts): each renders with a
+//     well-formed twin that passes the imperative and injection checks; the
+//     glossary covers every term; the changelog data is valid with
+//     #since-<verified>; feedback.md names no address
+//   - the skill (3b, src/lib/docs/checks/skill.ts): public/skills/relate/ is
+//     upstream's bundle at the commit in _data/skill.json with the engine's
+//     version stamped (skipped with a note when no upstream checkout is
+//     present; RELATE_UPSTREAM, default ../relate), its description carries
+//     the canonical phrase (a warning until upstream adopts it), its version
+//     is the engine's, every relative link and cited URL resolves, the 0.2.0
+//     and legacy skills indexes validate, /skill.md is complete, and
+//     docs-artifacts.json.sig verifies when it exists
+//   - the docs graph (item 3, src/lib/docs/checks/graph.ts): the seed script
+//     replays on public/wasm; no orphan page; every cli.json command and flag
+//     named on a reference page (a warning until the CLI reference exists);
+//     no published page with a planned prerequisite; every :term id exists.
+//     Severities per rule: DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>,…
 //
 // From dist/ (--built, after `npm run build`):
 //   - every published page has its HTML page and its `.md` twin; each built
@@ -56,6 +92,11 @@
 //     in the built HTML; the playground is built
 //   - every link in /docs/llms.txt resolves to a built file; the landing twin
 //     passes the imperative and injection checks
+//   - every generated page has its HTML and both twins, appears in llms.txt
+//     and the sitemap, and the changelog feed parses
+//   - the built skills indexes' digests and docs-artifacts.json's hashes match
+//     the served bytes; the legacy files equal /skills/relate/; security.txt,
+//     when built, has Contact and an unexpired Expires
 //
 // The imperative heuristic (trust check, ADR-0013): in a twin, outside fenced
 // blocks, headings and tables, a sentence of three or more words whose first
@@ -90,7 +131,7 @@ import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { parse as parseYaml } from 'yaml';
 
-import { COMPONENT_TWINS } from '../src/components/docs/registry.ts';
+import { COMPONENT_ANCHORS, COMPONENT_TWINS } from '../src/components/docs/registry.ts';
 import {
   DOCS_RENDER_COMMAND,
   diagramDescription,
@@ -101,7 +142,7 @@ import {
 } from '../src/lib/cookbook/diagrams.ts';
 import { COOKBOOK_DIR, loadRecipes } from '../src/lib/cookbook/load.ts';
 import { CANONICAL_ORIGIN } from '../src/lib/cookbook/links.ts';
-import { GLOSSARY_ID, type ComponentProps } from '../src/lib/docs/constructs.ts';
+import { type ComponentProps } from '../src/lib/docs/constructs.ts';
 import {
   DOCS_DIR,
   engine as readEngine,
@@ -120,6 +161,7 @@ import { CANONICAL_PHRASE } from '../src/lib/docs/llms.ts';
 import {
   DOC_TYPES,
   GENERATED_FIELDS,
+  GENERATED_IDS,
   pageUrl,
   SECTION_IDS,
   sectionOf,
@@ -132,6 +174,15 @@ import {
 import { parsePage } from '../src/lib/docs/parse.ts';
 import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
+import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
+import { cliCheck } from '../src/lib/docs/checks/cli.ts';
+import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
+import { checkGraph } from '../src/lib/docs/checks/graph.ts';
+import { checkSamples } from '../src/lib/docs/checks/samples.ts';
+import { checkSkill } from '../src/lib/docs/checks/skill.ts';
+import { feedbackMarkdown, GENERATED, generatedContext } from '../src/lib/docs/generated/index.ts';
+import { resultGraphCell } from '../src/lib/docs/results.ts';
+import { parseSampleInfo } from '../src/lib/docs/samples.ts';
 
 // ---------------------------------------------------------------------------
 // Findings
@@ -313,28 +364,8 @@ interface Site {
   termsUsed: Set<string>;
 }
 
-const errorIds = (() => {
-  let cached: Set<string> | null = null;
-  return () => {
-    if (cached) return cached;
-    cached = new Set();
-    const file = join(DOCS_DIR, '_data/errors.json');
-    if (!existsSync(file)) return cached;
-    const walk = (v: unknown) => {
-      if (Array.isArray(v)) v.forEach(walk);
-      else if (v && typeof v === 'object') {
-        const o = v as Record<string, unknown>;
-        if (typeof o.id === 'string') cached!.add(o.id);
-        Object.values(o).forEach(walk);
-      }
-    };
-    walk(JSON.parse(readFileSync(file, 'utf8')));
-    return cached;
-  };
-})();
-
 /** The anchors a page's HTML will carry, from its source: heading slugs, cell ids, generated tables. */
-function sourceAnchors(id: string, tree: Root, source: string, glossaryIds: Iterable<string>): Set<string> {
+function sourceAnchors(tree: Root, source: string): Set<string> {
   const out = new Set<string>();
   const slugger = new GithubSlugger();
   let cell = 0;
@@ -354,8 +385,7 @@ function sourceAnchors(id: string, tree: Root, source: string, glossaryIds: Iter
       }
     }
   });
-  if (/<Errors\b/.test(source)) errorIds().forEach((e) => out.add(e));
-  if (id === GLOSSARY_ID) for (const g of glossaryIds) out.add(g);
+  for (const [name, anchors] of Object.entries(COMPONENT_ANCHORS)) if (new RegExp(`<${name}\\b`).test(source)) anchors().forEach((a) => out.add(a));
   return out;
 }
 
@@ -401,7 +431,7 @@ function checkHref(href: string, site: Site, from: string | null): LinkVerdict {
   if (docsId !== null) {
     if (/\.(txt|json|svg|png|md)$/.test(href.split(/[?#]/)[0])) return assetVerdict(href);
     if (docsId === '') return { ok: true };
-    if (site.published.has(docsId)) {
+    if (site.published.has(docsId) || GENERATED_IDS.has(docsId)) {
       const hash = href.includes('#') ? href.slice(href.indexOf('#') + 1) : '';
       return hash ? anchorVerdict(`/docs/${docsId}`, docsId, hash, site) : { ok: true };
     }
@@ -622,7 +652,7 @@ function checkSource(page: PageFile, text: string, site: Site) {
   for (const block of blocks) checkWords(block, file);
   checkExclamations(paragraphs, blocks, file, type);
   if (type) checkShape(type, headings, paragraphs, tree, file);
-  site.anchors.set(id, sourceAnchors(id, tree, body, site.glossary.keys()));
+  site.anchors.set(id, sourceAnchors(tree, body));
 }
 
 function checkWords(block: Prose, file: string) {
@@ -723,7 +753,13 @@ function checkFence(node: Code, file: string, line: number, ignore: Set<string>,
   if (node.lang && /^(?:bash|sh|shell|zsh)$/.test(node.lang) && /^\s*\$ /m.test(node.value)) {
     hit('fence-prompt', 'a shell block with a `$` prompt; blocks are copyable, so drop it (STYLE.md §4.6)');
   }
-  if (node.lang !== 'cypher' && /^run\b/.test(node.meta ?? '')) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher`);
+  if (node.lang !== 'cypher' && /^run\b/.test(node.meta ?? '')) {
+    try {
+      if (!parseSampleInfo(node.lang, node.meta)) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher, verified samples are \`python run\` or \`js run\``);
+    } catch (e) {
+      hit('fence-run', (e as Error).message);
+    }
+  }
   if (node.lang === 'cypher') {
     try {
       parseRunInfo(node.lang, node.meta);
@@ -1001,6 +1037,8 @@ function strayRenderings(pages: PageFile[]) {
     if (!existsSync(dir)) continue;
     const slugs = pages.filter((p) => join(dirname(p.file), 'diagrams') === dir).map((p) => p.file.split(sep).pop()!.replace(/\.mdx$/, ''));
     for (const name of readdirSync(dir)) {
+      // A cell's static graph form: the cells check owns it.
+      if (slugs.some((s) => resultGraphCell(s, name) !== null)) continue;
       if (!slugs.some((s) => isDiagramFileOf(s, name))) report(join(dir, name), null, 'warning', 'diagram', 'a rendering no page draws; delete it');
     }
   }
@@ -1128,6 +1166,10 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
     const file = join(DIST, pageUrl(p.id), 'index.html');
     if (existsSync(file)) out.set(pageUrl(p.id), htmlIds(readFileSync(file, 'utf8')));
   }
+  for (const id of GENERATED_IDS) {
+    const file = join(DIST, pageUrl(id), 'index.html');
+    if (existsSync(file)) out.set(pageUrl(id), htmlIds(readFileSync(file, 'utf8')));
+  }
   for (const slug of site.recipes.keys()) {
     const file = join(DIST, 'cookbook', slug, 'index.html');
     if (existsSync(file)) out.set(`/cookbook/${slug}/`, htmlIds(readFileSync(file, 'utf8')));
@@ -1236,14 +1278,24 @@ const { values: args } = parseArgs({
     built: { type: 'boolean', default: false },
     vocab: { type: 'boolean', default: false },
     lint: { type: 'boolean', default: false },
+    record: { type: 'boolean', default: false },
   },
 });
 
-function main(): number {
+async function main(): Promise<number> {
   if (args.lint) return lint();
   if (args.vocab) {
     console.log(writeVocabulary() ? `updated ${rel(VOCAB_FILE)}` : `${rel(VOCAB_FILE)} is current`);
     return 0;
+  }
+  if (args.record) {
+    const pages = pageFiles();
+    const published = new Map(pages.filter((p) => p.data.status !== 'planned').map((p) => [p.id, p]));
+    const changed = await recordCells({ engine: readEngine(), published }, report, (line) => console.log(line));
+    const errors = findings.filter((f) => f.severity === 'error');
+    for (const f of errors) console.error(`${f.file}${f.line ? `:${f.line}` : ''}  ${f.message}`);
+    console.log(`docs --record: ${changed} file(s) changed${errors.length ? `, ${errors.length} page problem(s) left unrecorded` : ''}`);
+    return errors.length ? 1 : 0;
   }
 
   const pages = pageFiles();
@@ -1267,7 +1319,7 @@ function main(): number {
   for (const p of published.values()) {
     const { body } = splitFrontmatter(texts.get(p.id)!, rel(p.file));
     try {
-      site.anchors.set(p.id, sourceAnchors(p.id, parsePage(body), body, site.glossary.keys()));
+      site.anchors.set(p.id, sourceAnchors(parsePage(body), body));
     } catch (e) {
       const where = (e as { line?: number }).line;
       report(p.file, typeof where === 'number' ? where + frontmatterLines(texts.get(p.id)!) : null, 'error', 'parse', `the page is not valid MDX: ${(e as Error).message}`);
@@ -1277,7 +1329,17 @@ function main(): number {
   if (args.built && existsSync(join(DIST, 'docs'))) site.builtIds = loadBuiltIds(site);
 
   checkVersions(site);
-  const links = { pages: new Set(published.keys()) };
+  cliCheck(site, report);
+  // The generated pages (glossary, changelog) count as published, with the anchors they render.
+  const genCtx = generatedContext();
+  for (const g of GENERATED) {
+    try {
+      site.anchors.set(g.meta.id, g.render(genCtx).anchors);
+    } catch {
+      // checkGenerated reports it.
+    }
+  }
+  const links = { pages: new Set([...published.keys(), ...GENERATED_IDS]) };
   for (const p of pages) {
     checkFrontmatter(p, site);
     if (p.data.status === 'planned' || unparsable.has(p.id)) continue;
@@ -1293,7 +1355,20 @@ function main(): number {
     checkDiagrams(p, splitFrontmatter(text, rel(p.file)).body);
   }
   strayRenderings([...published.values()]);
+  await checkCells(site, report);
+  checkSamples(site, report);
   checkGlossary(site);
+  checkGenerated(site, report);
+  for (const g of GENERATED) {
+    try {
+      twinProse(parseMarkdown(splitFrontmatter(g.render(genCtx).markdown, g.meta.id).body), 'reference', join(ROOT, 'src/lib/docs/generated', `${g.meta.id.split('/').at(-1)}.ts`));
+    } catch {
+      // checkGenerated reports it.
+    }
+  }
+  twinProse(parseMarkdown(splitFrontmatter(feedbackMarkdown(genCtx), 'feedback.md').body), 'reference', join(ROOT, 'src/lib/docs/generated/feedback.ts'));
+  checkSkill(site, report);
+  checkGraph(site, report);
   if (existsSync(VOCAB_FILE) || glossaryFiles().length) {
     const current = existsSync(VOCAB_FILE) ? readFileSync(VOCAB_FILE, 'utf8') : '';
     if (current !== vocabulary()) report(VOCAB_FILE, null, 'error', 'vocab', 'the Vale vocabulary is stale; run `node scripts/docs.ts --vocab` (or `npm run docs:lint`)');
@@ -1338,4 +1413,4 @@ function print(published: number, planned: number): number {
   return errors ? 1 : 0;
 }
 
-process.exit(main());
+process.exit(await main());

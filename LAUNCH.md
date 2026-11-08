@@ -44,6 +44,9 @@ cypherlite-era redo) and should not be extended.
 - [ ] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) now point at `relatedb/relate`, which is private: they 404 for logged-out visitors until the repo is public, and the docs paths (`docs/tck/compliance.md`, `docs/adr/`, `docs/api/extensions/...`) must exist there
 - [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the preview host `r31473.relatedb.ai` is `noindex`)
 - [ ] `public/releases.json` and `extensions.json` are still the cypherlite-era copies (release notes mention neo4j-labs); regenerate from upstream when the first relate release is cut
+- [ ] After the first relate-named release: remove `continue-on-error` from `.github/workflows/docs-cli-check.yml` and run it once by hand (workflow_dispatch) so CLI drift turns the run red
+- [ ] Release refresh (`.github/workflows/engine-release.yml`): upstream's release pipeline sends a `repository_dispatch` of type `relate-release` (payload `version`, `tag`) to this repo after it publishes `releases.json`; until then run the workflow by hand. Configure the secrets `RELATE_UPSTREAM_TOKEN` (read access to the engine repo's contents and releases; `docs-samples.yml` skips without it) and `RELEASE_PR_TOKEN` (so the refresh PR starts the required Cookbook check); the WASM package must be a release asset (`relate-relate-wasm-<version>.tgz`) or on npm. `public/extensions.json.sig` verifies only under the old `cypherlite-release` namespace, so the refresh's extensions step fails closed until upstream republishes under `relate-release`
+- [ ] After the first release with published clients: switch `docs-samples.yml` and `scripts/samples/setup.sh` from building the clients out of the upstream checkout to installing the published `relate-db` and `@relate/relate` packages
 
 ## Switch hosts: github.io → relatedb.ai
 
@@ -91,6 +94,13 @@ GitHub token.
 - [ ] Copy-paste every command block in the quickstart and examples on a clean machine; output matches what the page shows
 - [ ] `llms.txt` instructions work end to end for an agent with no prior context
 
+**Docs (DOCS-PLAN.md §10, phase 1)**
+- [ ] Every docs page builds: `npm run build` then `npm run docs:check -- --built` reports no error
+- [ ] Every cell runs: `npm run docs:check` replays every page's cells on `public/wasm`, and `npm run cookbook:browser` runs them in Chrome
+- [ ] `https://relatedb.ai/docs/llms.txt` resolves, and so does every URL it lists
+- [ ] Every config block that opens a store carries `--read-only`, except on a page about writing
+- [ ] The cold-start eval scores are recorded (see "Docs work deferred within phase 1" below)
+
 **Repo / access**
 - [ ] `relatedb/relate` repo visibility is public; README, LICENSE, releases visible logged out
 - [ ] Private repos (`*-private`) remain private; no private URLs, internal ADR links, or customer data in public pages
@@ -113,9 +123,24 @@ marked.
 - [ ] Context7, Smithery, Glama, awesome-mcp-servers listings; the skills registries (`/.well-known/agent-skills/index.json` live)
 - [ ] `--help` and `relate agent-context` print the docs URLs; the error object carries a `docs` URL (upstream)
 - [ ] `SECURITY.md` upstream and `/.well-known/security.txt` here; a disclosure address for `reference/security`
+- [ ] Add `{"security": {"contact": "mailto:…"}}` to `src/content/docs/_data/project.json` once the disclosure address exists; `/.well-known/security.txt` is built from it (RFC 9116 requires Contact) and gains its Policy line when `reference/security` is published
+- [ ] Sign `/docs/docs-artifacts.json` with the release key after the final build: `ssh-keygen -Y sign -f <release key> -n relate-release dist/docs/docs-artifacts.json`, and commit the result as `public/docs/docs-artifacts.json.sig`. It covers the exact bytes the build writes (the skill files and the docs graph's seed script), so any change to a listed artifact, a skill sync or a docs page edit included, needs a new signature; confirm the namespace (`relate-release`, as `install.sh` uses for SHA256SUMS) with upstream. `npm run docs:check` verifies it once it exists
+- [ ] Decide whether `relate-docs.rl` is listed in the signed manifest: it is not byte-reproducible between builds (`npm run docs:graph` writes it to `dist/docs/`; the manifest lists it only from `public/docs/`). After launch the deploy workflows install relate with `public/install.sh` and run `RELATE_BIN=$HOME/.local/bin/relate npm run docs:graph` so the `.rl` ships
+- [ ] Upstream asks for the skill bundle: a description carrying the canonical phrase (`docs:check` warns until then), no internal ADR ids in the public bundle, lowercase `relate`, and a line pointing at `https://relatedb.ai/docs/llms.txt`
 - [x] Fix the root `llms.txt` TCK wording and `.cl` → `.rl` (phase 0)
-- [ ] First relate-named release: move `src/content/docs/_data/engine.json` to it, confirm the `relate-<os>-<arch>` asset names and the signature namespace, and re-record the docs' CLI outputs against the release binary (they were recorded from a source build of upstream `ac441ec`, workspace 0.16.1); run `npm run docs:check -- --built`
-- [ ] Pick the contact address the docs' "Report a problem" link and `reference/security` use (none exists in the repo yet)
+- [ ] First relate-named release: move `src/content/docs/_data/engine.json` to it, confirm the `relate-<os>-<arch>` asset names and the signature namespace, and re-record the docs' CLI outputs against the release binary (they were recorded from a release-profile source build of upstream `ac441ec`, which reports 0.16.1 but includes engine changes made after the v0.16.1 release; engine.json says so with `source_build: true`, and `recorded_with` says "source build"). The release refresh (`scripts/release-refresh.sh`) drops `source_build` and re-records the CLI facts; the language samples (recorded from client builds of the same commit) are re-recorded from the published clients. Run `npm run docs:check -- --built`
+- [ ] Pick the contact address `/docs/feedback.md` and `reference/security` use, and add a "Report a problem" link to the docs layout pointing at it (none exists in the repo yet; feedback.md says the address is to be published at launch)
+- [ ] When ADR-0019 is accepted, add a **Later references** line to ADR-0013 ("Amended by ADR-0019": decision 3's per-file SHA-256 moved from the skills index to the signed manifest)
+
+### Docs work deferred within phase 1
+
+Listed in DOCS-PLAN.md §10's phase 1 platform list and not built in the platform pass; each one is still a launch requirement.
+
+- [ ] Content negotiation and `?section=` (DOCS-PLAN.md §3.1, §5; ADR-0012): a Cloudflare Pages `_middleware` function that answers `Accept: text/markdown` on a docs URL with its twin, and `?section=<anchor>` with that section and the Terms cap per section. GitHub Pages, the interim host, cannot run it, so it lands with the move to Cloudflare Pages; until then the `.md` twins are the only markdown form
+- [ ] The config blocks per host (DOCS-PLAN.md §3.4): Codex, Windsurf, Gemini CLI, Cline and OpenCode, `--read-only` in every one. Only the Claude Code line and the `.mcp.json` block exist; the rest land with `guides/agents/connect-over-mcp`, each checked against that host's own config format
+- [ ] The `<Agentic>` dual view (DOCS-PLAN.md §3.4, §7.3): not built. ADR-0015 allows at most five JSX components in phase 1 and all five are taken (`<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`), so it is to be a directive
+- [ ] The cold-start eval (DOCS-PLAN.md §3.8): run by hand before launch (tasks × Claude Code, Codex, Cursor × the four conditions) and record the scores here
+
 - [ ] Phase 2: pull requests to LangGraph, Vercel AI SDK, LlamaIndex, Mastra and Agno docs for the integrations; a GitHub template repo with the `AGENTS.md` snippet, the skill and a verify script
 
 ## Interim preview host (internal, unlisted)

@@ -1,7 +1,8 @@
 // The docs section as the website builds it: the published pages of the
-// `docs` collection, checked against their paths, with the sidebar, the
-// engine version and each page's markdown twin. Computed once per build and
-// shared by every docs page and endpoint; any problem fails the build.
+// `docs` collection, checked against their paths, the pages generated from
+// data (the glossary, the changelog: src/lib/docs/generated/), the sidebar,
+// the engine version and each page's markdown twin. Computed once per build
+// and shared by every docs page and endpoint; any problem fails the build.
 
 import { join } from 'node:path';
 
@@ -12,6 +13,8 @@ import { engine as readEngine, glossary as readGlossary, lastUpdated, ROOT, type
 import type { IndexedPage } from './llms.ts';
 import type { LinkContext } from './links.ts';
 import { pageUrl, sectionOf, twinUrl, typeOf, type SectionId } from './model.ts';
+import { GENERATED, generatedContext, generatedUpdated, type GeneratedPage, type RenderedPage } from './generated/index.ts';
+import type { GeneratedPageMeta } from './model.ts';
 import { buildNav, humanize, readingOrder, type NavGroup } from './nav.ts';
 import { renderTwin, type Twin } from './twin.ts';
 
@@ -28,8 +31,23 @@ export interface DocsPage {
   lastUpdated: string;
 }
 
+/** A page generated from data (model.ts GENERATED_PAGES): no collection entry, its own route under src/pages/docs/. */
+export interface GeneratedDocsPage {
+  id: string;
+  meta: GeneratedPageMeta;
+  section: SectionId | null;
+  url: string;
+  twinUrl: string;
+  lastUpdated: string;
+  /** The page body, headings, twin and anchors, rendered once per build. */
+  rendered: () => RenderedPage;
+}
+
 export interface DocsSite {
+  /** The pages of the `docs` collection (src/pages/docs/[...slug].astro renders them). */
   pages: DocsPage[];
+  /** The generated pages, published like authored ones: in the sidebar, the indexes, the sitemap and link resolution. */
+  generated: GeneratedDocsPage[];
   byId: Map<string, DocsPage>;
   nav: NavGroup[];
   engine: Engine;
@@ -68,15 +86,37 @@ async function build(): Promise<DocsSite> {
     const file = join(ROOT, entry.filePath!);
     pages.push({ id, entry, file, section, url: pageUrl(id), twinUrl: twinUrl(id), lastUpdated: lastUpdated(file) });
   }
+
+  for (const g of GENERATED) {
+    if (pages.some((p) => p.id === g.meta.id)) problems.push(`${g.meta.id}: the page is generated (src/lib/docs/generated/); remove its .mdx`);
+  }
   if (problems.length) throw new Error(`the docs have ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join('\n')}`);
 
-  const nav = buildNav(pages.map((p) => ({ id: p.id, title: p.entry.data.title, label: p.entry.data.label ?? p.entry.data.title, order: p.entry.data.order })));
+  const genCtx = generatedContext();
+  const generated: GeneratedDocsPage[] = GENERATED.map((g: GeneratedPage) => {
+    let memo: RenderedPage | null = null;
+    return {
+      id: g.meta.id,
+      meta: g.meta,
+      section: sectionOf(g.meta.id),
+      url: pageUrl(g.meta.id),
+      twinUrl: twinUrl(g.meta.id),
+      lastUpdated: generatedUpdated(g),
+      rendered: () => (memo ??= g.render(genCtx)),
+    };
+  });
+
+  const nav = buildNav([
+    ...pages.map((p) => ({ id: p.id, title: p.entry.data.title, label: p.entry.data.label ?? p.entry.data.title, order: p.entry.data.order })),
+    ...generated.map((g) => ({ id: g.id, title: g.meta.title, label: g.meta.title, order: g.meta.order })),
+  ]);
   const order = new Map(readingOrder(nav).map((p, i) => [p.id, i]));
-  pages.sort((a, b) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9) || (a.id < b.id ? -1 : 1));
+  const byOrder = (a: { id: string }, b: { id: string }) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9) || (a.id < b.id ? -1 : 1);
+  pages.sort(byOrder);
   const byId = new Map(pages.map((p) => [p.id, p]));
   const engine = readEngine();
   const glossary = readGlossary();
-  const links: LinkContext = { pages: new Set(byId.keys()) };
+  const links: LinkContext = { pages: new Set([...byId.keys(), ...generated.map((g) => g.id)]) };
 
   const twins = new Map<string, Twin>();
   const twin = (page: DocsPage) => {
@@ -90,9 +130,23 @@ async function build(): Promise<DocsSite> {
     }
     return t;
   };
-  const listed = () => pages.filter((p) => p.section !== null);
-  const indexed = () =>
-    listed().map((p) => ({ id: p.id, title: p.entry.data.title, description: p.entry.data.description ?? '', markdown: twin(p).markdown }));
+  // Authored and generated pages together, in reading order, for the indexes.
+  const listed = (): { id: string; section: SectionId | null; indexed: () => IndexedPage }[] =>
+    [
+      ...pages.map((p) => ({
+        id: p.id,
+        section: p.section,
+        indexed: () => ({ id: p.id, title: p.entry.data.title, description: p.entry.data.description ?? '', markdown: twin(p).markdown }),
+      })),
+      ...generated.map((g) => ({
+        id: g.id,
+        section: g.section,
+        indexed: () => ({ id: g.id, title: g.meta.title, description: g.meta.description, markdown: g.rendered().markdown }),
+      })),
+    ]
+      .filter((p) => p.section !== null)
+      .sort(byOrder);
+  const indexed = () => listed().map((p) => p.indexed());
   const fullFiles = () => {
     const out: { path: string; label: string; ids: string[] }[] = [];
     for (const section of nav) {
@@ -108,5 +162,5 @@ async function build(): Promise<DocsSite> {
     }
     return out;
   };
-  return { pages, byId, nav, engine, glossary, links, twin, indexed, fullFiles };
+  return { pages, generated, byId, nav, engine, glossary, links, twin, indexed, fullFiles };
 }

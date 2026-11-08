@@ -4,14 +4,35 @@
   "cells": {
     "create": {
       "kind": "table",
-      "text": "(no rows) · nodes created: 2, relationships created: 1, properties set: 2, labels added: 2",
+      "text": "(no rows) · nodes created: 3, relationships created: 2, properties set: 3, labels added: 3",
       "table": null,
       "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 3,
+          "labels_removed": 0,
+          "nodes_created": 3,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 2,
+          "relationships_deleted": 0
+        }
+      },
       "expectError": false
     },
     "cell-2": {
       "kind": "table",
-      "text": "| a     | b       |\n|-------|---------|\n| \"Ada\" | \"Grace\" |\n1 row",
+      "text": "| a       | b       |\n|---------|---------|\n| \"Ada\"   | \"Grace\" |\n| \"Grace\" | \"Alan\"  |\n2 rows",
       "table": {
         "columns": [
           "a",
@@ -25,12 +46,308 @@
           [
             "\"Ada\"",
             "\"Grace\""
+          ],
+          [
+            "\"Grace\"",
+            "\"Alan\""
           ]
         ],
-        "summary": "1 row"
+        "summary": "2 rows"
       },
       "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "a",
+          "b"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "a": "Ada",
+            "b": "Grace"
+          },
+          {
+            "a": "Grace",
+            "b": "Alan"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
       "expectError": false
+    },
+    "ada": {
+      "kind": "gram",
+      "text": "// 1 row\n(n0:Person {name: \"Ada\"})",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Ada"
+            }
+          }
+        ],
+        "rels": []
+      },
+      "envelope": {
+        "columnTypes": [
+          "NODE"
+        ],
+        "columns": [
+          "p"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "p": {
+              "id": 0,
+              "kind": "node",
+              "labels": [
+                "Person"
+              ],
+              "properties": {
+                "name": "Ada"
+              }
+            }
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "path": {
+      "kind": "gram",
+      "text": "// 2 rows\n(n0:Person {name: \"Ada\"})-[r0:KNOWS]->(n1:Person {name: \"Grace\"})\n(n0)-[r0]->(n1)-[r1:KNOWS]->(n2:Person {name: \"Alan\"})",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Ada"
+            }
+          },
+          {
+            "id": 1,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Grace"
+            }
+          },
+          {
+            "id": 2,
+            "kind": "node",
+            "labels": [
+              "Person"
+            ],
+            "properties": {
+              "name": "Alan"
+            }
+          }
+        ],
+        "rels": [
+          {
+            "end_node": 1,
+            "id": 0,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "KNOWS"
+          },
+          {
+            "end_node": 2,
+            "id": 1,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 1,
+            "type": "KNOWS"
+          }
+        ]
+      },
+      "envelope": {
+        "columnTypes": [
+          "PATH"
+        ],
+        "columns": [
+          "path"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "path": [
+              {
+                "id": 0,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Ada"
+                }
+              },
+              {
+                "end_node": 1,
+                "id": 0,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 0,
+                "type": "KNOWS"
+              },
+              {
+                "id": 1,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Grace"
+                }
+              }
+            ]
+          },
+          {
+            "path": [
+              {
+                "id": 0,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Ada"
+                }
+              },
+              {
+                "end_node": 1,
+                "id": 0,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 0,
+                "type": "KNOWS"
+              },
+              {
+                "id": 1,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Grace"
+                }
+              },
+              {
+                "end_node": 2,
+                "id": 1,
+                "kind": "relationship",
+                "properties": {},
+                "start_node": 1,
+                "type": "KNOWS"
+              },
+              {
+                "id": 2,
+                "kind": "node",
+                "labels": [
+                  "Person"
+                ],
+                "properties": {
+                  "name": "Alan"
+                }
+              }
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fails": {
+      "kind": "table",
+      "text": "error: type error: / by zero",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "type error: / by zero",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "python-1": {
+      "kind": "text",
+      "text": "Ada\nGrace",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "743f4de138a40cbad093d9683777d950d9fcd1ef20fd8b167aad4447221bec47"
+    },
+    "js-1": {
+      "kind": "text",
+      "text": "1",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "fd2d62d02fddbac58fb945dcebecf63d0fd814fcc6aafbfcb83cbc790adf345a"
     }
   }
 }

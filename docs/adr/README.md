@@ -93,3 +93,9 @@ Copy `template.md`.
 | [0013](0013-safe-by-default-agent-surfaces.md) | Agent-facing surfaces are safe by default and docs content is data | Accepted |
 | [0014](0014-fit-and-performance-pages.md) | The docs answer "does relate fit" with a fit page and measured performance | Accepted |
 | [0015](0015-launch-scope-inverted-and-mcp-shape.md) | Launch scope inverted; five MCP tools; directives inside MDX; the seed script is the docs-graph artifact | Accepted |
+| [0016](0016-cli-facts-recorded-and-replayed.md) | CLI facts are recorded runs, replayed against a relate binary | Proposed |
+| [0017](0017-runnable-docs-cells.md) | Runnable docs cells: recorded sidecars, recorded static graph forms, and a twin-based playground hand-off | Proposed |
+| [0018](0018-generated-reference-pages-and-changelog-feed.md) | Generated reference pages, an authored changelog data file and a JSON Feed | Proposed |
+| [0019](0019-skill-publication-and-artifact-manifest.md) | The skill is published byte-identical with generated indexes and a signed artifact manifest | Proposed |
+| [0020](0020-docs-graph-schema.md) | The docs graph's launch schema, seed format and structural checks | Proposed |
+| [0021](0021-verified-samples-and-release-refresh.md) | Verified language samples, and a release refresh that opens a pull request | Proposed |

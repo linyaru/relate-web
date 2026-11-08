@@ -1,0 +1,121 @@
+# Runs the docs' verified language samples (```python run and ```js run
+# fences; the contract is in src/lib/docs/samples.ts) against the relate
+# Python and Node clients built from the upstream relate checkout, and fails
+# when a sample no longer runs or prints other than its recorded result
+# (DOCS-PLAN.md §6, "Language samples are verified from phase 1").
+#
+# Weekly and on demand; not a required check, because it needs the upstream
+# repository, which is private before launch. It reads it with the
+# RELATE_UPSTREAM_TOKEN secret (a fine-grained token with read access to that
+# repository's contents); without the secret the job prints a notice and
+# succeeds. After launch the clients come from the published packages.
+#
+# The clients are built from the `ref` input, else from the tag of
+# src/content/docs/_data/engine.json's version (v<version>) when upstream has
+# it, else from its default branch (with a warning: then a sample can drift
+# for reasons the docs' version does not explain).
+#
+# A failure prints each sample's recorded and actual output. If the engine
+# changed on purpose, set up the clients locally (scripts/samples/setup.sh),
+# run `npm run docs:samples -- --record` and commit the reviewed diff.
+name: Docs samples
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Upstream ref to build the clients from (default v<engine version>, else the default branch)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-samples
+  cancel-in-progress: true
+
+env:
+  DO_NOT_TRACK: '1'
+  UPSTREAM_REPO: ${{ vars.RELATE_UPSTREAM_REPO || 'relatedb/relate' }}
+
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+
+      - name: Upstream access and ref
+        id: gate
+        working-directory: site
+        env:
+          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice title=Docs samples skipped::RELATE_UPSTREAM_TOKEN is not set, so the private repository $UPSTREAM_REPO cannot be checked out. Add the secret (read access to its contents) to run the samples."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ref="$INPUT_REF"
+          if [ -z "$ref" ]; then
+            version="$(node -p 'require("./src/content/docs/_data/engine.json").version')"
+            if gh api "repos/$UPSTREAM_REPO/git/ref/tags/v$version" --silent 2>/dev/null; then
+              ref="v$version"
+            else
+              echo "::warning::$UPSTREAM_REPO has no tag v$version; building its default branch"
+            fi
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
+          ref: ${{ steps.gate.outputs.ref }}
+          path: upstream
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          python-version: '3.12'
+
+      # The toolchain upstream pins (upstream/rust-toolchain.toml); rustup is
+      # preinstalled on the runner.
+      - name: Install the Rust toolchain
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: upstream
+        run: |
+          channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "$channel" --profile minimal
+          rustc --version
+
+      - name: Install
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: site
+        run: npm ci
+
+      - name: Build the clients
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: site
+        run: bash scripts/samples/setup.sh --upstream ../upstream --out "$RUNNER_TEMP/samples" --python python3 --github-env
+
+      - name: Run the samples
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: site
+        run: node scripts/docs-samples.ts --require

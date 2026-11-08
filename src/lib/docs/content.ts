@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parse as parseYaml } from 'yaml';
 
-import { idFromPath } from './model.ts';
+import { GENERATED_IDS, idFromPath } from './model.ts';
 
 /** The repository root. */
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -73,9 +73,9 @@ export function pageFiles(): PageFile[] {
   });
 }
 
-/** The ids of the pages the build publishes (status other than `planned`). */
+/** The ids of the pages the build publishes: status other than `planned`, and the generated pages (model.ts). */
 export function publishedIds(): Set<string> {
-  return new Set(pageFiles().filter((p) => p.data.status !== 'planned').map((p) => p.id));
+  return new Set([...pageFiles().filter((p) => p.data.status !== 'planned').map((p) => p.id), ...GENERATED_IDS]);
 }
 
 export interface GlossaryTerm {
@@ -104,6 +104,14 @@ export interface Engine {
   verified: string;
   /** Its release date, `YYYY-MM-DD`. */
   date: string;
+  /** The upstream commit the recordings were made from (engine.json `commit`), when known. */
+  commit?: string | null;
+  /**
+   * True when the recordings come from a source build of `commit` rather than
+   * the published release (engine.json `source_build`; before launch, a build
+   * that reports `version` but carries changes made after that release).
+   */
+  sourceBuild?: boolean;
 }
 
 const normalizeVersion = (v: unknown) => String(v ?? '').replace(/^v/, '');
@@ -111,8 +119,9 @@ const normalizeDate = (d: unknown) => String(d ?? '').slice(0, 10);
 
 /**
  * The engine the docs are verified against, from src/content/docs/_data/engine.json
- * (`{"version": "0.16.1", "verified": "0.16.1", "date": "2026-11-04"}`;
- * `verified` defaults to `version`). Until that file exists the
+ * (`{"version": "0.16.1", "verified": "0.16.1", "date": "2026-11-04",
+ * "commit": "ac441ec", "source_build": true, …}`; `verified` defaults to
+ * `version`). Until that file exists the
  * latest release in public/releases.json stands in, with a warning.
  */
 export function engine(): Engine {
@@ -124,7 +133,8 @@ export function engine(): Engine {
     for (const [k, v] of [['version', version], ['verified', verified]]) {
       if (!/^\d+\.\d+\.\d+/.test(v)) throw new Error(`${ENGINE_FILE}: "${k}" is not a version: ${v}`);
     }
-    return { version, verified, date };
+    const commit = typeof data.commit === 'string' && data.commit ? data.commit : null;
+    return { version, verified, date, commit, sourceBuild: data.source_build === true };
   }
   const releases = JSON.parse(readFileSync(join(ROOT, 'public/releases.json'), 'utf8'));
   warnOnce(`docs: ${relative(ROOT, ENGINE_FILE)} is missing; using the latest release in public/releases.json`);

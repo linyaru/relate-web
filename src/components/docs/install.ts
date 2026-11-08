@@ -16,9 +16,12 @@
 //     SHA-256 (distribution/install.sh, RELEASING.md "Signing key").
 //   - The key and its fingerprint: distribution/release-signing-key.pub
 //     (`ssh-keygen -lf` prints the fingerprint).
-//   - `relate --version`, the envelope bytes, the skill agent names and
-//     `relate skill install` writing under the home directory: recorded from a
-//     run of the CLI at the engine.json version.
+//   - `relate --version` and the envelope bytes of `RETURN 1 AS ok`: read from
+//     the runs recorded in src/content/docs/_data/engine.json (`version_check`,
+//     `envelope_check`), which `npm run docs:cli-check` replays against the
+//     binary. The skill agent names and `relate skill install` writing under
+//     the home directory: recorded from the binary in _data/cli.json
+//     (`commands[skill].recorded`).
 //
 // Props (literals): `part` picks what renders.
 //   (none)       the four tabs, then the AGENTS.md block under a bold label
@@ -27,8 +30,10 @@
 //   "pinned"     the Pinned binary steps alone
 //   "agents-md"  the AGENTS.md block alone
 
+import { readFileSync } from 'node:fs';
+
 import type { ComponentProps } from '../../lib/docs/constructs.ts';
-import { engine, publishedIds } from '../../lib/docs/content.ts';
+import { engine, ENGINE_FILE, publishedIds } from '../../lib/docs/content.ts';
 import { absoluteUrl, resolveHref } from '../../lib/docs/links.ts';
 
 /** A paragraph (inline markdown: `code` and [links](/docs/…)) or a code block. */
@@ -58,11 +63,23 @@ export const SIGNING_KEY_FINGERPRINT = 'SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRC
 export const SIGNER = 'relate-release';
 /** The agents `relate skill install --agent` accepts, as the CLI lists them. */
 export const SKILL_AGENTS = ['claude-code', 'cursor', 'windsurf', 'copilot', 'antigravity', 'gemini-cli', 'cline', 'codex', 'pi', 'opencode', 'junie'];
-export const ENVELOPE_CHECK = 'relate --mode envelope "RETURN 1 AS ok"';
-export const ENVELOPE_OUTPUT = '{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}';
 
-/** What `relate --version` prints for version `v`. */
-export const versionOutput = (v: string) => `Relate v${v}\nLicense: Apache 2.0 (binary)`;
+/** A run recorded in _data/engine.json: its command and its stdout without the final newline. */
+function recordedCheck(name: 'version_check' | 'envelope_check'): { command: string; output: string } {
+  const data = JSON.parse(readFileSync(ENGINE_FILE, 'utf8')) as Record<string, { recorded?: { command?: unknown; stdout?: unknown } } | undefined>;
+  const r = data[name]?.recorded;
+  if (typeof r?.command !== 'string' || typeof r.stdout !== 'string') throw new Error(`${ENGINE_FILE}: \`${name}.recorded\` is missing`);
+  return { command: r.command, output: r.stdout.replace(/\n$/, '') };
+}
+
+const envelopeCheck = recordedCheck('envelope_check');
+/** The envelope check and the exact bytes it prints, as recorded from the binary. */
+export const ENVELOPE_CHECK = envelopeCheck.command;
+export const ENVELOPE_OUTPUT = envelopeCheck.output;
+/** What `relate --version` prints at the engine.json version, as recorded from the binary. */
+export const VERSION_OUTPUT = recordedCheck('version_check').output;
+/** Its first line, `Relate v<version>`. */
+export const VERSION_LINE = VERSION_OUTPUT.split('\n')[0];
 
 const bash = (code: string): Block => ({ code, lang: 'bash' });
 const text = (code: string): Block => ({ code, lang: 'text' });
@@ -152,7 +169,7 @@ export function agentPrompt(v: string): string {
     `Check that the first line of SHA256SUMS is \`# relate-release-version: v${v}\`, then check the binary`,
     'with `sha256sum -c` (or `shasum -a 256 -c`) against its SHA256SUMS line. Install it as',
     `~/.local/bin/relate (chmod +x) and run \`${PATH_LINE}\`.`,
-    `Verify: \`relate --version\` prints \`Relate v${v}\` and \`${ENVELOPE_CHECK}\` prints`,
+    `Verify: \`relate --version\` prints \`${VERSION_LINE}\` and \`${ENVELOPE_CHECK}\` prints`,
     ENVELOPE_OUTPUT,
     `Then run \`relate skill install --agent <your-agent>\` (one of ${SKILL_AGENTS.join(', ')};`,
     "it writes the skill into that agent's skills folder in the home directory) and `relate agent-context`",
@@ -211,7 +228,7 @@ export function pinnedBlocks(v: string): Block[] {
     text('relate-linux-amd64: OK'),
     { p: 'If any check fails, delete the downloads and install nothing. When all three pass, install the binary and put `~/.local/bin` on your `PATH`:' },
     bash(['chmod +x "$ASSET"', 'mkdir -p ~/.local/bin', 'mv "$ASSET" ~/.local/bin/relate', PATH_LINE, 'relate --version'].join('\n')),
-    text(versionOutput(v)),
+    text(VERSION_OUTPUT),
   ];
 }
 
@@ -222,7 +239,7 @@ export function agentsMd(v: string): string {
 relate, the embedded Cypher graph database (relatedb.ai). This repository uses version ${v}. Not the Neo4j Desktop Relate framework.
 
 - Install, pinned and verified: https://relatedb.ai/docs/get-started/install.md (the "Pinned binary" steps)
-- Check: \`relate --version\` prints \`Relate v${v}\`
+- Check: \`relate --version\` prints \`${VERSION_LINE}\`
 - Query: \`relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"\`
 - Pass values as \`$parameters\` with \`--param name=<value>\`, never by pasting them into the statement.
 - Open stores with \`--read-only\` until you are asked to write.

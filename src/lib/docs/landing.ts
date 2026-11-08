@@ -3,6 +3,8 @@
 // Tasks name the page that answers them; a page not written yet renders as
 // text. The landing page and its twin (/docs/index.md) both read this.
 
+import { FEEDBACK_URL } from './model.ts';
+
 export interface Task {
   text: string;
   page: string;
@@ -62,6 +64,7 @@ export const TASKS: TaskGroup[] = [
       { text: 'Look up a CLI command or flag', page: 'reference/cli' },
       { text: 'See how relate Cypher differs from Neo4j', page: 'reference/cypher/differences-from-neo4j' },
       { text: 'Read the changelog', page: 'reference/changelog' },
+      { text: 'Look up a term in the glossary', page: 'reference/glossary' },
     ],
   },
   {
@@ -141,6 +144,8 @@ export function landingTwin(published: Set<string>, ctx: LandingTwinContext): st
     ctx.versionLine,
     '',
     `The index for agents, with a facts block: ${origin}/docs/llms.txt`,
+    '',
+    `How a wrong or missing page is reported: ${origin}${FEEDBACK_URL}`,
     '',
   ];
   for (const g of TASKS) {

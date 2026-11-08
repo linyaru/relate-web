@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { surprise } from '../../../src/lib/cookbook/cells.ts';
 import { engine, EnginePoisonedError } from '../lib/engine';
 import {
-  fetchParams,
+  recipeParams,
   fetchRecipe,
   parseRecipeLink,
   resolveRecipeLink,
@@ -56,9 +56,9 @@ export function useRecipeSession({ afterReset, onPoisoned }: Options) {
 
   useEffect(() => {
     if (!link) return;
-    fetchRecipe(link.slug).then(
+    fetchRecipe(link).then(
       (recipe) => setState(resolveRecipeLink(recipe, link) ?? { kind: 'missing-step', recipe }),
-      (e) => setState({ kind: 'failed', message: `Could not load the recipe: ${(e as Error).message}` }),
+      (e) => setState({ kind: 'failed', message: `Could not load the ${link.source === 'docs' ? 'page' : 'recipe'}: ${(e as Error).message}` }),
     );
   }, [link]);
 
@@ -72,7 +72,7 @@ export function useRecipeSession({ afterReset, onPoisoned }: Options) {
     try {
       // Every parameter file first, each once, before the database changes.
       const paths = [...new Set([...replay, ...(target ? [target] : [])].flatMap((c) => c.paramsPath ?? []))];
-      const texts = new Map(await Promise.all(paths.map(async (p) => [p, await fetchParams(recipe.slug, p)] as const)));
+      const texts = new Map(await Promise.all(paths.map(async (p) => [p, await recipeParams(recipe, p)] as const)));
       const paramsAt = (path: string): string => {
         const text = texts.get(path);
         if (text === undefined) throw new Error(`${path} was not fetched`);
@@ -85,7 +85,7 @@ export function useRecipeSession({ afterReset, onPoisoned }: Options) {
         const run = await engine.runScript(cell.code, cell.paramsPath === null ? null : paramsAt(cell.paramsPath));
         const problem = surprise(cell, run === null ? null : run.last);
         if (problem) {
-          setError(`The recipe stopped: ${problem}`);
+          setError(`The ${recipe.source === 'docs' ? 'page' : 'recipe'} stopped: ${problem}`);
           return null;
         }
       }

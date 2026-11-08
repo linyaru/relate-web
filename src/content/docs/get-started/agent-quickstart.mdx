@@ -27,7 +27,7 @@ Notice that nothing runs until all three checks pass. If one fails, the download
 
 An agent reads the :term[envelope]{id=envelope}: one JSON object per result set. Let's confirm the bytes match:
 
-```bash
+```bash verify
 relate --mode envelope "RETURN 1 AS ok"
 ```
 
@@ -41,7 +41,7 @@ The output should be exactly that line. Every statement this page runs passes `-
 
 The skill is relate's cheat sheet for agents: the CLI, Cypher, and what to read for vectors, storage and safety. It ships inside the binary. This step installs it for Claude Code; the other names `--agent` accepts are `cursor`, `windsurf`, `copilot`, `antigravity`, `gemini-cli`, `cline`, `codex`, `pi`, `opencode` and `junie`.
 
-```bash
+```bash verify
 relate skill install --agent claude-code
 ```
 
@@ -57,7 +57,7 @@ The skill now sits where Claude Code looks for skills. `relate skill check` repo
 
 `relate agent-context` prints the commands, flags and exit codes of the binary that is installed, so it can't describe a different version:
 
-```bash
+```bash verify
 relate agent-context
 ```
 
@@ -102,7 +102,7 @@ The example graph is not published as a download yet, so we write its seed scrip
 
 Write the seed script, a few `CREATE` statements and a count:
 
-```bash
+```bash verify
 cat > friends.cypher <<'EOF'
 CREATE (ada:Person {name: 'Ada', likes: 'tea'}),
        (bo:Person {name: 'Bo', likes: 'chess'}),
@@ -119,7 +119,7 @@ EOF
 
 Check its checksum:
 
-```bash
+```bash verify
 sha256sum friends.cypher
 ```
 
@@ -129,7 +129,7 @@ e0c0183542c9e0cab2adb283ec1d1f3e69b8892ae812c43d729190cbb9f127bb  friends.cypher
 
 If the hash differs, the file is not the one this page describes: stop, and write it again. When it matches, run the script into a single-file :term[store]{id=store}, `friends.rl`:
 
-```bash
+```bash verify
 relate query --database ./friends.rl --mode envelope < friends.cypher
 ```
 
@@ -148,7 +148,7 @@ The change we want is one new friendship: Eli knows Ada. Before writing anything
 
 `--read-only` opens the store :term[read-only]{id=read-only}: relate never writes it or checkpoints it, and every write fails.
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
 ```
 
@@ -162,7 +162,7 @@ Four friendships, a ring of four, and Eli outside it.
 
 `EXPLAIN` plans a statement without running it, so it works on a read-only open even for a write. The values go in as `$parameters`, bound with `--param`:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode table --param name=Eli --param friend=Ada 'EXPLAIN MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend'
 ```
 
@@ -191,7 +191,7 @@ Notice the notification: it names the index that would make the lookup cheaper, 
 
 `--safe` refuses statement shapes agents commonly get wrong, such as a read with no `LIMIT`:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name"
 ```
 
@@ -204,7 +204,7 @@ syntax error: SafeModeViolation: This statement is not allowed in safe mode: an 
 
 With a `LIMIT`, the same read goes through:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3"
 ```
 
@@ -216,7 +216,7 @@ relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Pers
 
 `--load` with a new `--database` path copies the store there and opens the copy for writing. The original stays as it was:
 
-```bash
+```bash verify
 relate --load ./friends.rl --database ./rehearsal.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
 ```
 
@@ -227,7 +227,7 @@ relate --load ./friends.rl --database ./rehearsal.rl --mode envelope --param nam
 
 The copy has the new friendship. The original still has none for Eli:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode envelope "MATCH (:Person {name: 'Eli'})-[k:KNOWS]->() RETURN count(k) AS friendships"
 ```
 
@@ -237,7 +237,7 @@ relate --database ./friends.rl --read-only --mode envelope "MATCH (:Person {name
 
 The rehearsal did what we wanted, so the copy can go:
 
-```bash
+```bash verify
 rm ./rehearsal.rl
 ```
 
@@ -245,7 +245,7 @@ rm ./rehearsal.rl
 
 Now the same statement, on `friends.rl`, without `--read-only`. This writes one `KNOWS` relationship from Eli to Ada:
 
-```bash
+```bash verify
 relate --database ./friends.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
 ```
 
@@ -255,7 +255,7 @@ relate --database ./friends.rl --mode envelope --param name=Eli --param friend=A
 
 The CLI prints no summary of what changed, so we check with a read:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
 ```
 
@@ -269,7 +269,7 @@ Five friendships. Eli is in.
 
 Let's make a mistake on purpose: a statement that uses `$name` without binding it.
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
 echo "exit=$?"
 ```
@@ -292,7 +292,7 @@ The first line is stderr; the error object is stdout. Its fields are the ones to
 
 The fix is the missing `--param`:
 
-```bash
+```bash verify
 relate --database ./friends.rl --read-only --mode envelope --param name=Eli 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
 ```
 

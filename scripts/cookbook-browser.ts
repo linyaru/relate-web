@@ -12,10 +12,19 @@
 // - Hand-off (ADR-0134): every recipe opened whole in the playground
 //   (#recipe=<slug>) replays all its steps; one step link with parameters
 //   replays the steps before it and loads the step and its parameters.
+// - Docs (DOCS-PLAN.md §8 item 4, one case per element type): every built
+//   docs page with runnable cells loads without loading the engine, and its
+//   "Run all" finishes every cell live and matching its recording, with the
+//   status bar naming the engine version; a tab set switches; a graph result
+//   draws and a real double-click on its node expands it from the page's
+//   database; the page opens in the playground (#docs=<page>), whole and from
+//   a cell that takes parameters. Pages with cells exist once a page has
+//   them; `DOCS_EXAMPLES=1 npm run build` adds the example page, which has
+//   every kind.
 // - Before any browser runs, the built files are checked: the playground is
 //   built and bundles no engine of its own, each recipe's recipe.json is
 //   format 1 and lists exactly its steps, and each step's playground link
-//   names one of them.
+//   names one of them; each docs page's cell links name its cells.
 //
 // `npm run cookbook:check` runs the recipes in Node; this catches what only a
 // browser shows: the bundled runtimes, the module workers, and the engine
@@ -34,6 +43,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { extname, join, normalize } from 'node:path';
 
+import { twinCells } from '../src/lib/cookbook/cells.ts';
 import { COOKBOOK_DIR, loadRecipes, projectRoot } from '../src/lib/cookbook/load.ts';
 
 const DIST = join(projectRoot(), 'dist');
@@ -411,10 +421,13 @@ const handoff = (expect: {
   paramsPath: string | null;
   samples: string[];
   runSample: string | null;
+  /** What the playground calls the source and its parts. */
+  whole?: string;
+  part?: string;
 }) => `(async () => {
-  const expect = ${JSON.stringify(expect)};
+  const expect = ${JSON.stringify({ whole: 'recipe', part: 'step', ...expect })};
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const button = () => [...document.querySelectorAll('button')].find((b) => /Load the recipe/.test(b.textContent));
+  const button = () => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Load the ' + expect.whole));
   const enabled = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
   for (let i = 0; i < 600 && !enabled(button()); i++) await wait(50);
   if (!enabled(button())) {
@@ -426,7 +439,7 @@ const handoff = (expect: {
   await wait(300);
   const text = document.body.innerText;
   const failures = [];
-  const loaded = 'Loaded ' + expect.replayed + ' step' + (expect.replayed === 1 ? '' : 's') + ' of "' + expect.title + '".';
+  const loaded = 'Loaded ' + expect.replayed + ' ' + expect.part + (expect.replayed === 1 ? '' : 's') + ' of "' + expect.title + '".';
   if (!text.includes(loaded)) failures.push('expected "' + loaded + '"; the page says: ' + ((text.match(/Loaded [^\\n]*|Could not[^\\n]*|failed[^\\n]*/) || ['nothing'])[0]));
   const editor = document.querySelector('.cm-content')?.innerText ?? '';
   if (expect.editorStart !== null && !editor.startsWith(expect.editorStart)) failures.push('the step is not in the editor: ' + editor.slice(0, 80));
@@ -455,6 +468,78 @@ const handoff = (expect: {
     }
   }
   return { log: [loaded + ' ' + expect.samples.length + ' step queries'], failures };
+})()`;
+
+// ---------------------------------------------------------------- docs scenarios
+
+/** A docs page with cells loads: the bar shows, every cell is upgraded, and the engine has not loaded. */
+const DOCS_LOAD = `(async () => {
+  const bar = document.getElementById('engineBar');
+  const failures = [];
+  for (let i = 0; i < 100 && (!bar || bar.hidden); i++) await new Promise((r) => setTimeout(r, 50));
+  if (!bar || bar.hidden) failures.push('the engine bar is not shown: the runtime did not start');
+  const cells = [...document.querySelectorAll('cypher-cell')];
+  const upgraded = cells.filter((c) => !c.querySelector('[data-action=run]').hidden).length;
+  if (upgraded !== cells.length) failures.push(upgraded + ' of ' + cells.length + ' cells offer Run');
+  const loaded = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => /relate_bg\\.wasm|\\/wasm\\/relate\\.js/.test(n));
+  if (loaded.length) failures.push('the engine loaded with the page: ' + loaded.join(', '));
+  const statics = [...document.querySelectorAll('cypher-cell .out-static')];
+  if (statics.some((f) => !f.hidden)) failures.push('a static graph form still shows with the runtime up');
+  return { log: [cells.length + ' cells, ' + statics.length + ' static graph form(s)'], failures };
+})()`;
+
+/** After "Run all" (RUN_ALL), the status bar names the engine version. */
+const DOCS_STATUS = `(async () => {
+  const bar = document.getElementById('engineBar');
+  const text = bar.querySelector('.engine-text').textContent;
+  const failures = [];
+  if (!/^relate \\d+\\.\\d+\\.\\d+ loaded in \\d+ ms/.test(text)) failures.push('the status bar does not name the engine: ' + text);
+  if (bar.dataset.engineVersion !== bar.dataset.verified && !/verified against relate/.test(text)) failures.push('the engine is not the verified version, and the bar does not say so: ' + text);
+  return { log: [text], failures };
+})()`;
+
+/** A tab set switches: the second tab's panel shows, the first's hides, and the choice is selected. */
+const DOCS_TABS = `(async () => {
+  const set = document.querySelector('[data-tabs].is-enhanced');
+  if (!set) return { log: [], failures: ['no enhanced tab set'] };
+  const buttons = [...set.querySelectorAll(':scope > .tab-list > button')];
+  const panels = [...set.querySelectorAll(':scope > .tab-panel')];
+  if (buttons.length < 2) return { log: [], failures: ['the tab set has ' + buttons.length + ' tab(s)'] };
+  const failures = [];
+  if (panels.filter((p) => !p.hidden).length !== 1) failures.push('not exactly one panel shows before a choice');
+  buttons[1].click();
+  if (panels[1].hidden || !panels[0].hidden) failures.push('choosing the second tab did not show its panel');
+  if (buttons[1].getAttribute('aria-selected') !== 'true') failures.push('the second tab is not selected');
+  buttons[0].click();
+  return { log: [buttons.map((b) => b.textContent).join(' / ')], failures };
+})()`;
+
+/**
+ * A graph result draws, in two parts around a real double-click: scroll a
+ * one-node graph result into view and wait for the view (the node sits at the
+ * centre once the view fits it), returning the point; then its neighbours must
+ * be added from the page's database.
+ */
+const DOCS_GRAPH_PREPARE = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const cell = document.querySelector('cypher-cell[data-graph-nodes="1"]');
+  if (!cell) return { failures: [], skip: 'no one-node graph result' };
+  cell.scrollIntoView({ block: 'center' });
+  for (let i = 0; i < 200 && !cell.querySelector('.out-graph:not([hidden]) .graph-view canvas'); i++) await wait(50);
+  if (!cell.querySelector('.out-graph:not([hidden]) .graph-view canvas')) return { failures: ['the graph view did not draw'] };
+  if (!cell.querySelector('.graph-legend i')) return { failures: ['the legend has no labels'] };
+  await wait(1500);
+  const r = cell.querySelector('.graph-stage').getBoundingClientRect();
+  return { failures: [], cell: cell.dataset.cell, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+})()`;
+const docsGraphCheck = (cell: string) => `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const status = () => document.getElementById(${JSON.stringify(`cell-${cell}`)})?.querySelector('.graph-status')?.textContent
+    ?? document.querySelector('cypher-cell[data-cell=${JSON.stringify(cell)}] .graph-status')?.textContent ?? '';
+  for (let i = 0; i < 400 && !/Added|Nothing|Could not/.test(status()); i++) await wait(50);
+  const said = status();
+  const failures = /^Added [1-9]\\d* nodes? and \\d+ relationships?/.test(said) ? [] : ['the double-click did not expand the node: ' + said];
+  return { log: [said], failures };
 })()`;
 
 // ---------------------------------------------------------------- main
@@ -505,6 +590,33 @@ for (const r of recipes) {
   }
 }
 console.log(`${problems.length ? '✖' : '✔'} built files: the playground, and ${published.size} recipe.json and step links`);
+
+/** Built docs pages with runnable cells: their page id, URL path and cell ids. */
+interface DocsCellPage {
+  id: string;
+  path: string;
+  cells: string[];
+  html: string;
+}
+const docsPages: DocsCellPage[] = [];
+const docsDir = join(DIST, 'docs');
+if (existsSync(docsDir)) {
+  for (const file of filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort()) {
+    const html = readFileSync(file, 'utf8');
+    if (!html.includes('<cypher-cell')) continue;
+    const id = file.slice(docsDir.length + 1, -'/index.html'.length);
+    const cells = [...html.matchAll(/<cypher-cell [^>]*data-cell="([^"]+)"/g)].map((m) => m[1]);
+    docsPages.push({ id, path: `/docs/${id}/`, cells, html });
+    const where = `[docs/${id}] built`;
+    const linked = [...html.matchAll(/href="\/playground\/#docs=([^"&]+)&amp;cell=([^"]+)"/g)];
+    if (linked.length !== cells.length) problems.push(`${where}: ${linked.length} cell playground links for ${cells.length} cells`);
+    for (const [, page, cell] of linked) {
+      if (decodeURIComponent(page) !== id || !cells.includes(decodeURIComponent(cell))) problems.push(`${where}: a playground link names ${page}/${cell}`);
+    }
+    if (!existsSync(join(docsDir, `${id}.md`))) problems.push(`${where}: no twin at /docs/${id}.md for the playground to read`);
+  }
+}
+console.log(`${problems.length ? '✖' : '✔'} built files: ${docsPages.length} docs page(s) with cells, and their cell links`);
 const site = await serve();
 const chrome = await launchChrome().catch((e: Error) => fail(e.message));
 
@@ -521,6 +633,41 @@ async function check(name: string, label: string, path: string, scenario: string
     await page.close();
   }
 }
+/** Double-click a one-node graph result on a docs page; see DOCS_GRAPH_PREPARE. */
+async function checkDocsGraph(page: DocsCellPage) {
+  const tab = await openPage(chrome.http, `${site.url}${page.path}`);
+  const label = `docs/${page.id}`;
+  try {
+    const at = await tab.evaluate<{ failures: string[]; skip?: string; cell?: string; x?: number; y?: number }>(DOCS_GRAPH_PREPARE);
+    if (at.skip) return console.log(`- ${label} · graph view expands: skipped (${at.skip})`);
+    let result = { log: [] as string[], failures: at.failures };
+    if (!at.failures.length) {
+      await tab.doubleClick(at.x!, at.y!);
+      result = await tab.evaluate<{ log: string[]; failures: string[] }>(docsGraphCheck(at.cell!));
+    }
+    const bad = [...result.failures, ...tab.errors.map((e) => `console error: ${e}`)];
+    console.log(`${bad.length ? '✖' : '✔'} ${label} · graph view expands: ${result.log[0] ?? ''}`);
+    problems.push(...bad.map((b) => `[${label}] graph view expands: ${b}`));
+  } finally {
+    await tab.close();
+  }
+}
+/** Run all on a docs page, then the status bar; one tab, so the bar reports the run. */
+async function checkDocsRun(page: DocsCellPage) {
+  const tab = await openPage(chrome.http, `${site.url}${page.path}`);
+  const label = `docs/${page.id}`;
+  try {
+    for (const [name, scenario] of [['page loads', DOCS_LOAD], ['run all', RUN_ALL], ['status bar', DOCS_STATUS]] as const) {
+      const { log, failures } = await tab.evaluate<{ log: string[]; failures: string[] }>(scenario);
+      console.log(`${failures.length ? '✖' : '✔'} ${label} · ${name}: ${log[0] ?? ''}`);
+      problems.push(...failures.map((b) => `[${label}] ${name}: ${b}`));
+    }
+    problems.push(...tab.errors.map((e) => `[${label}] console error: ${e}`));
+  } finally {
+    await tab.close();
+  }
+}
+
 /** Double-click a node in the playground's graph view; see EXPAND_PREPARE. */
 async function checkExpand() {
   const page = await openPage(chrome.http, `${site.url}/playground/`);
@@ -570,6 +717,36 @@ try {
     };
     await check(`hand-off (step ${cell.id})`, HANDOFF_STEP.slug, playgroundLink(HANDOFF_STEP.slug, cell.id), handoff(expect));
   }
+
+  // Docs: one case per element type (DOCS-PLAN.md §8 item 4).
+  if (docsPages.length === 0) console.log('- docs: no built docs page has cells yet; the docs cell cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)');
+  for (const page of docsPages) await checkDocsRun(page);
+  const tabbed = existsSync(docsDir)
+    ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort().find((f) => readFileSync(f, 'utf8').includes('data-tabs'))
+    : undefined;
+  if (tabbed) {
+    const path = `/docs/${tabbed.slice(docsDir.length + 1, -'index.html'.length)}`;
+    await check('a tab set switches', path.slice(1, -1), path, DOCS_TABS);
+  }
+  const graphPage = docsPages.find((p) => /data-graph-nodes="1"/.test(p.html));
+  if (graphPage) await checkDocsGraph(graphPage);
+  else if (docsPages.length) console.log('- docs: no docs page has a one-node graph result; the expansion case is skipped');
+  for (const page of docsPages) {
+    const twin = readFileSync(join(docsDir, `${page.id}.md`), 'utf8');
+    const { title, cells } = twinCells(twin);
+    const docsLink = (cell: string | null = null) =>
+      `/playground/#docs=${encodeURIComponent(page.id)}${cell ? `&cell=${encodeURIComponent(cell)}` : ''}`;
+    const samples = [...new Set(cells.map((c) => c.title ?? c.id))];
+    const nouns = { whole: 'page', part: 'cell' };
+    const label = `docs/${page.id}`;
+    await check('hand-off (whole page)', label, docsLink(), handoff({ replayed: cells.length, title: title ?? page.id, editorStart: null, paramsPath: null, samples, runSample: null, ...nouns }));
+    const index = cells.findIndex((c) => c.params !== null);
+    if (index >= 0) {
+      const cell = cells[index];
+      const expect = { replayed: index, title: title ?? page.id, editorStart: cell.code.split('\n')[0], paramsPath: cell.params, samples, runSample: null, ...nouns };
+      await check(`hand-off (cell ${cell.id})`, label, docsLink(cell.id), handoff(expect));
+    }
+  }
 } finally {
   chrome.kill();
   site.close();
@@ -581,5 +758,6 @@ if (problems.length) {
 }
 console.log(
   `cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings; ` +
-    'the playground loads and expands a node, and every recipe opens in it',
+    'the playground loads and expands a node, and every recipe opens in it; ' +
+    `${docsPages.length} docs page(s) with cells run, match and open in the playground`,
 );

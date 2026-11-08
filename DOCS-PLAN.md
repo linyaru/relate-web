@@ -263,7 +263,10 @@ bundle**, so an agent can get it before the binary exists on the machine:
   `references/`), the Agent Skills layout; `/skill.md` as the short alias.
   `npx skills add https://relatedb.ai` then works (verified 2026-11-07
   against the CLI's source, see §9: the full `https://` form is required,
-  a bare domain is not a well-known lookup), and so does a manual copy
+  a bare domain is not a well-known lookup; tested 2026-11-07 with skills
+  1.5.25: it reads the 0.2.0 index's `skill-md` entry and installs
+  `SKILL.md` without `references/`, while the legacy index alone installs
+  every file, ADR-0019), and so does a manual copy
   into `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`. Each index
   entry carries a `sha256:` digest of the artifact it points at (the
   `SKILL.md` or an archive), and the index is listed in the signed
@@ -385,7 +388,8 @@ CLI (installed through `public/install.sh`, which already verifies a signed
 release) for the local `--load` form, lists it in the signed
 `docs-artifacts.json` with its checksum, and the Worker replays the seed on
 each cold isolate; phase 0 measures that cold start. The issue tracker
-stays out of the graph. `.graph.md` per page moves to phase 3.
+stays out of the graph. `.graph.md` per page ships at launch, generated from
+the same graph (pulled forward from phase 3; ADR-0020).
 
 ### 3.6 Writing for agents
 
@@ -1264,7 +1268,7 @@ hand-off). A status bar names the engine version, which matches the page's
 | **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph, the WebGL renderer draws it, count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept, `reference/performance` | NVL `webgl` renderer | 3 |
 | Graph diff | before and after a migration: added, removed and changed elements coloured | migration-rehearsal recipe, `clone-and-convert` | graph view | 3 |
 | Timeline view | temporal and bi-temporal results on a time axis | agent-trajectory and bitemporal recipes | SVG | 3 |
-| Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
+| Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view (a directive: ADR-0015's five phase 1 JSX components are taken by `<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`; not built yet, LAUNCH.md) | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
 | Global language picker, host deeplink buttons, `<Matrix>`, term toggletip | as in §3 and §4 | everywhere | the glossary, `releases.json` | 2 |
 
 ### 7.4 Where the hero elements go
@@ -1434,7 +1438,11 @@ from the same collection, so they cannot go stale independently.
   `--timeout` (exit 7), `--format` as an alias of `--mode`, `--pretty`,
   `toon` as the piped default under agent mode; `website-update-brief.md`
   says `--format` does not exist. The bundle is newer; verify each against
-  the binary before it lands on a page.
+  the binary before it lands on a page. Settled against a release-profile
+  source build of upstream `ac441ec` (reports 0.16.1; includes changes made
+  after the v0.16.1 release; ADR-0016): `--format` ships as an alias of
+  `--mode`, and `--timeout` (exit 7), `--pretty` and `toon` as the default
+  under agent mode all ship.
 - **Package availability.** PyPI, npm and Maven publishes are launch-day
   events; the install page needs the same `NOT_PUBLIC_YET` treatment the
   cookbook uses so pre-launch builds do not link 404s.
@@ -1562,6 +1570,9 @@ sitemap and root `llms.txt` updated; the discovery checklist in
 `LAUNCH.md` worked through. `LAUNCH.md` sanity checks gain "every docs
 page builds, every cell runs, `llms.txt` resolves, every config block is
 read-only, the eval scores are recorded".
+Items not built in the platform pass (content negotiation and
+`?section=`, the per-host config blocks, `<Agentic>`, the cold-start eval)
+are tracked in LAUNCH.md under "Docs work deferred within phase 1".
 
 **Phase 2 — surfaces and depth (about 50 pages).** The capability catalog
 in full with the "Problems relate solves" page, `capabilities.json`,
@@ -1584,7 +1595,7 @@ language tutorials, `security-and-trust` and the remaining concepts;
 repo (§3.9).
 
 **Phase 3 — the long tail.** `query_docs_graph` once the engine has a
-deadline; `.graph.md` per page; the storage animator, the scale demo,
+deadline; the storage animator, the scale demo,
 in-browser embeddings, graph diff and timeline views; "Try it" on
 reference examples; manifests for language samples; design-decision
 links; `guides/migrate/from-sqlite`, `from-kuzu`; the analytics review
@@ -1631,7 +1642,7 @@ same change.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 7 | Publish the docs as a relate store (`relate-docs.rl`, `.graph.md`, `graph.json`) and build the structural checks on it? | **Decided (2026-11-07): yes.** The store and seed script move to phase 1 because the hosted MCP (8) is built on them; `.graph.md`, `graph.json` and the structural checks stay phase 2. |
+| 7 | Publish the docs as a relate store (`relate-docs.rl`, `.graph.md`, `graph.json`) and build the structural checks on it? | **Decided (2026-11-07): yes.** The store and seed script move to phase 1 because the hosted MCP (8) is built on them; `.graph.md`, `graph.json` and the structural checks ship in phase 1 too (ADR-0020). |
 | 8 | A hosted docs MCP endpoint at launch? | **Decided (2026-11-07): yes.** `https://relatedb.ai/mcp`, relate's MCP over the docs graph plus `search_docs`/`get_page`/`list_pages`, a Cloudflare Worker with the WASM engine (container fallback), phase 1. Design in §3.7. The local `--load` form stays as the offline twin. |
 | 9 | Content negotiation on `Accept: text/markdown`? | **Decided (2026-11-07): yes**, phase 1, as a Cloudflare Pages function (decision 19). The `.md` twins exist regardless. |
 | 10 | Publish the skill bundle on the site (`/.well-known/skills/`), copied from upstream unchanged? | **Decided (2026-11-07): yes**, phase 1, synced like `install.sh` and never hand-edited. One source, two delivery paths (`relate skill install` and `npx skills add relatedb.ai`). |

@@ -219,6 +219,17 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .docs-body .out-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .docs-stub { color: var(--fg-muted); font-style: italic; }
 
+/* The engine bar (cookbook.css) sticks under the docs bar, not under the site header. */
+.docs-shell .engine-bar { top: 112px; margin: 20px 0 4px; }
+.docs-shell a.btn.icon-only { color: var(--fg-muted); }
+.docs-shell a.btn.icon-only:hover { color: var(--fg); }
+/* A graph result's static form: the page's picture of the graph without JavaScript. */
+.cell-output .out-static { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
+.cell-output .out-static figcaption { margin-top: 6px; }
+/* A verified language sample's recorded output, under its code block (constructs.ts). */
+.code-block + .sample-output { margin: -8px 0 16px; }
+@media (max-width: 900px) { .docs-shell .engine-bar { position: static; } }
+
 /* ---------- Page end: related, prev/next, footer ---------- */
 .doc-related { margin-top: 40px; }
 .doc-related h2 { font-size: 18px; margin: 0 0 8px; }

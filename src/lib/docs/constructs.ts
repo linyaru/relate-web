@@ -17,14 +17,19 @@
 //       page: <figure>                                   twin: a markdown image
 //   ```mermaid (pre-rendered, §7.6)
 //       page: both SVGs, caption, "In words" line        twin: the fence verbatim, then its accDescr as a paragraph
-//   ```cypher run [name=<id>]
-//       page: the cell with its recorded result          twin: the fence, then a ```table (or ```gram) block
+//   ```cypher run [name=<id>] [params=<name>] [expect=error]
+//       page: the cell with its recorded result (a static graph form for a graph), runnable with the page runtime
+//                                                        twin: the fence, then a ```table (or ```gram) block, then a link to the static graph form
+//   ```json data=<name> (a cell's parameters)
+//       page: inside the cell that names it, editable    twin: the fence verbatim
+//   ```python run / ```js run [name=<id>] [title="<file>"] (verified samples, samples.ts)
+//       page: the code block, then its recorded output   twin: the fence, then a ```text block of the output
 //   <Component /> (JSX, generated and interactive things only)
 //       page: the Astro component                        twin: the component's toMarkdown
 // Links render only when their target exists (links.ts); an unknown text
 // directive (`a:b` in prose) renders as the text it was written as.
 
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 
 import type { Code, Html, Image, Link, Paragraph, Parent, PhrasingContent, Root, RootContent, Text } from 'mdast';
@@ -43,10 +48,23 @@ import {
 } from '../cookbook/diagrams.ts';
 import type { Diagram } from '../cookbook/recipe.ts';
 import { esc, tableHtml } from '../cookbook/result-view.ts';
-import { ROOT, type GlossaryTerm } from './content.ts';
+import { DOCS_DIR, ROOT, type GlossaryTerm } from './content.ts';
 import type { Highlight } from './highlight.ts';
 import { absoluteUrl, resolveHref, type LinkContext } from './links.ts';
-import { parseRunInfo, readResults, resultsFile, type Results } from './results.ts';
+import { idFromPath, pageUrl } from './model.ts';
+import {
+  collectCells,
+  drawsStatic,
+  graphCaption,
+  parseDataInfo,
+  parseRunInfo,
+  readResultGraph,
+  readResults,
+  resultsFile,
+  type PageCells,
+  type Results,
+} from './results.ts';
+import { parseSampleInfo, readSidecar, RECORD_COMMAND as SAMPLES_RECORD_COMMAND, sampleId, type SampleInfo, type Sidecar } from './samples.ts';
 
 export const CALLOUTS = ['note', 'tip', 'warning', 'danger'] as const;
 export const STATUS_BADGES = ['preview', 'deprecated'] as const;
@@ -90,6 +108,12 @@ interface State {
   mermaidSeq: number;
   diagrams: Diagram[] | null;
   results: Results | null | undefined;
+  /** Verified samples seen so far, per language (their ids are `<lang>-<n>`). */
+  sampleSeq: { python: number; js: number };
+  /** The sidecar as written, every entry kind kept (samples.ts); read on the first sample. */
+  sidecar: Sidecar | null | undefined;
+  /** The page's cells and parameters blocks, collected before rendering. */
+  cells: PageCells;
 }
 
 const text = (value: string): Text => ({ type: 'text', value });
@@ -115,7 +139,12 @@ export function renderConstructs(tree: Root, target: Target, ctx: PageContext): 
     mermaidSeq: 0,
     diagrams: null,
     results: undefined,
+    sampleSeq: { python: 0, js: 0 },
+    sidecar: undefined,
+    cells: collectCells(tree),
   };
+  // Info strings are reported where each fence renders; the rest here.
+  st.problems.push(...st.cells.problems.filter((p) => !/`cypher run` takes/.test(p)));
   walk(tree, st);
   if (st.problems.length) {
     throw new Error(`${st.rel} has ${st.problems.length} problem(s):\n${st.problems.map((p) => `  - ${p}`).join('\n')}`);
@@ -308,26 +337,92 @@ function code(node: Code, st: State): Node[] {
     return [node];
   }
   if (run) return cell(node, run.name, st);
+  let sample: SampleInfo | null;
+  try {
+    sample = parseSampleInfo(node.lang, node.meta);
+  } catch (e) {
+    st.problems.push(`line ${line(node)}: ${(e as Error).message}`);
+    return [node];
+  }
+  if (sample) return sampleBlock(node, sample, st);
   if (node.lang === 'mermaid') return mermaid(node, st);
+  // A cell's parameters: shown inside the cell that names it.
+  if (parseDataInfo(node.lang, node.meta) !== null) return st.target === 'markdown' ? [node] : [];
   if (st.target === 'markdown') return [node];
-  const id = `code-${++st.codeSeq}`;
-  const lang = node.lang || 'text';
   // `title="app.py"` in the fence meta names the block's file (STYLE.md §4.6); the twin keeps the meta as written.
   const title = /(?:^|\s)title="([^"]*)"/.exec(node.meta ?? '')?.[1];
+  return [html(codeBlock(node.value, node.lang || 'text', title, st))];
+}
+
+/** A plain code block on the page: highlighted, an optional file name above it, a copy button. */
+function codeBlock(value: string, lang: string, title: string | null | undefined, st: State): string {
+  const id = `code-${++st.codeSeq}`;
+  return (
+    `<div class="code-block${title ? ' has-title' : ''}">` +
+    (title ? `<div class="code-title">${esc(title)}</div>` : '') +
+    `${st.ctx.highlight!(value, lang)}` +
+    `<textarea id="${id}" hidden>${esc(value)}</textarea>` +
+    `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>`
+  );
+}
+
+/**
+ * A verified language sample (samples.ts): the program as a code block, then
+ * the output a run against the client recorded in the page's sidecar. The
+ * build fails when the output is not recorded, as it does for a cell.
+ */
+function sampleBlock(node: Code, info: SampleInfo, st: State): Node[] {
+  const id = sampleId(info, ++st.sampleSeq[info.lang]);
+  if (st.sidecar === undefined) {
+    try {
+      st.sidecar = readSidecar(st.ctx.file);
+    } catch (e) {
+      st.problems.push((e as Error).message);
+      st.sidecar = null;
+    }
+  }
+  const recorded = st.sidecar?.cells[id];
+  if (!recorded || recorded.kind !== 'text') {
+    st.problems.push(`line ${line(node)}: sample \`${id}\` has no recorded output in ${relative(ROOT, resultsFile(st.ctx.file))}; record it: ${SAMPLES_RECORD_COMMAND}`);
+    return [node];
+  }
+  const output = recorded.text.replace(/\n$/, '');
+  // Twin: the fence as written (meta kept), then a ```text block holding the output.
+  if (st.target === 'markdown') return [node, { type: 'code', lang: 'text', meta: null, value: output }];
   return [
     html(
-      `<div class="code-block${title ? ' has-title' : ''}">` +
-        (title ? `<div class="code-title">${esc(title)}</div>` : '') +
-        `${st.ctx.highlight!(node.value, lang)}` +
-        `<textarea id="${id}" hidden>${esc(node.value)}</textarea>` +
-        `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>`,
+      codeBlock(node.value, info.lang === 'js' ? 'javascript' : 'python', info.title, st) +
+        `<div class="cell-output sample-output"><div class="out-head"><span class="out-label">Output</span></div>` +
+        `<pre class="out-text" id="out-${esc(id)}">${esc(output)}</pre></div>`,
     ),
   ];
 }
 
+/** A docs page's id, from its file. */
+const pageIdOf = (file: string) => idFromPath(relative(DOCS_DIR, file).split(sep).join('/'));
+
+/**
+ * The playground link for a docs page, or one of its cells (the sibling of the
+ * cookbook's `#recipe=` hand-off): the playground reads the page's twin, runs
+ * every cell, or the cells before `cellId` with that cell left in the editor.
+ */
+export const docsPlaygroundHref = (pageId: string, cellId: string | null = null) =>
+  `/playground/#docs=${encodeURIComponent(pageId)}${cellId ? `&cell=${encodeURIComponent(cellId)}` : ''}`;
+
+/** Where the build serves a cell's static graph form (light), for the twin. */
+export const resultGraphUrl = (pageId: string, cellId: string) => `${pageUrl(pageId)}result-${cellId}-light.svg`;
+
+// A console window: "open this cell in the playground" (as the cookbook's steps).
+const PLAYGROUND_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>';
+
+/** JSON for an HTML attribute value (escaped by `esc`). */
+const attrJson = (v: unknown) => esc(JSON.stringify(v));
+
 function cell(node: Code, name: string | null, st: State): Node[] {
-  const id = name ?? `cell-${st.cellSeq + 1}`;
-  st.cellSeq++;
+  const index = ++st.cellSeq;
+  const id = name ?? `cell-${index}`;
+  const info = st.cells.cells[index - 1];
   if (st.results === undefined) {
     try {
       st.results = readResults(st.ctx.file);
@@ -341,19 +436,67 @@ function cell(node: Code, name: string | null, st: State): Node[] {
     st.problems.push(`line ${line(node)}: cell \`${id}\` has no recorded result in ${relative(ROOT, resultsFile(st.ctx.file))}`);
     return [node];
   }
-  if (st.target === 'markdown') return [node, { type: 'code', lang: recorded.kind, meta: null, value: recorded.text.replace(/\n$/, '') }];
+  const expectError = info?.expectError ?? recorded.expectError ?? false;
+  const graph = recorded.graph ?? null;
+  const pageId = pageIdOf(st.ctx.file);
+  let svg: Record<'light' | 'dark', string> | null = null;
+  if (drawsStatic(graph)) {
+    try {
+      svg = readResultGraph(st.ctx.file, id, graph);
+    } catch (e) {
+      st.problems.push(`line ${line(node)}: ${(e as Error).message}`);
+    }
+  }
+  const caption = graphCaption(info?.title ?? null);
+  if (st.target === 'markdown') {
+    const out: Node[] = [node, { type: 'code', lang: recorded.kind, meta: null, value: recorded.text.replace(/\n$/, '') }];
+    if (drawsStatic(graph)) {
+      const image: Image = { type: 'image', url: absoluteUrl(resultGraphUrl(pageId, id)), alt: caption, title: null };
+      out.push({ type: 'paragraph', children: [image] });
+    }
+    return out;
+  }
+  const params = info?.params ? (st.cells.data.get(info.params) ?? null) : null;
+  const drawable = (graph?.nodes.length ?? 0) > 0;
+  const attrs = [
+    `id="${esc(id.startsWith('cell-') ? id : `cell-${id}`)}"`,
+    `data-cell="${esc(id)}"`,
+    `data-step="${index}"`,
+    `data-result-kind="${recorded.kind}"`,
+    expectError ? 'data-expect-error' : '',
+    drawable ? `data-has-graph data-graph-nodes="${graph!.nodes.length}"` : '',
+    `data-recorded="${attrJson({ envelope: recorded.envelope ?? null, graph })}"`,
+  ].filter(Boolean);
   const table = recorded.table ? tableHtml(recorded.table) : '';
+  const rows = params === null ? 0 : Math.min(params.split('\n').length + 1, 12);
+  const art = (theme: 'light' | 'dark') => `<div class="diagram-art diagram-${theme}">${prepareSvg(svg![theme])}</div>`;
   return [
     html(
-      `<cypher-cell id="${esc(id.startsWith('cell-') ? id : `cell-${id}`)}" data-cell="${esc(id)}" data-result-kind="${recorded.kind}"${recorded.expectError ? ' data-expect-error' : ''}>` +
+      `<cypher-cell ${attrs.join(' ')}>` +
         `<div class="cell-head"><span class="cell-tag">Cypher</span><div class="cell-actions">` +
         `<button class="btn primary" type="button" data-action="run" hidden>Run</button>` +
-        `<button class="btn" type="button" data-action="edit" hidden>Edit</button></div></div>` +
+        `<button class="btn" type="button" data-action="edit" hidden>Edit</button>` +
+        `<a class="btn icon-only" href="${esc(docsPlaygroundHref(pageId, id))}" target="_blank" rel="noopener" ` +
+        `title="Open this cell in the playground" aria-label="Open cell ${index} in the playground">${PLAYGROUND_ICON}</a>` +
+        `</div></div>` +
         `<div class="cell-code">${st.ctx.highlight!(node.value, 'cypher')}</div>` +
-        `<textarea class="cell-editor" spellcheck="false" hidden aria-label="Cypher">${esc(node.value)}</textarea>` +
-        `<div class="cell-output" aria-live="polite"><div class="out-head"><span class="out-label">${recorded.expectError ? 'Expected error' : 'Recorded result'}</span></div>` +
+        `<textarea class="cell-editor" spellcheck="false" hidden aria-label="Cypher for cell ${index}">${esc(node.value)}</textarea>` +
+        (params === null
+          ? ''
+          : `<details class="cell-params"><summary>Parameters</summary>` +
+            `<textarea class="params-editor" rows="${rows}" spellcheck="false" aria-label="Parameters for cell ${index} (JSON)">${esc(params)}</textarea></details>`) +
+        `<div class="cell-output" aria-live="polite">` +
+        `<div class="out-head"><span class="out-label">${expectError ? 'Expected error' : 'Recorded result'}</span>` +
+        `<button class="out-copy" type="button" data-copy-target="out-${esc(id)}" hidden>Copy as text</button>` +
+        `<div class="out-tabs" role="tablist" hidden>` +
+        `<button type="button" role="tab" data-view="text" aria-selected="true">Result</button>` +
+        `<button type="button" role="tab" data-view="graph" aria-selected="false" hidden>Graph</button>` +
+        `<button type="button" role="tab" data-view="json" aria-selected="false">JSON</button></div></div>` +
         `<div class="out-table"${table ? '' : ' hidden'}>${table}</div>` +
         `<pre class="out-text" id="out-${esc(id)}"${table ? ' hidden' : ''}>${esc(recorded.text)}</pre>` +
+        (svg ? `<figure class="diagram out-static">${art('light')}${art('dark')}<figcaption>${esc(caption)}</figcaption></figure>` : '') +
+        `<div class="out-graph" id="graph-${esc(id)}" hidden></div>` +
+        `<pre class="out-json" hidden></pre>` +
         `</div></cypher-cell>`,
     ),
   ];

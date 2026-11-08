@@ -108,3 +108,12 @@ and structurally query-free telemetry.
   artifact's bytes, not one per file as decision 3 says; the CLI verifies
   that digest and no signature, so the signed `docs-artifacts.json` is
   the only signature over the index.
+- Read-only open, amended by ADR-0023 (Proposed; phase 1 part C,
+  2026-11-07): the WASM build cannot hold content in a read-only in-memory
+  store (`new RelateDb(true)` refuses the seed; upstream ADR-0136) and
+  cannot open a `.rl` or a snapshot, so the docs MCP Worker replays the
+  seed into a writable in-memory handle. The fence of decision 4 is
+  structural: no tool accepts Cypher, and the only statement after the
+  seed is one constant read with the caller's words bound as a parameter.
+  `reference/server/docs-mcp` states this. Upstream ask: a way to freeze a
+  seeded handle, or to open a snapshot read-only, in the WASM.

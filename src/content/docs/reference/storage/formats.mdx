@@ -3,7 +3,7 @@ title: Storage formats
 description: The three store layouts and the parquet, json and markdown codecs, with each one's files on disk, version markers, sizes, and which surfaces open it.
 order: 10
 surfaces: [cli, python, node]
-related: [guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, concepts/storage-and-durability, reference/storage/limits-and-sizing]
+related: [guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, concepts/storage-and-durability, reference/storage/wal-and-checkpoints, reference/storage/limits-and-sizing]
 ---
 
 A relate :term[store]{id=store} has one of three layouts, picked by the path given to `--database`: in memory, a directory, or a single `.rl` file. A durable store also has one :term[codec]{id=codec}, the encoding its checkpoints write the snapshot in: `parquet` (the default), `json` or `markdown`. Every layout and codec runs the same engine: the graph is held in memory while the store is open, and every commit goes to the store's :term[write-ahead log]{id=wal} (WAL) before it applies. The layout and codec decide only what a :term[checkpoint]{id=checkpoint} writes to disk.
@@ -80,7 +80,7 @@ WORKS_ON:
 | `manifest.json` | The codec and the checkpoint's log sequence number (LSN) and commit timestamp; for `parquet`, also the format version, the next node and relationship ids, the list of data files, and the index and constraint catalog |
 | `nodes/`, `relationships/` | `parquet` data files, one per id range |
 | `graph.json` | The `json` snapshot |
-| `wal/NNNNNNNN.log` | WAL segments: commits since the last checkpoint, as physical changes to nodes, relationships, labels and properties, not Cypher text |
+| `wal/NNNNNNNN.log` | WAL segments: commits since the last checkpoint, as physical changes to nodes, relationships, labels and properties, not Cypher text ([segment format](/docs/reference/storage/wal-and-checkpoints#segment-format)) |
 | `.cypherlite/schema/` | A text copy of the schema (indexes, constraints, graph type), rewritten at each checkpoint |
 | `.cypherlite.lock`, `.cypherlite.writer`, `wal/.cypherlite.lock`, `wal/.cypherlite.writer` | The writer lock |
 

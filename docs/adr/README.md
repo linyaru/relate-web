@@ -100,3 +100,6 @@ Copy `template.md`.
 | [0020](0020-docs-graph-schema.md) | The docs graph's launch schema, seed format and structural checks | Proposed |
 | [0021](0021-verified-samples-and-release-refresh.md) | Verified language samples, and a release refresh that opens a pull request | Proposed |
 | [0022](0022-shared-example-graph-is-the-team-graph.md) | The docs' shared example graph is the team graph | Proposed |
+| [0023](0023-docs-mcp-worker-shape.md) | The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements | Proposed |
+| [0024](0024-docs-mcp-rate-limits.md) | The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding | Proposed |
+| [0025](0025-markdown-negotiation-rules.md) | How the docs answer Accept: text/markdown and ?section= | Proposed |

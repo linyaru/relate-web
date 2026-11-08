@@ -1,0 +1,110 @@
+# Checks the agent endpoints that run on Cloudflare, locally under workerd
+# (DOCS-PLAN.md §8 check 3c; ADR-0012): builds the site, then
+#   - docs:mcp-check (scripts/docs-mcp-check.ts): the hosted docs MCP server
+#     in workers/docs-mcp/ under `wrangler dev`: initialize, the three tools,
+#     the resources and the onboard prompt, search_docs, get_page byte for
+#     byte against the twins, explain_error against errors.json, the
+#     refusals, CORS, the rate limit and the cost budget with Retry-After,
+#     and a log line with no query text;
+#   - docs:negotiation-check (scripts/docs-negotiation-check.ts): the Pages
+#     Functions in functions/ under `wrangler pages dev`: Accept: text/markdown
+#     returns the twin, ?section= one section, browsers the HTML, and no URL
+#     that is not a page answers with markdown.
+# Neither needs a Cloudflare account, a login or a secret.
+#
+# Runs on a paths filter, so it is not a required status check (CLAUDE.md
+# lists the required one, cookbook.yml). A failure prints the case and what
+# came back; run `node scripts/docs-mcp-check.ts` after `npm run build` to
+# reproduce it.
+name: Docs agent endpoints
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "workers/docs-mcp/**"
+      - "functions/**"
+      - "scripts/docs-mcp-check.ts"
+      - "scripts/docs-negotiation-check.ts"
+      - "src/content/docs/**"
+      - "src/lib/docs/**"
+      - "public/wasm/**"
+      - "public/skills/**"
+      - "public/skill.md"
+      - "public/llms.txt"
+      - "public/releases.json"
+      - "public/_routes.json"
+      - "src/pages/docs/**"
+      - "src/pages/.well-known/**"
+      - "src/components/docs/**"
+      - "src/layouts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docs-mcp.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workers/docs-mcp/**"
+      - "functions/**"
+      - "scripts/docs-mcp-check.ts"
+      - "scripts/docs-negotiation-check.ts"
+      - "src/content/docs/**"
+      - "src/lib/docs/**"
+      - "public/wasm/**"
+      - "public/skills/**"
+      - "public/skill.md"
+      - "public/llms.txt"
+      - "public/releases.json"
+      - "public/_routes.json"
+      - "src/pages/docs/**"
+      - "src/pages/.well-known/**"
+      - "src/components/docs/**"
+      - "src/layouts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docs-mcp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-mcp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Full history: each docs page's "Updated" date is its file's last commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
+            workers/docs-mcp/package-lock.json
+
+      - run: npm ci
+
+      # The playground is its own package; `npm run build` builds it into dist/playground.
+      - run: npm ci --prefix playground
+
+      # The Worker is its own package, with its own wrangler (functions/ has no package).
+      - run: npm ci --prefix workers/docs-mcp
+
+      - name: Build site
+        run: npm run build
+
+      # Bundles dist/ into workers/docs-mcp/generated/, then runs the Worker under wrangler dev.
+      - name: Check the docs MCP server
+        run: npm run docs:mcp-check
+
+      - name: Check content negotiation
+        run: npm run docs:negotiation-check

@@ -38,6 +38,7 @@ export function factsBlock(engine: Engine): string {
     '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',
     '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store (a query run; `relate serve` exits 1 on a locked store), 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
     '- MCP for a local agent: `relate serve --mcp stdio --database ./graph.rl --read-only`.',
+    `- The docs over MCP: \`${CANONICAL_ORIGIN}/mcp\` (streamable HTTP, read-only, no account; tools \`search_docs\`, \`get_page\`, \`explain_error\`). Claude Code: \`claude mcp add --transport http relate-docs ${CANONICAL_ORIGIN}/mcp\`. Limits and threat model: \`${CANONICAL_ORIGIN}${twinUrl('reference/server/docs-mcp')}\`.`,
     '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
     `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
     `- Every page below is markdown at its URL plus \`.md\` (also \`<url>/index.md\`). Whole sections: \`${CANONICAL_ORIGIN}/docs/<section>/llms-full.txt\`; everything: \`${CANONICAL_ORIGIN}/docs/llms-full.txt\`.`,

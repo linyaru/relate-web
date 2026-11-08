@@ -419,9 +419,11 @@ form is listed with it; together they give these rules:
 - Every fenced example the HTML page shows is in the twin.
 - Links are absolute (`https://relatedb.ai/docs/…`), so the twin works on
   its own.
-- A section stands alone: the host is to serve one heading's subtree at
-  `?section=<anchor>` (DOCS-PLAN.md §5; not built yet), so a section
-  restates the default or prerequisite it depends on.
+- A section stands alone: the host serves one heading's subtree at
+  `?section=<anchor>` to a request that prefers `text/markdown`
+  (`functions/docs/_middleware.ts`, DOCS-PLAN.md §5), and the docs MCP
+  server's `get_page` returns the same bytes, so a section restates the
+  default or prerequisite it depends on.
 
 ## Docs are data
 
@@ -525,6 +527,27 @@ The build also serves these files for agents:
 | `/docs/docs-artifacts.json` | Every skill and discovery file and the graph seed, with SHA-256 and size, no timestamp; signed with the release key at launch (`docs-artifacts.json.sig` beside it; the manifest does not name its signature, so signing never changes it) |
 | `/.well-known/security.txt` | Built only once `_data/project.json` names a security contact |
 
+On Cloudflare (ADR-0012), the Pages Function `functions/docs/_middleware.ts`
+answers a request for `/docs/` or `/docs/<id>/` whose `Accept` prefers
+`text/markdown` with the twin's bytes (`Vary: Accept`, `Cache-Control:
+private`, `x-markdown-tokens`: characters divided by four, rounded up).
+`?section=<anchor>` returns that heading's subtree with the frontmatter, the
+Terms entries the section uses (at most five) and a `Full page:` line. The
+anchor is the page's HTML heading id (a glossary entry's id counts as one),
+or the slug of a twin-only heading such as a tab. Only a path shaped like a
+page id whose twin names that URL as its `canonical_url` negotiates, and its
+HTML gets `Vary: Accept` too. Everything else, including the `.md` URLs, is
+served as built. A root middleware, `functions/_middleware.ts`, logs each
+fetch of a twin, an `llms.txt` or the skill; `public/_routes.json` limits
+the paths that invoke a function to those and `/docs/*`. GitHub Pages, the
+interim host, runs neither.
+
+Outside the build, on its own Worker:
+
+| Endpoint | What |
+| --- | --- |
+| `/mcp` | The hosted docs MCP server (`workers/docs-mcp/`; its README has the interface, `reference/server/docs-mcp` the limits and threat model): tools `search_docs`, `get_page`, `explain_error`; resources `relate-docs://page/<id>[#anchor]`, `relate-docs://llms.txt`, `relate-docs://skill/relate`, `relate-docs://releases`; the `onboard` prompt. Built from this build's twins, `graph.cypher`, `_data/errors.json` and `_data/engine.json` by `npm run bundle --prefix workers/docs-mcp`; `get_page` cuts a section with `src/lib/docs/negotiation.ts`, the code `?section=` runs |
+
 ## Glossary
 
 One file per term, `_glossary/<id>.mdx` (ADR-0009, STYLE.md §4.11). Phase 0
@@ -568,6 +591,10 @@ To add a term:
 | `npm run docs:samples` | Runs every ```` ```python run ```` and ```` ```js run ```` sample against the clients `scripts/samples/setup.sh` builds and compares each output with its record (`-- --record` rewrites; skipped without the clients) |
 | `npm run docs:cli-check` | Replays every recorded CLI run in `_data/` and every `bash verify` fence against a relate binary (`RELATE_BIN`, `relate` on PATH, or `RELATE_INSTALL=1` to install the latest release through `public/install.sh`), and fails with a unified diff on drift; `-- --record` rewrites the recordings in `_data/` from the binary, records the pages' verify steps (`page_steps`) and stamps `recorded_with`. Without a binary it prints a skipped line and exits 0. Weekly in CI (`docs-cli-check.yml`) |
 | `npm run docs:graph` | Builds the docs graph's stores from its seed script (`/docs/graph.cypher`): replays it on the WASM and prints the time; with `RELATE_BIN=<path to relate>` also writes `dist/docs/relate-docs.rl` (+ `.sha256`) and `relate-docs.json`, checked with `relate --load`; without a binary it says so and exits 0 |
+| `npm run docs:negotiation-check` | After a build: starts `wrangler pages dev dist` (wrangler 4.158.0 through npx, local workerd, no login; `WRANGLER_VERSION` overrides) from a scratch directory and checks the Pages Function `functions/docs/_middleware.ts` on `/docs/`, `get-started/install` and `reference/errors`. `Accept: text/markdown`, or markdown ranked above HTML, returns the twin byte for byte with `Content-Type: text/markdown; charset=utf-8`, `Vary: Accept`, `Cache-Control: private` and `x-markdown-tokens`. HEAD has no body. `?section=<anchor>` returns that section (frontmatter kept, at most five terms, a full-page line). An unknown anchor is a 404 listing the anchors. Browser requests (with `Vary: Accept`), the `.md` URLs, the skill and `llms.txt` files and paths outside `/docs` pass through unchanged; URLs that are not pages (a file at a twin's path that is not that page's twin, percent-encoded traversal) never answer with markdown. Every heading and glossary entry id on every built page must resolve as an anchor. Prints `skipped` without `dist/`. CI: `docs-mcp.yml`, on a paths filter |
+| `npm run bundle --prefix workers/docs-mcp` | After a build: writes the docs MCP Worker's `generated/` from `dist/`; fails when a twin and the docs graph disagree about section order, `?section=`'s slicer cannot find a section where the bundle put it, or an `errors.json` id has no anchor on `reference/errors`. In `cookbook.yml` |
+| `npm test --prefix workers/docs-mcp` | The Worker's unit tests (the section slicer, and that a section is the `?section=` bytes); `npm run check --prefix workers/docs-mcp` is its tsc. In `cookbook.yml` |
+| `npm run docs:mcp-check` | Runs the hosted docs MCP server (`workers/docs-mcp/`) under `wrangler dev` (workerd, no login) against `dist/` and checks it case by case. Bundles first when `generated/` is missing or older than the build. Cases: initialize; exactly the three tools with their when-to-use sentence and reference-text line; the decided resources and the `onboard` prompt (the quickstart sections verbatim); `search_docs` finds three headings from `llms-full.txt`; `get_page` with `expand` is the twin byte for byte, without it the opening or one section, the same bytes as `?section=`; page, `llms.txt` and skill resources byte for byte; `explain_error` against `_data/errors.json`; unknown and Cypher tools are JSON-RPC errors, write-looking text is never run; `kind: "documentation"` and canonical URLs on every result; CORS; the per-IP limit and the cost budget trip at their published numbers with `Retry-After`; no query text in the log. Prints `skipped` without `dist/`; `-- --coldstart 5` measures five cold starts. CI: `docs-mcp.yml`, on a paths filter |
 | `npm run skill:sync` | Copies upstream's skill bundle into `public/skills/relate/` with the engine's version stamped and records the commit and hashes in `_data/skill.json`; run it with every WASM refresh and review the diff (ADR-0013) |
 | `npm run docs:lint` | Vale (Google style plus the relate vocabulary generated from `_glossary/`) on every page, the glossary and STYLE.md; needs `vale` on PATH (`brew install vale`) |
 | `node scripts/docs.ts --vocab` | Rewrites `scripts/vale/styles/config/vocabularies/relate/accept.txt` after a glossary change (docs:check fails while it is stale) |

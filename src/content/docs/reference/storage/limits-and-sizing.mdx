@@ -3,7 +3,7 @@ title: Limits and sizing
 description: Every limit relate enforces on graph size, commits, values, statements and parameters, with its default, the flag that sets it, and the error it raises.
 order: 20
 surfaces: [cli, node, cypher]
-related: [reference/errors, reference/storage/formats, guides/operate/sizing-and-memory, reference/limitations]
+related: [reference/errors, reference/storage/formats, reference/storage/wal-and-checkpoints, guides/operate/sizing-and-memory, reference/limitations]
 ---
 
 relate holds the whole graph of an open :term[store]{id=store} in memory, so the first limit is the machine's memory. On top of that, relate enforces the limits on this page. Most protect the process from one statement exhausting memory or the stack, and each refusal names what it protected and how to clear it. The graph's size has no limit unless one is set.
@@ -98,7 +98,7 @@ for (const [what, params] of Object.entries(cases)) {
 | --- | --- |
 | Memory while a store is open | The whole graph and its indexes, held in memory; relate has no buffer pool and does not page to disk. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) has a worked sizing |
 | Snapshot on disk | Depends on the codec; the [storage formats reference](/docs/reference/storage/formats#size-on-disk) has measured sizes |
-| WAL on disk | The commits since the last :term[checkpoint]{id=checkpoint}. The current WAL segment closes, and a checkpoint runs, at 64 MiB, at 10,000 commits, or when the checkpoint timer fires |
+| WAL on disk | The commits since the last :term[checkpoint]{id=checkpoint}. The current WAL segment closes, and a checkpoint runs, at 64 MiB, at 10,000 commits, or when the checkpoint timer fires ([when a checkpoint runs](/docs/reference/storage/wal-and-checkpoints#when-a-checkpoint-runs)) |
 | Checkpoint timer | 300 seconds by default; `--checkpoint-interval-secs`, `RELATE_CHECKPOINT_INTERVAL_SECS`; `0` turns off the timer only; `relate serve` takes only `RELATE_CHECKPOINT_INTERVAL_SECS` |
 
 ## Examples

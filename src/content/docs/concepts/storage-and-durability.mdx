@@ -3,7 +3,7 @@ title: Storage and durability
 description: How a write travels from a statement to disk in relate, through the WAL, checkpoints and codecs, and what each durability mode can lose in a crash.
 order: 30
 surfaces: [cli, python, node]
-related: [guides/operate/durability-modes, guides/operate/crash-and-recovery, reference/storage/formats, concepts/transactions-and-concurrency]
+related: [guides/operate/durability-modes, guides/operate/crash-and-recovery, reference/storage/formats, reference/storage/wal-and-checkpoints, concepts/transactions-and-concurrency]
 ---
 
 What happens to a write between the statement and the disk, and what can a crash take back? In relate, every commit takes one path: its changes are appended to the :term[store]{id=store}'s :term[write-ahead log]{id=wal} (WAL), then applied to the graph in memory, which is where every query reads. Disk is for recovery, not for answering queries. Under the default durability mode the log is synced to disk before a commit is acknowledged, so a crash loses no acknowledged write; the two relaxed modes skip that wait and accept a stated loss window instead.
@@ -84,4 +84,5 @@ The reason for this shape is the job relate is built for: an embedded graph that
 - [Upgrade a store](/docs/guides/operate/upgrade-a-store): how a newer release migrates a store on open.
 - [Size a store and its memory](/docs/guides/operate/sizing-and-memory): the memory a graph needs.
 - [Storage formats](/docs/reference/storage/formats): the files, codecs, and version markers.
+- [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints): the segment and record format, checkpoint triggers, and replay.
 - [Limits and sizing](/docs/reference/storage/limits-and-sizing): the 64 MiB commit record and the other limits.

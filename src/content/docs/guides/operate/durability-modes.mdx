@@ -5,7 +5,7 @@ description: "Pick full, everysecond, or snapshot durability for a relate store,
 order: 40
 surfaces: [cli, python, node]
 prerequisites: [get-started/install]
-related: [reference/cli/flags#durability-mode, guides/operate/crash-and-recovery, concepts/storage-and-durability, reference/errors#cli-invalid-env-durability-mode]
+related: [reference/cli/flags#durability-mode, guides/operate/crash-and-recovery, concepts/storage-and-durability, reference/storage/wal-and-checkpoints, reference/errors#cli-invalid-env-durability-mode]
 ---
 
 This guide shows you how to choose and set a :term[durability mode]{id=durability-mode}: the rule for when a commit counts as safe on disk. The default, `full`, syncs the :term[WAL]{id=wal} to disk before a commit returns, so a crash loses no acknowledged write. `everysecond` and `snapshot` return before that sync, and a crash can lose writes they already acknowledged.

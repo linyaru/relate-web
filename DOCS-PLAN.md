@@ -204,7 +204,10 @@ tool an agent would use to read docs.
   `/docs/<path>.md?section=<anchor>` returns one section (frontmatter kept,
   body cut to the heading's subtree), the Terms section is capped at five
   terms, and reference pages that would run long (`functions`) are split
-  by category from the start. Every HTML page carries
+  by category from the start. (As built in phase 1: `?section=` is
+  answered on the canonical page URL to a request that prefers
+  `text/markdown`, and the `.md` URLs are served as built; ADR-0025.)
+  Every HTML page carries
   `<link rel="alternate" type="text/markdown" href="…">`, and the 404 page
   points at `/docs/llms.txt`. Negotiation is a convenience, not the
   primary path: reports on which harnesses send `Accept: text/markdown`
@@ -371,7 +374,8 @@ keep:
    graph: a hosted endpoint at `https://relatedb.ai/mcp` (3.7) for any
    agent with network access, and the local form for agents that have
    relate installed or no network:
-   `relate serve --mcp stdio --read-only --load https://relatedb.ai/docs/relate-docs.rl`.
+   `relate serve --mcp stdio --database :memory: --load https://relatedb.ai/docs/relate-docs.rl --read-only`
+   (`serve` requires `--database`).
    Both expose relate's own `get_schema` and `read_cypher` over the docs
    graph, so every improvement to relate's MCP improves the docs server.
 3. **Errors link to their page.** Every CLI error object and exit code has a
@@ -456,12 +460,16 @@ claude mcp add --transport http relate-docs https://relatedb.ai/mcp
 
 plus the Cursor deeplink with a `{"url": "https://relatedb.ai/mcp"}` entry,
 the `.mcp.json` / `mcp.json` block for Codex, Windsurf, Gemini CLI, Cline
-and OpenCode, and a one-line note that the same tools run locally and
-offline with the `--load` form above.
+and OpenCode, and a one-line note that the `--load` form above serves the
+same docs graph locally and offline. (As built: that form exposes relate's
+own `read_cypher` and `get_schema`, not the hosted tools, and the pages say
+so.)
 
 **Operating rules and threat model (ADR-0013, published as
 `reference/server/docs-mcp`).** No auth and no accounts: the content is
-public and the store is opened read-only (`new RelateDb(true)`). The WASM
+public and the store is opened read-only (`new RelateDb(true)`; as built,
+the WASM cannot seed a read-only store, so the seed is replayed into a
+writable in-memory handle and no tool accepts Cypher: ADR-0023). The WASM
 has no statement deadline today, and a runaway traversal in a reused
 isolate takes every other request with it, so: free Cypher
 (`query_docs_graph`) ships only once the engine exposes a deadline
@@ -477,8 +485,10 @@ says what Cloudflare itself logs and for how long; an abuse contact.
 Uptime is the site's: if the Worker is down, the `.md` twins and
 `llms.txt` still answer, and the local form still works.
 
-**Checks.** `docs:check` gains an MCP smoke test after the Worker builds:
-`initialize`, `tools/list` shows exactly the five tools and
+**Checks.** `docs:check` gains an MCP smoke test after the Worker builds
+(as built: `npm run docs:mcp-check`, in `docs-mcp.yml`):
+`initialize`, `tools/list` shows exactly the tools that ship (three in
+phase 1; five is the ceiling) and
 `resources/list` the resources, `search_docs` for a known heading returns
 its page, `get_page` returns the same bytes as the `.md` twin's section, a
 write and a procedure call are refused. `cookbook:browser`-style CI runs
@@ -1547,7 +1557,7 @@ to prove the layout, the twin format and the safe-default contract
 - Reference: `cli/index`, `flags`, `exit-codes-and-errors`, `agent-mode`
   (generated from `cli.json`), `errors`, `cypher/overview`,
   `differences-from-neo4j`, `search`, `storage/formats`,
-  `limits-and-sizing`, `limitations`, `changelog`, `performance`,
+  `wal-and-checkpoints`, `limits-and-sizing`, `limitations`, `changelog`, `performance`,
   `project`, `security`, `privacy-and-telemetry`, `server/docs-mcp`,
   `glossary` (short).
 - Concepts: `where-relate-fits`, `agent-native`,

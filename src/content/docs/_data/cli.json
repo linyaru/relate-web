@@ -3518,6 +3518,20 @@
         "command": "relate --mode envelope \"WITH reduce(s = 'a', i IN range(1, 25) | s + s) AS s CREATE (:Blob {s: s}) RETURN size(s) AS characters\"",
         "expected_sha256": "c3413974a8668c4fe7d49d8c64620d9668222913aefab20a54d1448bd36640e7"
       }
+    ],
+    "reference/storage/wal-and-checkpoints.mdx": [
+      {
+        "command": "cat > team.cypher <<'EOF'\nCREATE (:Person {name: 'Ada', role: 'engineer'});\nCREATE (:Person {name: 'Grace', role: 'engineer'});\nCREATE (:Person {name: 'Noor', role: 'maintainer'});\nEOF\nrelate query --database ./team < team.cypher\nrelate info --database ./team\nls -A team/wal\ncat team/wal/00000002.log; echo",
+        "expected_sha256": "a863f6f54c7d1ac22ac1cc9214ee9f6ad83b4927a52aba26285192cd8bc1d279"
+      },
+      {
+        "command": "cat > checkpoint.cypher <<'EOF'\nMATCH (a:Person {name: 'Ada'}), (g:Person {name: 'Grace'}) CREATE (a)-[:KNOWS]->(g);\n.info\n.checkpoint\n.info\nEOF\nrelate query --database ./team < checkpoint.cypher | grep -E '^(checkpoint LSN|total bytes|wal segments)'",
+        "expected_sha256": "aba5a28ca6086d220990c4c23185b5f1175152588faf590d24d8836f041329ef"
+      },
+      {
+        "command": "relate query --database ./batch <<'EOF' | grep -E '^(checkpoint LSN|nodes)'\nUNWIND range(1, 10001) AS i CALL (i) { CREATE (:Item {i: i}) } IN TRANSACTIONS OF 1 ROWS;\n.info\nEOF\nrelate info --database ./batch | grep -E '^(checkpoint LSN|nodes)'",
+        "expected_sha256": "7154cf05c7e6eec19e3582c1c27fa994065a64f237e700a3861185e8009c1172"
+      }
     ]
   }
 }

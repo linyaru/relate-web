@@ -1,4 +1,241 @@
 ---
 title: The hosted docs MCP server
-status: planned
+label: Hosted docs MCP server
+description: The relate documentation over MCP, with three read-only tools, every page as a resource, and one prompt; the hosted server's limits, logs, and threat model.
+order: 10
+surfaces: [mcp, agents]
+related: [guides/agents/connect-over-mcp, reference/security, reference/privacy-and-telemetry, reference/errors, guides/agents/agent-safety]
 ---
+
+`https://relatedb.ai/mcp` serves the relate documentation to agent hosts over MCP (the Model Context Protocol): three read-only tools that search the pages, read one section or one page, and look up an error, every page as a resource, and one prompt. It needs no account and no credential, and it opens no :term[store]{id=store} of yours. The URL is a launch-day target: the server is not deployed yet, and until it is, it runs only as a local build of the site's source. It is not relate's own MCP server, `relate serve --mcp`, which serves a store of yours with the tools `read_cypher`, `get_schema` and `write_cypher`; no tool here shares a name with those, so a host can connect both.
+
+## Synopsis
+
+| Item | Value |
+| --- | --- |
+| Endpoint | `https://relatedb.ai/mcp` (a launch-day target) |
+| Transport | MCP streamable HTTP: each JSON-RPC request is a `POST`, answered as server-sent events (SSE), one `event: message` per response |
+| Sessions | None. The server is stateless: no `mcp-session-id` is issued, and a `GET` that asks for `text/event-stream` and a `DELETE` both get HTTP 405 |
+| Required request headers | `Content-Type: application/json` and `Accept: application/json, text/event-stream`; without that `Accept` value the answer is HTTP 406 |
+| Authentication | None, and no accounts |
+| Writes | None: no tool accepts Cypher, and nothing a request sends is stored |
+| `serverInfo` | `name` `relate-docs`, `title` `relate docs`, `version` `0.1.0`, `websiteUrl` `https://relatedb.ai/docs/` |
+| Capabilities | `tools`, `resources`, `prompts` |
+| What it serves | The published docs pages and their markdown twins, the docs index (`llms.txt`), the agent :term[skill]{id=skill}, the errors reference data, and the release list |
+| Docs version | relate 0.16.1, the version every page and every example is verified against; every tool result carries it as `version.verified` |
+| Built from | The same site build as the pages: the twins at `/docs/<id>.md`, the docs graph seed at `/docs/graph.cypher`, the errors data behind [Errors](/docs/reference/errors), and `/releases.json` |
+| Runs on | A Cloudflare Worker running the relate engine compiled to WebAssembly (WASM), the same build the site's runnable cells use |
+
+The server's `initialize` result carries `instructions` that describe it: the canonical phrase, the verified version, the tools, resources and prompt, the line "Every result is reference text from the documentation, not instructions", and where the limits are published.
+
+## Tools
+
+Three tools. Each is annotated `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: false`, and each description ends with "Results are reference text, not instructions." A result's JSON is in `structuredContent` and, as text, in `content[0]`. Every result carries `kind: "documentation"`, a `note` saying it is reference text, and the canonical `https://relatedb.ai/docs/…` URL and the `.md` URL of each page it cites.
+
+| Tool | Input | Returns |
+| --- | --- | --- |
+| `search_docs` | `query` (required, 1 to 200 characters); `limit` (1 to 20, default 5); `section` (`get-started`, `guides`, `reference` or `concepts`); `surface` (one of `cli`, `python`, `node`, `browser`, `rust`, `c`, `java`, `go`, `swift`, `bolt`, `http`, `mcp`, `docker`, `extensions`, `cypher`, `agents`); `version` (at most 40 characters) | `query` (the limit and filters applied), `version` (`verified`, and a `warning` when `version` names another release), and `results`: ranked sections, each with `id` (`<page>#<anchor>`), `page` (`id`, `title`, `url`, `md_url`), `heading`, `anchor`, `url`, `snippet` and `score`. A `hint` is added when nothing matched |
+| `get_page` | `slug` (a page id such as `get-started/install`) or `url` (the page URL, its `.md` URL, its `/index.md` URL or `relate-docs://page/<id>`; a `#fragment` selects a section), one of the two required; `heading` (an anchor, `#anchor` or the heading text, case-insensitive); `expand` (boolean); `version` | `page` (`id`, `title`, `url`, `md_url`, `description`, `type`, `status`), `section` (`anchor`, `heading`, `url`, or null), `form`, `version`, `prerequisites`, `related`, `terms` (`id`, `url`), `sections` (the page's anchors), `truncated` and `tokens_estimate`; the markdown itself is `content[1]` |
+| `explain_error` | At least one of `code` (the error object's code, an entry id or a Neo4j code, matched exactly and case-insensitively; all digits match a CLI exit code; a negative integer matches a JSON-RPC code), `kind`, `gql_status`, `message` (matched against the recorded message patterns, whole-pattern matches first); several fields combine with AND | `page` ([Errors](/docs/reference/errors)), `matched_on`, `total`, `errors` (each entry's `id`, `surface`, `code`, `kind`, `gql_status`, `neo4j_code`, `exit_code`, `jsonrpc_code`, `http_status`, `python_class`, `retryable`, `message`, `cause`, `remedy`, `note`, its `url` at `https://relatedb.ai/docs/reference/errors/#<id>`, and `pages`: the errors page first, then every page that links to the entry), `notifications` for a GQLSTATUS, and a `hint` when nothing matched |
+
+`search_docs` runs one fixed statement over the docs graph's full-text index `docs`, which covers the heading and text of every section of every authored page. The generated pages, [Glossary](/docs/reference/glossary) and [Changelog](/docs/reference/changelog), are not in the docs graph yet, so a search never returns them; `get_page` reads them, and the `search_docs` description says so. The words in `query` are bound as a parameter, never spliced into the statement. Common words (`the`, `how`, `from` and the like) are left out of the query unless nothing else is left. The index returns its 200 best sections, and the server ranks those: ten times the share of the query's words that appear in a section's heading, plus the index score divided by log2(2 + the section's length in characters), so the section a heading names comes before a long section that mentions the words in passing. `score` is that rank. A search hit's `anchor` is what `get_page` takes as `heading`.
+
+`get_page` answers in one of three forms:
+
+| `form` | When | The markdown in `content[1]` |
+| --- | --- | --- |
+| `opening` | No `heading`, no `expand` | The twin's frontmatter, H1, description, version line and the text before the first section, plus `sections` listing every anchor |
+| `section` | `heading` given, or a `#fragment` in `url` | The frontmatter, then the twin's own bytes from that heading to the next heading at the same or a higher level (an H2 includes its H3s), then a `Terms used on this page` section with the page's terms that subtree uses (a glossary link or the term as a word), at most five, then a line `Full page: <url> (markdown: <md url>)`. The same bytes as the page's URL with `?section=<anchor>` and `Accept: text/markdown` |
+| `page` | `expand: true` | The whole twin, byte for byte the file at `/docs/<id>.md` |
+
+Tool errors are results with `isError: true` and the same `kind` and `note`, plus `error` (`code`, `message`):
+
+| `error.code` | When | Also returned |
+| --- | --- | --- |
+| `page_not_found` | No published page has that id or URL | `suggestions` (up to five pages whose id or title shares a word with the request) and `index` (the `llms.txt` URL) |
+| `heading_not_found` | The page has no section with that anchor or heading | `sections` (the page's anchors) |
+| `engine_unavailable` | The engine instance in this isolate failed; lasts until Cloudflare replaces the isolate | None; `get_page`, `explain_error` and the resources keep working |
+| `search_failed` | The search statement failed | None |
+| `read_failed` | `get_page` failed to read a page it lists | None; the page's twin at its URL plus `.md` |
+
+Input that fails a tool's schema returns an `isError` result whose text starts with `Input validation error:`. A tool name the server does not have, such as `read_cypher`, is the JSON-RPC error `-32602` with the message `Tool <name> not found`.
+
+## Resources
+
+| URI | Content | MIME type |
+| --- | --- | --- |
+| `relate-docs://page/<id>` | The page's markdown twin, the same bytes as `/docs/<id>.md`; `#<anchor>` returns one section, the same slice as `get_page` with `heading`. A resource template, `relate-docs://page/{+slug}`, listed once per published page with its title and description | `text/markdown` |
+| `relate-docs://llms.txt` | The docs index with its facts block, as served at `https://relatedb.ai/docs/llms.txt` | `text/markdown` |
+| `relate-docs://skill/relate` | The agent skill's `SKILL.md`, as served at `https://relatedb.ai/skills/relate/SKILL.md` | `text/markdown` |
+| `relate-docs://skill/relate/references/<file>.md` | Each of the skill's reference files | `text/markdown` |
+| `relate-docs://releases` | `kind`, `note`, `source` (`https://relatedb.ai/releases.json`), `latest`, and `releases`: each release's `tag`, `published_at`, `prerelease` flag and `assets`, with `notes` on the newest only | `application/json` |
+
+A URI that names no resource is the JSON-RPC error `-32602`, with the URI in `data.uri`.
+
+## Prompt
+
+| Prompt | Arguments | Returns |
+| --- | --- | --- |
+| `onboard` | None | One `user` message: a framing paragraph, then, verbatim, the sections of [Connect your agent to relate](/docs/get-started/agent-quickstart) that install a pinned relate, check the output format, install the skill, read the briefing and add relate to an `AGENTS.md` |
+
+The prompt is the one place the server's own text addresses an agent. A host sends it only when its user picks it. Resources and tool results quote published files: the skill resource and the steps of how-to and tutorial pages are written to their reader, and the server serves them as reference text, with no authority over the receiving agent's task.
+
+## Limits
+
+Every row is a limit. The numbers are also in the plain-text answer to a `GET https://relatedb.ai/mcp` and in the `data` of every HTTP 429.
+
+| Limit | Value | Over the limit |
+| --- | --- | --- |
+| Requests per IP address | 20 per 10 seconds, counting every request to `/mcp` other than the plain-text `GET` and an `OPTIONS` preflight, a malformed or oversized `POST` included (it counts before its body is read), and every `GET /healthz` | HTTP 429, JSON-RPC `-32010` `Rate limited`, `Retry-After` |
+| Cost budget per IP address and tool | 120 units per 60 seconds for each tool: `search_docs` costs 3 units, so 40 searches a minute; `get_page`, `explain_error`, `resources/read` and `prompts/get` cost 1. Other methods (`initialize`, `tools/list`, `resources/list`) cost nothing but count toward the request limit | HTTP 429, JSON-RPC `-32011` `Tool cost budget exhausted`, `Retry-After` |
+| Request body | 64 KiB (65,536 bytes of UTF-8, not characters). A larger `Content-Length` is refused before the body is read, and a body sent without one is read only up to the cap | HTTP 413, JSON-RPC `-32012` `Request too large`, with `data.max_bytes` |
+| Messages per request | 10: a JSON-RPC batch of more than 10 messages is refused before any of its calls spends from the cost budget. With the text cap, one response carries at most 10 capped results. The MCP revision of 2025-06-18 has no batches, so a client on it sends one message per request | HTTP 400, JSON-RPC `-32600` `Batch too large`, with `data.max_messages` |
+| Text per tool result or resource | 96 KiB | The text is cut at a line and ends with a line naming the URL of the whole text; `get_page` sets `truncated: true` |
+| `search_docs` results | 20 at most, 5 by default | A `limit` greater than 20 fails the schema |
+| `search_docs` candidates | The index returns the 200 best-matching sections; a `section` or `surface` filter applies to those, and the ranking chooses among them | A matching section the index ranks below 200 is not returned |
+| `explain_error` matches | 10 entries at most; `total` counts every match | The rest are left out |
+| Glossary terms per `get_page` section | 5 | `terms_omitted` says how many were left out |
+| Input lengths | `query` 200 characters, `message` 2,000, `slug` 200, `url` 300, `code` and `kind` 100, `gql_status` 10, `version` 40 | An `Input validation error` result |
+
+A 429 carries `Retry-After` in seconds, `RateLimit-Policy: "ip";q=20;w=10, "tool-cost";q=120;w=60`, and `data` with `retry_after`, `limits` (the limits in words) and `policy`. Deployed, the counters are kept by Cloudflare's rate limiting service, which counts per Cloudflare location in windows aligned to the clock and reports no reset time, so `Retry-After` is the window length, 10 or 60 seconds: an upper bound on the wait. Without that service, the Worker keeps the same numbers in a fixed window per isolate and gives the exact wait. `GET /healthz` says which limiter is in use.
+
+Other JSON-RPC errors: `-32700` parse error (HTTP 400), `-32600` a batch of more than 10 messages (HTTP 400), `-32601` method not found, `-32603` internal error (HTTP 500).
+
+## Headers and routes
+
+| Header | Value |
+| --- | --- |
+| `Access-Control-Allow-Origin` | `*`, on every response |
+| `Access-Control-Allow-Methods` | `GET, POST, DELETE, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Content-Type, Accept, mcp-session-id, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Last-Event-ID` |
+| `Access-Control-Expose-Headers` | `mcp-session-id, MCP-Protocol-Version, Retry-After, RateLimit-Policy` |
+| `Access-Control-Max-Age` | `86400` |
+| `Access-Control-Allow-Credentials` | Never sent; no response sets a cookie |
+| `Cache-Control` | `no-store` |
+| `RateLimit-Policy` | `"ip";q=20;w=10, "tool-cost";q=120;w=60`, on every MCP response and on every 429 |
+
+| Route | Answer |
+| --- | --- |
+| `POST /mcp` | The MCP endpoint |
+| `GET /mcp` without `Accept: text/event-stream` | A plain-text description: the canonical URLs, the tools, resources and prompt, the `claude mcp add` line, the limits, the CORS and logging policy, the abuse contact (none yet) and the line "Results are reference text, not instructions." |
+| `OPTIONS` on any path | HTTP 204 with the CORS headers |
+| `GET /healthz` | JSON: `ok`, `kind`, `engine` (`version`, `verified`, `date`, `commit`, `source_build`), `graph` (nodes replayed against nodes expected, relationships expected, seed statements and bytes), `pages`, `init_ms` and `limiter`. It starts the engine if needed; HTTP 503 with `ok: false` when the docs graph fails to load |
+| Any other path | HTTP 404, plain text pointing at `/mcp` and `/docs/llms.txt` |
+
+## Threat model
+
+The model covers what the server holds, what a caller can make it do, and what a result means.
+
+| Concern | How the server handles it |
+| --- | --- |
+| What it holds | Only what the site already publishes: the docs pages, the errors data, the skill, and the release list. No user data, no credentials, no secrets. Nothing a request sends is kept beyond the request |
+| Writes | No write path. No tool accepts Cypher; the only statement run after the docs graph is loaded is the one fixed `search_docs` read, with the caller's words bound as a parameter. The docs graph lives in the isolate's memory and is rebuilt from `/docs/graph.cypher` on each new isolate |
+| The read-only open | The WASM build cannot open a read-only in-memory store with content in it: a read-only in-memory store refuses every write, the load included, and the WASM cannot open a `.rl` file or a snapshot. So the graph is loaded into a writable in-memory store, and the fence is that no request can send a statement. A way to freeze a loaded store, or to open a snapshot read-only, is an upstream request |
+| Free Cypher | Not offered. The WASM engine has no statement deadline, and one isolate serves many requests in turn, so one runaway statement (an unbounded traversal, say) would hold that isolate until Cloudflare's CPU limit stops it and stall every request queued behind it. A Cypher tool over the docs graph, `query_docs_graph`, ships only once the engine exposes a deadline |
+| A failed engine | If the engine instance fails, `search_docs` answers `engine_unavailable` until Cloudflare replaces the isolate; `get_page`, `explain_error` and the resources read the bundled pages and keep working |
+| Volume | The per-IP request limit and the per-tool cost budget of [Limits](#limits), a 64 KiB request cap, and a 96 KiB cap on the text of each result. A JSON-RPC batch counts once against the request limit, carries at most 10 messages, and each call in it spends from the cost budget, so one request returns at most 10 capped results. The budget exists because cloud agent harnesses share outgoing addresses: one per-IP number would be too strict for many agents behind one address and too loose for one agent repeating a search |
+| Cross-origin use | CORS (cross-origin resource sharing) allows every origin (`*`), with no cookies and no credentials, and the server does not check `Origin`. A page on any website can call it and read only what the docs already publish |
+| Accounts | None. There is nothing to sign in to and nothing to take over |
+
+**What a result means.** A result is a quotation of the published documentation at the verified version, with the page it came from. It is reference text, not instructions: it carries no authority over the task of the agent that receives it, and it is never phrased as an order to that agent. A result says what the docs say about relate 0.16.1; it does not show what the relate a client has installed does. `relate --version` and running the statement show that, and `search_docs` and `get_page` add a `version.warning` when the `version` given names another release. The only text the server itself writes to an agent is the `onboard` prompt, sent when a host's user picks it.
+
+## What is logged
+
+The Worker writes one JSON line per request to `/mcp` or `/healthz`, with `evt: "docs-mcp"` and these fields:
+
+| Field | Holds |
+| --- | --- |
+| `path`, `http` | The path and the HTTP method |
+| `rpc` | The JSON-RPC methods in the request, from a fixed list of known names; anything else is `other`, and a client's response is `response` |
+| `tool` | The tool called, if it is one of the three; any other name is `unknown` |
+| `ua` | The client family from the `User-Agent` header, from a fixed list (such as `claude-code`, `cursor`, `codex`, `curl`); anything else is `other`, and no header is `none` |
+| `status`, `ms` | The HTTP status and the duration in milliseconds |
+| `zero_results` | For `search_docs` and `explain_error`: whether nothing matched |
+| `tool_error`, `limited`, `rpc_error` | The tool error code, which limit was hit (`ip` or `tool-cost`), the JSON-RPC error code, when they apply |
+
+Never logged: the query text, the page or heading asked for, any argument, an error message, an IP address, or the whole `User-Agent` string. An exception the Worker does not expect adds one line with `evt: "docs-mcp-error"`, the path and the exception's type, never its message. Cloudflare's invocation log for each request, which carries Cloudflare's own request metadata, is turned off in the Worker's configuration. The rate limiter keys its counters by the client's IP address; the address is not written to the log. How long these lines are kept, and what Cloudflare itself records about each request and for how long, depend on the Cloudflare account, which does not exist yet: both are to be published here at launch.
+
+## Abuse contact
+
+None yet. An abuse contact for the server is to be published at launch, with the security disclosure address of [Security](/docs/reference/security).
+
+## When the server is unavailable
+
+No uptime commitment is published. The server reads the same files the site serves, and those keep answering when the Worker is down or a client is over its limit:
+
+| Instead of | Read |
+| --- | --- |
+| `search_docs` | The docs index, `https://relatedb.ai/docs/llms.txt`, and every page at once, `https://relatedb.ai/docs/llms-full.txt` |
+| `get_page` | The page's twin: its URL plus `.md`, such as `https://relatedb.ai/docs/reference/errors.md` |
+| `explain_error` | [Errors](/docs/reference/errors), one entry per anchor |
+| Any of them, offline | [The local equivalent](#the-local-equivalent) |
+
+## The local equivalent
+
+The docs graph the server searches is also to be published as a relate store, `https://relatedb.ai/docs/relate-docs.rl`, built from the same seed by the relate CLI, with its SHA-256 beside it at `https://relatedb.ai/docs/relate-docs.rl.sha256`. Both URLs are launch-day targets: the store is built and served once the deploy workflows install relate. `--load` into the default in-memory store opens it :term[read-only]{id=read-only}, and the search runs offline once the file is downloaded.
+
+The checked path is to download the store, compare its SHA-256 with the published value, and load the local copy. In this block, `<sha256>` is the value in `relate-docs.rl.sha256`, and the search runs only when it matches; on macOS, `shasum -a 256 --strict -c -` stands in for `sha256sum --strict -c -`:
+
+```bash
+curl -sSfLO https://relatedb.ai/docs/relate-docs.rl
+echo "<sha256>  relate-docs.rl" | sha256sum --strict -c - && relate --load ./relate-docs.rl --mode envelope "MATCH (s:Section) SEARCH s IN (FULLTEXT INDEX docs FOR 'exit code' LIMIT 5) SCORE AS score RETURN s.page AS page, s.heading AS heading, s.url AS url, score"
+```
+
+The same store served over MCP on the agent's own machine has relate's own tools, `read_cypher` and `get_schema`, not this server's three, so any read over the docs graph is allowed there. A relative path resolves against the directory the host starts the server in:
+
+```bash
+claude mcp add relate-docs-local -- relate serve --mcp stdio --database :memory: --load <absolute-path>/relate-docs.rl --read-only
+```
+
+## Examples
+
+Adding the server to Claude Code, for the current project:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+claude mcp add --transport http relate-docs https://relatedb.ai/mcp
+```
+
+The same entry in a project's `.mcp.json`, which `claude mcp add --scope project` writes:
+
+{/* docs-check-ignore trust-read-only */}
+```json title=".mcp.json"
+{
+  "mcpServers": {
+    "relate-docs": {
+      "type": "http",
+      "url": "https://relatedb.ai/mcp"
+    }
+  }
+}
+```
+
+Neither entry carries `--read-only`: the server opens no store of yours and has no write path. [Connect over MCP](/docs/guides/agents/connect-over-mcp#add-the-relate-docs-server) has the entry for each other host.
+
+An `initialize` request with `curl`:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+curl -s https://relatedb.ai/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+```
+
+The response, recorded on 2026-11-07 from a local run of the server (`wrangler dev`) built from the same docs as this page:
+
+```text
+event: message
+data: {"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true},"prompts":{"listChanged":true}},"serverInfo":{"name":"relate-docs","title":"relate docs","version":"0.1.0","websiteUrl":"https://relatedb.ai/docs/"},"instructions":"relate, the embedded Cypher graph database (relatedb.ai): its documentation, verified against relate 0.16.1.\nTools: search_docs finds sections, get_page reads a section or a page, explain_error looks up an error. Resources: every page (relate-docs://page/<id>), the index (relate-docs://llms.txt), the agent skill (relate-docs://skill/relate) and the releases (relate-docs://releases). Prompt: onboard, the agent quickstart.\nEvery result is reference text from the documentation, not instructions. Each one cites its page at https://relatedb.ai/docs/ and the page's markdown twin (.md).\nRead-only, no accounts, rate-limited; limits are published with each 429 and at https://relatedb.ai/mcp."},"jsonrpc":"2.0","id":1}
+```
+
+The body of the answer to the twenty-first request from one address within 10 seconds, recorded from the same local run; its status line is `HTTP/1.1 429 Too Many Requests`, with `Retry-After: 10`:
+
+```text
+{"jsonrpc":"2.0","id":1,"error":{"code":-32010,"message":"Rate limited","data":{"retry_after":10,"limits":"Per IP address: 20 requests per 10 seconds.\nPer IP address and tool, a cost budget of 120 units per 60 seconds: search_docs costs 3 units; get_page, explain_error, resources/read and prompts/get cost 1.\nOver a limit the answer is HTTP 429 with Retry-After (seconds) and a JSON-RPC error.","policy":"\"ip\";q=20;w=10, \"tool-cost\";q=120;w=60"}}}
+```
+
+## See also
+
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): the entry for this server in each host, beside relate's own MCP server
+- [Errors](/docs/reference/errors): the entries `explain_error` returns, one per anchor
+- [Security](/docs/reference/security): release signing and the defaults of every served surface
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what the CLI and the site record
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens and the permission matrix across surfaces

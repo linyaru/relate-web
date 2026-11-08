@@ -5,7 +5,7 @@ description: "Bring a relate store back after a crash or a killed process: what 
 order: 30
 surfaces: [cli]
 prerequisites: [get-started/install]
-related: [guides/operate/durability-modes, guides/storage/backup-and-restore, reference/errors#cli-fatal-error-storage, concepts/storage-and-durability]
+related: [guides/operate/durability-modes, guides/storage/backup-and-restore, reference/errors#cli-fatal-error-storage, concepts/storage-and-durability, reference/storage/wal-and-checkpoints#the-torn-tail-rule]
 ---
 
 This guide shows you how to bring a store back after the process that had it open crashed, was killed, or lost power. Usually there is nothing to repair. The next open loads the store's last :term[snapshot]{id=snapshot} and replays the :term[WAL]{id=wal} on top of it, so under the default `full` :term[durability mode]{id=durability-mode} every write that was acknowledged comes back.
@@ -132,7 +132,7 @@ relate --database ./team.rl --mode envelope "MATCH ()-[m:MAINTAINS]->() RETURN c
 {"columnTypes":["INTEGER"],"columns":["maintains"],"notifications":[],"rows":[{"maintains":2}],"truncated":false}
 ```
 
-A checkpoint writes the committed graph to a fresh snapshot, so the next open replays less WAL; a read-only open never checkpoints. It is not a backup: it overwrites the store's own snapshot, and a copy you can restore from comes from `relate clone`. The other points at which a checkpoint runs are in [Limits and sizing](/docs/reference/storage/limits-and-sizing).
+A checkpoint writes the committed graph to a fresh snapshot, so the next open replays less WAL; a read-only open never checkpoints. It is not a backup: it overwrites the store's own snapshot, and a copy you can restore from comes from `relate clone`. The other points at which a checkpoint runs are in [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints#when-a-checkpoint-runs).
 
 ## Verify
 

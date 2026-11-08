@@ -1,0 +1,244 @@
+---
+title: WAL and checkpoints
+description: The write-ahead log's segment and record format, what each commit appends, when a checkpoint runs, what replay does on open, and the torn-tail rule.
+order: 15
+surfaces: [cli]
+related: [concepts/storage-and-durability, reference/storage/formats, reference/storage/limits-and-sizing, guides/operate/crash-and-recovery, guides/operate/durability-modes]
+---
+
+Every commit to a relate :term[store]{id=store} is appended as one record to the store's :term[write-ahead log]{id=wal} (WAL) before it applies to the graph in memory. A :term[checkpoint]{id=checkpoint} writes the committed graph to the store's :term[snapshot]{id=snapshot} files and deletes the WAL segments the snapshot now covers. Opening a store loads the snapshot, then replays the WAL records written after it. The WAL's format is the same under every layout and codec. [Storage and durability](/docs/concepts/storage-and-durability) explains why the write path has this shape.
+
+## Synopsis
+
+```text
+relate --database <path> [--wal-dir <dir>] [--checkpoint-interval-secs <n>]
+       [--durability-mode full|everysecond|snapshot] [--read-only[=live]] [<statement>]
+relate query --database <path> < <script>
+relate info --database <path> [--json]
+```
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| [`--checkpoint-interval-secs <n>`](/docs/reference/cli/flags#checkpoint-interval-secs) | `300` | Seconds between timed checkpoints, on `relate` and `relate query`. `0` turns off the timer only; the other triggers still run |
+| [`RELATE_CHECKPOINT_INTERVAL_SECS`](/docs/reference/cli/flags#env-relate-checkpoint-interval-secs) | `300` | The same period for an open that sets no interval, `relate serve` included; the flag wins over the variable. A value that is not a whole number is not an error: the period stays `300` |
+| [`--wal-dir <dir>`](/docs/reference/cli/flags#wal-dir) | `<database>/wal`; `<database>/.cypherlite/wal` for the `markdown` codec | Where a directory store keeps its WAL. Refused for a `.rl` file; `relate serve` has no such flag |
+| [`--durability-mode`](/docs/reference/cli/flags#durability-mode), `RELATE_DURABILITY_MODE` | `full` | When a commit's record is synced to disk relative to its acknowledgment |
+
+Two dot commands of the interactive shell, also accepted as lines of a script piped to `relate query`, act on the WAL and checkpoints:
+
+| Dot command | Effect |
+| --- | --- |
+| `.checkpoint` | Runs a checkpoint now and prints nothing on success. Refused on a `--read-only` open |
+| `.info` | Prints the fields of `relate info` from inside the session; its node and relationship counts are the live graph's, not the snapshot's |
+
+## Files on disk
+
+| Layout | WAL location | Segment files | Lock files |
+| --- | --- | --- | --- |
+| Directory store, `parquet` or `json` codec | `<database>/wal/`, or the `--wal-dir` folder | `NNNNNNNN.log` | `.cypherlite.lock` and `.cypherlite.writer` in the WAL folder |
+| Directory store, `markdown` codec | `<database>/.cypherlite/wal/`, or the `--wal-dir` folder | `NNNNNNNN.log` | `.cypherlite.lock` and `.cypherlite.writer` in the WAL folder |
+| `.rl` file | Inside the file, as `wal/` in the same tree | `wal/NNNNNNNN.log` inside the file | None beside the file; a writer holds the `.rl` file itself |
+| In memory | Process memory; nothing on disk | Not applicable | Not applicable |
+
+The store's root also holds its own `.cypherlite.lock` and `.cypherlite.writer`. The `manifest.json` of the last checkpoint records the checkpoint's log sequence number (LSN) as `checkpoint_lsn`, with its `commit_ts`; [Storage formats](/docs/reference/storage/formats#directory-store-files) lists the snapshot files beside them.
+
+## Segment format
+
+The WAL is a series of segment files. Exactly one, the segment with the highest id, is open for appends.
+
+| Part | Size | Content |
+| --- | --- | --- |
+| Name | Not applicable | The segment id as 8 decimal digits, then `.log`. A new WAL starts at `00000001.log`; each new segment takes the next id. Other file names in the folder are ignored |
+| Magic | 8 bytes | `MDBWAL01`; `MDBWAL02` for a segment created while the store holds an ontology. Both are readable by this release |
+| Records | The rest of the file | Zero or more records, back to back, up to the end of the file |
+
+A segment that holds no records is 8 bytes long: its magic alone.
+
+## Record format
+
+| Field | Size | Content |
+| --- | --- | --- |
+| Checksum | 4 bytes, little-endian | CRC-32 of the payload |
+| Length | 4 bytes, little-endian | The payload's length in bytes: at least 1, at most 67,108,864 (64 MiB). A limit: a larger commit is refused before anything is written |
+| Payload | The length in bytes | One JSON object with the keys `lsn`, `commit_ts` and `ops` |
+
+| Payload key | Content |
+| --- | --- |
+| `lsn` | The record's log sequence number. It increases with every record, and replay applies only records with an LSN higher than the snapshot's `checkpoint_lsn` |
+| `commit_ts` | The commit timestamp. It increases strictly from one record to the next across every segment, and is never `0` |
+| `ops` | The commit's physical changes: a node or relationship created or deleted, a property set or removed, or a label added or removed. Never Cypher text, so replay never re-runs a statement. The encoding of each entry belongs to the engine; a change to it comes with a new segment magic |
+
+## What a commit appends
+
+| Statement or transaction | WAL effect |
+| --- | --- |
+| A statement outside a transaction that changes the graph | One record |
+| An explicit transaction (`.begin` … `.commit` in the CLI) | One record at commit, holding every statement's changes |
+| An explicit transaction with no changes, or one rolled back | Nothing |
+| A statement that changes nothing: a read, or a write whose pattern matches nothing | Nothing |
+| `CALL { … } IN TRANSACTIONS` | One record per batch |
+| A commit whose record would exceed 64 MiB | Nothing; the statement fails with [`This statement tried to commit a single WAL record of at least <size>. …`](/docs/reference/errors#engine-wal-payload-cap) |
+| A commit that sets an ontology while the open segment is `MDBWAL01` | A new `MDBWAL02` segment first, then one record in it |
+| Any write on a `--read-only` open | Nothing; the write is refused |
+
+The record is appended to the open segment. When that segment then holds 64 MiB or 10,000 commits, it closes and a checkpoint starts. Under the default `full` :term[durability mode]{id=durability-mode} the record is synced to disk before the commit is acknowledged, and commits waiting together share one sync; `everysecond` syncs about once a second and `snapshot` never syncs on commit. [Choose a durability mode](/docs/guides/operate/durability-modes) states each mode's loss window.
+
+## What a checkpoint does
+
+| Step | Effect |
+| --- | --- |
+| Rotate | The open segment closes, if it holds records; new commits go to a segment with the next id |
+| Pin | The checkpoint takes the LSN of the newest closed segment's last record |
+| Write the snapshot | The committed state up to that LSN is written through the store's codec ([codecs](/docs/reference/storage/formats#codecs)), together with the schema text copy under `.cypherlite/schema/` |
+| Publish | Files are written under a temporary name and renamed into place, `manifest.json` last; the manifest's `checkpoint_lsn` is the pinned LSN. A crash before this step leaves the previous snapshot in force |
+| Recycle | Closed segments whose last record's LSN is no higher than the checkpoint LSN are deleted |
+
+An in-memory store has no snapshot files: its automatic checkpoints only recycle the WAL, and `.checkpoint` writes a snapshot that lives in the process.
+
+## When a checkpoint runs
+
+| Trigger | Default | Changed with |
+| --- | --- | --- |
+| The open segment reaches a size | 64 MiB (67,108,864 bytes) | Fixed; a limit with no flag or variable |
+| The open segment reaches a commit count | 10,000 commits | Fixed; a limit with no flag or variable |
+| The timer fires while the WAL holds commits the snapshot does not | Every 300 seconds | `--checkpoint-interval-secs`, `RELATE_CHECKPOINT_INTERVAL_SECS`; `0` turns off the timer only. An in-memory store has no timer |
+| A writable store closes cleanly | Always | Not configurable. Every clean exit of a writable CLI run checkpoints; a failure exits 1 with [`Error: final checkpoint failed: <reason>`](/docs/reference/errors#cli-final-checkpoint-failed) |
+| `.checkpoint` | On request | Not applicable |
+| A writable open of a store at an older readable version | Once, at the current format, after replay | Not configurable ([Upgrade a store](/docs/guides/operate/upgrade-a-store)) |
+| `relate clone` | Once, into the destination | Not applicable; the destination starts at the source's loaded LSN with an empty WAL |
+
+A `--read-only` open never checkpoints, in either freshness. A `--read-only=live` reader that finds a segment it still needed recycled by the writer's checkpoint reloads the current snapshot and the WAL that remains.
+
+## What replay does on open
+
+| Step | Writable open | `--read-only` open |
+| --- | --- | --- |
+| Check the version markers | Before anything is written; a store from a newer release fails to open | The same |
+| Load the snapshot | The state at its `checkpoint_lsn` | The same |
+| WAL folder missing | A new, empty WAL is created; the store opens at the snapshot's state, without the commits the missing segments held | Fails: `read-only open requires an existing WAL at <path>` |
+| Scan the segments | Every segment in id order. Every record is checked, including those up to the checkpoint LSN; records with a higher LSN are applied in LSN order | The same |
+| A torn tail | Dropped, then removed from its file once every segment has scanned; later appends go to a new segment | Dropped; the file is left as it is |
+| A newest segment shorter than its 8-byte magic | Rewritten as an empty `MDBWAL01` segment, when lower-numbered segments exist and are intact and its bytes start that magic | Fails: `truncated WAL magic: <segment>` |
+| Any other damaged record | The open fails; no partial graph is served and no segment is recycled | The same |
+| The graph size limit (`--logical-graph-size-limit`) | Not applied to replay; an open always succeeds over it | The same |
+| An older readable version | Migrated: a checkpoint at the current format, then a new segment | Not migrated |
+| At exit | A checkpoint on clean close | No checkpoint |
+
+## The torn-tail rule
+
+A torn tail is the damage a crash leaves at the very end of a segment: a record whose writing stopped part of the way through. Its commit was never acknowledged under `full` durability. The rule decides which damage replay drops and which stops the open:
+
+| Damage | Where | Result |
+| --- | --- | --- |
+| An incomplete record at the end of the file: 1 to 7 header bytes, or a header whose payload runs past the end | Any segment | Torn tail: dropped |
+| A complete last record whose checksum fails | The open segment | Torn tail: dropped |
+| A complete last record whose checksum fails | A closed segment | The open fails: `WAL checksum mismatch` |
+| A record whose checksum fails, with more bytes after it | Any segment | The open fails: `WAL checksum mismatch` |
+| A record whose checksum matches but whose payload does not decode | Any segment, any position | The open fails: `undecodable WAL record … may have been written by a newer Relate` |
+
+Dropping a torn tail prints nothing. A writable open writes the segment's intact records to a new file and renames it over the old one, so a failure part of the way through leaves the original in place. [Recover from a crash](/docs/guides/operate/crash-and-recovery) rehearses a crash and its recovery.
+
+## Examples
+
+These commands write three commits to a new directory store in one script run, then print the store's metadata, the WAL folder and its one segment:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (:Person {name: 'Ada', role: 'engineer'});
+CREATE (:Person {name: 'Grace', role: 'engineer'});
+CREATE (:Person {name: 'Noor', role: 'maintainer'});
+EOF
+relate query --database ./team < team.cypher
+relate info --database ./team
+ls -A team/wal
+cat team/wal/00000002.log; echo
+```
+
+```text
+layout: native directory
+codec: parquet
+format version: 3
+checkpoint LSN: 3
+commit timestamp: 3
+total bytes: 1952
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 3): 3
+relationships (at checkpoint LSN 3): 0
+indexes: 0
+constraints: 0
+.cypherlite.lock
+.cypherlite.writer
+00000002.log
+MDBWAL01
+```
+
+The run closed the store cleanly, so its checkpoint covers all three commits: `checkpoint LSN: 3`. The checkpoint recycled `00000001.log`, and the open segment `00000002.log` holds its magic and no records. `wal segments past checkpoint` counts the segment files that may hold commits newer than the snapshot, so an empty open segment counts as 1.
+
+This script commits one relationship, prints the WAL and checkpoint fields, forces a checkpoint with `.checkpoint`, and prints them again:
+
+```bash verify
+cat > checkpoint.cypher <<'EOF'
+MATCH (a:Person {name: 'Ada'}), (g:Person {name: 'Grace'}) CREATE (a)-[:KNOWS]->(g);
+.info
+.checkpoint
+.info
+EOF
+relate query --database ./team < checkpoint.cypher | grep -E '^(checkpoint LSN|total bytes|wal segments)'
+```
+
+```text
+checkpoint LSN:               3
+total bytes:                  2070
+wal segments past checkpoint: 1
+checkpoint LSN:               4
+total bytes:                  3280
+wal segments past checkpoint: 1
+```
+
+Before `.checkpoint`, the commit is in the WAL only: the checkpoint LSN is still 3, and the store is larger by the new record. After it, the checkpoint LSN is 4, the snapshot holds a `relationships/` data file, and the WAL is back to one empty segment.
+
+A single statement makes 10,001 commits with `CALL { … } IN TRANSACTIONS OF 1 ROWS`. Commit number 10,000 fills the open segment's commit count and starts a checkpoint:
+
+```bash verify
+relate query --database ./batch <<'EOF' | grep -E '^(checkpoint LSN|nodes)'
+UNWIND range(1, 10001) AS i CALL (i) { CREATE (:Item {i: i}) } IN TRANSACTIONS OF 1 ROWS;
+.info
+EOF
+relate info --database ./batch | grep -E '^(checkpoint LSN|nodes)'
+```
+
+```text
+checkpoint LSN:               10000
+nodes:                        10001
+checkpoint LSN: 10001
+nodes (at checkpoint LSN 10001): 10001
+```
+
+Inside the session the checkpoint LSN is 10,000 while the live graph holds 10,001 nodes; the last commit is in the WAL. The checkpoint at exit covers it.
+
+## Errors
+
+The first seven errors stop the open with exit code 1. On stderr each is prefixed `Failed to open Relate: `, and in `--mode envelope` it is an error object with `kind` `storage`. `<segment>` is the segment's name, such as `00000002.log`.
+
+| Message | Exit code | When |
+| --- | --- | --- |
+| `storage error: WAL checksum mismatch` | 1 | A complete record fails its checksum with bytes after it, or as the last record of a closed segment ([storage errors](/docs/reference/errors#cli-fatal-error-storage)) |
+| `storage error: undecodable WAL record at offset <n> in <segment>: may have been written by a newer Relate (<detail>)` | 1 | A record's checksum matches but its payload does not decode; a newer release wrote it ([Upgrade a store](/docs/guides/operate/upgrade-a-store)) |
+| `storage error: invalid WAL magic: <segment>` | 1 | A segment's first 8 bytes are neither `MDBWAL01` nor `MDBWAL02` |
+| `storage error: truncated WAL magic: <segment>` | 1 | A segment is shorter than its 8-byte magic, and is not a newest segment a writable open can rewrite |
+| `storage error: invalid WAL payload length <n> in <segment> (limit 64 MiB)` | 1 | A record's length field is 0 or larger than 67,108,864 |
+| `storage error: non-increasing or unsupported WAL commit timestamp <ts> after <previous> in <segment>` | 1 | A record's `commit_ts` is `0`, or not larger than the previous record's |
+| `storage error: ontology op in non-MDBWAL02 WAL segment <segment> at offset <n>` | 1 | A record that changes the ontology sits in an `MDBWAL01` segment |
+| `Error: final checkpoint failed: <reason>` | 1 | The checkpoint at a clean exit failed ([details](/docs/reference/errors#cli-final-checkpoint-failed)) |
+| `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` | 1 | `.checkpoint` on a `--read-only` open ([details](/docs/reference/errors#engine-write-on-read-only)) |
+
+The errors at open that concern the WAL folder itself, such as a `--read-only` open without one or `--wal-dir` on a `.rl` path, are in the [storage formats errors](/docs/reference/storage/formats#errors). The [errors reference](/docs/reference/errors#cli-fatal-error-storage) lists the storage errors with their remedies.
+
+## See also
+
+- [Storage and durability](/docs/concepts/storage-and-durability): why every commit goes through the WAL, and what checkpoints trade.
+- [Storage formats](/docs/reference/storage/formats): the snapshot files, codecs, and version markers.
+- [Limits and sizing](/docs/reference/storage/limits-and-sizing): the 64 MiB record limit and the other limits.
+- [Choose a durability mode](/docs/guides/operate/durability-modes): when a commit's record reaches the disk.
+- [Recover from a crash](/docs/guides/operate/crash-and-recovery): replay and the torn tail, step by step.
+- [Upgrade a store](/docs/guides/operate/upgrade-a-store): the checkpoint that migrates an older store.

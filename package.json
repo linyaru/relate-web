@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 8765",
     "dev:playground": "npm --prefix playground run dev --",
+    "mcp:dev": "npm --prefix workers/docs-mcp run dev",
+    "mcp:bundle": "npm --prefix workers/docs-mcp run bundle",
+    "mcp:test": "npm --prefix workers/docs-mcp test && npm --prefix workers/docs-mcp run check",
     "build": "astro build && npm run build:search && npm run build:playground",
     "build:search": "pagefind --site dist --glob \"{docs,cookbook}/**/*.html\"",
     "build:playground": "npm --prefix playground run build -- --outDir ../dist/playground --emptyOutDir",
@@ -24,6 +27,8 @@
     "docs:lint": "node scripts/docs.ts --lint",
     "docs:cli-check": "node scripts/docs-cli-check.ts",
     "docs:graph": "node scripts/docs-graph.ts",
+    "docs:mcp-check": "node scripts/docs-mcp-check.ts",
+    "docs:negotiation-check": "node scripts/docs-negotiation-check.ts",
     "docs:samples": "node scripts/docs-samples.ts",
     "skill:sync": "node scripts/skill-sync.ts",
     "adr:check": "node scripts/adr-check.ts"
@@ -37,6 +42,7 @@
     "@neo4j-nvl/base": "1.2.2",
     "@neo4j-nvl/interaction-handlers": "1.2.2",
     "astro": "^7.4.7",
+    "github-slugger": "^2.0.0",
     "hast-util-from-html": "^2.1.0",
     "hast-util-to-html": "^9.0.6",
     "markdown-it": "^14.3.3",

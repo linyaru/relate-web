@@ -16,10 +16,12 @@
 //
 //   (:Page {id, url, md_url, title, description, type, section, status, since, verified, tokens})
 //       every page file, planned ones included (status `planned`, no url)
-//   (:Section {id, page, anchor, heading, level, position, url, text, length})
+//   (:Section {id, page, anchor, heading, level, position, url, text, length, embedding})
 //       one per H2 and H3 of a published page (`anchor` is the HTML id), plus
 //       level 1 for the text before the first of them (anchor ''); `text` is
-//       the section's markdown as the twin has it, `length` its characters
+//       the section's markdown as the twin has it, `length` its characters;
+//       `embedding` is its VECTOR<FLOAT32>(384) from _data/embeddings.json
+//       (below), set in the seed only, and only while its text hash matches
 //   (:Example {id, page, section, position, lang, first_line, title, runnable, cell})
 //       one per fenced block the twin carries, components' included; a
 //       cell's recorded result and a diagram are not examples; `section` is
@@ -31,6 +33,9 @@
 //   (:Flag {id, flag, names, command, value, disputed})
 //       _data/cli.json query-run flags (`command` absent) and command flags
 //   (:Index {id, url, title})                       llms.txt and the landing
+//   (:Capability {id, title, problem, capability, url, schema_url, verify})
+//       one per _capabilities/ entry (src/lib/docs/capabilities.ts)
+//   (:Problem {id, text, kind})                     a capability's problem and intents
 //
 //   (:Page)-[:LINKS_TO {anchor}]->(:Page|:CookbookRecipe)    body links
 //   (:Page)-[:PREREQUISITE_OF]->(:Page)          the prerequisite points at the page that needs it
@@ -43,13 +48,33 @@
 //                                                block, or in inline code
 //   (:Command)-[:HAS_FLAG]->(:Flag)
 //   (:Index)-[:LISTS]->(:Page)
+//   (:Capability)-[:SOLVES]->(:Problem)
+//   (:Capability)-[:APPLIES_TO]->(:Surface)
+//   (:Capability)-[:CITES {role, anchor}]->(:Page)
+//   (:CookbookRecipe)-[:DEMONSTRATES]->(:Capability)
+//   (:Capability)-[:VERIFIED_BY {cell}]->(:CookbookRecipe|:Page)
+//   (:Page)-[:HAS_CAPABILITY]->(:Capability)
 //
 // A :term whose id has no glossary entry still gets a Term node (with no
 // `short`), so the check can name it; the build fails on it before it ships.
 //
+// Indexes: the full-text index `docs` on (:Section) heading and text, the
+// vector index `docs_vector` on (:Section) embedding (384 dimensions, cosine),
+// and the full-text index `problems` on (:Problem) text.
+//
+// Extension points (DOCS-PLAN.md §3.5, §3.8): a label joins LABELS and a
+// relationship type REL_TYPES when its data source exists (ADR-0020: never as
+// an empty label). A new source is read in graphInput() into a new GraphInput
+// field, and its nodes and relationships are added in buildGraph() at the
+// marked place, as the capability catalog's are (capabilityGraphRows in
+// src/lib/docs/capabilities.ts); finish() sorts and deduplicates them,
+// seedScript() writes them, and the schema comment lists their properties,
+// with no other change.
+//
 // Node-only (no astro:content), so the Astro endpoints and the Node checks
 // build the same graph from the same files.
 
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -63,6 +88,7 @@ import { unified } from 'unified';
 import { COMPONENT_TWINS } from '../../components/docs/registry.ts';
 import { COOKBOOK_DIR, loadRecipes } from '../cookbook/load.ts';
 import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
+import { capabilityGraphRows, readCapabilities, type Capability } from './capabilities.ts';
 import { glossaryHref, GLOSSARY_ID, renderConstructs, type ToMarkdown } from './constructs.ts';
 import { DOCS_DIR, engine as readEngine, GLOSSARY_DIR, pageFiles, splitFrontmatter, type Engine, type PageFile } from './content.ts';
 import { PRIMARY, TASKS } from './landing.ts';
@@ -75,7 +101,7 @@ import { renderTwin } from './twin.ts';
 // ---------------------------------------------------------------------------
 // The model
 
-export const LABELS = ['Page', 'Section', 'Example', 'Term', 'Surface', 'CookbookRecipe', 'Command', 'Flag', 'Index'] as const;
+export const LABELS = ['Page', 'Section', 'Example', 'Term', 'Surface', 'CookbookRecipe', 'Command', 'Flag', 'Index', 'Capability', 'Problem'] as const;
 export type Label = (typeof LABELS)[number];
 
 export const REL_TYPES = [
@@ -89,6 +115,11 @@ export const REL_TYPES = [
   'DOCUMENTS',
   'HAS_FLAG',
   'LISTS',
+  'SOLVES',
+  'CITES',
+  'DEMONSTRATES',
+  'VERIFIED_BY',
+  'HAS_CAPABILITY',
 ] as const;
 export type RelType = (typeof REL_TYPES)[number];
 
@@ -116,6 +147,13 @@ export interface DocsGraph {
   engine: Engine;
   /** Pages the twin renderer refused; their nodes come from the raw source instead. */
   problems: string[];
+  /**
+   * Section id → its vector, for the sections whose entry in
+   * _data/embeddings.json matches the text they would embed now (see
+   * sectionInputs); a missing or stale one is left out, and docs:check
+   * reports it (checks/embeddings.ts).
+   */
+  vectors: Map<string, number[]>;
 }
 
 /** A node's key in graph.json: `Label:id`. */
@@ -177,6 +215,10 @@ export interface GraphInput {
   cli: CliData;
   engine: Engine;
   components: Record<string, ToMarkdown>;
+  /** _data/embeddings.json, or null when it does not exist (the seed then carries no vectors). */
+  embeddings?: EmbeddingsArtifact | null;
+  /** The capability catalog (src/content/docs/_capabilities/). */
+  capabilities?: Capability[];
 }
 
 export const CLI_FILE = join(DOCS_DIR, '_data/cli.json');
@@ -204,6 +246,8 @@ export function graphInput(pages: PageFile[] = pageFiles()): GraphInput {
     cli: { commands: cli.commands ?? [], global_flags: cli.global_flags ?? [] },
     engine: readEngine(),
     components: COMPONENT_TWINS,
+    embeddings: readEmbeddings(),
+    capabilities: readCapabilities(),
   };
 }
 
@@ -491,7 +535,14 @@ export function buildGraph(input: GraphInput): DocsGraph {
   const unknownTerms = new Set(rels.filter((r) => r.type === 'USES_TERM' && !glossary.has(r.to.id)).map((r) => r.to.id));
   for (const t of [...unknownTerms].sort()) node('Term', t, {});
 
-  return finish(nodes, rels, engine, problems);
+  // Extension point: the capability catalog (src/lib/docs/capabilities.ts capabilityGraphRows).
+  const cap = capabilityGraphRows(input.capabilities ?? []);
+  for (const n of cap.nodes) node(n.label as Label, n.id, n.props);
+  for (const r of cap.rels) rel(r.type as RelType, r.from as { label: Label; id: string }, r.to as { label: Label; id: string }, r.props);
+
+  const g = finish(nodes, rels, engine, problems);
+  g.vectors = freshVectors(g, input.embeddings ?? null);
+  return g;
 }
 
 const glossaryTermsCache = new WeakMap<GlossaryEntry[], Map<string, { id: string; term: string; short: string }>>();
@@ -685,7 +736,216 @@ function finish(nodes: GraphNode[], rels: GraphRel[], engine: Engine, problems: 
       cmp(a.to.id, b.to.id) ||
       cmp(propsKey(a.props), propsKey(b.props)),
   );
-  return { nodes: outNodes, rels: outRels, engine, problems };
+  return { nodes: outNodes, rels: outRels, engine, problems, vectors: new Map() };
+}
+
+// ---------------------------------------------------------------------------
+// Section embeddings (DOCS-PLAN.md §3.5, §3.8, §8 item 3e)
+//
+// src/content/docs/_data/embeddings.json is a committed artifact: one vector
+// per Section, written by the authoring-only package in scripts/embeddings/
+// (`npm run docs:embeddings`), never by the build or CI, which only read it.
+// Each entry carries the SHA-256 of the exact text it embedded
+// (sectionInputs): a section whose text changed has a stale entry, which the
+// seed leaves out and docs:check reports. The vectors are float16, little
+// endian, base64: about 1 KB a section.
+
+export const EMBEDDINGS_FILE = join(DOCS_DIR, '_data/embeddings.json');
+export const EMBEDDINGS_FORMAT = 1;
+export const EMBEDDING_DIMENSION = 384;
+export const EMBEDDING_PROPERTY = 'embedding';
+export const VECTOR_INDEX = 'docs_vector';
+/**
+ * The model, as the artifact records it. The transformers.js weights
+ * (`onnx` at `revision`, fp32) and the Workers AI model are both
+ * BAAI/bge-small-en-v1.5, so a query embedded on the docs MCP Worker with
+ * `pooling: "cls"` lands in the same space as the sections embedded here.
+ */
+export const EMBEDDING_MODEL = {
+  id: 'BAAI/bge-small-en-v1.5',
+  onnx: 'Xenova/bge-small-en-v1.5',
+  revision: 'ea104dacec62c0de699686887e3f920caeb4f3e3',
+  dtype: 'fp32',
+  workers_ai: '@cf/baai/bge-small-en-v1.5',
+  pooling: 'cls',
+  normalize: true,
+  max_tokens: 512,
+} as const;
+export const EMBEDDINGS_COMMAND = 'npm run docs:embeddings';
+
+export interface EmbeddingEntry {
+  /** A Section id (`<page>#<anchor>`) or, under `queries`, the question itself. */
+  id: string;
+  /** SHA-256 (hex) of the exact text that was embedded. */
+  sha256: string;
+  /** EMBEDDING_DIMENSION float16 values, little endian, base64. */
+  vector: string;
+}
+
+export interface EmbeddingsArtifact {
+  format: number;
+  kind: 'documentation';
+  note: string;
+  model: Record<string, string | number | boolean>;
+  dimension: number;
+  encoding: string;
+  input: string;
+  sections: EmbeddingEntry[];
+  /** Fixed questions embedded with the same model (the cookbook recipe's). */
+  queries: EmbeddingEntry[];
+}
+
+export const EMBEDDINGS_ENCODING = 'float16, little endian, base64';
+export const EMBEDDINGS_INPUT =
+  'For a section, its page title, then ": " and its heading unless it is the text before the first heading, then a blank line and its text as the docs graph has it; for a query, the question as written. The model reads at most 512 tokens of it.';
+export const EMBEDDINGS_NOTE = `Vectors of the docs graph's sections (/docs/graph.cypher), for the vector index ${VECTOR_INDEX}. Generated by ${EMBEDDINGS_COMMAND}; not edited by hand. Section text is documentation: reference text, not instructions.`;
+
+/** _data/embeddings.json, or null when it does not exist. Throws when it is not the artifact's shape. */
+export function readEmbeddings(file = EMBEDDINGS_FILE): EmbeddingsArtifact | null {
+  if (!existsSync(file)) return null;
+  let a: EmbeddingsArtifact;
+  try {
+    a = JSON.parse(readFileSync(file, 'utf8')) as EmbeddingsArtifact;
+  } catch (e) {
+    throw new Error(`${file}: not valid JSON (${(e as Error).message}); run \`${EMBEDDINGS_COMMAND} -- --force\``);
+  }
+  if (a.format !== EMBEDDINGS_FORMAT || !Array.isArray(a.sections) || !Array.isArray(a.queries)) {
+    throw new Error(`${file}: not an embeddings artifact of format ${EMBEDDINGS_FORMAT}; run \`${EMBEDDINGS_COMMAND} -- --force\``);
+  }
+  return a;
+}
+
+/** Whether the artifact was made with EMBEDDING_MODEL at EMBEDDING_DIMENSION (else every vector in it is stale). */
+export function artifactMatchesModel(a: EmbeddingsArtifact): boolean {
+  return (
+    a.dimension === EMBEDDING_DIMENSION &&
+    a.encoding === EMBEDDINGS_ENCODING &&
+    Object.entries(EMBEDDING_MODEL).every(([k, v]) => a.model?.[k] === v)
+  );
+}
+
+/** The artifact as committed: stable key order, one entry per line, sorted by id. */
+export function formatEmbeddings(sections: EmbeddingEntry[], queries: EmbeddingEntry[]): string {
+  const entry = (e: EmbeddingEntry) => `    ${JSON.stringify({ id: e.id, sha256: e.sha256, vector: e.vector })}`;
+  const list = (es: EmbeddingEntry[]) => [...es].sort((a, b) => cmp(a.id, b.id)).map(entry).join(',\n');
+  const head = {
+    format: EMBEDDINGS_FORMAT,
+    kind: 'documentation',
+    note: EMBEDDINGS_NOTE,
+    model: EMBEDDING_MODEL,
+    dimension: EMBEDDING_DIMENSION,
+    encoding: EMBEDDINGS_ENCODING,
+    input: EMBEDDINGS_INPUT,
+  };
+  const top = JSON.stringify(head, null, 2).replace(/\n\}$/, '');
+  return `${top},\n  "sections": [\n${list(sections)}\n  ],\n  "queries": [\n${list(queries)}\n  ]\n}\n`;
+}
+
+const f32 = new Float32Array(1);
+const u32 = new Uint32Array(f32.buffer);
+
+/** The float16 bit pattern nearest `x` (through float32, ties to even). */
+export function toFloat16Bits(x: number): number {
+  f32[0] = x;
+  const bits = u32[0];
+  const sign = (bits >>> 16) & 0x8000;
+  const exp = (bits >>> 23) & 0xff;
+  let mant = bits & 0x7fffff;
+  if (exp === 0xff) return sign | 0x7c00 | (mant ? 0x200 : 0);
+  const e = exp - 127 + 15;
+  if (e >= 0x1f) return sign | 0x7c00;
+  if (e <= 0) {
+    if (e < -10) return sign;
+    mant |= 0x800000;
+    const shift = 14 - e;
+    let h = mant >>> shift;
+    const rem = mant & ((1 << shift) - 1);
+    const half = 1 << (shift - 1);
+    if (rem > half || (rem === half && h & 1)) h++;
+    return sign | h;
+  }
+  let h = (e << 10) | (mant >>> 13);
+  const rem = mant & 0x1fff;
+  if (rem > 0x1000 || (rem === 0x1000 && h & 1)) h++;
+  return sign | h;
+}
+
+/** The value of a float16 bit pattern. */
+export function fromFloat16Bits(h: number): number {
+  const sign = h & 0x8000 ? -1 : 1;
+  const e = (h >>> 10) & 0x1f;
+  const m = h & 0x3ff;
+  if (e === 0) return sign * m * 2 ** -24;
+  if (e === 0x1f) return m ? NaN : sign * Infinity;
+  return sign * (1 + m / 1024) * 2 ** (e - 15);
+}
+
+export function encodeVector(v: ArrayLike<number>): string {
+  const buf = Buffer.alloc(v.length * 2);
+  for (let i = 0; i < v.length; i++) buf.writeUInt16LE(toFloat16Bits(v[i]), i * 2);
+  return buf.toString('base64');
+}
+
+export function decodeVector(s: string): number[] {
+  const buf = Buffer.from(s, 'base64');
+  const out: number[] = [];
+  for (let i = 0; i + 1 < buf.length; i += 2) out.push(fromFloat16Bits(buf.readUInt16LE(i)));
+  return out;
+}
+
+/**
+ * A float16 value as the shortest decimal literal that reads back as the same
+ * float16 (`-0.02689`, `0.0`), so the seed carries no more digits than the
+ * artifact holds.
+ */
+export function float16Literal(x: number): string {
+  const bits = toFloat16Bits(x);
+  if ((bits & 0x7fff) === 0) return '0.0';
+  for (let p = 1; p <= 8; p++) {
+    const s = Number(x.toPrecision(p));
+    if (toFloat16Bits(s) === bits) {
+      const t = String(s);
+      return /[.e]/.test(t) ? t : `${t}.0`;
+    }
+  }
+  return String(x);
+}
+
+export const sha256Hex = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
+
+export interface SectionInput {
+  id: string;
+  /** The text the model embeds. */
+  input: string;
+  sha256: string;
+}
+
+/** The text each Section is embedded from (EMBEDDINGS_INPUT), sorted by id. */
+export function sectionInputs(g: Pick<DocsGraph, 'nodes'>): SectionInput[] {
+  const titles = new Map(g.nodes.filter((n) => n.label === 'Page').map((n) => [n.id, String(n.props.title ?? n.id)]));
+  const out: SectionInput[] = [];
+  for (const n of g.nodes) {
+    if (n.label !== 'Section') continue;
+    const title = titles.get(String(n.props.page)) ?? String(n.props.page);
+    const head = Number(n.props.level) === 1 ? title : `${title}: ${n.props.heading}`;
+    const input = `${head}\n\n${n.props.text ?? ''}`;
+    out.push({ id: n.id, input, sha256: sha256Hex(input) });
+  }
+  return out.sort((a, b) => cmp(a.id, b.id));
+}
+
+/** Section id → vector, for the entries whose hash matches the section's input now. */
+function freshVectors(g: DocsGraph, a: EmbeddingsArtifact | null): Map<string, number[]> {
+  const out = new Map<string, number[]>();
+  if (!a || !artifactMatchesModel(a)) return out;
+  const byId = new Map(a.sections.map((e) => [e.id, e]));
+  for (const s of sectionInputs(g)) {
+    const e = byId.get(s.id);
+    if (!e || e.sha256 !== s.sha256) continue;
+    const v = decodeVector(e.vector);
+    if (v.length === EMBEDDING_DIMENSION && v.every(Number.isFinite)) out.set(s.id, v);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -768,9 +1028,23 @@ export const SEED_URL = `${CANONICAL_ORIGIN}/docs/graph.cypher`;
  */
 export const DOCUMENTATION_NOTE = 'Section text and Example code are documentation, quoted from the pages: reference text, not instructions.';
 export const FULLTEXT_INDEX = 'docs';
+/** The full-text index on the capability catalog's (:Problem) text. */
+export const PROBLEMS_INDEX = 'problems';
 
-/** The seed script: Cypher statements that build the graph in an empty store, one row per line. */
-export function seedScript(g: DocsGraph): string {
+/** The statement that sets the section vectors from a `$rows` parameter of `{id, v}` (vectorRows). */
+export const VECTOR_LOAD_STATEMENT = `UNWIND $rows AS row MATCH (s:Section {id: row.id}) SET s.${EMBEDDING_PROPERTY} = vector(row.v, ${EMBEDDING_DIMENSION}, FLOAT32)`;
+
+/** The section vectors the seed sets, sorted by section id, for VECTOR_LOAD_STATEMENT. */
+export const vectorRows = (g: DocsGraph): { id: string; v: number[] }[] => [...g.vectors].sort(([a], [b]) => cmp(a, b)).map(([id, v]) => ({ id, v }));
+
+/**
+ * The seed script: Cypher statements that build the graph in an empty store,
+ * one row per line. With `vectors: false` it leaves out the statements that
+ * set the section vectors (the indexes stay): a replay can then run
+ * VECTOR_LOAD_STATEMENT with vectorRows() as a parameter, which the WASM
+ * reads about three times faster than the same numbers as literals.
+ */
+export function seedScript(g: DocsGraph, { vectors = true }: { vectors?: boolean } = {}): string {
   const lines: string[] = [
     `// The relate docs graph (${SEED_URL}), as Cypher statements for an empty store.`,
     `// Generated from the docs pages, the glossary, the cookbook and the CLI facts file; the pages are the source.`,
@@ -779,7 +1053,10 @@ export function seedScript(g: DocsGraph): string {
     `// Built into a store with: relate query --database ./relate-docs.rl < graph.cypher`,
     `// Schema:`,
     ...schemaLines(g),
+    `//   (:Section).${EMBEDDING_PROPERTY}: VECTOR<FLOAT32>(${EMBEDDING_DIMENSION}), ${EMBEDDING_MODEL.id} (Workers AI ${EMBEDDING_MODEL.workers_ai}, ${EMBEDDING_MODEL.pooling} pooling, normalized), on ${g.vectors.size} of ${g.nodes.filter((n) => n.label === 'Section').length} sections`,
     `//   FULLTEXT INDEX ${FULLTEXT_INDEX} on (:Section) heading and text`,
+    `//   VECTOR INDEX ${VECTOR_INDEX} on (:Section) ${EMBEDDING_PROPERTY}, ${EMBEDDING_DIMENSION} dimensions, cosine`,
+    `//   FULLTEXT INDEX ${PROBLEMS_INDEX} on (:Problem) text`,
     '',
   ];
   const present = LABELS.filter((l) => g.nodes.some((n) => n.label === l));
@@ -808,8 +1085,201 @@ export function seedScript(g: DocsGraph): string {
       );
     }
   }
-  lines.push('', `CREATE FULLTEXT INDEX ${FULLTEXT_INDEX} IF NOT EXISTS FOR (s:Section) ON EACH [s.heading, s.text];`, '');
+  // The section vectors, after the rows they belong to: one row per section, `vector()` as the length guard.
+  const allRows = vectors ? vectorRows(g) : [];
+  if (allRows.length) lines.push('');
+  for (let i = 0; i < allRows.length; i += VECTOR_CHUNK) {
+    const rows = allRows.slice(i, i + VECTOR_CHUNK);
+    lines.push(
+      'UNWIND [',
+      ...rows.map(({ id, v }, j) => `{id: ${cypherLiteral(id)}, v: [${v.map(float16Literal).join(', ')}]}${j < rows.length - 1 ? ',' : ''}`),
+      VECTOR_SEED_END,
+    );
+  }
+  lines.push(
+    '',
+    `CREATE FULLTEXT INDEX ${FULLTEXT_INDEX} IF NOT EXISTS FOR (s:Section) ON EACH [s.heading, s.text];`,
+    `CREATE FULLTEXT INDEX ${PROBLEMS_INDEX} IF NOT EXISTS FOR (n:Problem) ON EACH [n.text];`,
+    `CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR (s:Section) ON (s.${EMBEDDING_PROPERTY}) OPTIONS {indexConfig: {\`vector.dimensions\`: ${EMBEDDING_DIMENSION}, \`vector.similarity_function\`: 'cosine'}};`,
+    '',
+  );
   return lines.join('\n');
+}
+
+/** Section vectors per UNWIND statement (each row is about 3 KB of literals). */
+const VECTOR_CHUNK = 100;
+
+/** The last line of each seed statement that sets section vectors. */
+export const VECTOR_SEED_END = `${VECTOR_LOAD_STATEMENT.replace('UNWIND $rows AS row', '] AS row')};`;
+
+/**
+ * A seed script (the served /docs/graph.cypher) without the statements that
+ * set the section vectors: the same bytes as seedScript(g, {vectors: false}).
+ * For a replay that does not search by vector, such as the docs MCP Worker
+ * until it embeds queries; both indexes are still created, the vector one
+ * empty. Throws when the seed is not one seedScript() wrote.
+ */
+export function seedWithoutVectors(seed: string): string {
+  const lines = seed.split('\n');
+  const out: string[] = [];
+  let removed = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] !== 'UNWIND [') {
+      out.push(lines[i]);
+      continue;
+    }
+    let j = i + 1;
+    while (j < lines.length && !lines[j].startsWith('] AS row ')) j++;
+    if (j === lines.length) throw new Error(`seedWithoutVectors: the UNWIND statement at line ${i + 1} has no end`);
+    if (lines[j] === VECTOR_SEED_END) {
+      // seedScript() puts one blank line before the first vector statement.
+      if (removed === 0 && out[out.length - 1] === '') out.pop();
+      removed++;
+    } else {
+      out.push(...lines.slice(i, j + 1));
+    }
+    i = j;
+  }
+  return out.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Hybrid search over the docs graph, and the cookbook recipe's subset
+
+/**
+ * Vector and full-text search over the sections, fused by reciprocal rank
+ * (the cookbook's hybrid-recall recipe): `$vector` is the question embedded
+ * with EMBEDDING_MODEL, `$query` its words, `$k` each list's length, `$limit`
+ * the rows returned. A section earns 1 / (60 + rank) from each list it is in.
+ */
+export const HYBRID_STATEMENT = `CALL () {
+  MATCH (s:Section)
+  SEARCH s IN (VECTOR INDEX ${VECTOR_INDEX} FOR $vector LIMIT $k) SCORE AS score
+  WITH s ORDER BY score DESC, s.id
+  WITH collect(s) AS ss
+  UNWIND range(0, size(ss) - 1) AS i
+  RETURN ss[i] AS s, 'vector' AS list, i + 1 AS rank
+  UNION ALL
+  MATCH (s:Section)
+  SEARCH s IN (FULLTEXT INDEX ${FULLTEXT_INDEX} FOR $query LIMIT $k) SCORE AS score
+  WITH s ORDER BY score DESC, s.id
+  WITH collect(s) AS ss
+  UNWIND range(0, size(ss) - 1) AS i
+  RETURN ss[i] AS s, 'fulltext' AS list, i + 1 AS rank
+}
+WITH s, sum(1.0 / (60 + rank)) AS rrf,
+     min(CASE list WHEN 'vector' THEN rank END) AS vector_rank,
+     min(CASE list WHEN 'fulltext' THEN rank END) AS fulltext_rank
+ORDER BY rrf DESC, s.id LIMIT $limit
+RETURN s.id AS id, s.page AS page, s.anchor AS anchor, s.heading AS heading, s.url AS url,
+       vector_rank, fulltext_rank, rrf`;
+
+/**
+ * The cookbook recipe "Query the relate docs" loads a subset of this graph
+ * from its `docs` data block, written by scripts/docs-recipe-data.ts and
+ * compared with the graph by docs:check (checks/embeddings.ts). The subset
+ * rule: every section of RECIPE_PAGES, its text cut to RECIPE_TEXT_CHARS with
+ * whitespace collapsed, its vector rounded to four decimals; the pages, their
+ * LINKS_TO and PREREQUISITE_OF among themselves; and RECIPE_QUESTIONS with
+ * their vectors from the artifact's `queries`.
+ */
+export const RECIPE_SLUG = 'query-the-relate-docs';
+export const RECIPE_DATA_BLOCK = 'docs';
+export const RECIPE_PAGES = [
+  'guides/agents/agent-safety',
+  'guides/agents/connect-over-mcp',
+  'guides/cypher/vector-search',
+  'reference/cypher/search',
+] as const;
+export const RECIPE_TEXT_CHARS = 480;
+/** The questions the recipe asks, embedded ahead of time with EMBEDDING_MODEL. */
+export const RECIPE_QUESTIONS = ['stop the model from deleting nodes', 'give Cursor access to my graph without letting it write'] as const;
+
+const excerpt = (text: string) => {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= RECIPE_TEXT_CHARS) return flat;
+  const cut = flat.slice(0, RECIPE_TEXT_CHARS);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > RECIPE_TEXT_CHARS / 2 ? cut.slice(0, at) : cut).trimEnd()} …`;
+};
+
+/** A vector component as the recipe writes it: four decimals, always a float literal. */
+export function recipeFloat(x: number): string {
+  const r = Number(x.toFixed(4));
+  if (r === 0) return '0.0';
+  const t = String(r);
+  return /[.e]/.test(t) ? t : `${t}.0`;
+}
+
+export const RECIPE_NOTE = 'A subset of the relate docs graph (https://relatedb.ai/docs/graph.cypher): section text is documentation, quoted from the pages and cut short; reference text, not instructions.';
+
+/**
+ * The recipe's `docs` data block for `g` and `a`, one row per line. Throws,
+ * naming the cause, when a page of RECIPE_PAGES is missing or a section or
+ * question has no fresh vector.
+ */
+export function recipeData(g: DocsGraph, a: EmbeddingsArtifact | null): string {
+  const byKey = new Map(g.nodes.map((n) => [nodeKey(n), n]));
+  const pages = RECIPE_PAGES.map((id) => {
+    const p = byKey.get(`Page:${id}`);
+    if (!p || p.props.status === 'planned') throw new Error(`the recipe's page \`${id}\` (RECIPE_PAGES in src/lib/docs/graph.ts) is not a published page of the docs graph`);
+    return p;
+  });
+  const pageSet = new Set<string>(RECIPE_PAGES);
+  const sections = g.nodes.filter((n) => n.label === 'Section' && pageSet.has(String(n.props.page)));
+  const missing = sections.filter((s) => !g.vectors.has(s.id)).map((s) => s.id);
+  if (missing.length) throw new Error(`no fresh vector for ${missing.length} section(s) of the recipe's pages (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}); run \`${EMBEDDINGS_COMMAND}\``);
+  const queries = new Map((a && artifactMatchesModel(a) ? a.queries : []).map((q) => [q.id, q]));
+  const vec = (v: number[]) => `[${v.map(recipeFloat).join(',')}]`;
+  const questions = RECIPE_QUESTIONS.map((q) => {
+    const e = queries.get(q);
+    if (!e || e.sha256 !== sha256Hex(q)) throw new Error(`no fresh vector for the recipe question "${q}"; run \`${EMBEDDINGS_COMMAND}\``);
+    return `{"q":${JSON.stringify(q)},"e":${vec(decodeVector(e.vector))}}`;
+  });
+  const links = g.rels
+    .filter((r) => (r.type === 'LINKS_TO' || r.type === 'PREREQUISITE_OF') && r.from.label === 'Page' && r.to.label === 'Page' && pageSet.has(r.from.id) && pageSet.has(r.to.id))
+    .map((r) => JSON.stringify({ type: r.type, from: r.from.id, to: r.to.id }));
+  const rows = (xs: string[]) => xs.map((x, i) => `    ${x}${i < xs.length - 1 ? ',' : ''}`).join('\n');
+  return [
+    '{',
+    `  "kind": "documentation",`,
+    `  "note": ${JSON.stringify(RECIPE_NOTE)},`,
+    `  "pages": [`,
+    rows(pages.map((p) => JSON.stringify({ id: p.id, title: p.props.title, url: p.props.url }))),
+    `  ],`,
+    `  "links": [`,
+    rows([...new Set(links)]),
+    `  ],`,
+    `  "sections": [`,
+    rows(
+      sections.map(
+        (s) =>
+          `{"id":${JSON.stringify(s.id)},"page":${JSON.stringify(s.props.page)},"heading":${JSON.stringify(s.props.heading)},"position":${s.props.position},"url":${JSON.stringify(s.props.url)},"text":${JSON.stringify(excerpt(String(s.props.text)))},"e":${vec(g.vectors.get(s.id)!)}}`,
+      ),
+    ),
+    `  ],`,
+    `  "questions": [`,
+    rows(questions),
+    `  ]`,
+    '}',
+  ].join('\n');
+}
+
+export const RECIPE_FILE = join(COOKBOOK_DIR, `${RECIPE_SLUG}.md`);
+const RECIPE_BLOCK = new RegExp(`(^\`\`\`json data=${RECIPE_DATA_BLOCK}\\n)([\\s\\S]*?)(\\n\`\`\`$)`, 'm');
+
+/** The recipe's `docs` data block as committed, or null when the recipe or the block is missing. */
+export function recipeDataBlock(source: string): string | null {
+  return RECIPE_BLOCK.exec(source)?.[2] ?? null;
+}
+
+/** The recipe's source with its `docs` block (and the size in its `<summary>`) set to `data`. */
+export function withRecipeData(source: string, data: string): string {
+  if (!RECIPE_BLOCK.test(source)) throw new Error(`the recipe has no \`\`\`json data=${RECIPE_DATA_BLOCK} block`);
+  const kb = Math.round(Buffer.byteLength(data) / 1024);
+  return source
+    .replace(RECIPE_BLOCK, (_m, open: string, _old: string, close: string) => `${open}${data}${close}`)
+    .replace(new RegExp(`(<summary><code>${RECIPE_DATA_BLOCK}</code> \\()\\d+ KB(\\)</summary>)`), `$1${kb} KB$2`);
 }
 
 // ---------------------------------------------------------------------------
@@ -825,6 +1295,18 @@ export function graphJson(g: DocsGraph) {
     note: DOCUMENTATION_NOTE,
     verified: g.engine.verified,
     seed: SEED_URL,
+    embeddings: {
+      label: 'Section',
+      property: EMBEDDING_PROPERTY,
+      index: VECTOR_INDEX,
+      dimension: EMBEDDING_DIMENSION,
+      similarity: 'cosine',
+      model: EMBEDDING_MODEL.id,
+      workers_ai: EMBEDDING_MODEL.workers_ai,
+      pooling: EMBEDDING_MODEL.pooling,
+      sections: g.vectors.size,
+      note: `The vectors are in the seed script and in relate-docs.rl, not in this file.`,
+    },
     nodes: g.nodes.map((n) => ({ id: nodeKey(n), labels: [n.label], properties: clean(n.props) })),
     relationships: g.rels.map((r) => ({ type: r.type, start: nodeKey(r.from), end: nodeKey(r.to), properties: clean(r.props) })),
   };

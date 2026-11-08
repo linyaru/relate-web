@@ -1,9 +1,15 @@
 ---
 id: wal
-term: WAL
+term: "WAL"
 short: "Append-only log each commit goes to before it applies; under the default `full` durability mode it is synced first, so a crash loses no acknowledged write."
 aliases: ["write ahead log"]
 context: storage
 see: reference/storage/wal-and-checkpoints
-related: ["checkpoint", "snapshot"]
+related: ["checkpoint", "snapshot", "durability-mode"]
 ---
+
+The write-ahead log (WAL) is a series of segment files, `00000001.log` and on, in a folder of the store: `wal/` by default, `.cypherlite/wal/` with the `markdown` codec, or wherever `--wal-dir` points for a directory store. A single-file store keeps its WAL inside the `.rl` file. Each commit appends one record holding its physical changes, never Cypher text, so replay never re-runs a statement.
+
+Opening a store loads the :term[snapshot]{id=snapshot}, then replays the records written after it. A :term[checkpoint]{id=checkpoint} folds the log into a new snapshot and deletes the segments it covers.
+
+When a commit counts as safe depends on the :term[durability mode]{id=durability-mode}. Under `full`, the default, the record is synced to disk before the commit returns. Under `everysecond` the sync runs about once a second, and under `snapshot` never on commit.

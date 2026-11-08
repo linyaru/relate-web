@@ -1,0 +1,17 @@
+---
+id: relationship
+term: "relationship"
+short: "A directed, typed connection between two nodes, with properties of its own; every relationship has exactly one type and a start and an end node."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["node", "relationship-type", "path", "property"]
+---
+
+A relationship is written between two nodes with brackets and an arrow: `(a)-[w:WORKS_ON {since: 2024}]->(b)`. It has exactly one :term[relationship type]{id=relationship-type}, a direction from its start node to its end node, and its own :term[properties]{id=property}. A `CREATE` without a direction or with more than one type fails:
+
+```text
+syntax error: RequiresDirectedRelationship: CREATE relationships must have a direction
+```
+
+A pattern can still match in either direction, `(a)-[:KNOWS]-(b)`, and follow several types, `-[:KNOWS|WORKS_ON]->`. A node with relationships cannot be removed with a plain `DELETE`; `DETACH DELETE` removes its relationships with it. `elementId(r)` returns a relationship's :term[element id]{id=element-id}.

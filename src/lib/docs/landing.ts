@@ -23,6 +23,7 @@ export const TASKS: TaskGroup[] = [
     id: 'Evaluate',
     tasks: [
       { text: 'See where relate fits, and where it does not', page: 'concepts/where-relate-fits' },
+      { text: 'Find the problems relate solves', page: 'concepts/problems-relate-solves' },
       { text: 'Check the performance numbers', page: 'reference/performance' },
       { text: 'Read the limitations', page: 'reference/limitations' },
       { text: 'Check the license, versioning and release process', page: 'reference/project' },
@@ -44,6 +45,7 @@ export const TASKS: TaskGroup[] = [
       { text: 'Install the agent skill', page: 'guides/agents/install-the-skill' },
       { text: 'Connect over MCP', page: 'guides/agents/connect-over-mcp' },
       { text: 'Search these docs over MCP', page: 'reference/server/docs-mcp' },
+      { text: 'See how the hosted docs MCP is used', page: 'reference/server/docs-mcp-usage' },
       { text: 'Drive relate from an agent', page: 'guides/agents/drive-relate-from-an-agent' },
       { text: 'Keep an agent safe', page: 'guides/agents/agent-safety' },
       { text: 'Run relate in a sandbox', page: 'guides/agents/run-in-a-sandbox' },
@@ -110,7 +112,7 @@ export const PRIMARY = [
 ];
 
 /** Pages that belong in llms.txt's Evaluate group, in its order. */
-export const EVALUATE = ['concepts/where-relate-fits', 'reference/performance', 'reference/limitations', 'reference/project'];
+export const EVALUATE = ['concepts/where-relate-fits', 'concepts/problems-relate-solves', 'reference/performance', 'reference/limitations', 'reference/project'];
 
 /** The llms.txt group of page `id`. */
 export function llmsGroupOf(id: string): LlmsGroup {
@@ -118,7 +120,7 @@ export function llmsGroupOf(id: string): LlmsGroup {
   if (
     /^get-started\/agent-/.test(id) ||
     /^guides\/(agents|integrations)(\/|$)/.test(id) ||
-    ['concepts/agent-native', 'reference/cli/agent-mode', 'reference/server/docs-mcp'].includes(id)
+    ['concepts/agent-native', 'reference/cli/agent-mode', 'reference/server/docs-mcp', 'reference/server/docs-mcp-usage'].includes(id)
   ) {
     return 'Agents';
   }

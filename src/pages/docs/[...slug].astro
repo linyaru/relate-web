@@ -9,6 +9,8 @@ import Errors from '../../components/docs/Errors.astro';
 import ExitCodes from '../../components/docs/ExitCodes.astro';
 import Flags from '../../components/docs/Flags.astro';
 import Install from '../../components/docs/Install.astro';
+import LanguagePicker from '../../components/docs/LanguagePicker.astro';
+import Matrix from '../../components/docs/Matrix.astro';
 import PageActions from '../../components/docs/PageActions.astro';
 import Docs from '../../layouts/Docs.astro';
 import { mb } from '../../lib/cookbook/render.ts';
@@ -66,6 +68,7 @@ const cells = hasCells(page.entry.body ?? '');
       </p>
     )}
     <PageActions twinHref={page.twinUrl} verified={site.engine.verified} />
+    <LanguagePicker source={page.entry.body ?? ''} />
   </header>
   {prerequisites.length > 0 && (
     <p class="doc-prereqs">
@@ -96,7 +99,7 @@ const cells = hasCells(page.entry.body ?? '');
     </div>
   )}
   <div class="docs-body">
-    <Content components={{ Install, Errors, ExitCodes, Flags, EnvVars }} />
+    <Content components={{ Install, Errors, ExitCodes, Flags, EnvVars, Matrix }} />
   </div>
   {related.length > 0 && (
     <section class="doc-related" data-pagefind-ignore>

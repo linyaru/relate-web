@@ -29,10 +29,10 @@ export const INCLUDE_EXAMPLES = process.env.DOCS_EXAMPLES === '1';
 
 /** Directories under src/content/docs that hold no pages. */
 const isPageDir = (name: string) =>
-  !['diagrams', 'node_modules', '_glossary', '_data'].includes(name) && (name !== '_example' || INCLUDE_EXAMPLES);
+  !['diagrams', 'node_modules', '_glossary', '_data', '_capabilities'].includes(name) && (name !== '_example' || INCLUDE_EXAMPLES);
 
 /** Glob patterns for the `docs` collection, matching `pageFiles`. */
-export const DOCS_PATTERNS = ['**/*.mdx', '!**/diagrams/**', '!_glossary/**', '!_data/**', ...(INCLUDE_EXAMPLES ? [] : ['!_example/**'])];
+export const DOCS_PATTERNS = ['**/*.mdx', '!**/diagrams/**', '!_glossary/**', '!_data/**', '!_capabilities/**', ...(INCLUDE_EXAMPLES ? [] : ['!_example/**'])];
 
 /** Split `text` into its YAML frontmatter (parsed) and body. */
 export function splitFrontmatter(text: string, where: string): { data: Record<string, unknown>; body: string } {

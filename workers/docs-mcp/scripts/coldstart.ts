@@ -5,13 +5,16 @@
 //
 //   npm run coldstart [-- --runs 5 --port 8787]
 //
-// Each run starts a fresh `wrangler dev` (a fresh workerd process, so a cold
+// Each run starts a fresh `wrangler dev --local` (a fresh workerd process, so a cold
 // isolate with nothing initialized) and, from the client, times:
 //   a) the first tools/list
 //   b) the first search_docs after it (WASM instantiation + seed replay + one search)
 //   c) ten warm search_docs calls (median and max)
 // then, on another fresh start, b') search_docs as the very first request.
 // It also reads /healthz for the Worker's own measure of the initialization.
+// Under --local the Workers AI binding fails, so search_docs is full-text
+// and the section vectors are never loaded: the hybrid lane's first call
+// (the vector load) is measured by the unit tests in Node, not here.
 // Every run uses its own CF-Connecting-IP so the local rate limiter does not
 // interfere (in production Cloudflare sets that header; a client cannot).
 
@@ -30,7 +33,7 @@ const URL_ = `http://127.0.0.1:${PORT}`;
 
 async function start(): Promise<{ child: ChildProcess; dir: string }> {
   const dir = mkdtempSync(join(tmpdir(), 'docs-mcp-coldstart-'));
-  const child = spawn('npx', ['wrangler', 'dev', '--port', String(PORT), '--ip', '127.0.0.1', '--persist-to', dir], {
+  const child = spawn('npx', ['wrangler', 'dev', '--local', '--port', String(PORT), '--ip', '127.0.0.1', '--persist-to', dir], {
     cwd: PKG,
     env: { ...process.env, DO_NOT_TRACK: '1', WRANGLER_SEND_METRICS: 'false' },
     stdio: ['ignore', 'pipe', 'pipe'],

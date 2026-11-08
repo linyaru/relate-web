@@ -7,7 +7,7 @@ surfaces: [cypher, cli, python, node, browser]
 related: [reference/cypher/overview, reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations]
 ---
 
-Which Cypher does relate speak? openCypher is the floor: the openCypher Technology Compatibility Kit (TCK) is the language contract. On top of it sits Neo4j's Cypher 25, the version aligned with the ISO GQL standard, and it is the default. Newer syntax that Neo4j has accepted but not settled waits behind an opt-in, `RELATE_PREVIEW`. Where a feature only makes sense on a multi-user server, relate leaves it out and says so with a typed error.
+Which Cypher does relate speak? :term[openCypher]{id=opencypher} is the floor: the openCypher Technology Compatibility Kit (TCK) is the language contract. On top of it sits Neo4j's :term[Cypher 25]{id=cypher-25}, the version aligned with the ISO GQL standard, and it is the default. Newer syntax that Neo4j has accepted but not settled waits behind an opt-in, `RELATE_PREVIEW`. Where a feature only makes sense on a multi-user server, relate leaves it out and says so with a typed error.
 
 ## Three layers
 
@@ -75,7 +75,7 @@ ORDER BY years DESC
 
 The rest of the set includes `NEXT` to chain statements, `COUNT { }` and `COLLECT { }` subqueries, `CALL (x) { }` scope clauses, `CALL { } IN TRANSACTIONS`, dynamic labels with `$(…)`, the vector and UUID types, graph types, and the `SEARCH` clause over vector and full-text indexes. The [Cypher overview](/docs/reference/cypher/overview) lists them all.
 
-Where the proposals, Cypher 5 and Cypher 25 disagree, relate's target is Cypher 25 as Neo4j runs it. That is also why the retired TCK pin carried deviations: a few 2024.3 scenarios expect behavior that Cypher 25 changed on purpose. A statement can still ask for a version with a `CYPHER 5` or `CYPHER 25` prefix. The default is recorded per :term[namespace]{id=namespace} in the store, and `SHOW DATABASES` reports it:
+Where the proposals, Cypher 5 and Cypher 25 disagree, relate's target is Cypher 25 as Neo4j runs it. That is also why the retired TCK pin carried deviations: a few 2024.3 scenarios expect behavior that Cypher 25 changed on purpose. A statement can still ask for a version with a `CYPHER 5` or `CYPHER 25` prefix. The default is recorded per :term[namespace]{id=namespace} in the :term[store]{id=store}, and `SHOW DATABASES` reports it:
 
 ```cypher run name=version
 SHOW DATABASES YIELD name, defaultLanguage
@@ -84,7 +84,7 @@ RETURN name, defaultLanguage
 
 ## Preview features
 
-A preview feature is a Cypher feature from a Cypher Improvement Proposal (CIP) that is not yet part of the settled dialect. relate implements several, and each runs only when the `RELATE_PREVIEW` environment variable names it. Without the opt-in, the statement fails before it runs:
+A :term[preview feature]{id=preview-feature} is a Cypher feature from a Cypher Improvement Proposal (CIP) that is not yet part of the settled dialect. relate implements several, and each runs only when the `RELATE_PREVIEW` environment variable names it. Without the opt-in, the statement fails before it runs:
 
 ```cypher run name=preview expect=error
 RETURN datetime('2026-01-01T12:00+01:00') IS SAME INSTANT datetime('2026-01-01T11:00Z') AS same

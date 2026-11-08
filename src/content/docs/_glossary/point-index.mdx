@@ -1,0 +1,17 @@
+---
+id: point-index
+term: "point index"
+short: "An index over a property holding `point` values that narrows bounding-box and radius predicates to nearby nodes through an R-tree."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["index", "property"]
+---
+
+A point index keeps the points of one property in an R-tree. With it in place, a `WHERE` predicate shaped like `point.withinBBox(p.loc, lowerLeft, upperRight)` or `point.distance(p.loc, center) < bound` narrows the candidate nodes through the tree before the exact coordinate check runs. `SHOW INDEXES` lists it with the type `POINT`.
+
+```cypher
+CREATE POINT INDEX place_loc FOR (p:Place) ON (p.loc)
+```
+
+In a `PROFILE` of a radius query over 2,000 places, three of which matched, the scan read three nodes rather than 2,000. The tree is rebuilt from the index's stored metadata when the store opens.

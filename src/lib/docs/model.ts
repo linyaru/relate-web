@@ -34,10 +34,11 @@ export const GENERATED_FIELDS = ['verified', 'verified_by', 'canonical_url', 'la
 /**
  * The checks a page's examples can have passed at the docs' engine version,
  * in the order the twin's generated `verified_by` lists them (DOCS-PLAN.md §6):
- * Cypher cells (docs:check), Python and Node.js samples (docs:samples), and
- * `bash verify` commands (docs:cli-check).
+ * Cypher cells (docs:check), Python, Node.js, Rust, Java, Go, Swift and C
+ * samples (docs:samples; samples.ts SAMPLE_VERIFIER), and `bash verify`
+ * commands (docs:cli-check).
  */
-export const VERIFIERS = ['cypher', 'python', 'node', 'cli'] as const;
+export const VERIFIERS = ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c', 'cli'] as const;
 export type Verifier = (typeof VERIFIERS)[number];
 
 /** The section a page id belongs to, or null (a page outside the four sections). */
@@ -93,7 +94,7 @@ export const GENERATED_PAGES: readonly GeneratedPageMeta[] = [
   {
     id: 'reference/glossary',
     title: 'Glossary',
-    description: 'Every term the relate docs define, in alphabetical order, with its short definition, other names in use and the page that covers it.',
+    description: 'Every term the relate docs define, in alphabetical order, with its short and full definition, other names in use, related terms and the page that covers it.',
     order: 900,
     surfaces: [],
   },
@@ -103,6 +104,13 @@ export const GENERATED_PAGES: readonly GeneratedPageMeta[] = [
     description: 'What each relate release added, changed, deprecated, removed and fixed, newest first, with the deprecation policy and a JSON feed.',
     order: 910,
     surfaces: [],
+  },
+  {
+    id: 'reference/server/docs-mcp-usage',
+    title: 'Hosted docs MCP usage',
+    description: 'Calls, refusals, failures and completion rate per tool of the hosted docs MCP server, calls by client family, the period counted, and what is never logged.',
+    order: 20,
+    surfaces: ['mcp', 'agents'],
   },
 ];
 

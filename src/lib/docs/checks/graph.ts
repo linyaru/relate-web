@@ -3,8 +3,10 @@
 // the site ships (public/wasm, loaded as the cookbook check loads it), then
 // ask the graph as Cypher:
 //
-//   graph-seed    the seed replays without an error and every node and
-//                 relationship it writes is there afterwards
+//   graph-seed    the seed replays without an error, every node and
+//                 relationship it writes is there afterwards, the three search
+//                 indexes exist (docs, docs_vector, problems), and as many sections carry a vector as the
+//                 embeddings artifact has current entries for
 //   graph-orphan  a published page nothing links to, lists as a prerequisite
 //                 or as related, and that /docs/llms.txt does not list
 //   graph-unlinked a published page no other page and not the landing links
@@ -12,6 +14,8 @@
 //   graph-cli     a command or flag of _data/cli.json that no published
 //                 reference page names in a code block or inline code
 //   graph-prereq  a published page whose prerequisite is a planned page
+//   graph-prereq-cycle a page that is, through PREREQUISITE_OF, its own
+//                 prerequisite (paths of up to 8 pages)
 //   graph-term    a :term whose id has no glossary entry
 //
 // Each rule's severity is configurable: `DEFAULT_SEVERITY` below, then the
@@ -30,12 +34,12 @@ import { join } from 'node:path';
 
 import { WASM_DIR, type Engine as WasmEngine } from '../../cookbook/run.ts';
 import { ENGINE_FILE, type Engine, type PageFile } from '../content.ts';
-import { buildGraph, CLI_FILE, graphInput, seedScript, type DocsGraph } from '../graph.ts';
+import { buildGraph, CLI_FILE, EMBEDDING_PROPERTY, EMBEDDINGS_FILE, FULLTEXT_INDEX, graphInput, PROBLEMS_INDEX, seedScript, VECTOR_INDEX, type DocsGraph } from '../graph.ts';
 
 export type Severity = 'error' | 'warning';
 export type Report = (file: string, line: number | null, severity: Severity, rule: string, message: string) => void;
 
-export const GRAPH_RULES = ['graph-seed', 'graph-orphan', 'graph-unlinked', 'graph-cli', 'graph-prereq', 'graph-term'] as const;
+export const GRAPH_RULES = ['graph-seed', 'graph-orphan', 'graph-unlinked', 'graph-cli', 'graph-prereq', 'graph-prereq-cycle', 'graph-term'] as const;
 export type GraphRule = (typeof GRAPH_RULES)[number];
 
 export const DEFAULT_SEVERITY: Record<GraphRule, Severity | 'off'> = {
@@ -44,6 +48,7 @@ export const DEFAULT_SEVERITY: Record<GraphRule, Severity | 'off'> = {
   'graph-unlinked': 'warning',
   'graph-cli': 'warning',
   'graph-prereq': 'error',
+  'graph-prereq-cycle': 'error',
   'graph-term': 'error',
 };
 
@@ -119,6 +124,10 @@ RETURN 'flag' AS kind, f.id AS id, f.flag AS name, f.command AS command`,
   'graph-prereq': `MATCH (pre:Page)-[:PREREQUISITE_OF]->(p:Page)
 WHERE pre.status = 'planned' AND p.status <> 'planned'
 RETURN p.id AS page, pre.id AS prerequisite ORDER BY page, prerequisite`,
+  'graph-prereq-cycle': `MATCH path = (p:Page)-[:PREREQUISITE_OF*1..8]->(p)
+WHERE p.status <> 'planned'
+WITH p, min(length(path)) AS hops
+RETURN p.id AS page, hops ORDER BY page`,
   'graph-term': `MATCH (p:Page)-[:USES_TERM]->(t:Term) WHERE t.short IS NULL
 RETURN p.id AS page, t.id AS term ORDER BY page, term`,
 };
@@ -179,6 +188,15 @@ export function checkGraph(site: GraphSite, report: Report, options: GraphCheckO
       );
     }
 
+    const indexes = new Set(query('SHOW INDEXES YIELD name RETURN name').map((r) => String(r.name)));
+    for (const name of [FULLTEXT_INDEX, VECTOR_INDEX, PROBLEMS_INDEX]) {
+      if (!indexes.has(name)) emit('graph-seed', ENGINE_FILE, null, `the seed script creates no index \`${name}\` on public/wasm`);
+    }
+    const [vectors] = query(`MATCH (s:Section) WHERE s.${EMBEDDING_PROPERTY} IS NOT NULL RETURN count(s) AS n`);
+    if (Number(vectors.n) !== graph.vectors.size) {
+      emit('graph-seed', EMBEDDINGS_FILE, null, `the seed script set ${vectors.n} section vectors; the embeddings artifact has ${graph.vectors.size} current ones`);
+    }
+
     for (const row of query(QUERIES['graph-orphan'])) {
       emit('graph-orphan', pageFile(row.page), 1, `orphan page: no page links to it, lists it as a prerequisite or as related, and /docs/llms.txt does not list it`);
     }
@@ -187,6 +205,9 @@ export function checkGraph(site: GraphSite, report: Report, options: GraphCheckO
     }
     for (const row of query(QUERIES['graph-prereq'])) {
       emit('graph-prereq', pageFile(row.page), 1, `prerequisite \`${row.prerequisite}\` is a planned page; a published page cannot depend on a page that is not written yet`);
+    }
+    for (const row of query(QUERIES['graph-prereq-cycle'])) {
+      emit('graph-prereq-cycle', pageFile(row.page), 1, `\`${row.page}\` is its own prerequisite through ${row.hops} PREREQUISITE_OF step(s); a reading order needs a page to start from`);
     }
     for (const row of query(QUERIES['graph-term'])) {
       emit('graph-term', pageFile(row.page), null, `:term id \`${row.term}\` has no glossary entry (src/content/docs/_glossary/${row.term}.mdx)`);

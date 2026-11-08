@@ -1,0 +1,23 @@
+---
+id: client
+term: "client"
+short: "A language package that runs the relate engine inside a program's process: the Python, Node.js, Rust, Java, Go and Swift clients."
+aliases: []
+context: surfaces
+see: concepts/architecture
+related: ["surface", "transaction", "bookmark"]
+---
+
+A client is the engine as a library for one language, not a network driver: the program that imports it opens a store and runs statements in its own process, with nothing to connect to. The Python client calls the engine through a native extension module. The Node.js, Java, Go and Swift clients load one shared C library instead of each building its own, and share its contract of one call at a time per connection. Rust programs use the engine's crate directly.
+
+The package names are `relate-db` for Python and `@relate/relate` for Node.js. A client holds the graph in its own process's memory, like any surface, so a second process reaches the same store through `relate serve` rather than a second writable open.
+
+```python
+import relate
+conn = relate.connect("team.rl", read_only=True)
+print(conn.execute("MATCH (p:Person) RETURN count(p) AS n").fetchall())
+```
+
+The connection is read-only; without `read_only=True` the same call opens the store for writing, and creates it when the path is missing.
+
+The docs say client for these packages, and keep driver for Neo4j's drivers, which connect to a server.

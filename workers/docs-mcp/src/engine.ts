@@ -1,7 +1,11 @@
 // The relate engine inside the Worker (DOCS-PLAN.md §3.7 "Shape"): the
 // site's WASM build, initialized once per isolate, with the docs graph
 // replayed from its seed script on the first request that needs it and
-// reused by every request after (ADR-0015).
+// reused by every request after (ADR-0015). The seed is replayed without
+// its section vectors (ADR-0028: seedWithoutVectors in the bundle); the
+// hybrid lane of search_docs loads them on its first use, as one parameter
+// of VECTOR_LOAD_STATEMENT (generated/vectors.txt), so a cold isolate that
+// only answers full-text searches never pays for them.
 //
 // The fence. `new RelateDb(true)` opens an in-memory store read-only, which
 // in the WASM build means an empty store that refuses every write, the seed
@@ -9,7 +13,11 @@
 // So the graph is replayed into a writable in-memory handle, and the fence
 // is structural: no tool accepts Cypher, the only statement the Worker runs
 // after the seed is SEARCH_STATEMENT below, a constant read with the
-// caller's text bound as a parameter, never spliced in. Free Cypher
+// caller's text bound as a parameter, never spliced in, plus the two
+// constant statements of the hybrid lane (VECTOR_LOAD_STATEMENT once,
+// VECTOR_STATEMENT with the query's vector bound). validate_cypher never
+// touches this instance: it runs in a fresh one per call (src/wasm.ts,
+// src/validate.ts). Free Cypher
 // (`query_docs_graph`) stays gated until the engine has a statement deadline
 // and a way to freeze a seeded handle (DOCS-PLAN.md §3.8).
 
@@ -17,6 +25,10 @@ import wasmModule from '../generated/wasm/relate_bg.wasm';
 import { initSync, RelateDb } from '../generated/wasm/relate.js';
 import { isWasmTrap } from '../generated/wasm/trap.js';
 import seed from '../generated/graph.cypher';
+import vectorParams from '../generated/vectors.txt';
+import { CANDIDATES, SEARCH_STATEMENT, VECTOR_LOAD_STATEMENT, VECTOR_STATEMENT, type SearchRow } from './statements.ts';
+
+export { CANDIDATES, SEARCH_STATEMENT, VECTOR_LOAD_STATEMENT, VECTOR_STATEMENT, type SearchRow };
 
 interface Envelope {
   error: string | null;
@@ -31,6 +43,9 @@ export interface EngineState {
   statements: number;
   /** Wall time of the initialization as workerd reports it (its clock does not advance during CPU work; see README). */
   initMs: number;
+  /** Section vectors loaded (0 until the hybrid lane first runs), and the load's wall time. */
+  vectors: number;
+  vectorsMs: number | null;
 }
 
 let state: EngineState | null = null;
@@ -59,55 +74,16 @@ export function engine(): EngineState {
     throw new Error(`the docs graph seed failed: ${failed.error}`);
   }
   const count = JSON.parse(db.execute('MATCH (n) RETURN count(n) AS n', null)) as Envelope;
-  state = { db, nodes: Number(count.rows[0]?.n ?? 0), statements: envelopes.length, initMs: Date.now() - t0 };
+  state = { db, nodes: Number(count.rows[0]?.n ?? 0), statements: envelopes.length, initMs: Date.now() - t0, vectors: 0, vectorsMs: null };
   return state;
 }
 
-/** Whether the engine has been initialized in this isolate. */
-export const engineReady = (): boolean => state !== null;
-
-/**
- * search_docs as one canned statement over the `docs` full-text index
- * (src/lib/docs/graph.ts FULLTEXT_INDEX: Section heading and text). The
- * index ranks `$k` candidate sections (CANDIDATES, filter or not); the page
- * filters apply after it, and src/docs.ts re-ranks the candidates and cuts
- * them to the caller's limit. The full-text score counts query-term
- * occurrences, so on its own it favors long sections over the one a heading
- * names; the re-rank needs each section's `length`.
- */
-export const SEARCH_STATEMENT = `MATCH (s:Section) SEARCH s IN (FULLTEXT INDEX docs FOR $q LIMIT $k) SCORE AS score
-MATCH (p:Page {id: s.page})
-WHERE ($section IS NULL OR p.section = $section)
-  AND ($surface IS NULL OR EXISTS { MATCH (p)-[:APPLIES_TO]->(:Surface {id: $surface}) })
-RETURN s.id AS id, s.page AS page, s.anchor AS anchor, s.heading AS heading, s.url AS url, s.length AS length, score,
-       p.title AS title, p.md_url AS md_url, p.section AS section
-ORDER BY score DESC, id
-LIMIT $k`;
-
-/** How many sections the index ranks for every search, before the filters and the re-rank. */
-export const CANDIDATES = 200;
-
-export interface SearchRow {
-  id: string;
-  page: string;
-  anchor: string;
-  heading: string;
-  url: string;
-  text?: string;
-  length?: number | null;
-  score: number;
-  title: string;
-  md_url: string;
-  section: string;
-}
-
-/** The candidate sections for a query (at most CANDIDATES, filters applied), in the engine's score order. */
-export function search(q: string, section: string | null, surface: string | null): SearchRow[] {
+/** Run one constant statement on the docs instance; a trap marks the isolate's engine unavailable. */
+function run(statement: string, params: string): Envelope {
   const { db } = engine();
-  const params = { q, k: CANDIDATES, section, surface };
   let out: string;
   try {
-    out = db.execute(SEARCH_STATEMENT, JSON.stringify(params));
+    out = db.execute(statement, params);
   } catch (err) {
     if (isWasmTrap(err)) {
       state = null;
@@ -118,5 +94,31 @@ export function search(q: string, section: string | null, surface: string | null
   }
   const env = JSON.parse(out) as Envelope;
   if (env.error) throw new Error(env.error);
-  return env.rows as unknown as SearchRow[];
+  return env;
+}
+
+/** Load the section vectors into the docs instance once (the hybrid lane's first use). */
+export function ensureVectors(): EngineState {
+  const e = engine();
+  if (e.vectors) return e;
+  const t0 = Date.now();
+  const env = run(VECTOR_LOAD_STATEMENT, vectorParams);
+  e.vectors = Number(env.rows[0]?.n ?? 0);
+  e.vectorsMs = Date.now() - t0;
+  if (!e.vectors) throw new Error('no section vector was loaded');
+  return e;
+}
+
+/** The vector lane's candidates (at most CANDIDATES, filters applied), nearest first. Loads the vectors on first use. */
+export function vectorSearch(vector: number[], section: string | null, surface: string | null): SearchRow[] {
+  ensureVectors();
+  return run(VECTOR_STATEMENT, JSON.stringify({ vector, k: CANDIDATES, section, surface })).rows as unknown as SearchRow[];
+}
+
+/** Whether the engine has been initialized in this isolate. */
+export const engineReady = (): boolean => state !== null;
+
+/** The candidate sections for a query (at most CANDIDATES, filters applied), in the engine's score order. */
+export function search(q: string, section: string | null, surface: string | null): SearchRow[] {
+  return run(SEARCH_STATEMENT, JSON.stringify({ q, k: CANDIDATES, section, surface })).rows as unknown as SearchRow[];
 }

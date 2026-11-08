@@ -1,0 +1,18 @@
+---
+id: relationship-type
+term: "relationship type"
+short: "The single name every relationship carries, such as `KNOWS` or `WORKS_ON`; patterns match on it, and a relationship cannot change it."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["relationship", "label", "label-expression"]
+---
+
+Every :term[relationship]{id=relationship} has exactly one type, given when it is created: `CREATE (a)-[:WORKS_ON]->(b)`. A pattern matches on it, `-[:WORKS_ON]->`, or on several with `|`, and `type(r)` returns it. A relationship's type cannot be changed in place: `SET r:B` on a relationship fails with `SET labels() requires a node`, so a new type means a new relationship.
+
+```cypher
+MATCH (:Person)-[r]->(:Project)
+RETURN type(r) AS type, count(*) AS n
+```
+
+A dynamic type, `CREATE ()-[:$($type)]->()`, takes the type from a parameter.

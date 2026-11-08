@@ -1,0 +1,15 @@
+---
+id: directory-store
+term: "directory store"
+short: "A store kept as a folder of snapshot files, a WAL folder and lock files; the layout for any `--database` path that is not `:memory:` and does not end in `.rl`."
+aliases: []
+context: storage
+see: guides/storage/choose-a-store-layout
+related: ["store", "single-file-store", "live-read-only", "codec"]
+---
+
+A directory store spreads the store over a folder: the :term[snapshot]{id=snapshot} files the last :term[checkpoint]{id=checkpoint} wrote, a `manifest.json`, the :term[WAL]{id=wal} under `wal/` (under `.cypherlite/wal/` with the `markdown` codec), lock files, and the schema text copy under `.cypherlite/schema/`. `relate info` prints the layout as `native directory`.
+
+It is the only durable layout that a second process can read while a writer has it open. A `--read-only` open beside the writer sees the store as of its own open, and `--read-only=live` follows the writer's commits as they land. It is also the layout for a diffable snapshot: with the `json` codec, the snapshot is a text file.
+
+`--wal-dir` moves the WAL out of the folder, and `--snapshot-format` picks the :term[codec]{id=codec} when the folder is empty. On disk it takes the snapshot plus the WAL written since the last checkpoint.

@@ -1,9 +1,19 @@
 ---
 id: durability-mode
-term: durability mode
+term: "durability mode"
 short: "When a commit counts as safe on disk: `full` (the default) syncs the WAL first, `everysecond` about once a second, and `snapshot` only at checkpoints."
 aliases: []
 context: storage
 see: guides/operate/durability-modes
-related: ["wal", "checkpoint"]
+related: ["wal", "checkpoint", "snapshot"]
 ---
+
+The durability mode is a setting of the process that opens a store, not of the store: `--durability-mode` or `RELATE_DURABILITY_MODE`, and an open that sets nothing gets `full`. It decides when the :term[WAL]{id=wal} is synced, that is, forced out of the operating system's cache onto the disk, relative to the moment a commit returns.
+
+| Mode | A crash can lose |
+| --- | --- |
+| `full` | No acknowledged write |
+| `everysecond` | About the last second of acknowledged writes |
+| `snapshot` | Every write since the last completed checkpoint |
+
+A killed process loses the window too, not only a power cut. An in-memory store keeps nothing after exit in any mode.

@@ -411,6 +411,45 @@ export function cellTitles(r: Recipe): Map<string, string> {
 }
 
 /**
+ * What passing the recipe means, for `recipe.json` (DOCS-PLAN.md §3.8:
+ * "recorded results are assertions"): the recipe's one-sentence `summary`
+ * from its front matter, how many cells it has and how many carry a
+ * recorded result, and one sentence stating the assertion the checks make
+ * (`npm run cookbook:check` replays every cell in order on a fresh in-memory
+ * store and compares each recorded result); the sentence names expected
+ * errors only when the recipe has `expect=error` cells.
+ */
+export interface Verifies {
+  summary: string;
+  cells: number;
+  recorded: number;
+  text: string;
+}
+
+export function verifiesSummary(r: Recipe): Verifies {
+  const cells = r.cells.length;
+  const recorded = r.cells.filter((c) => c.result !== null).length;
+  const steps = cells === 1 ? 'its one step runs' : `its ${cells} steps run in order`;
+  const each =
+    recorded === cells
+      ? cells === 1
+        ? 'it returns its recorded result'
+        : 'each step returns its recorded result'
+      : recorded === 1
+        ? 'the one step with a recorded result returns it'
+        : `each of the ${recorded} steps with a recorded result returns that result`;
+  // Only a recipe with `expect=error` cells says that an error is one of the recorded results.
+  const errs = r.cells.filter((c) => c.expectError).length;
+  const errors = errs === 0 ? '' : errs === 1 ? ', the one expected error included' : `, its ${errs} expected errors included`;
+  return {
+    summary: r.front.summary,
+    cells,
+    recorded,
+    text: `When ${steps} on a fresh in-memory store, ${each}${errors}.`,
+  };
+}
+
+/**
  * Contract checks beyond the front matter's own schema (which parsing
  * enforces), none needing the engine: heading, cells, a diagram, data
  * blocks, step code width, raw HTML, narrative length. Returns every problem

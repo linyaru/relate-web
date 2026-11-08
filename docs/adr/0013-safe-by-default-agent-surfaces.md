@@ -117,3 +117,12 @@ and structurally query-free telemetry.
   seed is one constant read with the caller's words bound as a parameter.
   `reference/server/docs-mcp` states this. Upstream ask: a way to freeze a
   seeded handle, or to open a snapshot read-only, in the WASM.
+- ADR-0026 (capability catalog): a capability's `intents` are quoted user
+  requests, exempt from the imperative rule and checked for injection
+  phrasing like every other catalog field.
+- ADR-0032 (task skills): the read-only rule covers client fences in a
+  task skill (`read_only=True` in Python, `readOnly: true` in
+  JavaScript), and a skill fence in another language is refused.
+- ADR-0031 (phase 2 constructs): a host deeplink is generated from the
+  JSON shown beside it, needs `--read-only` on a command entry, and
+  refuses `env` and `headers`.

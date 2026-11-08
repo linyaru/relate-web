@@ -6,14 +6,14 @@ surfaces: [cli, python, node, browser, bolt, http, mcp, agents]
 related: [reference/security, reference/project, reference/cli/flags, guides/agents/run-in-a-sandbox]
 ---
 
-The `relate` CLI binary sends anonymous usage metrics to Mixpanel. They are on by default, and `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0`, or `relate telemetry off` turns them off. The events carry command shapes and a random install ID; query text, store paths, and parameter values are never collected, because the code that builds an event has no field to hold them. The client libraries, the WebAssembly build, the C library, and the served surfaces never send usage metrics. Today the docs, cookbook, and playground pages load nothing from a third party.
+The `relate` CLI binary sends anonymous usage metrics to Mixpanel. They are on by default, and `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0`, or `relate telemetry off` turns them off. The events carry command shapes and a random install ID; query text, :term[store]{id=store} paths, and :term[parameter]{id=parameter} values are never collected, because the code that builds an event has no field to hold them. The client libraries, the WebAssembly build, the C library, and the served :term[surfaces]{id=surface} never send usage metrics. Today the docs, cookbook, and playground pages load nothing from a third party.
 
 ## Synopsis
 
 | Surface | Sends usage metrics | Network access it starts on its own |
 | --- | --- | --- |
 | `relate` CLI (release binary) | Yes, unless turned off | Only the usage metrics. `relate upgrade`, `relate extension install`, `--load <url>`, `--fetch-params`, `pull`, and `push` reach the addresses they are given or document, and only when run |
-| `relate serve` (HTTP, MCP, Bolt) | One `RELATE-CLI_COMMAND` event when the server exits; statements it serves send nothing | Only that one usage metrics event, unless turned off |
+| `relate serve` (HTTP, :term[MCP]{id=mcp}, Bolt) | One `RELATE-CLI_COMMAND` event when the server exits; statements it serves send nothing | Only that one usage metrics event, unless turned off |
 | Python, Node.js, Java, Go, Swift, and Rust clients, and the C library | Never | None |
 | WebAssembly (WASM) build | Never | None |
 | `agent` and `minimal` CLI builds, from source | Never; the usage metrics code is not compiled in | `agent`: only `pull`, `push`, `--fetch-params`, `--load <url>`, and `extension install`, when run. `minimal`: none |
@@ -59,7 +59,7 @@ Every event also carries these properties:
 | Install ID | A random UUID, generated once and kept in `state.json` in the config directory. No hardware or operating-system identifier is read. |
 | Files | `state.json` (the install ID and the notice flag) and `config.json` (the setting `relate telemetry` writes), both mode `0600` on Unix, in `$XDG_CONFIG_HOME/relate/` when that is set to an absolute path, else `~/.config/relate/` |
 | Delivery | `POST https://api.mixpanel.com/track`, from a background thread with a 2-second HTTP timeout. At exit the CLI waits at most 250 ms by default (`RELATE_TELEMETRY_FLUSH_MS` changes it; `0` waits for nothing) for delivery, then drops what is left. |
-| Failure | Every telemetry error is ignored: nothing is printed, and exit codes do not change. |
+| Failure | Every :term[telemetry]{id=telemetry} error is ignored: nothing is printed, and exit codes do not change. |
 | Recipient | A Mixpanel project shared with another command-line tool; its operator is to be named here at launch. The `RELATE-CLI_` prefix keeps relate's events apart. The CLI does not set Mixpanel's `ip` parameter, so Mixpanel's own handling of the request's IP address applies. |
 
 ## Turning usage metrics off
@@ -121,7 +121,7 @@ NVL, the graph view, includes a telemetry module. The cookbook and docs pages re
 | Item | Status |
 | --- | --- |
 | Host | Decided: Cloudflare Pages serves `relatedb.ai`, and a Cloudflare Worker serves the docs MCP endpoint at `/mcp`. Neither is deployed yet; until then a preview of the site is served by GitHub Pages. |
-| Docs MCP logs | Decided: calls counted per tool and per client user agent, searches with no result counted, and nothing else; no query text is kept. The fields are listed on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged). |
+| Docs MCP logs | Decided: calls counted per tool and per client user agent, searches with no result counted, and nothing else; no query text is kept. The fields are listed on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged); the counts (calls, refusals, failures and completion rate per tool) are published on [Hosted docs MCP usage](/docs/reference/server/docs-mcp-usage), with the period they cover. With Workers AI, the text of a `search_docs` query is sent to Cloudflare Workers AI to compute its vector; the Worker does not log it, and what Workers AI records is to be published at launch ([threat model](/docs/reference/server/docs-mcp#threat-model)). |
 | Docs page analytics | Decided, not deployed: Cloudflare Web Analytics on the docs pages, with no cookies and no script beyond Cloudflare's own |
 | Agent-path hits | Decided, not deployed: one Worker log line per request for a `.md` twin, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, the skill, or `/mcp`, keyed by user agent and tool; searches with no result counted; no query text |
 | What Cloudflare logs, and for how long | Not published yet; to be published at launch, when the Cloudflare account exists, on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged) |

@@ -1,5 +1,6 @@
 // docs:check for the generated pages and endpoints (src/lib/docs/generated/):
-// the glossary and changelog pages, the changelog feed and /docs/feedback.md.
+// the glossary, changelog and docs MCP usage pages, /docs/glossary.json, the
+// changelog feed and /docs/feedback.md.
 //
 // From the source:
 //   - no `.mdx` claims a generated page's id; each page renders, and its twin
@@ -18,9 +19,10 @@
 // From dist/ (`--built`, when the Site has built ids):
 //   - each generated page has its HTML page and both twin URLs, appears in
 //     /docs/llms.txt and in /sitemap.xml; the built changelog page has
-//     `#since-<verified>`, the built glossary an element per term id; the feed,
-//     /docs/changelog.md and /docs/feedback.md are built, and the feed parses
-//     with one item per release
+//     `#since-<verified>`, the built glossary an element per term id and its
+//     JSON-LD DefinedTermSet in <head>; /docs/glossary.json is built and equals
+//     glossaryJsonText(); the feed, /docs/changelog.md and /docs/feedback.md
+//     are built, and the feed parses with one item per release
 //
 // It takes the Site of scripts/docs.ts (only the fields below) and that
 // script's report callback.
@@ -35,6 +37,7 @@ import { ROOT, type Engine } from '../content.ts';
 import { CHANGELOG_FILE, changelogData, changelogPending, sinceTargets } from '../generated/changelog.ts';
 import { feedbackMarkdown, GENERATED, generatedContext, type RenderedPage } from '../generated/index.ts';
 import { glossaryEntries } from '../generated/glossary.ts';
+import { GLOSSARY_JSON_PATH, glossaryJsonText } from '../glossary.ts';
 import { CANONICAL_PHRASE } from '../llms.ts';
 import { CHANGELOG_FEED_URL, CHANGELOG_MD_URL, FEEDBACK_URL, GENERATED_IDS, pageUrl, twinUrl } from '../model.ts';
 
@@ -169,8 +172,13 @@ export function checkGenerated(site: GeneratedCheckSite, report: Report, dist = 
     }
     if (id === 'reference/glossary' && existsSync(html)) {
       for (const e of glossaryEntries()) if (!ids.has(e.id)) report(html, null, 'error', 'generated', `the built glossary has no #${e.id}`);
+      const head = /<head[^>]*>([\s\S]*?)<\/head>/.exec(readFileSync(html, 'utf8'))?.[1] ?? '';
+      if (!head.includes('application/ld+json')) report(html, null, 'error', 'generated', 'the built glossary has no JSON-LD DefinedTermSet (application/ld+json) in its <head>');
     }
   }
+  const glossaryJson = file(GLOSSARY_JSON_PATH);
+  if (!existsSync(glossaryJson)) report(glossaryJson, null, 'error', 'generated', `${GLOSSARY_JSON_PATH} is not built`);
+  else if (readFileSync(glossaryJson, 'utf8') !== glossaryJsonText(site.engine.verified)) report(glossaryJson, null, 'error', 'generated', 'dist/docs/glossary.json differs from the glossary');
   for (const p of [CHANGELOG_MD_URL, FEEDBACK_URL]) if (!existsSync(file(p))) report(file(p), null, 'error', 'generated', `${p} is not built`);
   const feed = file(CHANGELOG_FEED_URL);
   if (!existsSync(feed)) {

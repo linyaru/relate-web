@@ -1,9 +1,21 @@
 ---
 id: envelope
-term: envelope
+term: "envelope"
 short: "One compact JSON object per result set, printed by `--mode envelope`, that keeps the column list even when there are no rows."
-aliases: ["wrapper", "response object"]
+aliases: ["response object"]
 context: cli
 see: reference/cli/agent-mode
-related: ["agent-mode", "exit-code"]
+related: ["agent-mode", "error-object", "row-cap", "notification"]
 ---
+
+The envelope is the CLI's machine-readable result: one JSON object per result set, on one line. It holds `columns` and `columnTypes`, the `rows` as objects keyed by column, the planner's `notifications`, and `truncated`. Under a :term[row cap]{id=row-cap} it also holds `rowCap`, with the rows kept and the total. An `EXPLAIN` or `PROFILE` adds the `plan`. Because `columns` is always present, an empty result still says what it would have held.
+
+A failed statement prints an :term[error object]{id=error-object} instead, with the stderr message and the exit code unchanged. Agent mode never changes the envelope's shape.
+
+```bash
+relate --mode envelope "UNWIND [1, 2] AS x RETURN x"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rows":[{"x":1},{"x":2}],"truncated":false}
+```

@@ -14,11 +14,15 @@ import { createMcpHandler } from 'agents/mcp/server';
 
 import { bundle, ORIGIN, VERIFIED } from './docs.ts';
 import { engine } from './engine.ts';
+import type { AiBinding } from './hybrid.ts';
 import { checkCosts, checkIp, LIMITS_TEXT, limiterKind, POLICY_HEADER, type LimitEnv, type Verdict } from './limits.ts';
 import { log, uaFamily, type LogLine } from './log.ts';
 import { createServer, type CallObservation } from './server.ts';
 
-export type Env = LimitEnv;
+export type Env = LimitEnv & {
+  /** Workers AI (wrangler.jsonc `ai`): the hybrid lane of search_docs. Under `wrangler dev --local` it is bound but every call throws. */
+  AI?: AiBinding;
+};
 
 /** JSON-RPC error codes this Worker adds (implementation-defined range, -32000 to -32099); stable. */
 const ERRORS = {
@@ -36,7 +40,7 @@ const MAX_REQUEST_BYTES = 64 * 1024;
  * revision of 2025-06-18 removed batches, so clients on it send one message.
  */
 const MAX_BATCH = 10;
-const KNOWN_TOOLS = new Set(['search_docs', 'get_page', 'explain_error']);
+const KNOWN_TOOLS = new Set(['search_docs', 'get_page', 'explain_error', 'validate_cypher', 'discover_capabilities']);
 const KNOWN_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list', 'tools/call', 'resources/list', 'resources/templates/list', 'resources/read', 'prompts/list', 'prompts/get', 'server/discover', 'notifications/cancelled']);
 
 const CORS = {
@@ -69,9 +73,11 @@ const DESCRIPTION = [
   `relate, the embedded Cypher graph database (relatedb.ai): its documentation over MCP, verified against relate ${VERIFIED}.`,
   `Endpoint: ${ORIGIN}/mcp, MCP streamable HTTP (POST, JSON-RPC), stateless: no session, no accounts, read-only.`,
   '',
-  'Tools: search_docs, get_page, explain_error.',
-  'Resources: relate-docs://page/<id> (and #<anchor> for one section), relate-docs://llms.txt, relate-docs://skill/relate, relate-docs://releases.',
-  'Prompt: onboard.',
+  'Tools: search_docs, get_page, explain_error, validate_cypher, discover_capabilities.',
+  'Resources: relate-docs://page/<id> (and #<anchor> for one section), relate-docs://llms.txt, relate-docs://skill/<name> (relate and the task skills), relate-docs://releases, relate-docs://capabilities, relate-docs://example/<recipe>/<cell>.',
+  'Prompts: onboard, text-to-cypher.',
+  'search_docs: hybrid (full-text and vector, fused by reciprocal rank) when the embedding model answers, full-text otherwise; each result says which in version.retrieval.',
+  'validate_cypher: EXPLAIN on a fresh, empty engine instance per call; the statement is planned, never run.',
   `Claude Code: claude mcp add --transport http relate-docs ${ORIGIN}/mcp`,
   '',
   'The same documentation without MCP:',
@@ -80,7 +86,7 @@ const DESCRIPTION = [
   '',
   'Limits:',
   LIMITS_TEXT,
-  `Each tool result or resource is capped at 96 KiB of text, and search_docs at 20 results. A request is capped at ${MAX_REQUEST_BYTES / 1024} KiB and ${MAX_BATCH} JSON-RPC messages (a larger batch is HTTP 400, JSON-RPC -32600), so one response carries at most ${MAX_BATCH} capped results.`,
+  `Each tool result or resource is capped at 96 KiB of text, search_docs and discover_capabilities at 20 results. validate_cypher takes a statement and parameters under 8 KiB each. A request is capped at ${MAX_REQUEST_BYTES / 1024} KiB and ${MAX_BATCH} JSON-RPC messages (a larger batch is HTTP 400, JSON-RPC -32600), so one response carries at most ${MAX_BATCH} capped results.`,
   '',
   'CORS: Access-Control-Allow-Origin *, no cookies, no credentials.',
   'Logs: one line per request with the JSON-RPC method, the tool name, the client family from the User-Agent header, the HTTP status, the duration and whether a search or error lookup found nothing. No query text, no page asked for, no IP address.',
@@ -193,7 +199,7 @@ async function handleMcp(request: Request, env: Env, line: LogLine): Promise<Res
   }
 
   const observe: CallObservation = {};
-  const handler = createMcpHandler(() => createServer(observe), {
+  const handler = createMcpHandler(() => createServer(observe, env.AI), {
     route: '/mcp',
     corsOptions,
     // Public, read-only documentation with no cookies or credentials: a page
@@ -201,6 +207,11 @@ async function handleMcp(request: Request, env: Env, line: LogLine): Promise<Res
     allowedOriginHostnames: '*',
   });
   const response = await handler.fetch(forward);
+  // The transport may answer before an async tool (search_docs awaits the
+  // embedding model) has finished; reading the body to its end waits for the
+  // result, so the log line records what the call observed. A body is at most
+  // MAX_BATCH capped results.
+  const body = await response.arrayBuffer();
   if (observe.tool) line.tool = observe.tool;
   if (observe.zeroResults !== undefined) line.zero_results = observe.zeroResults;
   if (observe.toolError) line.tool_error = observe.toolError;
@@ -208,7 +219,7 @@ async function handleMcp(request: Request, env: Env, line: LogLine): Promise<Res
   headers.set('RateLimit-Policy', POLICY_HEADER);
   headers.set('Cache-Control', 'no-store');
   headers.delete('Set-Cookie');
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function handleHealth(env: Env): Promise<Response> {
@@ -218,9 +229,22 @@ async function handleHealth(env: Env): Promise<Response> {
       ok: e.nodes === bundle.graph.nodes,
       kind: 'documentation',
       engine: bundle.engine,
-      graph: { nodes: e.nodes, nodes_expected: bundle.graph.nodes, relationships_expected: bundle.graph.relationships, seed_statements: e.statements, seed_bytes: bundle.graph.seed_bytes },
+      graph: {
+        nodes: e.nodes,
+        nodes_expected: bundle.graph.nodes,
+        relationships_expected: bundle.graph.relationships,
+        seed_statements: e.statements,
+        seed_bytes: bundle.graph.seed_bytes,
+        served_seed_bytes: bundle.graph.served_seed_bytes,
+        vectors_loaded: e.vectors,
+        vectors_expected: bundle.graph.vectors,
+      },
       pages: Object.keys(bundle.pages).length,
       init_ms: e.initMs,
+      vectors_ms: e.vectorsMs,
+      // Whether the Workers AI binding exists; under `wrangler dev --local` it exists and every call
+      // fails ("needs to be run remotely"), so search_docs answers full-text with a retrieval_note.
+      ai_binding: env.AI ? 'bound' : 'absent',
       limiter: limiterKind(env),
     });
   } catch (err) {

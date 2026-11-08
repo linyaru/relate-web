@@ -1,9 +1,22 @@
 ---
 id: row-cap
-term: row cap
+term: "row cap"
 short: "The limit on rows printed per statement, 100 by default under a detected agent harness; `--max-rows` sets it, and a cut is reported in-band."
 aliases: []
 context: cli
 see: reference/cli/agent-mode
 related: ["agent-mode", "envelope"]
 ---
+
+The row cap bounds how many rows the CLI prints for one statement, so a broad read cannot flood an agent's context. `--max-rows N` sets it and `0` means unlimited; `RELATE_MAX_ROWS` sets it for an environment. Without either, it is 100 under a detected agent harness with stdout not a terminal, and unlimited otherwise. The statement itself runs to completion: the cap limits printing, not reading.
+
+A cut is never silent. stderr gets a warning line, and the machine modes carry it in-band: in the :term[envelope]{id=envelope}, `"truncated":true` and a `rowCap` object with the rows kept and the total.
+
+```bash
+relate --mode envelope --max-rows 2 "UNWIND range(1, 5) AS x RETURN x"
+```
+
+```text
+warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"truncated":true}
+```

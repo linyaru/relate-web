@@ -1,0 +1,15 @@
+---
+id: opencypher
+term: "openCypher"
+short: "The open specification of Cypher and its Technology Compatibility Kit (TCK) of scenarios; relate treats it as the floor of its dialect."
+aliases: ["OpenCypher"]
+context: cypher
+see: concepts/cypher-dialect
+related: ["cypher", "cypher-25", "gql"]
+---
+
+openCypher is the vendor-neutral definition of Cypher. Its Technology Compatibility Kit (TCK) is a suite of scenarios that pins down what each clause, expression and error means, and relate treats those scenarios as the contract for its parser, planner, executor, and error classes.
+
+Coverage is measured outside the engine's own test suite: a spec harness runs Neo4j's Cypher suites, the TCK among them, against each pull request that is ready for review, and reports the result without blocking a merge. No current pass count is published. A pass figure from the retired in-repository TCK run, which ended on 2026-11-05, is history rather than a current claim.
+
+Where :term[Cypher 25]{id=cypher-25} deliberately changed behavior that an older TCK scenario expects, relate follows Cypher 25.

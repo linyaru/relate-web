@@ -13,6 +13,7 @@ import {
   narrative,
   parseRecipe,
   validateRecipe,
+  verifiesSummary,
   withResults,
   type Recipe,
   type Recording,
@@ -220,4 +221,23 @@ test('cellTitles names each cell by the heading it sits under', () => {
   // A heading-shaped line inside a code fence is not a heading.
   assert.equal(titles.get('b'), 'Cafes within 2 km (2)');
   assert.equal(titles.get('c'), 'The nearest k cafes');
+});
+
+test('verifiesSummary states the summary and counts the recorded cells', () => {
+  const r = parse(SAMPLE);
+  assert.deepEqual(verifiesSummary(r), {
+    summary: 'S',
+    cells: 2,
+    recorded: 1,
+    text: 'When its 2 steps run in order on a fresh in-memory store, the one step with a recorded result returns it.',
+  });
+  const all = parse(SAMPLE.replace('LIMIT $k\n```\n', 'LIMIT $k\n```\n\n```table\n1 row\n```\n'));
+  assert.equal(verifiesSummary(all).recorded, 2);
+  assert.equal(verifiesSummary(all).text, 'When its 2 steps run in order on a fresh in-memory store, each step returns its recorded result.');
+  // Expected errors are named only when a cell is `expect=error`, and counted.
+  const oneError = parse(SAMPLE.replace('```cypher cell=q params=k', '```cypher cell=q params=k expect=error'));
+  assert.equal(oneError.cells[1].expectError, true);
+  assert.equal(verifiesSummary(oneError).text, 'When its 2 steps run in order on a fresh in-memory store, the one step with a recorded result returns it, the one expected error included.');
+  const twoErrors = parse(SAMPLE.replace('```cypher cell=q params=k', '```cypher cell=q params=k expect=error').replace('```cypher cell=load setup params=rows', '```cypher cell=load setup params=rows expect=error'));
+  assert.equal(verifiesSummary(twoErrors).text, 'When its 2 steps run in order on a fresh in-memory store, the one step with a recorded result returns it, its 2 expected errors included.');
 });

@@ -62,7 +62,7 @@ relate follows semantic versioning, and is pre-1.0:
 | Preview features are opt-in | A preview feature runs only when its name is in `RELATE_PREVIEW`, read once when a store opens. An unknown name fails the open. A preview feature's syntax can change between releases. When it graduates, its gate is removed and it works without the opt-in. |
 | Stores migrate forward | A store written by an older release is upgraded in place the first time a newer release opens it. There is no downgrade: an older binary rejects a store a newer one has opened. |
 
-A preview feature named in `RELATE_PREVIEW` that the engine does not know fails the open with exit code 1:
+A :term[preview feature]{id=preview-feature} named in `RELATE_PREVIEW` that the engine does not know fails the open with exit code 1:
 
 ```bash verify
 RELATE_PREVIEW=time-travel relate "RETURN 1 AS ok"
@@ -100,7 +100,7 @@ The project publishes no release cadence and no support period for older release
 | C library, `relate-ffi-<target>.tar.gz` | Yes | Yes | Yes | Yes | Yes | — |
 | Swift package, `Relate` | Yes | Yes | — | — | — | macOS 13 or later; iOS 16 or later |
 
-Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser store needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
+Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser :term[store]{id=store} needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
 
 Nothing is published to a package registry yet. The names in the table are the names each package is to be published under at launch:
 

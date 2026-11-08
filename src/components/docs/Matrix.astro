@@ -1,0 +1,44 @@
+---
+// <Matrix />: the surfaces capability matrix, generated from
+// _data/surfaces.json. The data, the props and the twin live in matrix.ts;
+// this renders the same rows as an HTML table in a scrolling frame (twelve
+// columns do not fit a phone), each row at `#matrix-<feature>`, each cell its
+// value as a word (never colour alone) and its note.
+import { esc } from '../../lib/cookbook/result-view.ts';
+import { publishedIds } from '../../lib/docs/content.ts';
+import { inlineHtml } from '../../lib/docs/generated/table.ts';
+import { rowId, surfacesData, table } from './matrix.ts';
+
+const d = surfacesData();
+const props = Astro.props as Record<string, unknown>;
+const t = table(props as never, d);
+const pages = publishedIds();
+const featureIds = t.rows.map((r) => r.id.slice('matrix-'.length));
+const surfaceIds = (props.columns as string[] | undefined) ?? d.surfaces.map((s) => s.id);
+const html =
+  `<table class="ref-table matrix-table"><thead><tr><th scope="col">Feature</th>` +
+  surfaceIds.map((s) => `<th scope="col">${esc(d.surfaces.find((x) => x.id === s)!.label)}</th>`).join('') +
+  '</tr></thead><tbody>' +
+  featureIds
+    .map((f) => {
+      const feature = d.features.find((x) => x.id === f)!;
+      return (
+        `<tr id="${esc(rowId(f))}"><th scope="row"><a class="ref-anchor" href="#${esc(rowId(f))}">${esc(feature.label)}</a>` +
+        `<span class="matrix-means">${inlineHtml(feature.means, pages)}</span></th>` +
+        surfaceIds
+          .map((s) => {
+            const c = d.cells[f][s];
+            return `<td class="matrix-${c.value}"><span class="matrix-value">${c.value}</span>${c.note ? `<span class="matrix-note">${inlineHtml(c.note, pages)}</span>` : ''}</td>`;
+          })
+          .join('') +
+        '</tr>'
+      );
+    })
+    .join('') +
+  '</tbody></table>';
+const notes = t.notes.map((n) => `<p>${inlineHtml(n, pages)}</p>`).join('');
+---
+<div class="docs-ref matrix">
+  <div class="matrix-frame" tabindex="0" role="region" aria-label="Surfaces capability matrix" set:html={html} />
+  <Fragment set:html={notes} />
+</div>

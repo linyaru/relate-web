@@ -112,11 +112,7 @@ SET old.validTo = d.validFrom, old.closedAt = d.recordedAt
 ```
 
 > **Note**
-> Keep the `WHERE r.supersedes IS NOT NULL` guard. Relate currently
-> matches every `Decision` for a property map with a null value, such as
-> `{id: r.supersedes}` for a decision without `supersedes`, instead of none,
-> so each new decision would supersede the whole log. The `WHERE` form,
-> `WHERE old.id = r.supersedes`, is not affected.
+> The `WHERE r.supersedes IS NOT NULL` guard skips decisions that supersede nothing.
 
 All four times are datetimes, and each property keeps one type everywhere.
 

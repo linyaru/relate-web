@@ -1,0 +1,46 @@
+---
+// The global language picker (DOCS-PLAN.md §7.3): one control in the page
+// header that chooses a language in every tab set on the page whose tabs name
+// it (src/lib/docs/languages.ts holds the key vocabulary), and is remembered
+// across pages through the tab script's own `docs-tab` entry in localStorage.
+// Every tab set keeps its own tabs; the twin is unchanged.
+//
+// Rendered only on a page with a tab set that names two or more languages
+// (the page's `::::tabs` containers and its `<Install />` blocks, found at
+// build). Without JavaScript the picker is never shown (every tab panel shows
+// anyway); its space is held while the script loads, so nothing below it
+// moves when it appears.
+import { pickerLanguages, tabSetsOf } from '../../lib/docs/languages.ts';
+import { pieces, type Tab } from './install.ts';
+
+interface Props {
+  /** The page's MDX source. */
+  source: string;
+}
+const { source } = Astro.props;
+
+const installSets = (tabs: Tab[]): string[][] => [tabs.map((t) => t.key), ...tabs.flatMap((t) => (t.tabs ? installSets(t.tabs) : []))];
+const sets = [
+  ...tabSetsOf(source),
+  ...[...source.matchAll(/<Install\b([^>]*)\/?>/g)].flatMap((m) => {
+    const part = /\bpart="([^"]+)"/.exec(m[1])?.[1];
+    return pieces(part ? { part } : {}).flatMap((p) => ('tabs' in p ? installSets(p.tabs) : []));
+  }),
+];
+const languages = pickerLanguages(sets);
+---
+{languages.length > 0 && (
+  <lang-picker class="lang-picker" data-pagefind-ignore>
+    <label>
+      <span>Language</span>
+      <select data-lang-select aria-describedby="langPickerHint">
+        {languages.map((l) => <option value={l.id} data-keys={l.keys.join(' ')}>{l.label}</option>)}
+      </select>
+    </label>
+    <span class="lang-picker-hint" id="langPickerHint">Chooses the tab in every tab set on this page that has it, and on later pages.</span>
+  </lang-picker>
+)}
+
+<script>
+  import '../../scripts/docs/language-picker.ts';
+</script>

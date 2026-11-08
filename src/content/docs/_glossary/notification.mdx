@@ -1,0 +1,15 @@
+---
+id: notification
+term: "notification"
+short: "Advice the planner attaches to a plan, such as a missing index, with a GQLSTATUS code, a severity and a remedy; derived only under `EXPLAIN` or `PROFILE`."
+aliases: []
+context: cypher
+see: guides/cypher/tune-a-query
+related: ["plan", "index", "envelope"]
+---
+
+A notification is the planner's comment on a statement: a missing :term[index]{id=index}, an estimate far from the actual rows, a label or property the store does not have, a deprecated function. Each has a GQLSTATUS code, such as `03C91`, a severity, a title, a description and a remedy that says what to change. A plain run derives none; `EXPLAIN` and `PROFILE` do.
+
+In the :term[envelope]{id=envelope}, `notifications` lists them with the keys `code`, `gql_status`, `severity`, `category`, `title`, `description` and `remedy`, plus `operator_id` when one concerns a single operator of the plan. In `--mode table`, they print as lines in the form `<severity> <GQLSTATUS> <code>: <description> Remedy: <remedy>`, and plan warnings print in the plan's `Warnings` column.
+
+The errors reference lists every notification with its code and severity, each at a stable anchor.

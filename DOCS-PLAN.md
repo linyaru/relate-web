@@ -584,6 +584,31 @@ no Durable Object or session). The Worker uses it; the WASM engine and the
 docs graph are initialised once per isolate and reused, which is what the
 Durable Object in 3.7 was for. The container fallback stands.
 
+*As built (phase 2, the Worker; ADR-0033):* the five tools are live in
+`workers/docs-mcp/`. `validate_cypher` sends `EXPLAIN` and the statement to
+a new WebAssembly instance per call (the glue rewritten as a factory at
+bundle time), with an empty store, never the seeded docs instance; it
+refuses an `EXPLAIN`/`PROFILE` prefix and statements or parameters of 8 KiB
+or more, costs 3 units, and answers a trap with `validate_failed`. Its
+answer keeps the 96 KiB text cap: a deep plan is cut at a line
+(`plan_truncated`) and surplus notifications are counted, not returned
+(`notifications_omitted`). Remedies
+come from the engine's notifications, the errors data's patterns, and the
+Differences table of `reference/cypher/differences-from-neo4j`, cited at its
+example anchors. The "planner's memory and traversal caps" are the engine's
+own (nesting depth 500, traversal depth 500); the WASM exposes no others.
+`discover_capabilities` ranks `capabilities.json` as ADR-0026 records, with
+`requirements` met by a surface or by words. Hybrid `search_docs` embeds the
+query on Workers AI and fuses each lane's ten best by reciprocal rank
+(k = 60); without a working binding (`wrangler dev --local` included) it is
+full-text and says so in `version.retrieval`. The resources gained
+`relate-docs://capabilities`, `relate-docs://example/<recipe>/<cell>` and
+every task skill under `relate-docs://skill/<name>`, with templates listed
+by title; `recipe.json` gained the `verifies` summary
+(`src/lib/cookbook/recipe.ts` `verifiesSummary`). The `text-to-cypher`
+prompt takes `intent` and an optional `schema` and quotes the Differences
+table verbatim. `query_docs_graph` stays gated and `run_recipe` stays cut.
+
 **Skills library.** Phase 2: `public/skills/<name>/` for task skills
 authored here (ADR-0002 applies: docs content is this repo's), each a
 standard skill folder whose references cite the recipes that test it and
@@ -616,6 +641,20 @@ Scored on first-command correctness, number of error round trips, whether
 the agent chose relate at all for the open-ended tasks, and assertions on
 the resulting store. Run by hand before launch, by `docs:evals` after; the
 results prune this section rather than decorate it.
+
+*As built (phase 2):* `npm run docs:evals` (scripts/docs-evals.ts,
+ADR-0029) runs ten tasks under the four conditions through any headless
+agent command, graded by assertions on the store, files and transcript.
+`docs-evals.yml` runs it by hand or on the `relate-release` dispatch once
+the operator opts in. The per-tool usage page
+`reference/server/docs-mcp-usage` publishes calls, refusals, failures and
+completion rate per tool and calls per client family, from `npm run
+docs:usage`. Not built: `explain_error` lookups by code (the log line holds
+no call arguments, ADR-0013) and `validate_cypher` failures by error code
+(the log line holds the tool error, such as `validate_failed` or
+`explain_prefix`, not the engine's error, which derives from the caller's
+statement);
+Cursor as a harness (no wrapper).
 
 **The docs landing page (`/docs/`).** Outcome-led for the docs entry point
 (the site's home page is out of scope): a one-line statement, three
@@ -1197,7 +1236,12 @@ What keeps the two from drifting apart, without a link:
   before launch and the published packages after; frontmatter
   `verified_by: [cypher, python, node, cli]` says which checks a page
   passed. Host config blocks and the sandbox guide carry a `reverified`
-  date with a quarterly reminder.
+  date with a quarterly reminder. *As built (phase 2, ADR-0027):* Rust,
+  Java, Go, Swift and C samples run the same way (`rust run`, `java run`,
+  `go run`, `swift run`, `c run`), built from the same checkout by
+  `scripts/samples/setup.sh`, and `verified_by` can name `rust`, `java`,
+  `go`, `swift` and `c`; a Python sample can run in a second venv
+  (`env=crewai`).
 
 What is **not** carried over: ADR numbers and Linear IDs in prose,
 "withdrawn" sections, build-bundle internals, anything the
@@ -1604,6 +1648,23 @@ pull/push, extensions, the remaining storage guides, the six remaining
 language tutorials, `security-and-trust` and the remaining concepts;
 `docs:evals` automated per release; framework-side PRs and the template
 repo (§3.9).
+
+*As built (phase 2, part A, the platform):* the capability catalog (20
+entries, the "Problems relate solves" page, `capabilities.json`, the
+Capability and Problem nodes in the docs graph; ADR-0026); the committed
+embeddings artifact with the vector index in the docs graph, its staleness
+check, and the "Query the relate docs" recipe (ADR-0028); the glossary's
+full bodies, the toggletip and `glossary.json` (ADR-0030); the
+`::::agentic` and `:::deeplink` directives, `<Matrix />` and the language
+picker (ADR-0031); the five task skills with their checks and review record
+(ADR-0032); compiled-language samples (ADR-0027); the eval harness, its
+workflow and the per-tool usage page (ADR-0029). Built by the Worker area
+(§3.8 "As built (phase 2, the Worker)", ADR-0033): `discover_capabilities`,
+the `capabilities` and `example` resources, `validate_cypher`, the
+`text-to-cypher` prompt, hybrid `search_docs` and the task skill resources.
+Left to the pages: the remaining agent guides,
+integrations, language guides and reference, and placing `<Matrix />` and
+`::::agentic` on published pages.
 
 **Phase 3 — the long tail.** `query_docs_graph` once the engine has a
 deadline; the storage animator, the scale demo,

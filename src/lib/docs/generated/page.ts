@@ -50,6 +50,8 @@ export interface RenderedPage {
   markdown: string;
   /** Every id the HTML body gives an element, for link checks. */
   anchors: Set<string>;
+  /** Markup for the page's <head> (the glossary's JSON-LD DefinedTermSet), when the page has any. */
+  head?: string;
 }
 
 export interface GeneratedPage {

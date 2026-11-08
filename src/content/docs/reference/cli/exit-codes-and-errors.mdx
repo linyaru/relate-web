@@ -6,7 +6,7 @@ surfaces: [cli, agents]
 related: [reference/errors, reference/cli/agent-mode, guides/cli/scripting, guides/agents/drive-relate-from-an-agent]
 ---
 
-Every `relate` run ends with an :term[exit code]{id=exit-code} from one closed table, and each code has an anchor on this page, `https://relatedb.ai/docs/reference/cli/exit-codes-and-errors#exit-<n>`. A failed query run prints its message on stderr; in the `json`, `jsonl`, `envelope` and `speedscope` output modes it also prints one error object on stdout, whose `code` names the class and whose `exit_code` equals the process exit code. The [errors reference](/docs/reference/errors) holds one row per error message.
+Every `relate` run ends with an :term[exit code]{id=exit-code} from one closed table, and each code has an anchor on this page, `https://relatedb.ai/docs/reference/cli/exit-codes-and-errors#exit-<n>`. A failed query run prints its message on stderr; in the `json`, `jsonl`, `envelope` and `speedscope` output modes it also prints one :term[error object]{id=error-object} on stdout, whose `code` names the class and whose `exit_code` equals the process exit code. The [errors reference](/docs/reference/errors) holds one row per error message.
 
 ## Synopsis
 
@@ -57,7 +57,7 @@ A query run (a one-shot statement or a piped script) that fails in `--mode json`
 | `exit_code` | number | always | The process exit code, equal to the table row of `code` |
 | `kind` | string | always | The engine's error variant: `syntax`, `semantic`, `argument`, `type`, `execution`, `conflict`, `capacity`, `storage`, `locked`, `io` or `internal` |
 | `message` | string | always | The text also printed on stderr, sanitized to one line |
-| `retryable` | boolean | always | `true` only for a write-write conflict; a locked store is `false` until its other opener exits |
+| `retryable` | boolean | always | `true` for a write-write conflict and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool; a locked store is `false` until its other opener exits |
 | `statement` | number | multi-statement runs | The 1-based index of the failed statement |
 | `statements` | number | with `statement` | How many statements the input held |
 | `committed` | number | with `statement` | How many earlier statements are durable; `0` inside an open `.begin` transaction |
@@ -108,7 +108,7 @@ exit=0
 
 ### Exit 1: a store that does not exist
 
-A `--read-only` open never creates a store, so a missing path fails the open with the error kind `storage`:
+A `--read-only` open never creates a :term[store]{id=store}, so a missing path fails the open with the error kind `storage`:
 
 ```bash verify
 relate --database ./missing.rl --read-only --mode envelope "RETURN 1 AS ok"

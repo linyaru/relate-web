@@ -1,0 +1,15 @@
+---
+id: transaction
+term: "transaction"
+short: "A unit of work that commits as a whole or not at all; each statement is its own transaction unless an explicit `begin` … `commit` groups several."
+aliases: []
+context: engine
+see: concepts/transactions-and-concurrency
+related: ["conflict", "bookmark", "statement"]
+---
+
+By default every statement is its own transaction: it reads the graph as of the last commit before it started, and its writes commit when it succeeds. An explicit transaction groups several statements: `begin` and `commit` or `rollback` on a client, `.begin`, `.commit` and `.rollback` in the CLI shell or a piped script, `BEGIN` and `COMMIT` over Bolt, and managed transactions on the HTTP Query API.
+
+An explicit transaction keeps its writes in a private overlay, sees them itself, and appends them to the WAL once, at commit. Transactions do not nest. After a statement fails inside one, every later statement and the commit fail until it rolls back. A dropped connection or a `.quit` with a transaction open rolls it back.
+
+Commits are optimistic: two transactions that change the same node or relationship do not block each other, and the later commit fails with a retryable :term[write-write conflict]{id=conflict}. `relate serve` expires an idle HTTP transaction after 60 seconds and caps open ones at 128 by default.

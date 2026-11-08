@@ -1,9 +1,19 @@
 ---
 id: safe-mode
-term: safe mode
+term: "safe mode"
 short: "An opt-in policy (`--safe`) that refuses a new named node without a label, an unbounded `MATCH` read and a remote `--load`, before anything runs."
 aliases: []
 context: agents
 see: reference/cli/flags#safety
 related: ["read-only", "agent-mode"]
 ---
+
+Safe mode refuses statement shapes that agents commonly get wrong, before anything runs. A `CREATE` or `MERGE` of a new node without a label, and a `MATCH` read without `LIMIT` or a reducing aggregate such as `count(*)`, fail with `SafeModeViolation` and exit code 6; `collect()` does not count as reducing. A remote `--load` source fails with exit code 2, before any network request.
+
+It is off unless asked for: `--safe` or `RELATE_SAFE_MODE=1` turns it on, `--no-safe` or `RELATE_SAFE_MODE=0` off, and `relate serve --safe` applies it to every statement the server runs. It is a policy, not a limit of the database, and its messages say so. It complements :term[read-only]{id=read-only}: read-only stops writes, safe mode stops shapes that are legal but rarely meant.
+
+The message for `MATCH (n) RETURN n` under `--safe`, on stderr:
+
+```text
+syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>`, or return an aggregate such as `count(*)`, so the read has a bounded result. This is a policy, not a database limit; reopen without --safe to allow it.
+```

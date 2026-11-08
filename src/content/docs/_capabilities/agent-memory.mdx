@@ -1,0 +1,39 @@
+---
+id: agent-memory
+title: Agent memory
+order: 10
+problem: "Give an agent memory that survives restarts, which a later session can recall by meaning and by connection."
+capability: "A durable store the agent's process opens itself, with uniqueness constraints and `MERGE` for one node per entity, `SUPERSEDES` chains for corrections, and vector `SEARCH` for recall."
+intents:
+  - give my agent long-term memory
+  - remember facts across agent sessions
+  - persistent memory for an LLM agent
+  - store what the agent learned in a graph
+  - recall past conversations by meaning
+  - a memory layer for my chatbot agent
+surfaces: [python, node, cli, mcp, agents, cypher]
+guides: [guides/agents/model-agent-memory, guides/integrations/langgraph, guides/integrations/claude-agent-sdk]
+recipes: [agent-memory]
+reference: [reference/cypher/search, reference/storage/formats]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for agent memory: entities, the episodes that mention them, and facts with their evidence
+    accDescr {
+      An Episode MENTIONS the Entity nodes it names. A Fact is ABOUT one or more
+      entities and comes FROM the Episode that is its evidence. A newer Fact
+      SUPERSEDES the one it replaced in the same slot, so a correction keeps the
+      history.
+    }
+    Episode(("<b>Episode</b><br/>id · session · at · text")) -- "<b>MENTIONS</b>" --> Entity(("<b>Entity</b><br/>key · name"))
+    Fact(("<b>Fact</b><br/>text · slot · embedding<br/>validFrom · validTo")) -- "<b>ABOUT</b>" --> Entity
+    Fact -- "<b>FROM</b>" --> Episode
+    Fact -- "<b>SUPERSEDES</b>" --> Fact
+    class Entity l3
+    class Episode l2
+    class Fact l4
+verify: agent-memory#recall
+---
+
+An agent's context ends with its session. Memory that outlives the session has to live somewhere the next one can query: the people and things the agent knows about, where it learned each fact, and which facts a later message corrected. That is a graph: entities are nodes, an episode links to the entities it mentions, and a fact links to its subject and to its evidence.
+
+relate keeps that graph in a store the agent's own process opens, a `.rl` file or a directory beside the agent, with no server to run. Uniqueness constraints and `MERGE` keep one node per entity across sessions. A correction closes the old fact and links it from the new one with `SUPERSEDES` instead of deleting it, so recall can show what is true now and what it replaced. A vector index and the `SEARCH` clause recall facts by meaning, and a property declared on the index lets the search skip closed facts before it counts its results. [Model agent memory](/docs/guides/agents/model-agent-memory) builds this model cell by cell, and the [agent memory recipe](/cookbook/agent-memory/) runs two sessions against it.

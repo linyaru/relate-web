@@ -1,0 +1,24 @@
+---
+id: embedded-graph-in-an-app
+title: Embedded graph in an app
+order: 120
+problem: "Add a graph database to an application without running, securing or paying for a database server."
+capability: "The engine as a library in the application's process, through the Python, Node.js, Rust, Java, Go and Swift clients, the C ABI or the WebAssembly build."
+intents:
+  - embedded graph database for Python
+  - graph database inside my Node.js app
+  - SQLite for graphs
+  - Cypher without a database server
+  - in-process graph database library
+  - graph database in the browser
+surfaces: [python, node, browser, rust, java, go, swift, c]
+guides: [get-started/python, get-started/node, guides/storage/choose-a-store-layout]
+recipes: []
+reference: [reference/storage/formats, reference/limitations]
+schema: null
+verify: get-started/python#program
+---
+
+An application that needs relationships, paths or pattern queries often reaches for a graph database server: another process to deploy, configure, secure and keep running, and a network round trip on every query. For a graph that belongs to one application and fits in one machine's memory, the server is overhead.
+
+relate is an embedded graph database: the engine runs inside the application's process, holds the whole graph in memory, and answers Cypher statements with nothing to deploy. The same engine sits behind every front door: the Python, Node.js, Rust, Java, Go and Swift clients, the C ABI and a WebAssembly build for the browser. A store is `:memory:`, a directory or a single `.rl` file, which the client opens and creates when it is missing. [Where relate fits](/docs/concepts/where-relate-fits) lists the conditions under which a server database fits better.

@@ -1,9 +1,19 @@
 ---
 id: codec
-term: codec
+term: "codec"
 short: "The on-disk encoding of a store's snapshot: Parquet (the default), JSON or markdown, fixed when the store is created."
 aliases: []
 context: storage
 see: reference/storage/formats
-related: ["snapshot", "store"]
+related: ["snapshot", "store", "clone"]
 ---
+
+The codec decides the files a :term[checkpoint]{id=checkpoint} writes; it does not change the engine, the WAL, or how a statement runs. `parquet`, the default, writes columnar files. `json` writes the graph as a text file, `graph.json`, that a diff can read. `markdown` writes a vault of notes, one file per node in a folder per label, with the WAL under `.cypherlite/wal/`.
+
+`--snapshot-format parquet|json|markdown` picks the codec, and only for an empty directory: an existing store keeps the codec it was created with. To change it, `relate clone --to-snapshot-format <codec> <source> <dest>` writes a new store in the other codec.
+
+```bash
+relate clone --to-snapshot-format json ./team.rl ./team-json
+```
+
+`relate info` prints a store's codec without opening it.

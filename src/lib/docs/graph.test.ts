@@ -2,6 +2,8 @@
 // (checks/graph.ts): run with `npm run docs:test`.
 
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
@@ -18,6 +20,7 @@ import {
   inlineRefs,
   nodeKey,
   pageGraphMarkdown,
+  publishedPageIds,
   seedScript,
   shellInvocations,
   type CliData,
@@ -280,4 +283,260 @@ test('the page graph markdown lists the neighborhood', () => {
   assert.match(md, /- `bash` in "Steps": `relate serve --mcp stdio/);
   assert.match(md, /- Command `relate serve` \(`serve`\)/);
   assert.throws(() => pageGraphMarkdown(g, 'nope'), /no page nope/);
+});
+
+// ---------------------------------------------------------------------------
+// Section embeddings, the vector index and the cookbook recipe's subset
+
+import { checkEmbeddings } from './checks/embeddings.ts';
+import {
+  decodeVector,
+  EMBEDDING_DIMENSION,
+  EMBEDDING_MODEL,
+  EMBEDDINGS_ENCODING,
+  EMBEDDINGS_FORMAT,
+  EMBEDDINGS_INPUT,
+  encodeVector,
+  float16Literal,
+  formatEmbeddings,
+  fromFloat16Bits,
+  HYBRID_STATEMENT,
+  readEmbeddings,
+  recipeFloat,
+  RECIPE_QUESTIONS,
+  sectionInputs,
+  sha256Hex,
+  toFloat16Bits,
+  VECTOR_INDEX,
+  seedWithoutVectors,
+  VECTOR_LOAD_STATEMENT,
+  vectorRows,
+  withRecipeData,
+  recipeDataBlock,
+  type EmbeddingsArtifact,
+} from './graph.ts';
+
+/** A unit vector with weight on two components picked by `i`: distinct, deterministic, 384 long. */
+const fakeVector = (i: number) => {
+  const v = new Array<number>(EMBEDDING_DIMENSION).fill(0);
+  v[i % EMBEDDING_DIMENSION] = 0.8;
+  v[(i * 7 + 3) % EMBEDDING_DIMENSION] = 0.6;
+  return v;
+};
+
+function artifactFor(g: DocsGraph, edit: (entries: { id: string; sha256: string; vector: string }[]) => void = () => {}): EmbeddingsArtifact {
+  const sections = sectionInputs(g).map((s, i) => ({ id: s.id, sha256: s.sha256, vector: encodeVector(fakeVector(i)) }));
+  edit(sections);
+  const queries = RECIPE_QUESTIONS.map((q, i) => ({ id: q, sha256: sha256Hex(q), vector: encodeVector(fakeVector(i)) }));
+  return JSON.parse(formatEmbeddings(sections, queries)) as EmbeddingsArtifact;
+}
+
+test('float16: encode, decode, and the shortest literal that reads back', () => {
+  for (const x of [0, -0, 1, -1, 0.5, 0.1, -0.02689, 6e-8, 65504, 1e-3]) {
+    const back = fromFloat16Bits(toFloat16Bits(x));
+    assert.ok(Math.abs(back - x) <= Math.abs(x) * 2 ** -10 + 6e-8, `${x} -> ${back}`);
+    // A signed zero is written 0.0: the sign of a zero component changes no similarity.
+    if (x !== 0) assert.equal(toFloat16Bits(Number(float16Literal(x))), toFloat16Bits(x), `${x} -> ${float16Literal(x)}`);
+  }
+  assert.equal(toFloat16Bits(70000), 0x7c00);
+  assert.equal(float16Literal(0), '0.0');
+  assert.equal(float16Literal(1), '1.0');
+  assert.equal(float16Literal(0.1), '0.1');
+  const v = fakeVector(5).map((x, i) => (i % 3 ? x : -x / 3));
+  const decoded = decodeVector(encodeVector(v));
+  assert.equal(decoded.length, EMBEDDING_DIMENSION);
+  assert.ok(decoded.every((x, i) => Math.abs(x - v[i]) < 1e-3));
+  assert.equal(recipeFloat(0.00004), '0.0');
+  assert.equal(recipeFloat(-0.123456), '-0.1235');
+  assert.equal(recipeFloat(1), '1.0');
+});
+
+test('section inputs: page title, heading and text, hashed', () => {
+  const g = buildGraph(fixture());
+  const inputs = sectionInputs(g);
+  const intro = inputs.find((s) => s.id === 'guides/serve#')!;
+  assert.match(intro.input, /^Serve a store\n\nThis guide serves a store\./);
+  const steps = inputs.find((s) => s.id === 'guides/serve#steps')!;
+  assert.match(steps.input, /^Serve a store: Steps\n\n/);
+  assert.equal(steps.sha256, sha256Hex(steps.input));
+  assert.deepEqual(inputs.map((s) => s.id), [...inputs.map((s) => s.id)].sort());
+});
+
+test('the seed sets fresh vectors only, creates the vector index, and the WASM answers vector and hybrid queries', () => {
+  const plain = buildGraph(fixture());
+  assert.equal(plain.vectors.size, 0);
+  assert.match(seedScript(plain), new RegExp(`CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR \\(s:Section\\) ON \\(s\\.embedding\\) OPTIONS \\{indexConfig: \\{\`vector\\.dimensions\`: 384, \`vector\\.similarity_function\`: 'cosine'\\}\\};`));
+  assert.doesNotMatch(seedScript(plain), /SET s\.embedding/);
+
+  // One stale entry (wrong hash), one orphan: the stale section is left out of the seed.
+  const a = artifactFor(plain, (es) => {
+    es.find((e) => e.id === 'guides/serve#steps')!.sha256 = '0'.repeat(64);
+    es.push({ id: 'gone/page#x', sha256: '0'.repeat(64), vector: encodeVector(fakeVector(99)) });
+  });
+  const g = buildGraph({ ...fixture(), embeddings: a });
+  const sections = g.nodes.filter((n) => n.label === 'Section').length;
+  assert.equal(g.vectors.size, sections - 1);
+  assert.ok(!g.vectors.has('guides/serve#steps'));
+  const seed = seedScript(g);
+  assert.match(seed, /\] AS row MATCH \(s:Section \{id: row\.id\}\) SET s\.embedding = vector\(row\.v, 384, FLOAT32\);/);
+  assert.match(seed, new RegExp(`embedding: VECTOR<FLOAT32>\\(384\\), ${EMBEDDING_MODEL.id.replace('.', '\\.')} .* on ${sections - 1} of ${sections} sections`));
+  assert.equal(seedScript(g), seedScript(buildGraph({ ...fixture(), embeddings: a })));
+  assert.equal(graphJson(g).embeddings.sections, sections - 1);
+
+  const wasm = loadWasmSync();
+  const query = (db: InstanceType<typeof wasm.RelateDb>, cypher: string, params: unknown = null) => {
+    const out = db.executeScript(cypher, params === null ? null : JSON.stringify(params)).map((e) => JSON.parse(e) as { error: string | null; rows: Record<string, unknown>[] });
+    const err = out.find((e) => e.error);
+    if (err) throw new Error(err.error!);
+    return out.flatMap((e) => e.rows);
+  };
+  const target = sectionInputs(g).findIndex((s) => s.id === 'get-started/install#verify');
+  const search = `MATCH (s:Section) SEARCH s IN (VECTOR INDEX ${VECTOR_INDEX} FOR $v LIMIT 1) SCORE AS score RETURN s.id AS id`;
+
+  // The whole seed, vectors as literals.
+  const db = new wasm.RelateDb();
+  try {
+    query(db, seed);
+    assert.deepEqual(query(db, search, { v: fakeVector(target) }), [{ id: 'get-started/install#verify' }]);
+    const hits = query(db, HYBRID_STATEMENT, { vector: fakeVector(target), query: 'verify version', k: 5, limit: 3 });
+    assert.equal(hits[0].id, 'get-started/install#verify');
+    assert.equal(hits[0].vector_rank, 1);
+  } finally {
+    db.free();
+  }
+  // The seed without the vector statements, then the vectors as one parameter: the same answer.
+  const db2 = new wasm.RelateDb();
+  try {
+    query(db2, seedScript(g, { vectors: false }));
+    assert.deepEqual(query(db2, search, { v: fakeVector(target) }), []);
+    query(db2, VECTOR_LOAD_STATEMENT, { rows: vectorRows(g) });
+    assert.deepEqual(query(db2, search, { v: fakeVector(target) }), [{ id: 'get-started/install#verify' }]);
+  } finally {
+    db2.free();
+  }
+});
+
+test('seedWithoutVectors strips exactly the vector statements a served seed carries', () => {
+  const plain = buildGraph(fixture());
+  assert.equal(seedWithoutVectors(seedScript(plain)), seedScript(plain));
+  const g = buildGraph({ ...fixture(), embeddings: artifactFor(plain) });
+  assert.ok(g.vectors.size > 0);
+  assert.equal(seedWithoutVectors(seedScript(g)), seedScript(g, { vectors: false }));
+  // The real graph: more than one vector statement (100 rows each).
+  const real = buildGraph(graphInput());
+  if (real.vectors.size) assert.ok(real.vectors.size > 100);
+  const stripped = seedWithoutVectors(seedScript(real));
+  assert.equal(stripped, seedScript(real, { vectors: false }));
+  assert.doesNotMatch(stripped, /SET s\.embedding/);
+  assert.match(stripped, new RegExp(`CREATE VECTOR INDEX ${VECTOR_INDEX} `));
+  assert.throws(() => seedWithoutVectors('UNWIND [\n{id: 1}'), /has no end/);
+});
+
+test('readEmbeddings: a malformed artifact names the file and the command', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'relate-embeddings-'));
+  try {
+    const file = join(dir, 'embeddings.json');
+    writeFileSync(file, '{"format": 1, sections: []}');
+    assert.throws(() => readEmbeddings(file), /embeddings\.json: not valid JSON \(.+\); run `npm run docs:embeddings -- --force`/);
+    writeFileSync(file, '{"format": 0}');
+    assert.throws(() => readEmbeddings(file), /not an embeddings artifact of format 1; run `npm run docs:embeddings -- --force`/);
+    assert.equal(readEmbeddings(join(dir, 'missing.json')), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the embeddings check: missing, stale, orphaned, malformed, questions and the recipe block', () => {
+  const g0 = buildGraph(fixture());
+  const found: [string, string, string][] = [];
+  const report = (file: string, _line: number | null, _s: Severity, rule: string, message: string) => found.push([rule, file, message]);
+  const site = { pages: fixture().pages.map((p) => ({ id: p.id, file: p.file, data: p.data })) } as unknown as Parameters<typeof checkEmbeddings>[0];
+
+  // Current: nothing but the recipe (the fixture has none of the recipe's pages).
+  const good = artifactFor(g0);
+  checkEmbeddings(site, report, { graph: buildGraph({ ...fixture(), embeddings: good }), artifact: good, recipe: null, severity: 'error' });
+  assert.deepEqual(found.map((f) => f[0]), ['embeddings-recipe']);
+
+  found.length = 0;
+  const bad = artifactFor(g0, (es) => {
+    es.find((e) => e.id === 'guides/serve#steps')!.sha256 = '0'.repeat(64);
+    es.splice(es.findIndex((e) => e.id === 'guides/serve#'), 1);
+    es.push({ id: 'gone/page#x', sha256: '0'.repeat(64), vector: encodeVector(fakeVector(1)) });
+    es.push({ id: 'misc/island#short', sha256: '0'.repeat(64), vector: encodeVector([0.1, 0.2]) });
+  });
+  bad.queries = bad.queries.filter((q) => q.id !== RECIPE_QUESTIONS[0]);
+  const stats = checkEmbeddings(site, report, { graph: buildGraph({ ...fixture(), embeddings: bad }), artifact: bad, recipe: '# no block', severity: 'error' });
+  const by = (rule: string) => found.filter((f) => f[0] === rule);
+  assert.equal(stats.stale, 2);
+  assert.equal(by('embeddings-stale').length, 1);
+  assert.match(by('embeddings-stale')[0][1], /guides\/serve\.mdx$/);
+  assert.match(by('embeddings-stale')[0][2], /2 section\(s\) have no current vector: the opening text \(no vector\), #steps \(text changed\); run `npm run docs:embeddings`/);
+  assert.match(by('embeddings-orphan')[0][2], /gone\/page#x/);
+  assert.match(by('embeddings-vector')[0][2], /"misc\/island#short" decodes to 2 values/);
+  assert.match(by('embeddings-query')[0][2], new RegExp(`"${RECIPE_QUESTIONS[0]}" has no vector`));
+  assert.equal(by('embeddings-recipe').length, 1);
+
+  // Another model: one finding, everything stale.
+  found.length = 0;
+  checkEmbeddings(site, report, { graph: g0, artifact: { ...good, model: { ...good.model, pooling: 'mean' } }, recipe: null, severity: 'error' });
+  assert.deepEqual(found.map((f) => f[0]), ['embeddings-artifact']);
+  // No artifact at all.
+  found.length = 0;
+  checkEmbeddings(site, report, { graph: g0, artifact: null, recipe: null, severity: 'error' });
+  assert.match(found[0][2], /^missing: the docs graph's \d+ sections have no vectors/);
+  assert.equal(good.format, EMBEDDINGS_FORMAT);
+  assert.equal(good.encoding, EMBEDDINGS_ENCODING);
+  assert.equal(good.input, EMBEDDINGS_INPUT);
+});
+
+test('the recipe block is replaced in place, with its size', () => {
+  const src = '# T\n\n## Data\n\n<details>\n<summary><code>docs</code> (0 KB)</summary>\n\n```json data=docs\n{}\n```\n\n</details>\n';
+  const data = `{"x": "${'a'.repeat(3000)}"}`;
+  const out = withRecipeData(src, data);
+  assert.equal(recipeDataBlock(out), data);
+  assert.match(out, /<summary><code>docs<\/code> \(3 KB\)<\/summary>/);
+  assert.throws(() => withRecipeData('# none', data), /no ```json data=docs block/);
+});
+
+test('a prerequisite cycle is reported on each page in it', () => {
+  const input = fixture();
+  input.pages.push(
+    page('guides/a', { title: 'A', description: 'd', prerequisites: ['guides/b'] }, 'Text.\n'),
+    page('guides/b', { title: 'B', description: 'd', prerequisites: ['guides/a'] }, 'Text.\n'),
+  );
+  const g = buildGraph(input);
+  const found: [string, string, string][] = [];
+  checkGraph({ pages: [], engine: g.engine }, (file, _l, _s, rule, message) => found.push([rule, file, message]), { graph: g, wasm: loadWasmSync() });
+  const cycles = found.filter((f) => f[0] === 'graph-prereq-cycle');
+  assert.deepEqual(cycles.map((f) => f[1]), ['guides/a', 'guides/b']);
+  assert.match(cycles[0][2], /its own prerequisite through 2 PREREQUISITE_OF step/);
+  assert.deepEqual(found.filter((f) => f[0] === 'graph-seed'), []);
+});
+
+test('the capability catalog joins the graph without leaking into page graphs (DOCS-PLAN.md §3.8)', () => {
+  const g = buildGraph(graphInput());
+  const caps = g.nodes.filter((n) => n.label === 'Capability');
+  assert.ok(caps.length > 0, 'the graph has Capability nodes');
+  const capIds = new Set(caps.map((n) => n.id));
+  // No page graph lists a Capability id as a page link or a documented command.
+  for (const id of publishedPageIds(g)) {
+    const md = pageGraphMarkdown(g, id);
+    const linked = md.split('\n').filter((l) => /^- /.test(l));
+    for (const c of capIds) {
+      assert.ok(!linked.some((l) => l.includes(`](/docs/${c})`) || l.includes(`\`${c}\``) && !l.includes('problems-relate-solves')), `${id}.graph.md lists the capability ${c} as a page or command`);
+    }
+  }
+  assert.ok(!pageGraphMarkdown(g, 'guides/agents/model-agent-memory').includes('/docs/agent-memory)'), 'model-agent-memory.graph.md names no capability as a page');
+  // Every Capability solves at least two Problems (its problem and its intents).
+  for (const c of capIds) {
+    const n = g.rels.filter((r) => r.type === 'SOLVES' && r.from.id === c && r.to.label === 'Problem').length;
+    assert.ok(n >= 2, `${c} SOLVES ${n} problem(s)`);
+  }
+  // Every CITES, VERIFIED_BY and HAS_CAPABILITY endpoint is a node.
+  const keys = new Set(g.nodes.map((n) => `${n.label}:${n.id}`));
+  for (const r of g.rels.filter((x) => ['CITES', 'VERIFIED_BY', 'HAS_CAPABILITY'].includes(x.type))) {
+    assert.ok(keys.has(`${r.from.label}:${r.from.id}`), `${r.type} from ${r.from.label}:${r.from.id} exists`);
+    assert.ok(keys.has(`${r.to.label}:${r.to.id}`), `${r.type} to ${r.to.label}:${r.to.id} exists`);
+  }
+  assert.match(seedScript(g), /CREATE FULLTEXT INDEX problems IF NOT EXISTS FOR \(n:Problem\) ON EACH \[n\.text\];/);
 });

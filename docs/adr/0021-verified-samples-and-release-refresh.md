@@ -80,3 +80,9 @@ twin (ADR-0005); every example states the version it ran on (ADR-0013).
   it exists, the workflow is run by hand.
 - `install.sh` installs the latest release, so the refresh works for the
   newest release only; an older one needs a manual refresh.
+
+## Later references
+
+- Extended by ADR-0027: Rust, Java, Go, Swift and C samples follow the
+  same record and drift rules, built from the same checkout; a Python
+  sample can run in a second venv (`env=<name>`).

@@ -1,0 +1,19 @@
+---
+id: cypher-25
+term: "Cypher 25"
+short: "Neo4j's current Cypher version, aligned with GQL; the default language of every relate namespace, with `CYPHER 5` as the per-statement alternative."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["cypher", "gql", "preview-feature", "namespace"]
+---
+
+Cypher 25 is the version of Cypher that current Neo4j runs, and it is relate's target. Where an openCypher proposal, Cypher 5 and Cypher 25 disagree, relate does what Cypher 25 does. Statements run as Cypher 25 unless they start with `CYPHER 5`; a `CYPHER 25` prefix states the default explicitly.
+
+The default is recorded per :term[namespace]{id=namespace}, and `SHOW DATABASES` reports it as `defaultLanguage`. `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` changes it for one namespace.
+
+```cypher
+CYPHER 25 MATCH (p:Person) LET years = 2026 - p.since FILTER years >= 3 RETURN p.name AS name
+```
+
+Syntax that Neo4j has accepted but not settled is not part of the default: it is a :term[preview feature]{id=preview-feature}.

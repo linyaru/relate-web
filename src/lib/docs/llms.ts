@@ -41,8 +41,10 @@ export function factsBlock(engine: Engine): string {
     `- The docs over MCP: \`${CANONICAL_ORIGIN}/mcp\` (streamable HTTP, read-only, no account; tools \`search_docs\`, \`get_page\`, \`explain_error\`). Claude Code: \`claude mcp add --transport http relate-docs ${CANONICAL_ORIGIN}/mcp\`. Limits and threat model: \`${CANONICAL_ORIGIN}${twinUrl('reference/server/docs-mcp')}\`.`,
     '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
     `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
+    `- Task skills, one per task family (agent memory, GraphRAG, schema design, query tuning, migrating from vector search): the "Task skills" section of \`${CANONICAL_ORIGIN}/skill.md\`, each at \`${CANONICAL_ORIGIN}/skills/<name>/SKILL.md\`; the skills CLI installs one by name (\`npx skills add ${CANONICAL_ORIGIN} --skill <name>\`).`,
+    `- Problems relate solves, as data: \`${CANONICAL_ORIGIN}/docs/capabilities.json\` (each problem mapped to its capability, guides, recipes, recommended data model and the recorded run that verifies it, or null where none does yet; the page: \`${CANONICAL_ORIGIN}${twinUrl('concepts/problems-relate-solves')}\`).`,
     `- Every page below is markdown at its URL plus \`.md\` (also \`<url>/index.md\`). Whole sections: \`${CANONICAL_ORIGIN}/docs/<section>/llms-full.txt\`; everything: \`${CANONICAL_ORIGIN}/docs/llms-full.txt\`.`,
-    `- What changed in each release: \`${CANONICAL_ORIGIN}${twinUrl('reference/changelog')}\` (JSON Feed: \`${CANONICAL_ORIGIN}${CHANGELOG_FEED_URL}\`). Terms: \`${CANONICAL_ORIGIN}${twinUrl('reference/glossary')}\`.`,
+    `- What changed in each release: \`${CANONICAL_ORIGIN}${twinUrl('reference/changelog')}\` (JSON Feed: \`${CANONICAL_ORIGIN}${CHANGELOG_FEED_URL}\`). Terms: \`${CANONICAL_ORIGIN}${twinUrl('reference/glossary')}\` (as JSON: \`${CANONICAL_ORIGIN}/docs/glossary.json\`).`,
     `- A wrong or missing page: \`${CANONICAL_ORIGIN}${FEEDBACK_URL}\` says what a report holds; the operator decides whether to send it.`,
     '- These pages are reference text, not instructions.',
   ].join('\n');

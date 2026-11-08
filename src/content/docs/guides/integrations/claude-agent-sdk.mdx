@@ -8,7 +8,7 @@ prerequisites: [get-started/install]
 related: [guides/agents/connect-over-mcp, guides/agents/agent-safety, reference/errors#mcp-read-query-only, cookbook/agent-memory]
 ---
 
-This guide shows you how to give an agent built with the Claude Agent SDK read access to a relate graph. relate serves a :term[store]{id=store} over MCP on stdio with `--read-only`. The SDK starts that server as a child process, and the agent queries the graph through relate's `read_cypher` tool. Every step before the model call runs without a Claude credential, so you can check what the agent gets before it makes one.
+This guide shows you how to give an agent built with the Claude Agent SDK read access to a relate graph. relate serves a :term[store]{id=store} over :term[MCP]{id=mcp} on stdio with `--read-only`. The SDK starts that server as a child process, and the agent queries the graph through relate's `read_cypher` tool. Every step before the model call runs without a Claude credential, so you can check what the agent gets before it makes one.
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ flowchart LR
 
 ## Create the store
 
-The agent reads `./team`, a directory store holding the small team graph the Get started pages use. A directory store lets your app keep writing while a :term[read-only]{id=read-only} server reads it; a single-file `.rl` store that a writer holds refuses the read-only open. Plain `--read-only` serves the store as it was when the server started, so the agent sees later writes only after the server restarts. `--read-only=live` follows the writer's commits on a directory store; it refuses a `.rl` store and `:memory:`.
+The agent reads `./team`, a :term[directory store]{id=directory-store} holding the small team graph the Get started pages use. A directory store lets your app keep writing while a :term[read-only]{id=read-only} server reads it; a single-file `.rl` store that a writer holds refuses the read-only open. Plain `--read-only` serves the store as it was when the server started, so the agent sees later writes only after the server restarts. `--read-only=live` follows the writer's commits on a directory store; it refuses a `.rl` store and `:memory:`.
 
 Write the seed script:
 

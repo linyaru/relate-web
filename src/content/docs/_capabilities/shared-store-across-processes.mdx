@@ -1,0 +1,23 @@
+---
+id: shared-store-across-processes
+title: Shared store across processes
+order: 200
+problem: "Let an agent and an application, or several readers, use the same graph without corrupting it or blocking each other."
+capability: "One writer per store, enforced by a lock; `--read-only` opens beside the writer on a directory store; `--read-only=live` to follow its commits; or one `relate serve` process."
+intents:
+  - two processes using the same graph
+  - share a graph between my app and an agent
+  - read a graph while another process writes it
+  - storage locked error
+  - several clients on one embedded store
+surfaces: [cli, http, bolt, mcp]
+guides: [guides/operate/two-processes-one-store, guides/storage/choose-a-store-layout]
+recipes: []
+reference: [reference/storage/formats, reference/cli/exit-codes-and-errors]
+schema: null
+verify: guides/operate/two-processes-one-store#step-2
+---
+
+An embedded database belongs to the process that opens it, but real setups have more than one process: an application that writes the graph and an agent that reads it, or several workers reading the same data. Two writers on one set of files would corrupt it, so the database has to say who may write and what everyone else gets.
+
+A relate store has one writer: the first process that opens it for writing owns it until it exits, and a second writable open fails with `storage locked: <path>` and exit code 5. A directory store can be opened `--read-only` beside its writer by several readers, and `--read-only=live` follows the writer's commits; a `.rl` file allows no second opener while a writer holds it. For clients that must all write, one `relate serve` process hosts the store for Bolt, HTTP Query API and MCP clients. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) shows each case, and inside one process concurrent transactions that write the same data get a retryable write-write conflict ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).

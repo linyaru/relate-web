@@ -52,7 +52,7 @@ Failed to open Relate: storage locked: <dir>/team.rl
 exit=5
 ```
 
-Even a read-only open is refused: a `.rl` store can't be read beside its writer. The error has code `conflict` and kind `locked`. `retryable` is `false`: running the same command again fails the same way until the first process exits. For a directory store, the path in the message is the writer lock file inside it, `.cypherlite.writer`. In the Python client, `relate.connect()` raises `OperationalError` with the same `storage locked: <path>` message.
+Even a read-only open is refused: a `.rl` store can't be read beside its writer. The error has code `conflict` and kind `locked`. `retryable` is `false`: running the same command again fails the same way until the first process exits. For a :term[directory store]{id=directory-store}, the path in the message is the writer lock file inside it, `.cypherlite.writer`. In the Python client, `relate.connect()` raises `OperationalError` with the same `storage locked: <path>` message.
 
 ## Pick a way to share the store
 
@@ -129,7 +129,7 @@ curl -s -u "relate:<token>" -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
   -d '{"statement": "CREATE (:Person {name: $name, role: $role})", "parameters": {"name": "Ines", "role": "engineer"}}'
 ```
 
-The same server takes `--bolt <port>` for Neo4j drivers and tools, and `--mcp <port>` or `--mcp stdio` for agent hosts ([Connect over MCP](/docs/guides/agents/connect-over-mcp)). It listens on `127.0.0.1` unless `--host` says otherwise. Statements from all clients run in the one engine, and two transactions that write the same data at once get a write-write conflict, the one retryable error ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).
+The same server takes `--bolt <port>` for Neo4j drivers and tools, and `--mcp <port>` or `--mcp stdio` for agent hosts ([Connect over MCP](/docs/guides/agents/connect-over-mcp)). It listens on `127.0.0.1` unless `--host` says otherwise. Statements from all clients run in the one engine, and two :term[transactions]{id=transaction} that write the same data at once get a write-write conflict, the one retryable error ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).
 
 ## Verify
 

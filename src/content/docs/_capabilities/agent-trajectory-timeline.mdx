@@ -1,0 +1,36 @@
+---
+id: agent-trajectory-timeline
+title: Agent trajectory timeline
+order: 30
+problem: "Log every step an agent takes and read the last few, the page before them, and everything since a cutoff, in the right order every time."
+capability: "Steps on a timestamped relationship whose integer sort key relationship property type and existence constraints enforce, read newest first with `ORDER BY`, `LIMIT` and `SKIP`."
+intents:
+  - log every step my agent takes
+  - page through an agent's recent actions
+  - keep an ordered history of agent tool calls
+  - newest agent steps across all sessions
+  - token budget per agent session
+surfaces: [cypher, agents]
+guides: []
+recipes: [agent-trajectory-timeline]
+reference: [reference/cypher/overview]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for an agent trajectory: a session's steps, each calling one tool
+    accDescr {
+      A Session links to each of its Step nodes by a STEP relationship that
+      carries an integer timestamp, a sequence number and a token count. Each
+      Step has a kind, text and time, and a CALLED relationship to the Tool it
+      used.
+    }
+    Session(("<b>Session</b><br/>id")) -- "<b>STEP</b><br/>ts (integer) · seq · tokens" --> Step(("<b>Step</b><br/>id · kind · text · at"))
+    Step -- "<b>CALLED</b>" --> Tool(("<b>Tool</b><br/>name"))
+    class Session l1
+    class Step l2
+    class Tool l3
+verify: agent-trajectory-timeline#latest
+---
+
+An agent runtime that appends one step per tool call reads its timeline on every turn: the last few steps, the page before those, everything since a cutoff, and for a supervisor the newest steps across all sessions. Those reads are only as good as the sort key under them, and one runtime that copies a timestamp in another type puts every page that follows out of order.
+
+In the [agent trajectory timeline recipe](/cookbook/agent-trajectory-timeline/) each step hangs off its session by a `STEP` relationship whose `ts` is an integer, and four constraints make that hold: one node per session, one per tool, and every `STEP` with a `ts` that is not null and is an `INTEGER`. An append that copies a datetime fails with an error instead of corrupting the order. Token counts sit on the relationship, so a budget read never touches the step nodes, and one statement migrates a timeline written with datetimes.

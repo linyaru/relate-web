@@ -1,0 +1,18 @@
+---
+id: quantified-path-pattern
+term: "quantified path pattern"
+short: "A pattern repeated a bounded or unbounded number of times, written `((a)-[:R]->(b)){1,3}` or `-[:R]->{1,3}`; GQL's form of a variable-length path."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["path", "gql", "relationship"]
+---
+
+A quantified path pattern repeats part of a pattern. `((a)-[:KNOWS]->(b)){1,3}` matches one to three `KNOWS` hops and keeps the variables inside the group, each bound to a list of what it matched along the way. `-[:KNOWS]->{1,3}` quantifies a single relationship, and `+` and `*` stand for one or more and zero or more. Path selectors such as `SHORTEST 1` and modes such as `TRAIL` combine with it.
+
+```cypher
+MATCH (:Person {name: 'Ada'}) ((a)-[:KNOWS|WORKS_ON]->(b)){1,2} (reached)
+RETURN DISTINCT reached.name AS reached
+```
+
+An explicit upper bound over 500 hops is refused at admission with `TraversalDepthExceeded`, because a deeper walk can overflow the native stack; `--max-traversal-depth` raises the limit up to 2000.

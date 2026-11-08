@@ -21,6 +21,19 @@
 //   a cell that takes parameters. Pages with cells exist once a page has
 //   them; `DOCS_EXAMPLES=1 npm run build` adds the example page, which has
 //   every kind.
+// - Glossary toggletip (DOCS-PLAN.md §4.11, ADR-0009), on the first built
+//   docs page that has one: the panel is closed on load; a real click on the
+//   term's button opens it, with focus left on the button; a real Escape
+//   closes it, focus still on the button. No JavaScript of the site's is
+//   involved: the Popover API does it.
+// - Docs constructs (phase 2, on the first built page that has each): an
+//   `::::agentic` set switches to the agent view, every set on the page with
+//   it, and a new tab opens on the agent view (the choice is remembered); the
+//   language picker switches every tab set on the page that has the chosen
+//   language, under any of its key spellings, and a new tab opens on it; each
+//   deeplink button's href decodes to the JSON shown beside it, and the link
+//   printed as text is the href. A construct no built page has is skipped
+//   with a note.
 // - Before any browser runs, the built files are checked: the playground is
 //   built and bundles no engine of its own, each recipe's recipe.json is
 //   format 1 and lists exactly its steps, and each step's playground link
@@ -196,6 +209,17 @@ async function openPage(http: string, url: string) {
         await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount });
         await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount });
       }
+    },
+    /** A real click (CDP input events) at viewport point x, y. */
+    async click(x: number, y: number) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    },
+    /** A real key press (CDP input events), such as Escape. */
+    async press(key: string, code = key, keyCode = key === 'Escape' ? 27 : 0) {
+      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
     },
     async close() {
       ws.close();
@@ -515,6 +539,153 @@ const DOCS_TABS = `(async () => {
 })()`;
 
 /**
+ * `::::agentic`: choosing the agent view shows it in every agentic set on the
+ * page and remembers it; DOCS_AGENTIC_KEPT, in a new tab, expects it still
+ * chosen, then puts the person view back.
+ */
+const DOCS_AGENTIC = `(async () => {
+  const sets = [...document.querySelectorAll('[data-agentic].is-enhanced')];
+  if (!sets.length) return { log: [], failures: ['no enhanced agentic set'] };
+  const failures = [];
+  const shown = (set) => [...set.querySelectorAll(':scope > .tab-panel')].filter((p) => !p.hidden).map((p) => p.dataset.tabKey);
+  for (const set of sets) if (shown(set).length !== 1) failures.push('an agentic set does not show exactly one view before a choice');
+  const agent = sets[0].querySelector(':scope > .tab-list > button[data-tab-key="agentic-agent"]');
+  if (!agent) return { log: [], failures: ['no agent tab'] };
+  agent.click();
+  sets.forEach((set, i) => { if (shown(set).join() !== 'agentic-agent') failures.push('set ' + (i + 1) + ' shows ' + shown(set).join() + ', not the agent view'); });
+  if (agent.getAttribute('aria-selected') !== 'true') failures.push('the agent tab is not selected');
+  let kept = [];
+  try { kept = JSON.parse(localStorage.getItem('docs-tab') || '[]'); } catch {}
+  if (kept[0] !== 'agentic-agent') failures.push('docs-tab does not start with agentic-agent: ' + JSON.stringify(kept));
+  return { log: [sets.length + ' agentic set(s): ' + [...sets[0].querySelectorAll(':scope > .tab-list > button')].map((b) => b.textContent).join(' / ')], failures };
+})()`;
+const DOCS_AGENTIC_KEPT = `(async () => {
+  const sets = [...document.querySelectorAll('[data-agentic].is-enhanced')];
+  const failures = [];
+  sets.forEach((set, i) => {
+    const on = [...set.querySelectorAll(':scope > .tab-panel')].filter((p) => !p.hidden).map((p) => p.dataset.tabKey).join();
+    if (on !== 'agentic-agent') failures.push('in a new tab, set ' + (i + 1) + ' opens on ' + on + ', not the remembered agent view');
+  });
+  sets[0]?.querySelector(':scope > .tab-list > button[data-tab-key="agentic-human"]')?.click();
+  return { log: [sets.length + ' set(s) reopened on the agent view'], failures };
+})()`;
+
+/**
+ * The language picker: each language it offers, chosen, shows that language
+ * in every enhanced tab set that has one of its keys. The last one chosen is
+ * the offered language with the most key spellings (Node.js: node, js, …).
+ * Then a tab of another language is clicked and a tab that names no language
+ * (an OS or agentic tab): the tab script rewrites docs-tab from its page-load
+ * list on each click, and docs-tab must still hold every spelling of every
+ * language in it. Then the picker goes back to that language. DOCS_PICKER_KEPT,
+ * in a new tab, expects it still shown in every set, whatever key the set
+ * uses, then clears the memory.
+ */
+const PICKER_LAST = `(select) => [...select.options].reduce((a, o) => (o.dataset.keys.split(' ').length > a.dataset.keys.split(' ').length ? o : a))`;
+const DOCS_PICKER = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  await customElements.whenDefined('lang-picker');
+  const select = document.querySelector('lang-picker select');
+  if (!select) return { log: [], failures: ['no picker'] };
+  const failures = [];
+  const log = [];
+  const sets = [...document.querySelectorAll('[data-tabs].is-enhanced')];
+  const options = [...select.options];
+  const last = (${PICKER_LAST})(select);
+  for (const o of [...options.filter((x) => x !== last), last]) {
+    const keys = o.dataset.keys.split(' ');
+    select.value = o.value;
+    select.dispatchEvent(new Event('change'));
+    await wait(20);
+    let switched = 0;
+    sets.forEach((set, i) => {
+      const panels = [...set.querySelectorAll(':scope > .tab-panel')];
+      if (!panels.some((p) => keys.includes(p.dataset.tabKey))) return;
+      const on = panels.filter((p) => !p.hidden).map((p) => p.dataset.tabKey);
+      if (on.length !== 1 || !keys.includes(on[0])) failures.push(o.textContent + ': set ' + (i + 1) + ' shows ' + on.join() + ', not ' + keys.join('|'));
+      else switched++;
+    });
+    if (!switched) failures.push(o.textContent + ': no tab set has it, yet the picker offers it');
+  }
+  const read = () => { try { return JSON.parse(localStorage.getItem('docs-tab') || '[]'); } catch { return []; } };
+  const want = last.dataset.keys.split(' ');
+  let kept = read();
+  if (kept.slice(0, want.length).join() !== want.join()) failures.push('docs-tab does not start with ' + want.join() + ': ' + JSON.stringify(kept));
+  // Another language's tab, then a tab that names no language.
+  const languageKeys = new Set(options.flatMap((o) => o.dataset.keys.split(' ')));
+  const tabs = [...document.querySelectorAll('[data-tabs].is-enhanced > .tab-list > button')];
+  const second = tabs.find((b) => languageKeys.has(b.dataset.tabKey) && !want.includes(b.dataset.tabKey));
+  const other = tabs.find((b) => !languageKeys.has(b.dataset.tabKey));
+  const clicked = [second, other].filter(Boolean);
+  for (const b of clicked) { b.click(); await wait(20); }
+  kept = read();
+  const after = 'after clicks on ' + clicked.map((b) => b.dataset.tabKey).join(' then ');
+  const lostWant = want.filter((k) => !kept.includes(k));
+  if (lostWant.length) failures.push(after + ', docs-tab lost ' + lostWant.join(', ') + ': ' + JSON.stringify(kept));
+  for (const o of options) {
+    const ks = o.dataset.keys.split(' ');
+    if (ks.some((k) => kept.includes(k)) && !ks.every((k) => kept.includes(k))) failures.push(after + ', docs-tab holds only some spellings of ' + o.textContent + ': ' + JSON.stringify(kept));
+  }
+  if (clicked.length) {
+    const lastKey = clicked[clicked.length - 1].dataset.tabKey;
+    const same = options.map((o) => o.dataset.keys.split(' ')).find((ks) => ks.includes(lastKey)) ?? [lastKey];
+    if (!same.includes(kept[0])) failures.push(after + ', docs-tab does not start with the last one: ' + JSON.stringify(kept));
+  }
+  log.push('every spelling kept ' + after + (other ? '' : ' (no tab that names no language on this page)'));
+  select.value = last.value;
+  select.dispatchEvent(new Event('change'));
+  await wait(20);
+  kept = read();
+  if (kept.slice(0, want.length).join() !== want.join()) failures.push('chosen again, docs-tab does not start with ' + want.join() + ': ' + JSON.stringify(kept));
+  log.unshift(options.map((o) => o.textContent).join(' / ') + ' across ' + sets.length + ' tab set(s), ending on ' + last.textContent);
+  return { log, failures };
+})()`;
+const DOCS_PICKER_KEPT = `(async () => {
+  await customElements.whenDefined('lang-picker');
+  const select = document.querySelector('lang-picker select');
+  const failures = [];
+  const o = (${PICKER_LAST})(select);
+  const keys = o.dataset.keys.split(' ');
+  if (select.value !== o.value) failures.push('in a new tab the picker shows ' + select.value + ', not ' + o.value);
+  for (const set of document.querySelectorAll('[data-tabs].is-enhanced')) {
+    const panels = [...set.querySelectorAll(':scope > .tab-panel')];
+    if (!panels.some((p) => keys.includes(p.dataset.tabKey))) continue;
+    const on = panels.find((p) => !p.hidden)?.dataset.tabKey;
+    if (!keys.includes(on)) failures.push('in a new tab a set opens on ' + on + ', not ' + o.textContent);
+  }
+  try { localStorage.removeItem('docs-tab'); } catch {}
+  return { log: [o.textContent + ' kept in a new tab'], failures };
+})()`;
+
+/** Each deeplink's href decodes to the JSON shown beside it; the link as text is the href. */
+const DOCS_DEEPLINK = `(async () => {
+  const boxes = [...document.querySelectorAll('[data-deeplink]')];
+  if (!boxes.length) return { log: [], failures: ['no deeplink'] };
+  const failures = [];
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const box of boxes) {
+    const a = box.querySelector('a[data-deeplink-href]');
+    const href = a.getAttribute('href');
+    const shown = JSON.parse(box.querySelector('.code-block textarea').value);
+    let decoded = null, name = null;
+    if (href.startsWith('cursor://anysphere.cursor-deeplink/mcp/install?')) {
+      const q = new URLSearchParams(href.slice(href.indexOf('?') + 1));
+      name = q.get('name');
+      decoded = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(q.get('config')), (c) => c.charCodeAt(0))));
+    } else if (href.startsWith('vscode:mcp/install?')) {
+      const { name: n, ...rest } = JSON.parse(decodeURIComponent(href.slice('vscode:mcp/install?'.length)));
+      name = n;
+      decoded = rest;
+    } else failures.push('unknown deeplink form: ' + href.slice(0, 60));
+    if (decoded && !same(decoded, shown)) failures.push(box.dataset.host + ': the link carries ' + JSON.stringify(decoded) + ', the page shows ' + JSON.stringify(shown));
+    if (name !== box.dataset.name) failures.push(box.dataset.host + ': the link names ' + name + ', the page ' + box.dataset.name);
+    if (!JSON.stringify(shown).includes('--read-only') && !shown.url) failures.push(box.dataset.host + ': the entry is not read-only');
+    if (box.querySelector('[data-deeplink-text]').textContent !== href) failures.push(box.dataset.host + ': the link as text is not the href');
+  }
+  return { log: [boxes.map((b) => b.dataset.host).join(', ')], failures };
+})()`;
+
+/**
  * A graph result draws, in two parts around a real double-click: scroll a
  * one-node graph result into view and wait for the view (the node sits at the
  * centre once the view fits it), returning the point; then its neighbours must
@@ -546,6 +717,38 @@ const docsGraphCheck = (cell: string) => `(async () => {
 
 if (!existsSync(join(DIST, 'cookbook', 'index.html'))) fail('no dist/cookbook; run `npm run build` first');
 if (!existsSync(join(DIST, 'playground', 'index.html'))) fail('no dist/playground; run `npm run build` (it builds the playground too)');
+// ---------------------------------------------------------------- glossary toggletip
+
+/** The first toggletip on the page: scrolled into view, closed; returns the button's centre. */
+const TOGGLETIP_PREPARE = `(async () => {
+  const button = document.querySelector('button.term[popovertarget]');
+  if (!button) return { failures: ['no toggletip button on the page'] };
+  const tip = document.getElementById(button.getAttribute('popovertarget'));
+  if (!tip || tip.getAttribute('popover') !== 'auto') return { failures: ['the button names no popover="auto" panel'] };
+  // Wait until the button stops moving: a page with cells or tab sets above it
+  // can still shift while its scripts enhance them.
+  let last = '';
+  for (let i = 0; i < 30; i++) {
+    button.scrollIntoView({ block: 'center' });
+    await new Promise((r) => setTimeout(r, 100));
+    const b = button.getBoundingClientRect();
+    const now = [b.left, b.top, b.width, b.height].map(Math.round).join(',');
+    if (now === last) break;
+    last = now;
+  }
+  const failures = [];
+  if (tip.matches(':popover-open')) failures.push('the panel is open before any click');
+  if (!tip.querySelector('a[href^="/docs/reference/glossary/#"]')) failures.push('the panel has no link to the glossary entry');
+  const r = button.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, term: button.textContent, failures };
+})()`;
+/** Whether the first toggletip's panel is open, and whether its button has focus. */
+const TOGGLETIP_STATE = `(() => {
+  const button = document.querySelector('button.term[popovertarget]');
+  const tip = document.getElementById(button.getAttribute('popovertarget'));
+  return { open: tip.matches(':popover-open'), focused: document.activeElement === button, text: tip.textContent.trim().slice(0, 80) };
+})()`;
+
 const only = process.env.COOKBOOK_ONLY?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 const { recipes: all } = loadRecipes(COOKBOOK_DIR, { validate: false });
 const recipes = all.filter((r) => !only || only.includes(r.slug));
@@ -633,6 +836,45 @@ async function check(name: string, label: string, path: string, scenario: string
     await page.close();
   }
 }
+/** The glossary toggletip: a real click opens it, a real Escape closes it, focus stays on the button (WCAG 1.4.13). */
+async function checkToggletip() {
+  const file = existsSync(docsDir)
+    ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort().find((f) => /<button type="button" class="term" popovertarget=/.test(readFileSync(f, 'utf8')))
+    : undefined;
+  if (!file) {
+    problems.push('[docs] glossary toggletip: no built docs page has a toggletip (a `:term` in prose renders one)');
+    console.log('✖ docs · glossary toggletip: no built page has one');
+    return;
+  }
+  const path = `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`;
+  const label = path.slice(1, -1);
+  const tab = await openPage(chrome.http, `${site.url}${path}`);
+  const failures: string[] = [];
+  try {
+    const at = await tab.evaluate<{ x?: number; y?: number; term?: string; failures: string[] }>(TOGGLETIP_PREPARE);
+    failures.push(...at.failures);
+    if (at.x !== undefined && at.y !== undefined) {
+      await tab.click(at.x, at.y);
+      await sleep(150);
+      const opened = await tab.evaluate<{ open: boolean; focused: boolean; text: string }>(TOGGLETIP_STATE);
+      if (!opened.open) failures.push(`a click on "${at.term}" did not open its panel`);
+      if (!opened.focused) failures.push('focus left the button when the panel opened');
+      await tab.press('Escape');
+      await sleep(150);
+      const closed = await tab.evaluate<{ open: boolean; focused: boolean; text: string }>(TOGGLETIP_STATE);
+      if (closed.open) failures.push('Escape did not close the panel');
+      if (!closed.focused) failures.push('focus is not on the button after Escape');
+      console.log(`${failures.length ? '✖' : '✔'} ${label} · glossary toggletip: "${at.term}" opens on click ("${opened.text}…") and closes on Escape`);
+    } else {
+      console.log(`✖ ${label} · glossary toggletip`);
+    }
+    failures.push(...tab.errors.map((e) => `console error: ${e}`));
+  } finally {
+    await tab.close();
+  }
+  problems.push(...failures.map((f) => `[${label}] glossary toggletip: ${f}`));
+}
+
 /** Double-click a one-node graph result on a docs page; see DOCS_GRAPH_PREPARE. */
 async function checkDocsGraph(page: DocsCellPage) {
   const tab = await openPage(chrome.http, `${site.url}${page.path}`);
@@ -722,15 +964,35 @@ try {
   if (docsPages.length === 0) console.log('- docs: no built docs page has cells yet; the docs cell cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)');
   for (const page of docsPages) await checkDocsRun(page);
   const tabbed = existsSync(docsDir)
-    ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort().find((f) => readFileSync(f, 'utf8').includes('data-tabs'))
+    ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort().find((f) => /<div class="tabs\b[^"]*"[^>]*\sdata-tabs[\s>]/.test(readFileSync(f, 'utf8')))
     : undefined;
   if (tabbed) {
     const path = `/docs/${tabbed.slice(docsDir.length + 1, -'index.html'.length)}`;
     await check('a tab set switches', path.slice(1, -1), path, DOCS_TABS);
   }
+  // Phase 2 constructs, each on the first built page that has it.
+  const builtDocs = existsSync(docsDir) ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort() : [];
+  const withConstruct = (marker: string) => {
+    const f = builtDocs.find((file) => readFileSync(file, 'utf8').includes(marker));
+    return f ? `/docs/${f.slice(docsDir.length + 1, -'index.html'.length)}` : null;
+  };
+  const constructCases: [string, string, string[]][] = [
+    ['an agentic set switches and is remembered', 'data-agentic', [DOCS_AGENTIC, DOCS_AGENTIC_KEPT]],
+    ['the language picker switches every tab set and is remembered', '<lang-picker', [DOCS_PICKER, DOCS_PICKER_KEPT]],
+    ['each deeplink decodes to the JSON it shows', 'data-deeplink-href', [DOCS_DEEPLINK]],
+  ];
+  for (const [name, marker, scenarios] of constructCases) {
+    const path = withConstruct(marker);
+    if (!path) {
+      console.log(`- docs: no built docs page has ${marker}; "${name}" is skipped (DOCS_EXAMPLES=1 npm run build adds the example page)`);
+      continue;
+    }
+    for (const [i, scenario] of scenarios.entries()) await check(i ? `${name} (a new tab)` : name, path.slice(1, -1), path, scenario);
+  }
   const graphPage = docsPages.find((p) => /data-graph-nodes="1"/.test(p.html));
   if (graphPage) await checkDocsGraph(graphPage);
   else if (docsPages.length) console.log('- docs: no docs page has a one-node graph result; the expansion case is skipped');
+  await checkToggletip();
   for (const page of docsPages) {
     const twin = readFileSync(join(docsDir, `${page.id}.md`), 'utf8');
     const { title, cells } = twinCells(twin);

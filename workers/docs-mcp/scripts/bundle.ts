@@ -7,24 +7,33 @@
 //   npm run bundle            (inside workers/docs-mcp)
 //
 // Reads
-//   dist/docs/graph.cypher               the docs graph's seed script (replayed by the Worker)
+//   dist/docs/graph.cypher               the docs graph's seed script (replayed without its vector statements)
 //   dist/docs/graph.json                 the same graph: pages, sections, terms, recipes
+//   dist/docs/capabilities.json          the capability catalog (discover_capabilities, relate-docs://capabilities)
+//   dist/cookbook/<slug>/recipe.json     each recipe's cells (relate-docs://example/<recipe>/<cell>)
+//   src/content/cookbook/<slug>.md       each cell's recorded result and the recipe's summary
 //   dist/docs/<id>.md                    every page's markdown twin
 //   dist/docs/llms.txt                   the index
 //   dist/docs/get-started/agent-quickstart.md   the onboard prompt's source
 //   src/content/docs/_data/engine.json   the verified engine version
 //   src/content/docs/_data/errors.json   the errors reference
 //   public/releases.json                 releases and their assets
-//   public/skills/relate/**              the skill bundle as served
+//   public/skills/<name>/**              the CLI's skill bundle and the task skills, as served
 //   public/wasm/{relate.js,relate_bg.wasm,snippets/}   the engine
 // and writes workers/docs-mcp/generated/ (gitignored):
-//   docs.json        pages with their section offsets, refs, errors, llms.txt, skill, releases, the prompt
-//   graph.cypher     the seed script, byte for byte
-//   wasm/            the engine's glue and binary, copied so the site's Vite build never sees them
+//   docs.json        pages with their section offsets, refs, errors, llms.txt, skills, releases, the prompts,
+//                    the capability catalog, the cookbook examples, the dialect table
+//   graph.cypher     the seed script without the statements that set section vectors (seedWithoutVectors)
+//   vectors.txt      those vectors as the JSON parameters of VECTOR_LOAD_STATEMENT, loaded by the
+//                    hybrid lane of search_docs on first use
+//   wasm/            the engine's glue and binary, copied so the site's Vite build never sees them, and
+//                    relate-factory.js, the same glue as a factory (a fresh instance per validate_cypher)
 //
 // Fails when an input is missing, or when a twin and the docs graph disagree
 // about a section's text (the twin is the source of the bytes get_page
-// returns; the graph is the source of the anchors search_docs returns).
+// returns; the graph is the source of the anchors search_docs returns), and
+// when a one-line JSON resource (the capability catalog, the releases, an
+// example cell) would pass the Worker's 96 KiB text cap.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -34,8 +43,10 @@ import { gzipSync } from 'node:zlib';
 import GithubSlugger from 'github-slugger';
 import { parse as parseYaml } from 'yaml';
 
+import { parseRecipe, verifiesSummary, INLINE_DATA_BYTES } from '../../../src/lib/cookbook/recipe.ts';
+import { factoryGlue, seedVectors, seedWithoutVectors } from './seed.ts';
 import { frontmatterEnd, plainHeading, scanHeadings, sliceSection, TERMS_HEADING, type SectionSpan, type TwinIndex } from '../src/sections.ts';
-import type { Bundle, ErrorEntry, PageEntry, Ref, ReleaseEntry } from '../src/types.ts';
+import type { Bundle, DialectRow, ErrorEntry, ExampleCell, ExampleRecipe, PageEntry, Ref, ReleaseEntry } from '../src/types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = resolve(HERE, '..');
@@ -70,7 +81,19 @@ interface GraphJson {
   relationships: { type: string; start: string; end: string }[];
 }
 
-const seed = read(join(DIST, 'docs/graph.cypher'));
+const seedServed = read(join(DIST, 'docs/graph.cypher'));
+
+// The Worker replays the seed without its vector statements and loads the
+// vectors as one parameter on the hybrid lane's first use (ADR-0028).
+let seed: string;
+let vectorRows: { id: string; v: number[] }[];
+try {
+  seed = seedWithoutVectors(seedServed);
+  vectorRows = seedVectors(seedServed);
+} catch (err) {
+  fail(`dist/docs/graph.cypher: ${(err as Error).message}`);
+}
+if (/vector\(row\.v/.test(seed)) fail('the seed without vectors still sets vectors: graph.ts seedScript() changed; update VECTOR_SEED_END in scripts/seed.ts');
 const graph = readJson<GraphJson>(join(DIST, 'docs/graph.json'));
 const engine = readJson<Record<string, unknown>>(join(ROOT, 'src/content/docs/_data/engine.json'));
 const errorsJson = readJson<Record<string, unknown>>(join(ROOT, 'src/content/docs/_data/errors.json'));
@@ -233,9 +256,9 @@ for (const file of twinFiles) {
   };
 }
 if (!pages['get-started/agent-quickstart'] || !pages['reference/errors'] || !pages['get-started/install']) fail('a phase 1 page is missing from dist/docs');
-// search_docs's description says only the generated glossary and changelog are left out of the search
-// (src/server.ts): any other page outside the docs graph would make it false.
-const NOT_SEARCHED = ['reference/changelog', 'reference/glossary'];
+// search_docs's description says only the generated glossary, changelog and docs MCP usage pages are left
+// out of the search (src/server.ts): any other page outside the docs graph would make it false.
+const NOT_SEARCHED = ['reference/changelog', 'reference/glossary', 'reference/server/docs-mcp-usage'];
 const outside = Object.values(pages).filter((p) => !p.in_graph).map((p) => p.id).sort();
 if (JSON.stringify(outside) !== JSON.stringify(NOT_SEARCHED)) fail(`pages outside the docs graph (not searched) are ${outside.join(', ') || '(none)'}; search_docs's description in src/server.ts names ${NOT_SEARCHED.join(', ')}`);
 
@@ -294,10 +317,23 @@ if (anchorMissing.length) fail(`reference/errors has no anchor for ${anchorMissi
 // ---------------------------------------------------------------------------
 // Skill, releases, the onboard prompt
 
-const skillDir = join(ROOT, 'public/skills/relate');
-if (!existsSync(join(skillDir, 'SKILL.md'))) fail(`${rel(skillDir)}/SKILL.md is missing`);
-const skill: Record<string, string> = {};
-for (const f of walk(skillDir)) skill[relative(skillDir, f).replaceAll('\\', '/')] = readFileSync(f, 'utf8');
+// Every skill served under /skills/<name>/: the CLI's bundle (relate) and the
+// task skills (ADR-0032), each SKILL.md plus its references, as served.
+const skillsRoot = join(ROOT, 'public/skills');
+const skills: Record<string, Record<string, string>> = {};
+for (const name of readdirSync(skillsRoot).sort()) {
+  const dir = join(skillsRoot, name);
+  if (!statSync(dir).isDirectory()) continue;
+  if (!existsSync(join(dir, 'SKILL.md'))) fail(`${rel(dir)}/SKILL.md is missing`);
+  const files: Record<string, string> = {};
+  for (const f of walk(dir)) {
+    const path = relative(dir, f).replaceAll('\\', '/');
+    if (path !== 'SKILL.md' && !/^references\/[\w.-]+\.md$/.test(path)) fail(`${rel(f)}: a skill holds SKILL.md and references/*.md only`);
+    files[path] = readFileSync(f, 'utf8');
+  }
+  skills[name] = files;
+}
+if (!skills.relate) fail('public/skills/relate/ is missing');
 
 const releases = {
   source: `${ORIGIN}/releases.json`,
@@ -351,6 +387,155 @@ const onboard = [
 ].join('\n');
 
 // ---------------------------------------------------------------------------
+// The capability catalog (ADR-0026): served byte for byte as
+// relate-docs://capabilities and ranked by discover_capabilities.
+
+const capabilitiesText = read(join(DIST, 'docs/capabilities.json'));
+const capabilitiesJson = JSON.parse(capabilitiesText) as { kind: string; verified: string; capabilities: { id: string; urls: { page: string } }[] };
+if (capabilitiesJson.kind !== 'documentation') fail('dist/docs/capabilities.json has no kind "documentation"');
+if (capabilitiesJson.verified !== verified) fail(`dist/docs/capabilities.json is verified against ${capabilitiesJson.verified}, not ${verified}; rebuild the site`);
+if (!capabilitiesJson.capabilities.length) fail('dist/docs/capabilities.json lists no capability');
+
+// ---------------------------------------------------------------------------
+// The cookbook examples: relate-docs://example/<recipe>/<cell>. The cells and
+// their titles from the built recipe.json, each recorded result from the
+// recipe's source (the twin's result block), the verifies summary from
+// src/lib/cookbook/recipe.ts. A recipe.json whose cells differ from the
+// source means a stale build.
+
+const cookbookDist = join(DIST, 'cookbook');
+const cookbookSrc = join(ROOT, 'src/content/cookbook');
+const examples: Record<string, ExampleRecipe> = {};
+for (const slug of readdirSync(cookbookDist).sort()) {
+  const jsonPath = join(cookbookDist, slug, 'recipe.json');
+  if (!existsSync(jsonPath)) continue;
+  const built = readJson<{ format: number; slug: string; title: string; verifies?: ExampleRecipe['verifies']; cells: { id: string; title?: string; code: string; paramsPath: string | null; setup: boolean; expectError: boolean }[] }>(jsonPath);
+  if (built.format !== 1) fail(`${rel(jsonPath)} has format ${built.format}, not 1`);
+  const recipe = parseRecipe(slug, read(join(cookbookSrc, `${slug}.md`)));
+  const verifies = verifiesSummary(recipe);
+  if (built.verifies && JSON.stringify(built.verifies) !== JSON.stringify(verifies)) fail(`${rel(jsonPath)}: its verifies summary differs from the recipe's; rebuild the site`);
+  const recipeUrl = `${ORIGIN}/cookbook/${slug}/`;
+  const cells: ExampleCell[] = built.cells.map((c) => {
+    const src = recipe.cells.find((x) => x.id === c.id);
+    if (!src || src.code !== c.code) fail(`${rel(jsonPath)}: cell ${c.id} differs from src/content/cookbook/${slug}.md; rebuild the site`);
+    let parameters: unknown = null;
+    let parametersBytes: number | null = null;
+    if (c.paramsPath) {
+      const text = read(join(cookbookDist, slug, c.paramsPath));
+      parametersBytes = Buffer.byteLength(text);
+      // Parameter blocks beside their step are inlined; datasets are linked.
+      if (parametersBytes !== null && parametersBytes <= INLINE_DATA_BYTES) parameters = JSON.parse(text);
+    }
+    return {
+      id: c.id,
+      title: c.title ?? c.id,
+      statement: c.code,
+      setup: c.setup,
+      expect_error: c.expectError,
+      url: `${recipeUrl}#cell-${c.id}`,
+      playground: `${ORIGIN}/playground/#recipe=${slug}&cell=${c.id}`,
+      parameters_url: c.paramsPath ? `${recipeUrl}${c.paramsPath}` : null,
+      parameters_bytes: parametersBytes,
+      parameters,
+      result: src.result ? { kind: src.result.kind, text: src.result.text } : null,
+    };
+  });
+  if (recipe.cells.length !== cells.length) fail(`${rel(jsonPath)} lists ${cells.length} cells; the recipe has ${recipe.cells.length}; rebuild the site`);
+  examples[slug] = { slug, title: built.title, url: recipeUrl, md_url: `${recipeUrl}index.md`, verifies, cells };
+}
+if (!Object.keys(examples).length) fail('dist/cookbook/ holds no recipe.json');
+
+// ---------------------------------------------------------------------------
+// The dialect notes: the Differences table of reference/cypher/differences-from-neo4j,
+// verbatim for the text-to-cypher prompt and as rows for validate_cypher's remedies.
+
+const DIALECT_PAGE = 'reference/cypher/differences-from-neo4j';
+const dialectPage = pages[DIALECT_PAGE];
+if (!dialectPage) fail(`${DIALECT_PAGE} is missing from dist/docs`);
+const diffIndex = dialectPage.index.sections.findIndex((x) => x.anchor === 'differences');
+if (diffIndex < 0) fail(`${DIALECT_PAGE} has no section #differences`);
+const diffStart = dialectPage.index.sections[diffIndex].start;
+const diffEnd = dialectPage.index.sections[diffIndex + 1]?.start ?? dialectPage.index.termsStart;
+const tableLines = dialectPage.twin.slice(diffStart, diffEnd).split('\n').filter((l) => l.startsWith('|'));
+if (tableLines.length < 3) fail(`${DIALECT_PAGE}#differences holds no table`);
+const dialectTable = tableLines.join('\n');
+
+/** A table row's cells: split on `|` outside code spans; `\|` stays a pipe. */
+function tableCells(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let tick = 0;
+  for (let i = 1; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '`') {
+      let n = 0;
+      while (line[i + n] === '`') n++;
+      if (tick === 0) tick = n;
+      else if (tick === n) tick = 0;
+      cur += '`'.repeat(n);
+      i += n - 1;
+    } else if (ch === '\\' && line[i + 1] === '|') {
+      cur += '|';
+      i++;
+    } else if (ch === '|' && tick === 0) {
+      out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  return out;
+}
+/** Inline code spans of a markdown cell, as CommonMark strips them (one space each side for padded spans). */
+function codeSpans(cell: string): string[] {
+  const out: string[] = [];
+  for (const m of cell.matchAll(/(`+)([\s\S]*?[^`])\1(?!`)/g)) {
+    let t = m[2];
+    if (t.length > 2 && t.startsWith(' ') && t.endsWith(' ')) t = t.slice(1, -1);
+    out.push(t);
+  }
+  return out;
+}
+const header = tableCells(tableLines[0]);
+const col = (name: string) => {
+  const i = header.indexOf(name);
+  if (i < 0) fail(`${DIALECT_PAGE}#differences has no "${name}" column (columns: ${header.join(', ')})`);
+  return i;
+};
+const [cFeature, cNeo4j, cRelate, cInstead] = [col('Feature'), col('Neo4j'), col('relate'), col('Write instead')];
+
+// Each example cell that expects an error, with the error it recorded: a row
+// whose message is that error cites the cell's anchor.
+const cellErrors = new Map<string, string>();
+{
+  const twin = dialectPage.twin;
+  for (const m of twin.matchAll(/^```cypher run name=([\w-]+)[^\n]*expect=error[^\n]*\n[\s\S]*?^```\n\n```table\nerror: ([^\n]+)\n/gm)) cellErrors.set(m[2], `cell-${m[1]}`);
+}
+const dialectHtml = read(join(DIST, 'docs', DIALECT_PAGE, 'index.html'));
+const dialectRows: DialectRow[] = tableLines.slice(2).map((line) => {
+  const cells = tableCells(line);
+  const spans = codeSpans(cells[cRelate]).filter((t) => /error:|deprecated|unexpected token/.test(t));
+  const anchor = spans.map((t) => cellErrors.get(t)).find(Boolean) ?? null;
+  if (anchor && !dialectHtml.includes(`id="${anchor}"`)) fail(`${DIALECT_PAGE} has no anchor #${anchor}`);
+  return {
+    feature: cells[cFeature],
+    neo4j: cells[cNeo4j],
+    relate: cells[cRelate],
+    write_instead: cells[cInstead],
+    messages: spans,
+    url: `${dialectPage.url}#${anchor ?? 'differences'}`,
+  };
+});
+
+// ---------------------------------------------------------------------------
+// The text-to-cypher prompt (DOCS-PLAN.md §3.8): its fixed parts. The intent
+// and the schema argument are filled in per request by src/server.ts.
+
+const textToCypher = {
+  source: dialectPage.url,
+  md_url: dialectPage.md_url,
+  table: dialectTable,
+};
+
+// ---------------------------------------------------------------------------
 // Write
 
 const bundle: Bundle = {
@@ -359,33 +544,69 @@ const bundle: Bundle = {
   origin: ORIGIN,
   verified,
   engine: { version: String(engine.version), verified, date: String(engine.date), commit: engine.commit ? String(engine.commit) : null, source_build: Boolean(engine.source_build) },
-  graph: { nodes: graph.nodes.length, relationships: graph.relationships.length, seed_bytes: Buffer.byteLength(seed) },
+  graph: {
+    nodes: graph.nodes.length,
+    relationships: graph.relationships.length,
+    seed_bytes: Buffer.byteLength(seed),
+    served_seed_bytes: Buffer.byteLength(seedServed),
+    vectors: vectorRows.length,
+  },
   pages,
   refs,
   errors,
   notifications,
   llms,
-  skill,
+  skills,
   releases,
   onboard: { text: onboard, source: quick.url },
+  capabilities: { text: capabilitiesText, source: `${ORIGIN}/docs/capabilities.json`, page: capabilitiesJson.capabilities[0].urls.page.replace(/#.*$/, '') },
+  examples,
+  dialect: { page: DIALECT_PAGE, url: dialectPage.url, md_url: dialectPage.md_url, rows: dialectRows },
+  textToCypher,
 };
+
+// The JSON resources are one line each, so the Worker's text cap (96 KiB,
+// src/docs.ts MAX_TEXT_BYTES) has no line to cut them at and would serve
+// invalid JSON: fail here instead, with room for the kind, note and version
+// fields the Worker adds (JSON_ENVELOPE_BYTES).
+const MAX_TEXT_BYTES = 96 * 1024;
+const JSON_ENVELOPE_BYTES = 1024;
+const overCap = (what: string, n: number) => {
+  if (n > MAX_TEXT_BYTES) fail(`${what} is ${n} bytes as served, over the Worker's ${MAX_TEXT_BYTES / 1024} KiB text cap; a JSON resource cannot be cut at a line`);
+};
+overCap('relate-docs://capabilities', Buffer.byteLength(capabilitiesText));
+overCap('relate-docs://releases', Buffer.byteLength(JSON.stringify(releases)) + JSON_ENVELOPE_BYTES);
+for (const r of Object.values(examples)) {
+  const recipeMeta = { slug: r.slug, title: r.title, url: r.url, md_url: r.md_url, cells: r.cells.length, position: r.cells.length, verifies: r.verifies };
+  for (const c of r.cells) overCap(`relate-docs://example/${r.slug}/${c.id}`, Buffer.byteLength(JSON.stringify({ recipe: recipeMeta, cell: c })) + JSON_ENVELOPE_BYTES);
+}
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, 'wasm'), { recursive: true });
 writeFileSync(join(OUT, 'docs.json'), JSON.stringify(bundle));
 writeFileSync(join(OUT, 'graph.cypher'), seed);
+writeFileSync(join(OUT, 'vectors.txt'), JSON.stringify({ rows: vectorRows }));
 const wasmDir = join(ROOT, 'public/wasm');
 for (const f of ['relate.js', 'relate.d.ts', 'relate_bg.wasm', 'trap.js']) cpSync(join(wasmDir, f), join(OUT, 'wasm', f));
 cpSync(join(wasmDir, 'snippets'), join(OUT, 'wasm/snippets'), { recursive: true });
+try {
+  writeFileSync(join(OUT, 'wasm/relate-factory.js'), factoryGlue(read(join(wasmDir, 'relate.js'))));
+} catch (err) {
+  fail(`public/wasm/relate.js: ${(err as Error).message}`);
+}
 
 const size = (p: string) => {
   const b = readFileSync(p);
   return `${(b.length / 1024).toFixed(0)} KiB (${(gzipSync(b, { level: 9 }).length / 1024).toFixed(0)} KiB gzipped)`;
 };
-console.log(`bundle: ${Object.keys(pages).length} pages, ${Object.values(pages).reduce((n, p) => n + p.index.sections.length, 0)} sections, ${errors.length} errors, ${notifications.length} notifications, ${Object.keys(skill).length} skill files, ${releases.releases.length} releases; verified ${verified}`);
+const skillFiles = Object.values(skills).reduce((n, f) => n + Object.keys(f).length, 0);
+const exampleCells = Object.values(examples).reduce((n, r) => n + r.cells.length, 0);
+console.log(`bundle: ${Object.keys(pages).length} pages, ${Object.values(pages).reduce((n, p) => n + p.index.sections.length, 0)} sections, ${errors.length} errors, ${notifications.length} notifications, ${Object.keys(skills).length} skills (${skillFiles} files), ${releases.releases.length} releases, ${capabilitiesJson.capabilities.length} capabilities, ${Object.keys(examples).length} recipes (${exampleCells} cells), ${dialectRows.length} dialect rows (${dialectRows.filter((r) => r.messages.length).length} with a message); verified ${verified}`);
+console.log(`  seed: ${Buffer.byteLength(seedServed)} bytes served, ${Buffer.byteLength(seed)} replayed without the ${vectorRows.length} section vectors`);
 if (anchorsGuessed.length) console.log(`  ${anchorsGuessed.length} generated-page anchors not found in the built HTML, slugged instead: ${anchorsGuessed.slice(0, 5).join(', ')}`);
 if (textDiffers.length) console.log(`  ${textDiffers.length} sections whose graph text is not byte-equal to the twin (anchors still match): ${textDiffers.slice(0, 5).join(', ')}${textDiffers.length > 5 ? ', …' : ''}`);
 console.log(`  generated/docs.json        ${size(join(OUT, 'docs.json'))}`);
 console.log(`  generated/graph.cypher     ${size(join(OUT, 'graph.cypher'))}`);
+console.log(`  generated/vectors.txt      ${size(join(OUT, 'vectors.txt'))}`);
 console.log(`  generated/wasm/relate_bg.wasm  ${size(join(OUT, 'wasm/relate_bg.wasm'))}`);
 console.log(`  generated/wasm/relate.js   ${size(join(OUT, 'wasm/relate.js'))}`);

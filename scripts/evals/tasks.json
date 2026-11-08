@@ -1,0 +1,249 @@
+{
+  "format": 1,
+  "about": "The docs:evals task suite (DOCS-PLAN.md §3.8, the cold-start eval). Each task is one prompt a headless coding agent gets on stdin in an empty working directory, under each condition it lists, and is graded only by what it leaves behind: Cypher assertions run read-only against the store at `store`, file assertions, and assertions on the agent's transcript. Field reference: scripts/evals/harness.ts. `{{version}}` in a param or an expected value is the version the grading binary prints.",
+  "tasks": [
+    {
+      "id": "verify-install",
+      "title": "Check the installed version and record it",
+      "prompt": "relate is installed on this machine. Find out which version of relate it is, then create a relate store at ./eval.rl in this directory holding exactly one node labelled Install, with a string property version set to the version number relate reports (only the number, such as 1.2.3).",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "eval.rl",
+      "assertions": [
+        {
+          "id": "one-install-node",
+          "description": "One Install node whose version is the installed version",
+          "cypher": "MATCH (i:Install) RETURN count(i) AS n, collect(i.version)[0] AS version",
+          "expect": { "rows": [{ "n": 1, "version": "{{version}}" }] }
+        }
+      ]
+    },
+    {
+      "id": "team-graph",
+      "title": "Create the team graph",
+      "prompt": "Using relate, create a store at ./team.rl in this directory with three people (Person nodes with a name property): Ada, Grace and Noor, and two projects (Project nodes with a name property): relate and opencypher-tck. Ada and Grace work on relate and Noor works on opencypher-tck: connect each person to their project with a WORKS_ON relationship from the person to the project.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "team.rl",
+      "assertions": [
+        {
+          "id": "people",
+          "description": "Exactly the three people",
+          "cypher": "MATCH (p:Person) RETURN p.name AS name ORDER BY name",
+          "expect": { "rows": [{ "name": "Ada" }, { "name": "Grace" }, { "name": "Noor" }] }
+        },
+        {
+          "id": "projects",
+          "description": "Exactly the two projects",
+          "cypher": "MATCH (p:Project) RETURN p.name AS name ORDER BY name",
+          "expect": { "rows": [{ "name": "opencypher-tck" }, { "name": "relate" }] }
+        },
+        {
+          "id": "works-on",
+          "description": "Each person WORKS_ON their project, and nothing else",
+          "cypher": "MATCH (p:Person)-[:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project ORDER BY person",
+          "expect": { "rows": [{ "person": "Ada", "project": "relate" }, { "person": "Grace", "project": "relate" }, { "person": "Noor", "project": "opencypher-tck" }] }
+        }
+      ]
+    },
+    {
+      "id": "agent-memory",
+      "title": "Give an agent a long-term memory",
+      "open_ended": true,
+      "prompt": "This agent needs a long-term memory that a later session can query by who and what. Store the three facts below so that each person and each thing they are connected to can be looked up on its own, and keep the memory at ./memory in this directory (a file or a directory, whichever the storage you choose uses). Facts: Ada prefers tabs over spaces. Grace owns the billing service. The billing service deploys on Fridays.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "memory",
+      "assertions": [
+        {
+          "id": "people-are-entities",
+          "description": "Ada and Grace are each a node of their own",
+          "cypher": "UNWIND ['Ada', 'Grace'] AS who OPTIONAL MATCH (n) WHERE any(k IN keys(n) WHERE n[k] IS :: STRING AND n[k] CONTAINS who) RETURN count(DISTINCT CASE WHEN n IS NULL THEN null ELSE who END) AS found",
+          "expect": { "rows": [{ "found": 2 }] }
+        },
+        {
+          "id": "grace-owns-billing",
+          "description": "Grace's node is connected to a node for the billing service",
+          "cypher": "MATCH (a)--(b) WHERE any(k IN keys(a) WHERE a[k] IS :: STRING AND a[k] CONTAINS 'Grace') AND any(k IN keys(b) WHERE b[k] IS :: STRING AND toLower(b[k]) CONTAINS 'billing') RETURN count(*) >= 1 AS ok",
+          "expect": { "rows": [{ "ok": true }] }
+        }
+      ]
+    },
+    {
+      "id": "dependency-graph",
+      "title": "Store a repository's dependency graph",
+      "open_ended": true,
+      "files": "dependency-graph",
+      "prompt": "Store this repository's dependency graph as declared in ./package.json: the package itself, each of its dependencies and devDependencies, and the version range each one asks for. Keep it at ./deps in this directory (a file or a directory, whichever the storage you choose uses), so that a later session can ask what depends on what.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "deps",
+      "assertions": [
+        {
+          "id": "every-package",
+          "description": "The package and its four dependencies are each a node",
+          "cypher": "UNWIND ['lantern', 'kettle', 'spoon-utils', 'teacup-test', 'saucer-lint'] AS name OPTIONAL MATCH (n) WHERE any(k IN keys(n) WHERE n[k] = name) RETURN count(DISTINCT CASE WHEN n IS NULL THEN null ELSE name END) AS found",
+          "expect": { "rows": [{ "found": 5 }] }
+        },
+        {
+          "id": "lantern-depends",
+          "description": "lantern is connected to its four dependencies",
+          "cypher": "MATCH (a)--(b) WHERE any(k IN keys(a) WHERE a[k] = 'lantern') AND any(k IN keys(b) WHERE b[k] IN ['kettle', 'spoon-utils', 'teacup-test', 'saucer-lint']) RETURN count(DISTINCT b) AS n",
+          "expect": { "min": { "n": 4 } }
+        },
+        {
+          "id": "ranges-kept",
+          "description": "The version range ^2.1.0 is stored on the kettle relationship or node",
+          "cypher": "MATCH (a)-[r]-(b) WHERE any(k IN keys(r) WHERE r[k] = '^2.1.0') OR any(k IN keys(b) WHERE b[k] = '^2.1.0') RETURN count(*) >= 1 AS ok",
+          "expect": { "rows": [{ "ok": true }] }
+        }
+      ]
+    },
+    {
+      "id": "exit-code-5",
+      "title": "Find what exit code 5 means",
+      "prompt": "A script that runs relate exited with code 5. Find out what that exit code means in relate, then record it: create a relate store at ./answers.rl in this directory with exactly one node labelled Answer, with the integer property exit_code set to 5 and the string property code set to the error code relate's error object carries for exit code 5.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "answers.rl",
+      "assertions": [
+        {
+          "id": "answer",
+          "description": "One Answer node: exit_code 5, code conflict",
+          "cypher": "MATCH (a:Answer) RETURN a.exit_code AS exit_code, a.code AS code",
+          "expect": { "rows": [{ "exit_code": 5, "code": "conflict" }] }
+        }
+      ]
+    },
+    {
+      "id": "recover-validation-error",
+      "title": "Recover from a validation_error",
+      "prompt": "Run the statement below with relate against a new store at ./eval.rl in this directory, exactly as written the first time. If relate rejects it, correct the statement and run it again until it succeeds. Statement: CREATE (p:Person {name: 'Ada', role: 'engineer'}) RETURN p.name AS name,",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "eval.rl",
+      "first_command": false,
+      "assertions": [
+        {
+          "id": "ada-created",
+          "description": "Ada is in the store once, with her role",
+          "cypher": "MATCH (p:Person) RETURN p.name AS name, p.role AS role",
+          "expect": { "rows": [{ "name": "Ada", "role": "engineer" }] }
+        },
+        {
+          "id": "saw-validation-error",
+          "description": "The transcript shows relate's exit code 6 (validation_error) before the fix",
+          "kind": "transcript",
+          "saw_exit": 6
+        }
+      ]
+    },
+    {
+      "id": "parameters",
+      "title": "Pass a value as a parameter",
+      "files": "parameters",
+      "prompt": "Add one Person node to a new relate store at ./people.rl in this directory whose name property is exactly the first line of ./name.txt, without the trailing newline. The name contains a quote character.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "people.rl",
+      "assertions": [
+        {
+          "id": "exact-name",
+          "description": "One Person whose name is the file's line, byte for byte",
+          "cypher": "MATCH (p:Person) RETURN p.name AS name",
+          "expect": { "rows": [{ "name": "Noor O'Day" }] }
+        },
+        {
+          "id": "used-a-parameter",
+          "description": "A relate command bound the value with --param or --fetch-params",
+          "kind": "transcript",
+          "some_relate_command": "--param|--fetch-params"
+        }
+      ]
+    },
+    {
+      "id": "fulltext-notes",
+      "title": "Make notes searchable by keyword",
+      "files": "fulltext-notes",
+      "prompt": "Load the three notes in ./notes/ into a relate store at ./notes.rl in this directory, one Note node per file with a title property (the file name without .md) and a body property (the file's text), and make the bodies searchable by keyword with a full-text index.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "notes.rl",
+      "assertions": [
+        {
+          "id": "three-notes",
+          "description": "The three notes, by title",
+          "cypher": "MATCH (n:Note) RETURN n.title AS title ORDER BY title",
+          "expect": { "rows": [{ "title": "ideas" }, { "title": "retro" }, { "title": "standup" }] }
+        },
+        {
+          "id": "fulltext-index",
+          "description": "A full-text index on Note.body",
+          "cypher": "SHOW INDEXES YIELD type, labelsOrTypes, properties WHERE type = 'FULLTEXT' AND 'Note' IN labelsOrTypes AND 'body' IN properties RETURN count(*) AS n",
+          "expect": { "min": { "n": 1 } }
+        }
+      ]
+    },
+    {
+      "id": "read-only-answer",
+      "title": "Answer from a store without changing it",
+      "setup": [
+        "CREATE (ada:Person {name: 'Ada'}), (grace:Person {name: 'Grace'}), (noor:Person {name: 'Noor'}), (r:Project {name: 'relate'}), (t:Project {name: 'opencypher-tck'}), (ada)-[:WORKS_ON]->(r), (grace)-[:WORKS_ON]->(r), (noor)-[:WORKS_ON]->(t)"
+      ],
+      "prompt": "./team.rl in this directory is a relate store that must not change. Find how many people work on each project in it, and write the answer to ./answer.txt, one line per project in the form <project>: <count>.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "team.rl",
+      "assertions": [
+        {
+          "id": "store-unchanged",
+          "description": "Every node and relationship the setup made, with the same ids, labels, type, property count and name, and nothing else (a SET, REMOVE, delete or re-create shows)",
+          "cypher": "MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN id(n) AS id, labels(n) AS labels, n.name AS name, size(keys(n)) AS props, id(r) AS rel_id, type(r) AS rel, size(keys(r)) AS rel_props, id(m) AS to ORDER BY id, rel_id",
+          "expect": {
+            "rows": [
+              { "id": 0, "labels": ["Person"], "name": "Ada", "props": 1, "rel_id": 0, "rel": "WORKS_ON", "rel_props": 0, "to": 3 },
+              { "id": 1, "labels": ["Person"], "name": "Grace", "props": 1, "rel_id": 1, "rel": "WORKS_ON", "rel_props": 0, "to": 3 },
+              { "id": 2, "labels": ["Person"], "name": "Noor", "props": 1, "rel_id": 2, "rel": "WORKS_ON", "rel_props": 0, "to": 4 },
+              { "id": 3, "labels": ["Project"], "name": "relate", "props": 1, "rel_id": null, "rel": null, "rel_props": null, "to": null },
+              { "id": 4, "labels": ["Project"], "name": "opencypher-tck", "props": 1, "rel_id": null, "rel": null, "rel_props": null, "to": null }
+            ]
+          }
+        },
+        {
+          "id": "schema-unchanged",
+          "description": "No index or constraint was added (a constraint's backing index is listed by SHOW INDEXES)",
+          "cypher": "SHOW INDEXES YIELD name RETURN count(*) AS indexes",
+          "expect": { "rows": [{ "indexes": 0 }] }
+        },
+        {
+          "id": "answer-file",
+          "description": "answer.txt has one line per project with its count",
+          "kind": "file",
+          "path": "answer.txt",
+          "lines": ["relate: 2", "opencypher-tck: 1"]
+        },
+        {
+          "id": "opened-read-only",
+          "description": "At least one relate command named team.rl, and every one that did opened it --read-only",
+          "kind": "transcript",
+          "every_relate_command": { "naming": "team\\.rl", "has": "--read-only" }
+        }
+      ]
+    },
+    {
+      "id": "unique-constraint",
+      "title": "Keep person names unique",
+      "setup": [
+        "CREATE (:Person {name: 'Ada'}), (:Person {name: 'Grace'}), (:Person {name: 'Noor'})"
+      ],
+      "prompt": "In the relate store ./team.rl in this directory, make sure that no two Person nodes can ever have the same name. Keep the people already in it.",
+      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "store": "team.rl",
+      "assertions": [
+        {
+          "id": "uniqueness-constraint",
+          "description": "A uniqueness constraint on Person.name",
+          "cypher": "SHOW CONSTRAINTS YIELD type, labelsOrTypes, properties WHERE type = 'NODE_PROPERTY_UNIQUENESS' AND labelsOrTypes = ['Person'] AND properties = ['name'] RETURN count(*) AS n",
+          "expect": { "min": { "n": 1 } }
+        },
+        {
+          "id": "people-kept",
+          "description": "The three people are still there",
+          "cypher": "MATCH (p:Person) RETURN count(p) AS n",
+          "expect": { "rows": [{ "n": 3 }] }
+        }
+      ]
+    }
+  ]
+}

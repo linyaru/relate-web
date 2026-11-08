@@ -1,0 +1,17 @@
+---
+id: query
+term: "query"
+short: "A statement that reads, where the contrast with writing matters; also `relate query`, the command that runs a statement session."
+aliases: []
+context: cypher
+see: reference/cli
+related: ["statement", "plan"]
+---
+
+In these docs, query has two meanings, both narrow. As a noun about Cypher, it is a :term[statement]{id=statement} that reads, used where the difference from a write matters: a query on a `--read-only` store runs, a write fails. As a command, `relate query` runs a statement session: one statement, a script on stdin, or the interactive shell on a terminal. `relate` with a statement and no command is the same session.
+
+The MCP server keeps the same split: `read_cypher` runs reading statements, and `write_cypher`, listed only when the store is writable, runs writes.
+
+```bash
+relate query --database ./team.rl --read-only "MATCH (p:Person) RETURN p.name AS name"
+```

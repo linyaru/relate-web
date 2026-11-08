@@ -3493,6 +3493,18 @@
     ],
     "reference/storage/formats.mdx": [
       {
+        "command": "relate --database ./people --mode envelope \"CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE\"\nrelate --database ./people --mode envelope \"CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)\"",
+        "expected_sha256": null
+      },
+      {
+        "command": "cat people/.cypherlite/schema/schema.cypher",
+        "expected_sha256": "9b6904ebd03c13f28e59e2cdafe971cdec1e91fbf3769c6e8004e40010157e8a"
+      },
+      {
+        "command": "echo \"// edited\" >> people/.cypherlite/schema/schema.cypher\nrelate --database ./people --read-only --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
+        "expected_sha256": "964c1a73360969afa4ccd25bc7fec9142ccfb0ab00979d2cff1d2ba998cb91e9"
+      },
+      {
         "command": "relate --database ./items --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate --database ./items-json --snapshot-format json --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate --database ./items.rl --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate clone ./items.rl ./items-clone.rl",
         "expected_sha256": "47bcc065620ed019522a087e2e64095726504b278c1f5ba537550fa3cd31b928"
       },

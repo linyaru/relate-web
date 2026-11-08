@@ -103,3 +103,11 @@ Copy `template.md`.
 | [0023](0023-docs-mcp-worker-shape.md) | The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements | Proposed |
 | [0024](0024-docs-mcp-rate-limits.md) | The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding | Proposed |
 | [0025](0025-markdown-negotiation-rules.md) | How the docs answer Accept: text/markdown and ?section= | Proposed |
+| [0026](0026-capability-catalog.md) | The capability catalog: one page's generated section and capabilities.json | Proposed |
+| [0027](0027-compiled-language-samples.md) | Verified samples in Rust, Java, Go, Swift and C | Proposed |
+| [0028](0028-embeddings-artifact-and-hybrid-search.md) | Section embeddings are a committed artifact, and the docs graph carries a vector index over them | Proposed |
+| [0029](0029-evals-harness-and-usage-data.md) | The docs evals grade stores, not prose, and the per-tool usage page is built from counted log lines | Proposed |
+| [0030](0030-glossary-bodies-checks-and-toggletip.md) | Glossary bodies, the §4.11 checks as built, and the toggletip's markup | Proposed |
+| [0031](0031-phase-2-constructs.md) | Phase 2 constructs: the agentic and deeplink directives, a sixth JSX component for the matrix, and a language picker on the tab memory | Proposed |
+| [0032](0032-task-skills-library.md) | Task skills are authored here, listed beside the CLI bundle, installed by name, and re-reviewed when a cited recipe changes | Proposed |
+| [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Proposed |

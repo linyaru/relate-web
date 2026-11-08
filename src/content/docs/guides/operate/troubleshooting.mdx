@@ -33,14 +33,14 @@ relate query --database ./team.rl < team.cypher
 
 ## Read the error
 
-Run the failing command again with `--mode envelope` and print the exit code. In this example, the store's name is misspelled, `tema.rl`, so a read-only open finds nothing to open:
+Run the failing command again with `--mode envelope` and print the exit code. In this example, the :term[store]{id=store}'s name is misspelled, `tema.rl`, so a read-only open finds nothing to open:
 
 ```bash verify
 relate --database ./tema.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
 echo "exit=$?"
 ```
 
-The path starts with the working directory, shown as `<dir>`. The first line is stderr, the second the error object on stdout:
+The path starts with the working directory, shown as `<dir>`. The first line is stderr, the second the :term[error object]{id=error-object} on stdout:
 
 ```text
 Failed to open Relate: storage error: database not found: <dir>/tema.rl
@@ -64,7 +64,7 @@ The error object's `code` is the class and `exit_code` the exit code, `kind` nar
 | `semantic error: live freshness (WAL follow) is only supported for native directory databases` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`--read-only`](/docs/reference/cli/flags#read-only) | Follow a directory store. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
 | `Error: final checkpoint failed: <reason>` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-final-checkpoint-failed`](/docs/reference/errors#cli-final-checkpoint-failed) | Free disk space and check permissions. [Recover from a crash](/docs/guides/operate/crash-and-recovery) |
 | An operating-system I/O failure, such as a disk with no space left | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-io`](/docs/reference/errors#cli-fatal-error-io) | Check the path, permissions, and free space. [Choose a store layout](/docs/guides/storage/choose-a-store-layout) |
-| Recent writes missing after a crash | — | — | The store ran under a relaxed durability mode. [Choose a durability mode](/docs/guides/operate/durability-modes) |
+| Recent writes missing after a crash | — | — | The store ran under a relaxed :term[durability mode]{id=durability-mode}. [Choose a durability mode](/docs/guides/operate/durability-modes) |
 
 ### Memory and size
 
@@ -91,7 +91,7 @@ The error object's `code` is the class and `exit_code` the exit code, `kind` nar
 | A composite-only function, several `USE` targets in one statement | — | [`engine-composite-only-function`](/docs/reference/errors#engine-composite-only-function), [`engine-multiple-use-targets`](/docs/reference/errors#engine-multiple-use-targets) | A statement runs against one graph. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
 | `This database is not queryable. …`, a write to `system_ontologies` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-system-ontologies-not-queryable`](/docs/reference/errors#engine-system-ontologies-not-queryable), [`engine-system-ontologies-write`](/docs/reference/errors#engine-system-ontologies-write) | Query the `neo4j` namespace. [Limitations](/docs/reference/limitations) |
 | `NestedEvaluationBudgetExceeded: …` | — | [`engine-nested-evaluation-budget`](/docs/reference/errors#engine-nested-evaluation-budget) | Flatten the nested subqueries. [Limitations](/docs/reference/limitations) |
-| `write-write conflict` | [5](/docs/reference/cli/exit-codes-and-errors#exit-5) | [`cli-conflict-conflict`](/docs/reference/errors#cli-conflict-conflict) | Run the statement again in a fresh transaction. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| `write-write conflict` | [5](/docs/reference/cli/exit-codes-and-errors#exit-5) | [`cli-conflict-conflict`](/docs/reference/errors#cli-conflict-conflict) | Run the statement again in a fresh :term[transaction]{id=transaction}. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
 | A uniqueness constraint violated | — | [`engine-uniqueness-violation`](/docs/reference/errors#engine-uniqueness-violation) | `MERGE` on the constrained key, or fix the duplicate. [Cypher overview](/docs/reference/cypher/overview) |
 | `Cannot change the namespace while a transaction is open.` | — | [`engine-namespace-change-in-transaction`](/docs/reference/errors#engine-namespace-change-in-transaction) | End the transaction first. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
 | `Error: query timed out after <duration>`, `query cancelled` | [7](/docs/reference/cli/exit-codes-and-errors#exit-7) | [`cli-timeout`](/docs/reference/errors#cli-timeout), [`engine-cancelled`](/docs/reference/errors#engine-cancelled) | Bound the work or raise the timeout. [Tune a query](/docs/guides/cypher/tune-a-query) |

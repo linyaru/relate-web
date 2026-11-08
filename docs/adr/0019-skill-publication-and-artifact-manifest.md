@@ -85,3 +85,10 @@ it is reproducible (ADR-0020).
   `relate skill install` deliver the full bundle.
 - Upstream asks: a description with the canonical phrase and intent
   phrases, and no internal ADR ids in the public bundle.
+
+## Later references
+
+- Amended by ADR-0032: the root discovery index lists the CLI bundle and
+  five task skills, so the bare `npx skills add https://relatedb.ai`
+  offers or installs six; the documented form is `npx skills add
+  https://relatedb.ai --skill relate`.

@@ -8,7 +8,7 @@ prerequisites: [get-started/install]
 related: [get-started/agent-quickstart, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety, reference/cli, reference/errors]
 ---
 
-This guide shows you how to install the relate agent skill in one of three ways: with the relate CLI's installer, with the skills CLI from the website, or as a manual copy checked against published checksums. The :term[skill]{id=skill} is a `SKILL.md` cheat sheet and a set of reference files that a coding agent reads before it uses relate: the CLI and its flags, output modes, exit codes, Cypher, the clients, and the agent rules. All three install the same `SKILL.md`; the relate CLI and a manual copy also install the 15 reference files.
+This guide shows you how to install the relate agent skill in one of three ways: with the relate CLI's installer, with the skills CLI from the website, or as a manual copy checked against published checksums. The :term[skill]{id=skill} is a `SKILL.md` cheat sheet and a set of reference files that a coding agent reads before it uses relate: the CLI and its flags, output modes, :term[exit codes]{id=exit-code}, Cypher, the clients, and the agent rules. All three install the same `SKILL.md`; the relate CLI and a manual copy also install the 15 reference files.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ This guide shows you how to install the relate agent skill in one of three ways:
 | Way | Installs | Checked by | Network |
 | --- | --- | --- | --- |
 | `relate skill install` | `SKILL.md` and the 15 reference files | The bytes come from inside the binary; `relate skill check` compares an installed copy with them | None |
-| `npx skills add https://relatedb.ai` | `SKILL.md` only | The skills CLI (1.5.25) checks the `sha256:` digest of `SKILL.md` in the website's discovery index | Required |
+| `npx skills add https://relatedb.ai --skill relate` | `SKILL.md` only | The skills CLI (1.7.6) checks the `sha256:` digest of `SKILL.md` in the website's discovery index | Required |
 | Manual copy | `SKILL.md` and the 15 reference files | A script compares each file with its SHA-256 in `/docs/docs-artifacts.json` | Required |
 
 ## Install with the relate CLI
@@ -77,12 +77,32 @@ The installer stamps the binary's version into the `version:` line of `SKILL.md`
 The website publishes the same skill under the Agent Skills discovery paths, so the skills CLI can install it before relate is on the machine:
 
 ```bash
-npx skills add https://relatedb.ai
+npx skills add https://relatedb.ai --skill relate
 ```
 
-As of skills 1.5.25 (tested 2026-11-07), the `https://` prefix is required: given a bare `relatedb.ai`, the skills CLI does not look for the website's discovery index. It reads `/.well-known/agent-skills/index.json`, checks the `sha256:` digest of `SKILL.md` against it, and writes `SKILL.md` where its own settings say.
+As of skills 1.7.6 (read and run 2026-11-07), the `https://` prefix is required: given a bare `relatedb.ai`, the skills CLI does not look for the website's discovery index. It reads `/.well-known/agent-skills/index.json`, checks the `sha256:` digest of `SKILL.md` against it, and writes `SKILL.md` where its own settings say.
 
-The index's one entry is `SKILL.md`, so this way installs that file without `references/`. The links in `SKILL.md` that point into `references/` then name files that are not on disk. Each reference file is published at `https://relatedb.ai/skills/relate/references/<name>.md`, and the relate CLI and a manual copy both put the reference files on disk.
+The index lists six skills, this bundle and the five task skills listed in `/skill.md`, and `--skill relate` picks this one. Its entry is `SKILL.md`, so this way installs that file without `references/`. The links in `SKILL.md` that point into `references/` then name files that are not on disk. Each reference file is published at `https://relatedb.ai/skills/relate/references/<name>.md`, and the relate CLI and a manual copy both put the reference files on disk.
+
+## Install a task skill
+
+Besides the CLI bundle, the website publishes five task skills, one per task family. Each cites the docs pages and cookbook recipes it draws on, and every Cypher statement in it runs on the WebAssembly build the site ships. `relate skill install` does not install them; the binary carries its own bundle only.
+
+| Skill | For |
+| --- | --- |
+| `relate-agent-memory` | Long-term agent memory: entities, episodes, facts with provenance and two time axes |
+| `relate-graphrag` | Hybrid retrieval: vector and full-text search fused by reciprocal rank, then a graph hop |
+| `relate-schema-design` | Labels, relationship types, constraints, indexes, schema discovery and the schema folder |
+| `relate-query-tuning` | `EXPLAIN`, `PROFILE`, the planner's notifications and their remedies, indexes and traversal bounds |
+| `relate-migrate-from-vector-search` | Moving records and embeddings from a vector-only store, and checks that nothing was lost |
+
+The skills CLI installs one by name, the same way as the bundle. For the agent memory skill:
+
+```bash
+npx skills add https://relatedb.ai --skill relate-agent-memory
+```
+
+As with the bundle, the index entry is `SKILL.md` alone; each task skill's `SKILL.md` names the absolute URL of every reference file, at `https://relatedb.ai/skills/<name>/references/<file>.md`. A URL with a path, such as `https://relatedb.ai/skills/relate-graphrag`, does not select a skill: the skills CLI finds no discovery index under that path and installs nothing. For a copy by hand, put the files that `/docs/docs-artifacts.json` lists under `/skills/<name>/` in a directory named after the skill, beside the `relate` directory below.
 
 ## Install by hand
 

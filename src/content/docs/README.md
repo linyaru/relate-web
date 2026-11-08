@@ -22,6 +22,7 @@ parts of both (see [Checks](#checks)).
 | `<section>/…/<name>.results.json` | The recorded results of the page's runnable cells and verified samples ([Runnable cells](#runnable-cells), [Verified samples](#verified-samples)) |
 | `<section>/…/diagrams/` | Pre-rendered light and dark SVGs of the page's `mermaid` blocks ([Diagrams](#diagrams)) and of its cells' graph results |
 | `_glossary/<id>.mdx` | One glossary term ([Glossary](#glossary)) |
+| `_capabilities/<id>.mdx` | One entry of the capability catalog ([Capability catalog](#capability-catalog)) |
 | `_data/engine.json` | The relate version the examples are verified against, its release date and commit, and the recorded `relate --version` and envelope check |
 | `_data/cli.json` | CLI commands, flags, environment variables, output modes and exit codes, each with the recorded run that shows it |
 | `_data/errors.json` | Every error an agent can meet, one stable id per entry |
@@ -144,6 +145,66 @@ relate query --database ./friends.rl "MATCH (p:Person) RETURN p.name LIMIT 5"
 
 Twin: one `### Label` heading per tab, with its body, in order.
 
+**Language keys.** A tab set whose keys name languages follows the language
+picker in the page header. Keys (first spelling preferred): `python`; `node`
+(also `js`, `javascript`, `nodejs`, `node-js`); `rust`; `c`; `java`; `go`;
+`swift`; `browser` (also `wasm`); `cli` (`src/lib/docs/languages.ts`). The
+picker shows on a page where one tab set (a `::::tabs` or `<Install />`)
+names two or more languages; choosing one shows it in every set that has it,
+and on later pages (the `docs-tab` entry the tab script already keeps, in
+which each language keeps every spelling). Every set keeps its own tabs; the
+twin is unchanged.
+
+### Agentic steps
+
+An outer `::::agentic` container holding `:::human[Label]` and
+`:::agent[Label]`, once each; the labels are optional ("As a person", "As an
+agent"). For a tutorial step a person and an agent run differently: the
+agent view shows `--mode envelope`, the error object and the exit code.
+
+````markdown
+::::agentic
+:::human
+```bash
+relate --database ./team.rl --read-only "MATCH (p:Person) RETURN count(p) AS people"
+```
+:::
+:::agent
+```bash
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+:::
+::::
+````
+
+The page shows the two views as tabs (keys `agentic-human` and
+`agentic-agent`); the choice applies to every agentic step on the page and
+is remembered like any tab. Without JavaScript both views show, each under
+its label. Twin: each view under a heading one level below the heading the
+step sits under, in the order written.
+
+### Host deeplinks
+
+`:::deeplink{host=<host> name=<server name>}` around one ```` ```json ````
+fence: the server entry the link adds (the value under
+`mcpServers.<name>`, never the whole file). Hosts: `cursor` and `vscode`
+(`src/lib/docs/deeplink.ts` names each host document the form comes from).
+The page shows the host button, its link generated at build from the JSON,
+the JSON and the link as text. Twin: the fence, then the link as inline
+code. An entry with a `command` needs `"--read-only"` in `args`, and an
+entry with `env` or `headers` is refused (a link is public), or the build
+fails; the page says beside it how to allow writes. The link carries the
+JSON as written, placeholders included, so say when a path needs editing
+after the entry is added.
+
+````markdown
+:::deeplink{host=cursor name=relate}
+```json
+{"command": "relate", "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]}
+```
+:::
+````
+
 ### Terms
 
 `:term[label]{id=<glossary id>}` links a word to its glossary entry. Define
@@ -154,12 +215,20 @@ for a reader who landed mid-page.
 Every commit goes to the :term[write-ahead log]{id=wal} before it applies.
 ```
 
-A term renders as a plain link to its entry on the generated glossary page,
-`/docs/reference/glossary/#<id>` ([Generated pages](#generated-pages-and-agent-endpoints)).
-The toggletip is phase 2 (ADR-0009, ADR-0015). Twin: the plain
-link (always absolute), and the twin ends with a `## Terms used on this
-page` section listing each linked term's `short` definition. A term id
-with no `_glossary/<id>.mdx` fails the build.
+On the page, the first use of each term becomes a toggletip: a `<button
+popovertarget>` with a dotted underline that opens a `<span popover="auto">`
+panel holding the term's `short` definition and a "Read more in the
+glossary" link to `/docs/reference/glossary/#<id>`
+(`src/lib/docs/glossary-toggletip.ts`, ADR-0009, ADR-0030). Click, tap or
+Enter opens it; Escape or a click outside closes it; no JavaScript runs.
+Later uses are plain text. In a table body cell or a tab panel a term is a
+plain link and does not use up the toggletip; in a heading, a table header,
+a callout title, a tab label or a link it is plain text. A `:term[…]`
+inside a code fence or inline code is shown as code, not linked. Twin: the
+plain link (always absolute) at every use, and the twin ends with a `##
+Terms used on this page` section listing each linked term's `short`
+definition, in order of first use. A term id with no `_glossary/<id>.mdx`
+fails the build.
 
 ### Badges
 
@@ -187,8 +256,8 @@ Twin: a markdown image with the caption as its title.
 ### Components
 
 JSX components are for generated and interactive things only, each with a
-`toMarkdown` that renders its twin form. Phase 1 has five, the cap
-(ADR-0015):
+`toMarkdown` that renders its twin form. There are six (ADR-0015; the
+sixth by ADR-0031):
 
 | Component | Renders |
 | --- | --- |
@@ -197,6 +266,7 @@ JSX components are for generated and interactive things only, each with a
 | `<ExitCodes />` | The CLI exit codes from `_data/cli.json`, one row at `#exit-<n>`, with error kinds and retry advice from `_data/errors.json` |
 | `<Flags />` | The CLI flags from `_data/cli.json`; `command="query"` or `command="<command>"` narrows it; each row at the flag's id |
 | `<EnvVars />` | The environment variables from `_data/cli.json`; `usedBy="…"` narrows it |
+| `<Matrix />` | The surfaces capability matrix from `_data/surfaces.json`: features by surfaces, each cell yes, no, partial or unknown with its note; `rows={["read-only"]}` and `columns={["cli","python"]}` narrow it; each row at `#matrix-<feature>` |
 
 Anything else is a directive or plain markdown. A new component is a
 decision.
@@ -212,7 +282,8 @@ meta drives behavior:
 | ```` ```cypher run ```` | A runnable cell; its id is `cell-<n>`, the n-th run cell on the page |
 | ```` ```cypher run name=<id> ```` | A runnable cell with a stable id (letters, digits, `-`, `_`); prefer it, so a reordering does not rename cells |
 | ```` ```cypher run params=<name> expect=error ```` | A cell that takes the page's ```` ```json data=<name> ```` block as parameters, and one that must fail ([Runnable cells](#runnable-cells)) |
-| ```` ```python run ```` / ```` ```js run ```` | A verified sample: a whole program run against the relate client; its id is `python-<n>` / `js-<n>`, the n-th sample of that language ([Verified samples](#verified-samples)) |
+| ```` ```python run ```` / ```` ```js run ```` / ```` ```rust run ```` / ```` ```java run ```` / ```` ```go run ```` / ```` ```swift run ```` / ```` ```c run ```` | A verified sample: a whole program run against the relate client for its language; its id is `<lang>-<n>`, the n-th sample of that language ([Verified samples](#verified-samples)) |
+| ```` ```python run env=crewai ```` | A Python sample run in the named second venv (`RELATE_PY_CREWAI`) |
 | ```` ```python run name=<id> title="app.py" ```` | A verified sample with a stable id, written to the named file |
 | ```` ```bash verify ```` | A command `npm run docs:cli-check` replays against a relate binary; when the next fence on the page is ```` ```text ````, that fence is the expected output ([Verified commands](#verified-commands)) |
 | ```` ```mermaid ```` | A diagram, pre-rendered ([Diagrams](#diagrams)) |
@@ -306,13 +377,15 @@ its twin.
 
 ### Verified samples
 
-A ```` ```python run ```` or ```` ```js run ```` fence is a sample: a whole
-program that runs against the relate Python or Node.js client, and whose
-output the page shows. Each sample runs on its own, in a fresh temporary
-directory that is its working directory, so a relative store path such as
-`./app.rl` lands there. A sample passes when it exits 0 and prints at least
-one line; print only what is the same on every run (no timings, ids or
-absolute paths).
+A ```` ```<lang> run ```` fence, where `<lang>` is `python`, `js`, `rust`,
+`java`, `go`, `swift` or `c`, is a sample: a whole program that runs against
+the relate client for that language, and whose output the page shows. Each
+sample runs on its own, in a fresh temporary directory that is its working
+directory, so a relative store path such as `./app.rl` lands there. A
+compiled sample (Rust, Java, Go, Swift, C) is built in a second temporary
+directory, so its working directory starts empty. A sample passes when it
+exits 0 and prints at least one line; print only what is the same on every
+run (no timings, ids or absolute paths).
 
 ````markdown
 ```python run name=create
@@ -324,25 +397,44 @@ print(db.execute("MATCH (p:Person) RETURN p.name AS name").data[0]["name"])
 ```
 ````
 
+| Fence | Written to | Run with | May use |
+| --- | --- | --- | --- |
+| ```` ```python run ```` | `sample.py` | `RELATE_PY`; `RELATE_PY_<NAME>` with `env=<name>` | `relate` and the venv's frameworks |
+| ```` ```js run ```` | `sample.cjs`, or `sample.mjs` with an `import` or `export` statement | `RELATE_NODE`, `NODE_PATH` | `@relate/relate` and the installed frameworks |
+| ```` ```rust run ```` | `main.rs` | `cargo build --release --locked --offline` from the template in `RELATE_RUST_PROJECT` | `use relate::…` and the standard library |
+| ```` ```java run ```` | `Main.java` | `java <file>` (a single-file source program) on `RELATE_JAVA_CLASSPATH` | `com.relate.*` and the JDK |
+| ```` ```go run ```` | `main.go` | `go build` in a module that replaces the client with `RELATE_GO_CLIENT`; `GOPROXY=off` | `relate "github.com/relatedb/relate/clients/go"` and the standard library |
+| ```` ```swift run ```` | `main.swift` | `swift build` of a package that depends on `.product(name: "Relate", package: "relate")` | `import Relate` |
+| ```` ```c run ```` | `sample.c` | `RELATE_CC` with `relate.h`, linked with `-lrelate_ffi` | `relate.h` and the C library |
+
+`title="<file>"` names the file the program is written to (with the
+language's extension), and the page shows the name above the block. `env=<name>` runs a Python
+sample in a second venv, `RELATE_PY_<NAME>` (`env=crewai`: crewai pins the
+other frameworks back, so it has its own venv). A sample's id may not repeat
+a cell's.
+
 The output is recorded in the page's sidecar beside the cells' results,
 keyed by the sample's id, with `"kind": "text"`, the client version that
-ran it in `verified`, and a SHA-256 of the program (`source_sha256`). The
-recorder writes it; do not edit it by hand. A sample whose code changed
-since its record fails `docs:check` and drops its language from the twin's
-`verified_by` until it is recorded again.
-A sample's id may not repeat a cell's. A JavaScript sample with an
-`import` statement runs as an ES module, otherwise as CommonJS.
-`title="<file>"` names the file the program is written to, and the page
-shows the name above the block.
+ran it in `verified` (the engine version from `CALL dbms.components()` for
+the Java, Go, Swift and C clients), and a SHA-256 of the program
+(`source_sha256`). The recorder writes it; do not edit it by hand. A sample
+whose code changed since its record fails `docs:check` and drops its
+language from the twin's `verified_by` until it is recorded again.
 
 `npm run docs:samples` runs every sample and fails on one that does not
-run or prints other than its record; `-- --record` rewrites the records.
-It needs the clients: `bash scripts/samples/setup.sh --upstream <path to
-the relate checkout>` builds both from the upstream checkout and writes the
-variables it reads (`RELATE_PY`, `RELATE_NODE`, `NODE_PATH`, `RELATE_LIB`).
-Without them it says so and exits 0. CI replays the samples weekly
-(`docs-samples.yml`); `docs:check` checks on every change that each sample
-has a record, and the build fails on a sample without one.
+build, run or print its record; `-- --record` rewrites the records, `--
+--lang rust,go` limits the languages, and `-- --clients` prints each
+client's version. It needs the clients: `bash scripts/samples/setup.sh
+--upstream <path to the relate checkout>` builds all seven outside both
+repositories (`--skip-<lang>` leaves one out; Swift on macOS only; the JDK
+and Maven it downloads are checked against their published digests) and
+writes `env.sh` with the variables it reads. A language whose variables are
+missing is skipped with a line naming the variable, an error with
+`--require`. CI replays the samples weekly (`docs-samples.yml`: a Linux job
+for every language but Swift, and a macOS job for Swift); `docs:check`
+checks on every change that each sample has a record, and the build fails
+on a sample without one. With `env.sh` sourced, `docs:check` warns once per
+language that is not set up while others are.
 
 Twin: the fence as written, then a ```` ```text ```` block holding the
 output.
@@ -469,7 +561,11 @@ checks read, so a page does not retype them:
 | `cli.json` | commands, query-run flags, environment variables, output modes, the error object, exit codes, agent mode, and every command's recorded `--help` and `agent-context` | `<ExitCodes />`, `<Flags />`, `<EnvVars />`, the docs graph's "every flag is documented" check, `docs:cli-check` |
 | `errors.json` | CLI error classes and messages, engine errors with their GQL status, HTTP, Bolt and MCP refusals, the Python exception classes, notifications | `<Errors />`, `<ExitCodes />`, `explain_error`, the quoted-string check, `docs:cli-check` |
 | `changelog.json` | Per release: version, date, previous version, a summary, and items under Added, Changed, Deprecated, Removed and Fixed; the deprecation policy | the changelog page, its twin and `/docs/changelog.json` |
-| `skill.json` | The upstream commit, sync date, stamped version and per-file SHA-256 of `public/skills/relate/` | `docs:check` (the skill), `/docs/docs-artifacts.json` |
+| `skill.json` | The upstream commit, sync date, stamped version and per-file SHA-256 of `public/skills/relate/`, and `task_skills`: the task skills' file hashes, review dates and cited recipes' digests as the last review recorded them (`npm run skills:record`) | `docs:check` (the skill and the task skills), `/docs/docs-artifacts.json` |
+| `surfaces.json` | Per feature and surface: `value` (yes, no, partial or unknown), a `note` and its `sources` (ids of the file's `sources` map), with the `checked` date and the `verified` engine version; a cell nobody has checked is `unknown` | `<Matrix />` |
+| `embeddings.json` | One vector per docs-graph section (bge-small-en-v1.5, 384 dimensions), keyed by section id with the SHA-256 of the text it was computed from, and the cookbook recipe's question vectors; written by `npm run docs:embeddings`, never by hand ([Embeddings](#embeddings)) | the docs graph seed, the query-the-relate-docs recipe, `docs:check` |
+| `evals.json` | The cold-start eval scores: one run per harness and condition (`date`, `engine`, `harness`, `condition`) with every assertion's result; written by `npm run docs:evals`, never by hand | review before merge |
+| `usage.json` | The hosted docs MCP server's calls, refusals, failures and zero-result calls per tool and calls per client family over a period; written by `npm run docs:usage`, never by hand; no period before the server is deployed | the `reference/server/docs-mcp-usage` page and its twin |
 
 Each entry has a stable `id` that is also its anchor; renaming one needs a
 redirect. Every entry names its upstream sources. Where upstream sources
@@ -498,6 +594,14 @@ writes release notes, so it sets `DOCS_CHANGELOG_PENDING=<version>`, which
 turns that one error into a warning and leaves the entry as a to-do in its
 pull request; CI never sets it, so the merge waits for the entry.
 
+### Embeddings
+
+Every section of the docs graph has a vector in `_data/embeddings.json`,
+keyed by section id with the SHA-256 of the text it was computed from (the
+page title, the heading unless it is the opening text, and the section's
+markdown). Editing a page's text makes its vectors stale; `npm run
+docs:check` names the sections and the command (ADR-0028).
+
 ## Generated pages and agent endpoints
 
 Some pages are built from data, not from an `.mdx` file
@@ -510,6 +614,7 @@ page. No `.mdx` file may claim their ids.
 | --- | --- |
 | `/docs/reference/glossary/` | `_glossary/`: one entry per term at `#<id>`, under letter headings |
 | `/docs/reference/changelog/` | `_data/changelog.json`: `#<version>` per release, `#since-<version>` where what came after it begins |
+| `/docs/reference/server/docs-mcp-usage/` | `_data/usage.json`: one row per tool at `#tool-<name>` (calls, refused by a limit, failed, completion rate, zero results, calls by client), what is counted, what is never counted, retention, the period |
 
 The build also serves these files for agents:
 
@@ -518,13 +623,16 @@ The build also serves these files for agents:
 | `/docs/changelog.json` | The changelog as a JSON Feed 1.1 document; each item carries the structured entry under `_relate` |
 | `/docs/changelog.md` | The changelog twin |
 | `/docs/feedback.md` | What a report of a wrong or missing page holds; the operator decides whether one is sent |
-| `/docs/graph.cypher` | The docs graph as a deterministic Cypher seed script (`src/lib/docs/graph.ts`): pages, sections, examples, terms, surfaces, recipes, CLI commands and flags |
-| `/docs/graph.json` | The same graph as JSON (`format`, `verified`, `seed`, `nodes`, `relationships`) |
+| `/docs/graph.cypher` | The docs graph as a deterministic Cypher seed script (`src/lib/docs/graph.ts`): pages, sections (with their vectors), examples, terms, surfaces, recipes, CLI commands and flags, capabilities and the problems they solve; full-text indexes `docs` and `problems`, vector index `docs_vector` |
+| `/docs/graph.json` | The same graph as JSON (`format`, `verified`, `seed`, `nodes`, `relationships`, and `embeddings`: the vector index, model and section count) |
+| `/docs/glossary.json` | The glossary as data (`src/lib/docs/glossary.ts`): `{id, term, short, aliases, context, url}` per term in the page's order, wrapped with what the file is, its limits and the `verified` engine version; `kind: "documentation"`, no timestamp |
+| `/docs/capabilities.json` | The capability catalog as data (`src/lib/docs/capabilities.ts`): each problem with its capability, intents, surfaces, data model as mermaid source, `schema_url`, the verify run (or null) and canonical URLs; `kind: "documentation"` |
+| `/docs/concepts/problems-relate-solves/schema-<id>-<light\|dark>.svg` | A capability's data model, drawn from the page's generated section |
 | `/docs/<id>.graph.md` | One page's neighborhood in the graph: prerequisites, links in and out, terms, sections, examples, and the CLI commands and flags it documents |
 | `/skill.md` | The short pointer to the agent skill |
-| `/skills/relate/` | Upstream's skill bundle, copied by `npm run skill:sync` with the engine's version stamped; never edited here |
-| `/.well-known/agent-skills/index.json`, `/.well-known/skills/index.json` | The 0.2.0 and legacy skills indexes, computed from the served bytes; the legacy files are served again under `/.well-known/skills/relate/` |
-| `/docs/docs-artifacts.json` | Every skill and discovery file and the graph seed, with SHA-256 and size, no timestamp; signed with the release key at launch (`docs-artifacts.json.sig` beside it; the manifest does not name its signature, so signing never changes it) |
+| `/skills/relate/`, `/skills/<name>/` | Upstream's skill bundle, copied by `npm run skill:sync` with the engine's version stamped; never edited here; the five task skills (relate-agent-memory, relate-graphrag, relate-schema-design, relate-query-tuning, relate-migrate-from-vector-search) are authored here in `public/skills/<name>/` ([Task skills](#task-skills)) |
+| `/.well-known/agent-skills/index.json`, `/.well-known/skills/index.json` | The 0.2.0 and legacy skills indexes, computed from the served bytes; served again under `/.well-known/skills/<name>/` for every skill; each index lists the CLI bundle first, then the task skills |
+| `/docs/docs-artifacts.json` | Every skill and discovery file, the graph seed, `glossary.json` and `capabilities.json`, with SHA-256 and size, no timestamp; signed with the release key at launch (`docs-artifacts.json.sig` beside it; the manifest does not name its signature, so signing never changes it) |
 | `/.well-known/security.txt` | Built only once `_data/project.json` names a security contact |
 
 On Cloudflare (ADR-0012), the Pages Function `functions/docs/_middleware.ts`
@@ -546,13 +654,51 @@ Outside the build, on its own Worker:
 
 | Endpoint | What |
 | --- | --- |
-| `/mcp` | The hosted docs MCP server (`workers/docs-mcp/`; its README has the interface, `reference/server/docs-mcp` the limits and threat model): tools `search_docs`, `get_page`, `explain_error`; resources `relate-docs://page/<id>[#anchor]`, `relate-docs://llms.txt`, `relate-docs://skill/relate`, `relate-docs://releases`; the `onboard` prompt. Built from this build's twins, `graph.cypher`, `_data/errors.json` and `_data/engine.json` by `npm run bundle --prefix workers/docs-mcp`; `get_page` cuts a section with `src/lib/docs/negotiation.ts`, the code `?section=` runs |
+| `/mcp` | The hosted docs MCP server (`workers/docs-mcp/`; its README has the interface, `reference/server/docs-mcp` the limits and threat model): tools `search_docs` (hybrid with Workers AI, full-text otherwise), `get_page`, `explain_error`, `validate_cypher`, `discover_capabilities`; resources `relate-docs://page/<id>[#anchor]`, `relate-docs://llms.txt`, `relate-docs://skill/<name>[/references/<file>.md]`, `relate-docs://releases`, `relate-docs://capabilities`, `relate-docs://example/<recipe>/<cell>`; the `onboard` and `text-to-cypher` prompts. Built from this build's twins, `graph.cypher`, `capabilities.json`, the recipes' `recipe.json`, `_data/errors.json` and `_data/engine.json` by `npm run bundle --prefix workers/docs-mcp`; `get_page` cuts a section with `src/lib/docs/negotiation.ts`, the code `?section=` runs |
+
+## Capability catalog
+
+One file per problem relate solves, `_capabilities/<id>.mdx` (DOCS-PLAN.md
+§3.8, ADR-0026). The page `concepts/problems-relate-solves` shows every
+entry under an H2 whose anchor is the id, and `/docs/capabilities.json`
+serves the same entries as data.
+
+| Key | Meaning |
+| --- | --- |
+| `id` | The anchor on the page and the key in capabilities.json: the slug of `title` and the file name; it never changes once published |
+| `title` | The entry's H2 |
+| `order` | Position on the page |
+| `problem` | One line of at most 200 characters: the problem in the reader's words |
+| `capability` | One line of at most 200 characters: the capability in relate's words; code in backticks |
+| `intents` | 4 to 8 phrases a user or agent might say, unique across the catalog. They are quoted requests, so the imperative rule does not apply, but they and `problem` and `capability` must not match the injection patterns |
+| `surfaces` | From the frontmatter `surfaces` vocabulary |
+| `guides`, `reference` | Published page ids, with an optional `#anchor`; a page not written yet is cited once it is |
+| `recipes` | Cookbook slugs |
+| `schema` | The recommended data model: a mermaid flowchart (no fence) whose every node is a circle, `Id(("…"))`, with `accTitle` and `accDescr`; or null |
+| `verify` | The recorded run that exercises the capability: `<recipe slug>#<cell id>`; `<page id>#<cell or sample id>` recorded in that page's sidecar; or `<page id>#step-<n>`, the page's n-th `bash verify` step, which needs expected output and a current `page_steps` record. Null when no recorded run exercises it; the page and the JSON then say so. A run that only sits on a cited page is never cited in its place |
+
+The body is two to four plain paragraphs: no headings, fences, directives,
+components or `:term`, and only site-relative links. The section of the
+page between the `capabilities:start` and `capabilities:end` comments is
+generated: `node src/lib/docs/capabilities.ts --write` rewrites it from the
+files and refuses while any file has a problem, and `npm run docs:diagrams
+-- --only concepts/problems-relate-solves` then renders the data models. A
+guide or recipe that a capability cites is expected to cite it back, with
+`concepts/problems-relate-solves#<id>` in `related:` or as a link;
+docs:check warns until it does.
 
 ## Glossary
 
-One file per term, `_glossary/<id>.mdx` (ADR-0009, STYLE.md §4.11). Phase 0
-ships the `short` definitions only; the body (the full definition) is
-phase 2.
+One file per term, `_glossary/<id>.mdx` (ADR-0009, ADR-0030, STYLE.md
+§4.11). The frontmatter holds the `short` definition; the body under it is
+the full definition: two to four paragraphs in reference tone, with one
+short example where it helps. A body holds paragraphs, lists, fenced blocks
+with a language, inline markup and `:term[label]{id=…}` links to other
+entries. It has no headings (an entry is one section of the glossary twin,
+which `?section=<id>` and the docs MCP's `get_page` cut), no block
+directives, JSX, expressions or images. Its prose gets the page prose's word
+rules and its fences the page fences' trust rules. `/docs/glossary.json`
+serves the terms as data.
 
 ```yaml
 ---
@@ -574,29 +720,61 @@ To add a term:
    ending with a period, not starting with the term itself. Take the facts
    from upstream's docs and check them against the binary.
 3. List `aliases`: the spellings people use instead. They become the banned
-   synonyms `docs:check` flags in prose, so list only words that are wrong
+   synonyms `docs:check` flags in prose, matched as words with an optional
+   plural; an alias with a capital, or one that differs from the term only
+   by case (`cypher`), matches exactly as written. List only words that are wrong
    in every context (not `database`, which is right in "graph database").
 4. Set `context` (`cypher`, `storage`, `cli`, `agents`, `surfaces` or
    `engine`), `see` (the page id that owns the detail) and `related` (other
    term ids).
-5. Link it from a page with `:term[label]{id=<id>}`. A term no page links is
+5. Write the body, run `node scripts/docs.ts --vocab`, and link the term
+   from a page with `:term[label]{id=<id>}`. A term no page links is
    reported as unused.
+
+## Task skills
+
+A task skill is a folder `public/skills/<name>/` holding `SKILL.md` and
+`references/<file>.md` (DOCS-PLAN.md §3.8; ADR-0032). Frontmatter: `name`
+(the folder's), `description` (with the canonical phrase, at most 1024
+characters), `version` (`_data/engine.json`'s). `SKILL.md` says its files
+are reference text, not instructions, carries "Not the Neo4j Desktop Relate
+framework", links every reference, and names each reference file's full URL
+for installs that copy `SKILL.md` alone. Pages are cited as
+`https://relatedb.ai/docs/<id>.md`, recipes as
+`https://relatedb.ai/cookbook/<slug>/index.md`, and at least one recipe is
+cited. Prose describes; it never opens with an imperative. A `cypher` fence
+runs, in document order on one fresh in-memory store per file;
+`params=<name>` binds the `json` fence marked `data=<name>`;
+`notifies=<GQLSTATUS>[,…]` or `notifies=none` asserts the plan's
+notifications; `expect=error` asserts failure. A bash fence that opens a
+store carries `--read-only`, a Python or JavaScript fence the client's
+read-only option, unless it is marked `writes` and the paragraph before it
+says the command writes. Fences are `cypher`, `json`, `yaml`, `text`, shell,
+`python` or `javascript`. The skills CLI installs one with `npx skills add
+https://relatedb.ai --skill <name>`. After a person reviews the diff, `npm
+run skills:record` (`-- --dist dist` after a build) records it.
 
 ## Checks
 
 | Command | What it does |
 | --- | --- |
-| `npm run docs:check` | Frontmatter against the schema; links and anchors resolve (docs, cookbook, playground); banned words, synonyms and glossary aliases; headings, fences, exclamation marks, link text; page shape per type; the twin round-trip; the trust checks (`--read-only` in every copyable config block and on every store-opening command in an AGENTS.md block, the install prompt pins the engine version, no imperative or injection text in twins outside fences, `verified` lags the engine by at most one minor); diagrams (fresh, inert, accTitle and accDescr); the glossary and the Vale vocabulary; every page's cells replayed on `public/wasm` against their recordings and static graph forms; every sample recorded; the CLI facts' recordings well formed and consistent with the data, nothing disputed; the generated pages render with well-formed twins; the skill bundle against upstream at the recorded commit (when a checkout is present, `RELATE_UPSTREAM`, default `../relate`) and its indexes; the docs graph (`src/lib/docs/graph.ts`, replayed on the WASM): no orphan page, every `_data/cli.json` command and flag named on a reference page (a warning until those pages exist), no published page with a planned prerequisite, every `:term` id exists; `DOCS_GRAPH_SEVERITY=<rule>=<error\|warning\|off>` changes a rule's severity. From the source; `npm run docs:check -- --built` adds the dist/ checks after a build (every twin opens its description with the canonical phrase, and so does the first line of `/docs/llms.txt`). |
+| `npm run docs:check` | Frontmatter against the schema; links and anchors resolve (docs, cookbook, playground); banned words, synonyms and glossary aliases; headings, fences, exclamation marks, link text; page shape per type; the twin round-trip; the trust checks (`--read-only` in every copyable config block and on every store-opening command in an AGENTS.md block, the install prompt pins the engine version, no imperative or injection text in twins outside fences, `verified` lags the engine by at most one minor, for `errors.json`, `cli.json` and `surfaces.json` too); diagrams (fresh, inert, accTitle and accDescr); the glossary (`src/lib/docs/checks/glossary.ts`: the term files and their bodies, the Short-definitions rule, distinct aliases, every `:term` id resolves, the trust rules on every body fence, unused terms reported, a page that uses a term three or more times without linking it warned while it links fewer than five terms, with the common words in `FIRST_USE_IGNORED` not counted, and the twin's Terms section exactly the linked terms in order) and the Vale vocabulary; every page's cells replayed on `public/wasm` against their recordings and static graph forms; every sample recorded; the CLI facts' recordings well formed and consistent with the data, nothing disputed; the generated pages render with well-formed twins; `_data/surfaces.json` well formed; the skill bundle against upstream at the recorded commit (when a checkout is present, `RELATE_UPSTREAM`, default `../relate`) and its indexes; the task skills in `public/skills/<name>/` (`src/lib/docs/checks/skill.ts` `checkTaskSkills`): frontmatter (name, description with the canonical phrase, version from engine.json), SKILL.md plus linked references/*.md only, the docs-are-data sentence and the disambiguation line, every cited URL a published page's twin (`/docs/<id>.md`), an existing recipe's `/cookbook/<slug>/index.md` or a served path (dist/ under `--built`), at least one cited recipe, no imperative or injection prose, `--read-only` on every shell store open (a binary named by a path counts; a `--read-only` in a comment or a query string does not), `read_only=True` / `readOnly: true` on every Python / JavaScript client open, outside a `writes` fence; any other fence language but cypher, json, yaml, text, shell, python and javascript refused; no cited directory without an index.html; version strings from engine.json; and the `_data/skill.json` `task_skills` record: the files as reviewed and each cited recipe's source (and, under `--built`, its results.json with timings removed) unchanged since; every cypher fence of every task skill run on `public/wasm` (`checkTaskSkillCypher`); the skills CLI install form (`skill-install-form`): `npx skills add https://relatedb.ai` without `--skill <name>`, or with a path URL, is an error in /skill.md, public/llms.txt and every docs page; /skill.md names no version other than _data/engine.json's; the docs graph (`src/lib/docs/graph.ts`, replayed on the WASM): no orphan page, every `_data/cli.json` command and flag named on a reference page (a warning until those pages exist), no published page with a planned prerequisite, every `:term` id exists; no page that is its own prerequisite (`graph-prereq-cycle`); the seed creates the full-text indexes `docs` and `problems` and the vector index `docs_vector` and sets as many section vectors as `_data/embeddings.json` has current entries; `DOCS_GRAPH_SEVERITY=<rule>=<error\|warning\|off>` changes a rule's severity; the embeddings (`src/lib/docs/checks/embeddings.ts`): every section has a vector whose SHA-256 matches the text it would embed now, no vector is orphaned or malformed, the cookbook recipe's questions have current vectors, and the `docs` data block of `query-the-relate-docs.md` equals the subset the graph gives now (all errors; `DOCS_EMBEDDINGS_SEVERITY=warning\|off` lowers them locally); the capability catalog (`src/lib/docs/checks/capabilities.ts`): every `_capabilities/` file well formed; its cited pages, anchors and recipes and its verify run resolve; intents unique and free of injection phrasing; data models drawn only with circles and rendered; the generated section of concepts/problems-relate-solves current; `/docs/capabilities.json` well formed (with `--built`, byte-equal in dist/ and every `schema_url` built). From the source; `npm run docs:check -- --built` adds the dist/ checks after a build (every twin opens its description with the canonical phrase, and so does the first line of `/docs/llms.txt`; `/docs/glossary.json` equals the glossary and the glossary page carries its JSON-LD). |
 | `npm run docs:record` | Rewrites every page's results sidecar and static graph forms from a run of its cells on `public/wasm` (`node scripts/docs.ts --record`); keeps the samples' entries; review the diff |
-| `npm run docs:samples` | Runs every ```` ```python run ```` and ```` ```js run ```` sample against the clients `scripts/samples/setup.sh` builds and compares each output with its record (`-- --record` rewrites; skipped without the clients) |
+| `npm run docs:samples` | Runs every verified sample (```` ```python run ````, ```` ```js run ````, ```` ```rust run ````, ```` ```java run ````, ```` ```go run ````, ```` ```swift run ````, ```` ```c run ````) against the clients `scripts/samples/setup.sh` builds and compares each output with its record; `-- --record` rewrites, `-- --lang <lang>[,…]` limits the languages, `-- --require` fails on a missing client, `-- --clients` prints each client's version. A language whose client is not set up is skipped with a line naming the variable; with none set up it prints skipped and exits 0. A page argument that is not a page is a one-line error, exit 1. Weekly in CI (`docs-samples.yml`, a Linux job and a macOS job for Swift) |
+| `npm run docs:evals` | The cold-start eval (DOCS-PLAN.md §3.8, ADR-0029). It runs the task suite in `scripts/evals/tasks.json` through the headless agent command `DOCS_EVALS_AGENT` under the four conditions (none, agents-md, skill, docs-mcp). Each run is graded by Cypher assertions on the store it leaves (relate binary, `--read-only`), file assertions and transcript assertions (relate commands in command position only). It counts first-command correctness and error round trips, prints a markdown summary and records the scores in `_data/evals.json` (`DOCS_EVALS_HARNESS` names the agent). The agent gets only an allowlist of environment variables. Without `DOCS_EVALS_AGENT`, or without a relate binary, it prints `skipped` and exits 0. `-- --dry-run` with `DOCS_EVALS_AGENT="bash scripts/evals/fixtures/pass.sh"` proves the harness with no model (every task green); `fail.sh` fails one assertion and `write.sh` fails two (a write to a store that must not change), each exiting 1. Live runs: `.github/workflows/docs-evals.yml`, by hand or on a `relate-release` dispatch once the operator sets `DOCS_EVALS_AGENT_PACKAGE` and `DOCS_EVALS_HARNESS` |
+| `npm run docs:usage` | Collects the hosted docs MCP server's calls, cost-budget refusals, failures and zero-result calls per tool, and calls per client family, from the Worker's log line through Cloudflare's Workers Observability telemetry API into `_data/usage.json` (at most the last 7 days; `-- --print-query` shows the requests). Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; without them it prints `skipped` and exits 0. Fails closed when the log lines lack a field every line carries (evt, path, ua, status); a period with no tool call is written with no tool listed |
 | `npm run docs:cli-check` | Replays every recorded CLI run in `_data/` and every `bash verify` fence against a relate binary (`RELATE_BIN`, `relate` on PATH, or `RELATE_INSTALL=1` to install the latest release through `public/install.sh`), and fails with a unified diff on drift; `-- --record` rewrites the recordings in `_data/` from the binary, records the pages' verify steps (`page_steps`) and stamps `recorded_with`. Without a binary it prints a skipped line and exits 0. Weekly in CI (`docs-cli-check.yml`) |
-| `npm run docs:graph` | Builds the docs graph's stores from its seed script (`/docs/graph.cypher`): replays it on the WASM and prints the time; with `RELATE_BIN=<path to relate>` also writes `dist/docs/relate-docs.rl` (+ `.sha256`) and `relate-docs.json`, checked with `relate --load`; without a binary it says so and exits 0 |
+| `npm run docs:graph` | Builds the docs graph's stores from its seed script (`/docs/graph.cypher`): prints the seed's size gzipped and without its vectors, replays it on the WASM three ways (whole; the seed without vectors plus `VECTOR_LOAD_STATEMENT` with the vectors as a parameter; and the seed without vectors alone, which the docs MCP Worker replays), fails when `seedWithoutVectors(seed)` differs from the seed written without vectors, and asks the vector index with a recipe question's stored vector; with `RELATE_BIN=<path to relate>` also writes `dist/docs/relate-docs.rl` (+ `.sha256`) and `relate-docs.json`, and checks the .rl's node, relationship and section-vector counts and both search indexes through `relate --load … --read-only --param`; without a binary it says so and exits 0 |
+| `npm run docs:embeddings` | Embeds the docs graph's sections whose text changed into `_data/embeddings.json` (bge-small-en-v1.5, 384 dimensions, CLS pooling, stored as float16; the SHA-256 of each embedded text recorded) and the recipe's questions, drops entries for sections that are gone, then rewrites the `docs` data block of the cookbook recipe "Query the relate docs" (`node scripts/docs-recipe-data.ts`; `--check` compares only). Authoring only: run `npm ci --prefix scripts/embeddings` once; the first run downloads the model weights to `scripts/embeddings/.cache/`. `-- --force` re-embeds everything, `-- --dry-run` lists what would change. After it rewrites the recipe block: `COOKBOOK_ONLY=query-the-relate-docs npm run cookbook:record`. CI never runs it |
 | `npm run docs:negotiation-check` | After a build: starts `wrangler pages dev dist` (wrangler 4.158.0 through npx, local workerd, no login; `WRANGLER_VERSION` overrides) from a scratch directory and checks the Pages Function `functions/docs/_middleware.ts` on `/docs/`, `get-started/install` and `reference/errors`. `Accept: text/markdown`, or markdown ranked above HTML, returns the twin byte for byte with `Content-Type: text/markdown; charset=utf-8`, `Vary: Accept`, `Cache-Control: private` and `x-markdown-tokens`. HEAD has no body. `?section=<anchor>` returns that section (frontmatter kept, at most five terms, a full-page line). An unknown anchor is a 404 listing the anchors. Browser requests (with `Vary: Accept`), the `.md` URLs, the skill and `llms.txt` files and paths outside `/docs` pass through unchanged; URLs that are not pages (a file at a twin's path that is not that page's twin, percent-encoded traversal) never answer with markdown. Every heading and glossary entry id on every built page must resolve as an anchor. Prints `skipped` without `dist/`. CI: `docs-mcp.yml`, on a paths filter |
-| `npm run bundle --prefix workers/docs-mcp` | After a build: writes the docs MCP Worker's `generated/` from `dist/`; fails when a twin and the docs graph disagree about section order, `?section=`'s slicer cannot find a section where the bundle put it, or an `errors.json` id has no anchor on `reference/errors`. In `cookbook.yml` |
+| `npm run bundle --prefix workers/docs-mcp` | After a build: writes the docs MCP Worker's `generated/` from `dist/`; fails when a twin and the docs graph disagree about section order, `?section=`'s slicer cannot find a section where the bundle put it, an `errors.json` id has no anchor on `reference/errors`, a built `recipe.json` differs from its recipe's source (or its `verifies` from `verifiesSummary`), `capabilities.json` is not `kind: "documentation"` at the verified version, the differences-from-neo4j page has no Differences table or a cited example anchor is missing, the seed's vector statements or the WASM glue are not the shape `workers/docs-mcp/scripts/seed.ts` expects, or a one-line JSON resource (the capability catalog, the releases, an example cell) would pass the 96 KiB text cap. In `cookbook.yml` |
 | `npm test --prefix workers/docs-mcp` | The Worker's unit tests (the section slicer, and that a section is the `?section=` bytes); `npm run check --prefix workers/docs-mcp` is its tsc. In `cookbook.yml` |
-| `npm run docs:mcp-check` | Runs the hosted docs MCP server (`workers/docs-mcp/`) under `wrangler dev` (workerd, no login) against `dist/` and checks it case by case. Bundles first when `generated/` is missing or older than the build. Cases: initialize; exactly the three tools with their when-to-use sentence and reference-text line; the decided resources and the `onboard` prompt (the quickstart sections verbatim); `search_docs` finds three headings from `llms-full.txt`; `get_page` with `expand` is the twin byte for byte, without it the opening or one section, the same bytes as `?section=`; page, `llms.txt` and skill resources byte for byte; `explain_error` against `_data/errors.json`; unknown and Cypher tools are JSON-RPC errors, write-looking text is never run; `kind: "documentation"` and canonical URLs on every result; CORS; the per-IP limit and the cost budget trip at their published numbers with `Retry-After`; no query text in the log. Prints `skipped` without `dist/`; `-- --coldstart 5` measures five cold starts. CI: `docs-mcp.yml`, on a paths filter |
-| `npm run skill:sync` | Copies upstream's skill bundle into `public/skills/relate/` with the engine's version stamped and records the commit and hashes in `_data/skill.json`; run it with every WASM refresh and review the diff (ADR-0013) |
-| `npm run docs:lint` | Vale (Google style plus the relate vocabulary generated from `_glossary/`) on every page, the glossary and STYLE.md; needs `vale` on PATH (`brew install vale`) |
+| `npm run docs:mcp-check` | Runs the hosted docs MCP server (`workers/docs-mcp/`) under `wrangler dev --local` (workerd, no login; Workers AI has no local mode, so every call on the `AI` binding fails there) against `dist/` and checks it case by case. Bundles first when `generated/` is missing or older than the build. Cases: initialize; exactly the five tools, each with its when-to-use sentence and reference-text line; the decided resources (every page, `llms.txt`, every skill file, releases, capabilities, every cookbook cell, each with a title) and templates, and both prompts (`onboard` with the quickstart sections verbatim; `text-to-cypher` with the intent, the schema or where to get one, and the Differences table verbatim); `search_docs` finds three headings from `llms-full.txt` and answers `retrieval: "full-text"` with a `retrieval_note`, loading no vectors; `validate_cypher` answers a plan with notification URLs and `empty_store`, an error with line, column and entry, a Neo4j habit with its Differences anchor, refuses an `EXPLAIN`/`PROFILE` prefix and 8 KiB statements and parameters (one byte under passes), answers parameters that are not an object with an `Input validation error`, keeps a deep plan and 901 notifications under the 96 KiB text cap (`plan_truncated`, `notifications_omitted`), reports a second statement as a syntax error and leaves the docs graph unchanged, and answers a trapping statement with `validate_failed` while the seeded engine keeps every node; `discover_capabilities` ranks every entry's first intent to that entry, narrows by requirements and language, keeps a null verify null, and answers nothing relevant with an empty list and a hint; `get_page` with `expand` is the twin byte for byte, without it the opening or one section, the same bytes as `?section=`; page, `llms.txt`, skill and capabilities resources byte for byte, an example resource against `recipe.json`, every recipe's `verifies` equal to its `recipe.json` and naming expected errors only where a cell is `expect=error`, missing example and skill URIs refused; `explain_error` against `_data/errors.json`; unknown and Cypher tools are JSON-RPC errors, write-looking text is never run; `kind: "documentation"` and canonical URLs on every result; CORS; the per-IP limit and the `search_docs` and `validate_cypher` cost budgets trip at their published numbers with `Retry-After`; no query text and no engine panic in the log. Prints `skipped` without `dist/`; `-- --coldstart 5` measures five cold starts (first `tools/list`, first `search_docs`, first `validate_cypher`, the engine init). CI: `docs-mcp.yml`, on a paths filter |
+| `npm run skill:sync` | Copies upstream's skill bundle into `public/skills/relate/` with the engine's version stamped and records the commit and hashes in `_data/skill.json` (keeping its `task_skills` record); run it with every WASM refresh and review the diff (ADR-0013) |
+| `npm run skills:record` | Records the task skills after a review: each file's SHA-256 and, per cited recipe, its source hash and (with `-- --dist dist`, after a build) its results digest, into `_data/skill.json` `task_skills`; docs:check fails until it runs after a skill or a cited recipe changes |
+| `node src/lib/docs/capabilities.ts --write` | Rewrites the generated section of `concepts/problems-relate-solves` from `_capabilities/`; refuses while a capability has a problem; docs:check fails while the section is stale |
+| `npm run cookbook:browser` | After a build, in headless Chrome. For the docs: the cell pages run and open in the playground; on the first built page with each, a tab set switches, a glossary toggletip opens and closes, an `::::agentic` set switches and a new tab reopens on the chosen view; the language picker switches every tab set that has the chosen language (any key spelling), `docs-tab` keeps every spelling of each language after clicks on another language's tab and on a tab that names no language, and a new tab keeps the choice; each deeplink's href decodes to the JSON shown beside it, and the link printed as text is the href. Prints a skip note for a construct no built page has (`DOCS_EXAMPLES=1 npm run build` adds the example page). Needs Chrome (`CHROME_PATH`) |
+| `npm run docs:lint` | Vale (Google style plus the relate vocabulary generated from `_glossary/`) on every page and STYLE.md, and on the glossary's term files with their frontmatter blanked out line for line (Vale lints front-matter string values, and a term's lowercase `id` and `context` would trip the vocabulary's case check); needs `vale` on PATH (`brew install vale`) |
 | `node scripts/docs.ts --vocab` | Rewrites `scripts/vale/styles/config/vocabularies/relate/accept.txt` after a glossary change (docs:check fails while it is stale) |
 | `npm run docs:test` | Unit tests for `src/lib/docs`, including the pinned example twin (`UPDATE=1 npm run docs:test` rewrites `_example/example.twin.md`; review the diff) |
 | `npm run docs:diagrams` | Renders every changed `mermaid` block to its `diagrams/` sidecar (`-- --force` re-renders all; needs Chrome, `CHROME_PATH`) |

@@ -1,0 +1,21 @@
+---
+id: search
+term: "search clause"
+short: "The Cypher 25 `SEARCH` clause, which restricts a `MATCH` to the top results of a vector or full-text index and binds their score."
+aliases: []
+context: cypher
+see: reference/cypher/search
+related: ["vector-index", "full-text-index", "preview-feature"]
+---
+
+`SEARCH` follows a `MATCH` that binds one variable, and narrows it to the entities an index ranks highest: `SEARCH d IN (VECTOR INDEX doc_embedding FOR $query LIMIT 5) SCORE AS score`. A :term[vector index]{id=vector-index} takes a query vector, and a :term[full-text index]{id=full-text-index} a query string. `LIMIT` is required, and the score is reachable only through `SCORE AS`.
+
+A vector search may filter inside the clause, with `WHERE` on the properties the index lists in `WITH [...]`, before ranking. A full-text search takes `SKIP` and `WITH ANALYZER` instead. The `MATCH` before it must be one node or one relationship hop with one variable, unless the `complex-search-patterns` preview feature is on, and `COMBINE`, which fuses several searches, needs the `hybrid-search` preview feature.
+
+```cypher
+MATCH (d:Doc)
+SEARCH d IN (FULLTEXT INDEX doc_text FOR 'graph' LIMIT 3) SCORE AS score
+RETURN d.title AS title, score
+```
+
+The older `db.index.vector.queryNodes` and `db.index.fulltext.queryNodes` procedures still run, and are deprecated in favor of `SEARCH`.

@@ -5,9 +5,11 @@
 // exercised by `npm run docs:samples` (scripts/samples/setup.sh).
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { after, test } from 'node:test';
 
 import {
@@ -24,19 +26,24 @@ import {
   sampleFileName,
   sampleSourceHash,
   sampleId,
+  sampleUnavailable,
   sampleVerifiers,
+  VERSION_PROBES,
   writeSidecar,
   type Sidecar,
   type SidecarEntry,
 } from './samples.ts';
+import { checkSamples } from './checks/samples.ts';
+import { ROOT } from './content.ts';
+import { VERIFIERS } from './model.ts';
 
 const scratch = mkdtempSync(join(tmpdir(), 'samples-test-'));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
 test('parseSampleInfo: python run and js run, with name and title', () => {
-  assert.deepEqual(parseSampleInfo('python', 'run'), { lang: 'python', name: null, title: null });
-  assert.deepEqual(parseSampleInfo('js', 'run name=first'), { lang: 'js', name: 'first', title: null });
-  assert.deepEqual(parseSampleInfo('python', 'run title="app.py" name=app'), { lang: 'python', name: 'app', title: 'app.py' });
+  assert.deepEqual(parseSampleInfo('python', 'run'), { lang: 'python', name: null, title: null, env: null });
+  assert.deepEqual(parseSampleInfo('js', 'run name=first'), { lang: 'js', name: 'first', title: null, env: null });
+  assert.deepEqual(parseSampleInfo('python', 'run title="app.py" name=app'), { lang: 'python', name: 'app', title: 'app.py', env: null });
   assert.equal(parseSampleInfo('python', null), null);
   assert.equal(parseSampleInfo('python', 'title="app.py"'), null);
   assert.equal(parseSampleInfo('cypher', 'run'), null);
@@ -47,6 +54,22 @@ test('parseSampleInfo: python run and js run, with name and title', () => {
   assert.throws(() => parseSampleInfo('js', 'run title="../x.js"'), /takes only/);
 });
 
+test('parseSampleInfo: rust, java, go, swift and c run, their extensions, and env= for Python only', () => {
+  assert.deepEqual(parseSampleInfo('rust', 'run'), { lang: 'rust', name: null, title: null, env: null });
+  assert.deepEqual(parseSampleInfo('java', 'run title="Team.java"'), { lang: 'java', name: null, title: 'Team.java', env: null });
+  assert.deepEqual(parseSampleInfo('go', 'run name=team title="main.go"'), { lang: 'go', name: 'team', title: 'main.go', env: null });
+  assert.deepEqual(parseSampleInfo('swift', 'run'), { lang: 'swift', name: null, title: null, env: null });
+  assert.deepEqual(parseSampleInfo('c', 'run title="team.c"'), { lang: 'c', name: null, title: 'team.c', env: null });
+  assert.deepEqual(parseSampleInfo('python', 'run env=crewai'), { lang: 'python', name: null, title: null, env: 'crewai' });
+  assert.throws(() => parseSampleInfo('rust', 'run title="main.py"'), /needs the extension \.rs/);
+  assert.throws(() => parseSampleInfo('c', 'run title=".c"'), /needs the extension \.c/);
+  assert.throws(() => parseSampleInfo('js', 'run title="x.ts"'), /needs the extension \.js, \.cjs or \.mjs/);
+  assert.throws(() => parseSampleInfo('go', 'run env=crewai'), /`go run` takes only `name=<id>` \(letters, digits, - and _\) and `title="<file>"`/);
+  assert.throws(() => parseSampleInfo('python', 'run env=CrewAI'), /`env=<name>` \(lowercase letters, digits and _\)/);
+  assert.equal(parseSampleInfo('kotlin', 'run'), null);
+  assert.equal(parseSampleInfo('cpp', 'run'), null);
+});
+
 test('sampleFileName: the title, else sample.py, sample.cjs or sample.mjs', () => {
   assert.equal(sampleFileName({ lang: 'python', title: null, code: 'print(1)' }), 'sample.py');
   assert.equal(sampleFileName({ lang: 'python', title: 'app.py', code: '' }), 'app.py');
@@ -54,6 +77,12 @@ test('sampleFileName: the title, else sample.py, sample.cjs or sample.mjs', () =
   assert.equal(sampleFileName({ lang: 'js', title: null, code: 'import { Database } from "@relate/relate";' }), 'sample.mjs');
   assert.equal(sampleFileName({ lang: 'js', title: null, code: 'import relate from "@relate/relate";' }), 'sample.mjs');
   assert.equal(sampleFileName({ lang: 'js', title: null, code: '// imports nothing\nconsole.log(1)' }), 'sample.cjs');
+  assert.equal(sampleFileName({ lang: 'rust', title: null, code: '' }), 'main.rs');
+  assert.equal(sampleFileName({ lang: 'java', title: null, code: '' }), 'Main.java');
+  assert.equal(sampleFileName({ lang: 'go', title: null, code: '' }), 'main.go');
+  assert.equal(sampleFileName({ lang: 'swift', title: null, code: '' }), 'main.swift');
+  assert.equal(sampleFileName({ lang: 'c', title: null, code: '' }), 'sample.c');
+  assert.equal(sampleFileName({ lang: 'c', title: 'team.c', code: '' }), 'team.c');
 });
 
 const PAGE = `---
@@ -100,13 +129,20 @@ test('pageSamples: page order, ids, file line numbers, samples inside tabs', () 
       ['python-2', 'python', 23, 'print("two")'],
     ],
   );
-  assert.equal(sampleId({ lang: 'js', name: null, title: null }, 3), 'js-3');
-  assert.equal(sampleId({ lang: 'js', name: 'x', title: null }, 3), 'x');
+  assert.equal(sampleId({ lang: 'js', name: null }, 3), 'js-3');
+  assert.equal(sampleId({ lang: 'js', name: 'x' }, 3), 'x');
+  assert.equal(sampleId({ lang: 'swift', name: null }, 1), 'swift-1');
 });
 
 test('pageSamples: a named sample counts toward the numbering, like cells', () => {
   const { samples } = pageSamples('```python run name=a\nprint(1)\n```\n\n```python run\nprint(2)\n```\n');
   assert.deepEqual(samples.map((s) => s.id), ['a', 'python-2']);
+});
+
+test('pageSamples: each language numbers its own samples', () => {
+  const { samples, problems } = pageSamples('```rust run\nfn main() {}\n```\n\n```c run\nint main(void) { return 0; }\n```\n\n```rust run\nfn main() {}\n```\n\n```python run env=crewai\nprint(1)\n```\n');
+  assert.deepEqual(problems, []);
+  assert.deepEqual(samples.map((s) => [s.id, s.env]), [['rust-1', null], ['c-1', null], ['rust-2', null], ['python-1', 'crewai']]);
 });
 
 test('pageSamples: duplicate ids, ids shared with a cell, bad info strings', () => {
@@ -197,6 +233,9 @@ test('sampleSourceHash: the code, title and language; not line endings or traili
   assert.notEqual(sampleSourceHash(base), sampleSourceHash({ ...base, code: 'print(1)\nprint(3)' }));
   assert.notEqual(sampleSourceHash(base), sampleSourceHash({ ...base, title: 'app.py' }));
   assert.notEqual(sampleSourceHash(base), sampleSourceHash({ ...base, lang: 'js' }));
+  assert.notEqual(sampleSourceHash(base), sampleSourceHash({ ...base, env: 'crewai' }));
+  assert.equal(sampleSourceHash(base), sampleSourceHash({ ...base, env: null }), 'no env, the hash phase 1 recorded');
+  assert.equal(sampleSourceHash(base), createHash('sha256').update('python\n\nprint(1)\nprint(2)').digest('hex'));
   assert.match(sampleSourceHash(base), /^[0-9a-f]{64}$/);
 });
 
@@ -208,8 +247,29 @@ test('clientEnv: says what is missing', () => {
   const none = clientEnv({});
   assert.equal(none.python, null);
   assert.equal(none.node, null);
-  assert.equal(none.missing.python, 'RELATE_PY is not set');
-  assert.equal(none.missing.js, 'RELATE_NODE is not set');
+  assert.deepEqual(none.missing, {
+    python: 'RELATE_PY is not set',
+    js: 'RELATE_NODE is not set',
+    rust: 'RELATE_CARGO is not set',
+    java: 'RELATE_JAVA is not set',
+    go: 'RELATE_GO is not set',
+    swift: 'RELATE_SWIFT is not set',
+    c: 'RELATE_CC is not set',
+  });
+  const noLib = clientEnv({ RELATE_CC: process.execPath, RELATE_C_INCLUDE: scratch });
+  assert.equal(noLib.missing.c, 'RELATE_LIB is not set');
+  const noHeader = clientEnv({ RELATE_CC: process.execPath, RELATE_C_INCLUDE: scratch, RELATE_LIB: process.execPath });
+  assert.match(noHeader.missing.c!, /holds no relate\.h/);
+  const noCp = clientEnv({ RELATE_JAVA: process.execPath, RELATE_LIB: process.execPath, RELATE_JAVA_CLASSPATH: join(scratch, 'absent.jar') });
+  assert.match(noCp.missing.java!, /names .*absent\.jar, which does not exist/);
+  const noProject = clientEnv({ RELATE_CARGO: process.execPath, RELATE_RUST_PROJECT: scratch });
+  assert.match(noProject.missing.rust!, /holds no Cargo\.toml/);
+  const pyEnvs = clientEnv({ RELATE_PY_CREWAI: process.execPath, RELATE_PY_GONE: join(scratch, 'nope') });
+  assert.deepEqual(pyEnvs.pythonEnvs, { crewai: process.execPath });
+  assert.equal(sampleUnavailable({ lang: 'python', env: 'crewai' }, pyEnvs), 'RELATE_PY is not set');
+  const withPy = clientEnv({ RELATE_PY: process.execPath });
+  assert.match(sampleUnavailable({ lang: 'python', env: 'crewai' }, withPy)!, /^RELATE_PY_CREWAI is not set or does not exist/);
+  assert.equal(sampleUnavailable({ lang: 'python', env: null }, withPy), null);
   const noPath = clientEnv({ RELATE_NODE: process.execPath });
   assert.match(noPath.missing.js!, /NODE_PATH is not set/);
   const empty = clientEnv({ RELATE_NODE: process.execPath, NODE_PATH: scratch });
@@ -224,7 +284,8 @@ writeFileSync(join(fakeModules, '@relate', 'relate', 'index.js'), 'exports.Datab
 const env = clientEnv({ RELATE_NODE: process.execPath, NODE_PATH: fakeModules });
 
 test('runSample: CommonJS and ES module samples resolve the client; output is normalized', () => {
-  assert.deepEqual(env.missing, { python: 'RELATE_PY is not set' });
+  assert.equal(env.missing.python, 'RELATE_PY is not set');
+  assert.equal(env.missing.js, undefined);
   const cjs = runSample({ lang: 'js', title: null, code: 'const { Database } = require("@relate/relate");\nconsole.log(Database.open(":memory:").connect().query("").rows[0].name + "   ");\n' }, env);
   assert.deepEqual(cjs, { ok: true, text: 'Ada', error: null });
   const esm = runSample({ lang: 'js', title: null, code: 'import relate from "@relate/relate";\nconsole.log(typeof relate.Database.open);' }, env);
@@ -243,4 +304,83 @@ test('runSample: a failing, silent, slow or unconfigured sample fails with the r
   assert.match(slow.error!, /did not finish within 0\.3 s/);
   const noPython = runSample({ lang: 'python', title: null, code: 'print(1)' }, env);
   assert.deepEqual(noPython, { ok: false, text: '', error: 'RELATE_PY is not set' });
+});
+
+// The C runner against a stub library and header (any C compiler; the test is
+// skipped without one): compile, link with -lrelate_ffi, rpath, run in an
+// empty directory, and a build failure reported with the compiler's output.
+const cc = ['cc', 'clang', 'gcc'].map((c) => spawnSync('sh', ['-c', `command -v ${c}`], { encoding: 'utf8' }).stdout.trim()).find(Boolean);
+test('runSample: a C sample builds against relate.h and the library, and runs in an empty directory', { skip: cc ? false : 'no C compiler' }, () => {
+  const stub = join(scratch, 'cstub');
+  mkdirSync(stub, { recursive: true });
+  writeFileSync(join(stub, 'relate.h'), 'int relate_abi_version(void);\n');
+  writeFileSync(join(stub, 'stub.c'), 'int relate_abi_version(void) { return 2; }\n');
+  const lib = join(stub, process.platform === 'darwin' ? 'librelate_ffi.dylib' : 'librelate_ffi.so');
+  const built = spawnSync(cc!, ['-shared', '-fPIC', join(stub, 'stub.c'), '-o', lib], { encoding: 'utf8' });
+  assert.equal(built.status, 0, built.stderr);
+  const cenv = clientEnv({ RELATE_CC: cc, RELATE_C_INCLUDE: stub, RELATE_LIB: lib });
+  assert.equal(cenv.missing.c, undefined);
+  const ok = runSample(
+    { lang: 'c', title: 'abi.c', code: '#include <stdio.h>\n#include <dirent.h>\n#include "relate.h"\nint main(void) {\n  int n = 0; DIR *d = opendir("."); struct dirent *e;\n  while ((e = readdir(d))) if (e->d_name[0] != \'.\') n++;\n  printf("abi %d, %d files here\\n", relate_abi_version(), n);\n  return 0;\n}\n' },
+    cenv,
+  );
+  assert.deepEqual(ok, { ok: true, text: 'abi 2, 0 files here', error: null });
+  const broken = runSample({ lang: 'c', title: null, code: 'int main(void) { return }\n' }, cenv);
+  assert.equal(broken.ok, false);
+  assert.match(broken.error!, /^did not build: \w+ exited with 1; its output:\n[\s\S]*sample\.c/);
+  const fails = runSample({ lang: 'c', title: null, code: '#include <stdio.h>\nint main(void) { fprintf(stderr, "boom\\n"); return 4; }\n' }, cenv);
+  assert.match(fails.error!, /^exited with 4; standard error:\nboom$/);
+});
+
+test('VERSION_PROBES: every language has one; the compiled clients ask the engine', () => {
+  for (const lang of ['python', 'js', 'rust', 'java', 'go', 'swift', 'c'] as const) assert.ok(VERSION_PROBES[lang].length > 0, lang);
+  for (const lang of ['rust', 'java', 'go', 'swift', 'c'] as const) assert.match(VERSION_PROBES[lang], /CALL dbms\.components\(\) YIELD name, versions WHERE name = 'Relate'/);
+});
+
+test('checkSamples: records are checked without a client; a language that is not set up is a warning when others are', () => {
+  const dir = join(scratch, 'check');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'p.mdx');
+  writeFileSync(file, '---\ntitle: T\ndescription: d\n---\n\n```rust run\nfn main() { println!("hi"); }\n```\n\n```c run\nint main(void) { return 0; }\n```\n');
+  const { samples } = pageSamples(readFileSync(file, 'utf8'));
+  writeSidecar(file, { format: 1, cells: { 'rust-1': sampleEntry('hi', '0.16.1', sampleSourceHash(samples[0])) } });
+  const site = { engine: { version: '0.16.1', verified: '0.16.1', date: '2026-11-01' }, published: new Map([['p', { id: 'p', file, data: {} }]]) };
+  const got: string[] = [];
+  const report = (_f: string, line: number | null, sev: string, _rule: string, msg: string) => got.push(`${sev} ${line}: ${msg}`);
+  checkSamples(site, report, clientEnv({}));
+  assert.deepEqual(got, [`error 10: sample \`c-1\` has no recorded output in ${relative(ROOT, join(dir, 'p.results.json'))}; set up the clients (scripts/samples/setup.sh) and run npm run docs:samples -- --record`]);
+  got.length = 0;
+  checkSamples(site, report, clientEnv({ RELATE_NODE: process.execPath, NODE_PATH: fakeModules }));
+  assert.equal(got.length, 3);
+  assert.match(got[1], /^warning 6: 1 rust sample\(s\) on 1 page\(s\) cannot be replayed in this environment \(RELATE_CARGO is not set\); docs:samples skips them and their records stand$/);
+  assert.match(got[2], /^warning 10: 1 c sample\(s\) on 1 page\(s\) cannot be replayed/);
+});
+
+test('sampleVerifiers: a compiled language counts once model.ts VERIFIERS names it', () => {
+  const page = '```rust run\nfn main() { println!("hi"); }\n```\n';
+  const { samples } = pageSamples(page);
+  const sidecar: Sidecar = { format: 1, cells: { 'rust-1': sampleEntry('hi', '0.16.1', sampleSourceHash(samples[0])) } };
+  assert.deepEqual(sampleVerifiers(page, sidecar, '0.16.1'), (VERIFIERS as readonly string[]).includes('rust') ? ['rust'] : []);
+});
+
+test('setup.sh: --out inside this repository or the checkout is refused before anything is created', () => {
+  // A stand-in checkout: the two files setup.sh looks for before the --out guard.
+  const upstream = join(scratch, 'upstream');
+  mkdirSync(join(upstream, 'surfaces', 'relate-python'), { recursive: true });
+  mkdirSync(join(upstream, 'clients', 'javascript'), { recursive: true });
+  writeFileSync(join(upstream, 'surfaces', 'relate-python', 'Cargo.toml'), '');
+  writeFileSync(join(upstream, 'clients', 'javascript', 'package.json'), '{}');
+  const setup = join(ROOT, 'scripts', 'samples', 'setup.sh');
+  const cases: [string, string, string][] = [
+    // [working directory, --out, the path that must not appear]
+    [ROOT, './samples-out-guard', join(ROOT, 'samples-out-guard')],
+    [join(ROOT, '..'), `${relative(join(ROOT, '..'), ROOT)}/../${relative(join(ROOT, '..'), ROOT)}/samples-out-guard/x`, join(ROOT, 'samples-out-guard')],
+    [scratch, 'upstream/sub/deeper', join(upstream, 'sub')],
+  ];
+  for (const [cwd, out, created] of cases) {
+    const r = spawnSync('bash', [setup, '--upstream', upstream, '--out', out], { cwd, encoding: 'utf8' });
+    assert.equal(r.status, 1, `--out ${out} from ${cwd}: exit ${r.status}\n${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /--out must be outside /, `--out ${out}: ${r.stderr}`);
+    assert.equal(spawnSync('test', ['-e', created]).status, 1, `--out ${out} created ${created}`);
+  }
 });

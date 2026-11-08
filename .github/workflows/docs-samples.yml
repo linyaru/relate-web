@@ -1,19 +1,31 @@
-# Runs the docs' verified language samples (```python run and ```js run
-# fences; the contract is in src/lib/docs/samples.ts) against the relate
-# Python and Node clients built from the upstream relate checkout, and fails
-# when a sample no longer runs or prints other than its recorded result
-# (DOCS-PLAN.md §6, "Language samples are verified from phase 1").
+# Runs the docs' verified language samples (```python run, ```js run,
+# ```rust run, ```java run, ```go run, ```swift run and ```c run fences; the
+# contract is in src/lib/docs/samples.ts) against the relate clients built
+# from the upstream relate checkout, and fails when a sample no longer builds,
+# runs, or prints its recorded result (DOCS-PLAN.md §6, "Language samples are
+# verified from phase 1").
 #
 # Weekly and on demand; not a required check, because it needs the upstream
 # repository, which is private before launch. It reads it with the
 # RELATE_UPSTREAM_TOKEN secret (a fine-grained token with read access to that
-# repository's contents); without the secret the job prints a notice and
-# succeeds. After launch the clients come from the published packages.
+# repository's contents); without the secret the gate job prints a notice and
+# succeeds, and the sample jobs are skipped. After launch the clients come
+# from the published packages.
 #
 # The clients are built from the `ref` input, else from the tag of
 # src/content/docs/_data/engine.json's version (v<version>) when upstream has
 # it, else from its default branch (with a warning: then a sample can drift
 # for reasons the docs' version does not explain).
+#
+# Two jobs, so each language runs where its client builds:
+#   samples  ubuntu: Python, Node.js, Rust, Java, Go and C. The JDK comes from
+#            actions/setup-java (Temurin 21) and Go from actions/setup-go;
+#            scripts/samples/setup.sh downloads Maven and checks it against
+#            the SHA-512 it pins, as it does locally.
+#   swift    macOS: the Swift client's binary target is an XCFramework, which
+#            SwiftPM uses on Apple platforms only, and xcodebuild makes it.
+#            Only the FFI library is built there, so the macOS minutes stay
+#            few.
 #
 # A failure prints each sample's recorded and actual output. If the engine
 # changed on purpose, set up the clients locally (scripts/samples/setup.sh),
@@ -42,17 +54,17 @@ env:
   UPSTREAM_REPO: ${{ vars.RELATE_UPSTREAM_REPO || 'relatedb/relate' }}
 
 jobs:
-  samples:
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      ok: ${{ steps.gate.outputs.ok }}
+      ref: ${{ steps.gate.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: site
 
       - name: Upstream access and ref
         id: gate
-        working-directory: site
         env:
           GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
           INPUT_REF: ${{ inputs.ref }}
@@ -74,31 +86,47 @@ jobs:
           echo "ok=true" >> "$GITHUB_OUTPUT"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
+  samples:
+    needs: gate
+    if: needs.gate.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
       - uses: actions/checkout@v4
-        if: steps.gate.outputs.ok == 'true'
+        with:
+          path: site
+
+      - uses: actions/checkout@v4
         with:
           repository: ${{ env.UPSTREAM_REPO }}
           token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
-          ref: ${{ steps.gate.outputs.ref }}
+          ref: ${{ needs.gate.outputs.ref }}
           path: upstream
           persist-credentials: false
 
       - uses: actions/setup-node@v4
-        if: steps.gate.outputs.ok == 'true'
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: site/package-lock.json
 
       - uses: actions/setup-python@v5
-        if: steps.gate.outputs.ok == 'true'
         with:
           python-version: '3.12'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: false
 
       # The toolchain upstream pins (upstream/rust-toolchain.toml); rustup is
       # preinstalled on the runner.
       - name: Install the Rust toolchain
-        if: steps.gate.outputs.ok == 'true'
         working-directory: upstream
         run: |
           channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
@@ -106,16 +134,61 @@ jobs:
           rustc --version
 
       - name: Install
-        if: steps.gate.outputs.ok == 'true'
         working-directory: site
         run: npm ci
 
       - name: Build the clients
-        if: steps.gate.outputs.ok == 'true'
         working-directory: site
-        run: bash scripts/samples/setup.sh --upstream ../upstream --out "$RUNNER_TEMP/samples" --python python3 --github-env
+        run: >-
+          bash scripts/samples/setup.sh --upstream ../upstream --out "$RUNNER_TEMP/samples"
+          --python python3 --crewai-python python3 --jdk "$JAVA_HOME" --skip-swift --github-env
 
       - name: Run the samples
-        if: steps.gate.outputs.ok == 'true'
         working-directory: site
-        run: node scripts/docs-samples.ts --require
+        run: node scripts/docs-samples.ts --require --lang python,js,rust,java,go,c
+
+  swift:
+    needs: gate
+    if: needs.gate.outputs.ok == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
+          ref: ${{ needs.gate.outputs.ref }}
+          path: upstream
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install the Rust toolchain
+        working-directory: upstream
+        run: |
+          channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "$channel" --profile minimal
+          rustc --version
+          swift --version
+
+      - name: Install
+        working-directory: site
+        run: npm ci
+
+      - name: Build the Swift client
+        working-directory: site
+        run: >-
+          bash scripts/samples/setup.sh --upstream ../upstream --out "$RUNNER_TEMP/samples"
+          --skip-python --skip-node --skip-rust --skip-java --skip-go --skip-c --github-env
+
+      - name: Run the samples
+        working-directory: site
+        run: node scripts/docs-samples.ts --require --lang swift

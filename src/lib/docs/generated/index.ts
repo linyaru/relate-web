@@ -8,11 +8,16 @@ import { changelogFeed, changelogPage } from './changelog.ts';
 import { feedbackMarkdown } from './feedback.ts';
 import { glossaryPage } from './glossary.ts';
 import { generatedContext, newest, type GeneratedContext, type GeneratedPage, type RenderedPage } from './page.ts';
+import { USAGE_ID, usagePage } from './usage.ts';
 
 export { changelogFeed, feedbackMarkdown, generatedContext, newest, type GeneratedContext, type GeneratedPage, type RenderedPage };
 
+// The hosted docs MCP usage page renders only once model.ts lists it (its
+// entry carries the title, description and order), after the changelog.
+const usageMeta = GENERATED_PAGES.find((p) => p.id === USAGE_ID);
+
 /** Every generated page, in GENERATED_PAGES order. */
-export const GENERATED: GeneratedPage[] = [glossaryPage, changelogPage];
+export const GENERATED: GeneratedPage[] = [glossaryPage, changelogPage, ...(usageMeta ? [usagePage(usageMeta)] : [])];
 
 for (const meta of GENERATED_PAGES) {
   if (!GENERATED.some((g) => g.meta.id === meta.id)) throw new Error(`model.ts lists the generated page ${meta.id}, but src/lib/docs/generated/ has no renderer for it`);

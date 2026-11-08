@@ -1,0 +1,36 @@
+---
+id: hybrid-retrieval-for-rag
+title: Hybrid retrieval for RAG
+order: 60
+problem: "Retrieve the passages that answer a question by meaning and by keyword at once, then follow links to the context around them."
+capability: "Vector and full-text indexes queried with the `SEARCH` clause, fused by reciprocal rank in one Cypher statement, with a graph hop from each hit to its related nodes."
+intents:
+  - hybrid search for retrieval-augmented generation
+  - combine vector and keyword search
+  - semantic search over my notes
+  - reciprocal rank fusion in one query
+  - graph RAG over my documents
+  - store embeddings and search them
+  - nearest neighbors by embedding
+surfaces: [cypher, python, node, agents]
+guides: [guides/cypher/vector-search]
+recipes: [hybrid-recall, codebase-context-graph]
+reference: [reference/cypher/search]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for hybrid retrieval: notes about topics, some of which record a decision
+    accDescr {
+      A Note has text, a timestamp and an embedding, and is ABOUT a Topic. A
+      Note that records a decision also has a DECIDED relationship to the Topic,
+      carrying the decision's text and timestamp.
+    }
+    Note(("<b>Note</b><br/>id · text · ts<br/>embedding")) -- "<b>ABOUT</b>" --> Topic(("<b>Topic</b><br/>name"))
+    Note -- "<b>DECIDED</b><br/>text · ts" --> Topic
+    class Note l1
+    class Topic l2
+verify: hybrid-recall#fuse-vector
+---
+
+Vector search finds passages that mean something close to the question and misses exact names and codes; full-text search finds the words and misses paraphrases. A retrieval step for a model needs both lists, merged into one ranking, and then the context the best passage does not hold itself, such as the decision that later replaced what it says.
+
+relate keeps the embeddings, the text and the links in one store. Embeddings come from the application's model and are stored as typed vectors; a vector index and a full-text index are both queried with the `SEARCH` clause, which can filter inside the search rather than after it. The [hybrid recall recipe](/cookbook/hybrid-recall/) fuses the two ranked lists by reciprocal rank in one statement, then hops from each recalled note to its topic and that topic's latest decision. [Search by vector similarity](/docs/guides/cypher/vector-search) covers the vector half, and the [search reference](/docs/reference/cypher/search) the index options and the hybrid form.

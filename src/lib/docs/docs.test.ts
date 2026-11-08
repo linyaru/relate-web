@@ -60,7 +60,7 @@ test('the twin opens with the frontmatter agents parse, in order', () => {
   ]);
   assert.equal(front.verified, '0.16.1');
   // Cells recorded on the engine, and samples recorded by both clients at that version.
-  assert.deepEqual(front.verified_by, ['cypher', 'python', 'node']);
+  assert.deepEqual(front.verified_by, ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   assert.equal(front.canonical_url, 'https://relatedb.ai/docs/_example/example/');
 });
 
@@ -323,7 +323,7 @@ test('a verified sample renders as its code block and its recorded output; a mis
 
 test('verified_by names the checks a page passed at the docs version, in order', () => {
   const source = splitFrontmatter(readFileSync(EXAMPLE, 'utf8'), EXAMPLE).body;
-  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.16.1'), ['cypher', 'python', 'node']);
+  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.16.1'), ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   // Recorded on another version: nothing is claimed.
   assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.99.0'), []);
   // `bash verify` fences count when every one is the step docs:cli-check replayed at that version.
@@ -343,6 +343,6 @@ test('the static samples check: every sample recorded, no stale entry', () => {
   checkSamples({ engine: { ...ENGINE }, published: new Map([[page.id, page]]) }, report);
   assert.equal(findings.length, 0, findings.join('\n'));
   checkSamples({ engine: { ...ENGINE, verified: '0.99.0' }, published: new Map([[page.id, page]]) }, report);
-  assert.equal(findings.length, 2);
+  assert.equal(findings.length, 8, 'one per sample on the example page: python (2, one env=crewai), js, rust, java, go, swift, c');
   assert.ok(findings.every((f) => f.startsWith('warning samples ') && /recorded by client 0\.16\.1, not 0\.99\.0/.test(f)), findings.join('\n'));
 });

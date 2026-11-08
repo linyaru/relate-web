@@ -1,0 +1,19 @@
+---
+id: bookmark
+term: "bookmark"
+short: "The marker a commit returns, `relate:<n>`, naming its place in the store's commit sequence; returned by the clients and over Bolt."
+aliases: []
+context: engine
+see: concepts/transactions-and-concurrency
+related: ["transaction"]
+---
+
+Each commit that writes gets the next number in its store's commit sequence, and the bookmark names it: `relate:1`, then `relate:2`, increasing per store. The Python client returns it from `commit()`, or for an autocommit write from the result (`cursor.consume().bookmark`); it is `None` when the transaction wrote nothing. The Node.js client's `commit()` returns it the same way, and over Bolt a `COMMIT` or an autocommit statement's summary carries it.
+
+```python
+conn.autocommit = False
+conn.cursor().execute("CREATE (:Person {name: 'Ada'})")
+print(conn.commit())  # relate:<n>, or None when nothing was written
+```
+
+The HTTP Query API has no bookmark manager and returns `bookmarks` as an empty list.

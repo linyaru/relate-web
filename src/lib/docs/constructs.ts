@@ -24,6 +24,12 @@
 //       page: inside the cell that names it, editable    twin: the fence verbatim
 //   ```python run / ```js run [name=<id>] [title="<file>"] (verified samples, samples.ts)
 //       page: the code block, then its recorded output   twin: the fence, then a ```text block of the output
+//   ::::agentic holding :::human[Label] and :::agent[Label] (labels optional), once each
+//       page: a two-tab set (keys agentic-human, agentic-agent; both views visible and labeled without JS, the choice remembered)
+//                                                        twin: one heading per view, a level under the step's heading, in order
+//   :::deeplink{host=cursor name=relate} holding one ```json fence (the server entry, --read-only)
+//       page: the host's install button, its link generated from the JSON shown beside it, and the link as text
+//                                                        twin: the fence verbatim, then the link as inline code
 //   <Component /> (JSX, generated and interactive things only)
 //       page: the Astro component                        twin: the component's toMarkdown
 // Links render only when their target exists (links.ts); an unknown text
@@ -64,10 +70,18 @@ import {
   type PageCells,
   type Results,
 } from './results.ts';
-import { parseSampleInfo, readSidecar, RECORD_COMMAND as SAMPLES_RECORD_COMMAND, sampleId, type SampleInfo, type Sidecar } from './samples.ts';
+import { emptySampleSeq, parseSampleInfo, readSidecar, RECORD_COMMAND as SAMPLES_RECORD_COMMAND, sampleId, type SampleInfo, type SampleLang, type Sidecar } from './samples.ts';
+import { configProblems, DEEPLINK_HOSTS, deeplinkHref, NAME_PATTERN, type ServerConfig } from './deeplink.ts';
 
 export const CALLOUTS = ['note', 'tip', 'warning', 'danger'] as const;
 export const STATUS_BADGES = ['preview', 'deprecated'] as const;
+/** The containers besides the callouts. */
+export const CONTAINERS = ['tabs', 'agentic', 'deeplink'] as const;
+/** The two views of an `::::agentic` container: directive name, tab key, default label. */
+export const AGENTIC_VIEWS = [
+  { name: 'human', key: 'agentic-human', label: 'As a person' },
+  { name: 'agent', key: 'agentic-agent', label: 'As an agent' },
+] as const;
 export const GLOSSARY_ID = 'reference/glossary';
 export const glossaryHref = (id: string) => `/docs/${GLOSSARY_ID}/#${id}`;
 
@@ -109,11 +123,13 @@ interface State {
   diagrams: Diagram[] | null;
   results: Results | null | undefined;
   /** Verified samples seen so far, per language (their ids are `<lang>-<n>`). */
-  sampleSeq: { python: number; js: number };
+  sampleSeq: Record<SampleLang, number>;
   /** The sidecar as written, every entry kind kept (samples.ts); read on the first sample. */
   sidecar: Sidecar | null | undefined;
   /** The page's cells and parameters blocks, collected before rendering. */
   cells: PageCells;
+  /** The depth of the last heading the walk passed (2 before any), for a construct's twin sub-headings. */
+  headingDepth: number;
 }
 
 const text = (value: string): Text => ({ type: 'text', value });
@@ -139,9 +155,10 @@ export function renderConstructs(tree: Root, target: Target, ctx: PageContext): 
     mermaidSeq: 0,
     diagrams: null,
     results: undefined,
-    sampleSeq: { python: 0, js: 0 },
+    sampleSeq: emptySampleSeq(),
     sidecar: undefined,
     cells: collectCells(tree),
+    headingDepth: 2,
   };
   // Info strings are reported where each fence renders; the rest here.
   st.problems.push(...st.cells.problems.filter((p) => !/`cypher run` takes/.test(p)));
@@ -187,6 +204,7 @@ function visit(node: Node, st: State): Node[] {
       st.problems.push(`line ${line(node)}: pages do not import or export; the layout provides the components`);
       return [node];
     default:
+      if (node.type === 'heading') st.headingDepth = node.depth;
       if ('children' in node) walk(node as Parent, st);
       return [node];
   }
@@ -220,12 +238,119 @@ function container(node: ContainerDirective, st: State): Node[] {
     return [node];
   }
   if (kind === 'tabs') return tabs(node, st);
+  if (kind === 'agentic') return agentic(node, st);
+  if (kind === 'deeplink') return deeplink(node, st);
   if (kind === 'tab') {
     st.problems.push(`line ${line(node)}: a \`:::tab\` belongs inside a \`::::tabs\` container`);
     return [node];
   }
-  st.problems.push(`line ${line(node)}: unknown container \`:::${kind}\` (known: ${[...CALLOUTS, 'tabs'].join(', ')})`);
+  if (AGENTIC_VIEWS.some((v) => v.name === kind)) {
+    st.problems.push(`line ${line(node)}: a \`:::${kind}\` belongs inside a \`::::agentic\` container`);
+    return [node];
+  }
+  st.problems.push(`line ${line(node)}: unknown container \`:::${kind}\` (known: ${[...CALLOUTS, ...CONTAINERS].join(', ')})`);
   return [node];
+}
+
+/**
+ * `::::agentic`: one tutorial step as a person runs it and as an agent runs
+ * it (DOCS-PLAN.md §3.4). The page gets a two-tab set in the `::::tabs`
+ * structure, so the layout's tab script switches it and remembers the choice
+ * (the `docs-tab` key, as every tab set) while every view shows, under its
+ * label, without JavaScript. The twin gets each view under its own heading,
+ * one level below the heading the step sits under, in the order written.
+ */
+function agentic(node: ContainerDirective, st: State): Node[] {
+  const depth = Math.min(6, st.headingDepth + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+  const views: { label: PhrasingContent[]; key: string; body: Node[] }[] = [];
+  for (const child of node.children as Node[]) {
+    const view = child.type === 'containerDirective' ? AGENTIC_VIEWS.find((v) => v.name === child.name) : undefined;
+    if (!view || child.type !== 'containerDirective') {
+      st.problems.push(`line ${line(child)}: a \`::::agentic\` container holds only \`:::human[Label]\` and \`:::agent[Label]\` containers`);
+      continue;
+    }
+    if (views.some((v) => v.key === view.key)) {
+      st.problems.push(`line ${line(child)}: a \`::::agentic\` container has one \`:::${view.name}\``);
+      continue;
+    }
+    walk(child, st);
+    const { label, body } = splitLabel(child);
+    views.push({ label: label && label.length ? label : [text(view.label)], key: view.key, body });
+  }
+  if (views.length !== 2) {
+    st.problems.push(`line ${line(node)}: a \`::::agentic\` container needs both views, \`:::human\` and \`:::agent\``);
+    return [node];
+  }
+  if (st.target === 'markdown') {
+    return views.flatMap((v) => [{ type: 'heading', depth, children: v.label } as Node, ...v.body]);
+  }
+  node.data = hast({ hName: 'div', hProperties: { className: ['tabs', 'agentic'], dataTabs: '', dataAgentic: '' } });
+  node.children = views.map((v) => ({
+    type: 'containerDirective',
+    name: 'tab',
+    attributes: {},
+    data: {
+      hName: 'div',
+      hProperties: { className: ['tab-panel', v.key], dataTabKey: v.key, dataTabLabel: toString({ type: 'paragraph', children: v.label }) },
+    },
+    children: [{ type: 'paragraph', children: v.label, data: { hProperties: { className: ['tab-label'] } } }, ...v.body],
+  })) as never;
+  return [node];
+}
+
+/**
+ * `:::deeplink{host=… name=…}` around one ```json fence, the server entry the
+ * link adds (deeplink.ts): the page shows the host's install button, its href
+ * generated from that JSON, the JSON itself beside it, and the link as text,
+ * so what the button does is reviewable before it is pressed. The twin keeps
+ * the fence and gives the link as inline code. A config that opens a store
+ * writable fails the build (ADR-0013).
+ */
+function deeplink(node: ContainerDirective, st: State): Node[] {
+  const host = node.attributes?.host ?? '';
+  const name = node.attributes?.name ?? '';
+  const where = `line ${line(node)}: \`:::deeplink\``;
+  const spec = DEEPLINK_HOSTS[host];
+  if (!spec) st.problems.push(`${where} needs host= one of ${Object.keys(DEEPLINK_HOSTS).join(', ')} (got \`${host}\`)`);
+  if (!NAME_PATTERN.test(name)) st.problems.push(`${where} needs name= the server's name, letters, digits, \`-\` and \`_\` (got \`${name}\`)`);
+  const fences = (node.children as Node[]).filter((c): c is Code => c.type === 'code');
+  const others = (node.children as Node[]).filter((c) => c.type !== 'code');
+  if (fences.length !== 1 || fences[0].lang !== 'json' || others.length) {
+    st.problems.push(`${where} holds exactly one \`\`\`json fence: the server entry the link adds`);
+    return [node];
+  }
+  const fence = fences[0];
+  let config: unknown;
+  try {
+    config = JSON.parse(fence.value);
+  } catch (e) {
+    st.problems.push(`${where}: the JSON does not parse: ${(e as Error).message}`);
+    return [node];
+  }
+  const problems = configProblems(config);
+  for (const p of problems) st.problems.push(`${where}: ${p}`);
+  if (!spec || !NAME_PATTERN.test(name) || problems.length) return [node];
+  const href = deeplinkHref(host, name, config as ServerConfig);
+  if (st.target === 'markdown') {
+    return [
+      fence,
+      {
+        type: 'paragraph',
+        children: [text(`${spec.label} install link for the server `), { type: 'inlineCode', value: name }, text(', generated from this JSON: '), { type: 'inlineCode', value: href }],
+      },
+    ];
+  }
+  const title = /(?:^|\s)title="([^"]*)"/.exec(fence.meta ?? '')?.[1];
+  return [
+    html(
+      `<div class="deeplink" data-deeplink data-host="${esc(host)}" data-name="${esc(name)}">` +
+        `<div class="deeplink-head"><a class="btn primary deeplink-btn" href="${esc(href)}" data-deeplink-href>${esc(spec.button)}</a>` +
+        `<span class="deeplink-note">The button adds the server <code>${esc(name)}</code> to ${esc(spec.label)} with this configuration; its link is generated from it:</span></div>` +
+        codeBlock(fence.value, 'json', title, st) +
+        `<details class="deeplink-url"><summary>The link as text</summary><code data-deeplink-text>${esc(href)}</code></details>` +
+        `</div>`,
+    ),
+  ];
 }
 
 function tabs(node: ContainerDirective, st: State): Node[] {
@@ -391,7 +516,7 @@ function sampleBlock(node: Code, info: SampleInfo, st: State): Node[] {
   if (st.target === 'markdown') return [node, { type: 'code', lang: 'text', meta: null, value: output }];
   return [
     html(
-      codeBlock(node.value, info.lang === 'js' ? 'javascript' : 'python', info.title, st) +
+      codeBlock(node.value, info.lang === 'js' ? 'javascript' : info.lang, info.title, st) +
         `<div class="cell-output sample-output"><div class="out-head"><span class="out-label">Output</span></div>` +
         `<pre class="out-text" id="out-${esc(id)}">${esc(output)}</pre></div>`,
     ),

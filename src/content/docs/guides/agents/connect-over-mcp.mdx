@@ -7,7 +7,7 @@ prerequisites: [get-started/install]
 related: [get-started/agent-quickstart, reference/server/docs-mcp, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk]
 ---
 
-This guide shows you how to connect an agent host to a relate store over MCP (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs. The guide also adds the hosted relate docs server, which searches this documentation and needs no store.
+This guide shows you how to connect an agent host to a relate store over :term[MCP]{id=mcp} (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs. The guide also adds the hosted relate docs server, which searches this documentation and needs no store.
 
 ## Prerequisites
 
@@ -94,6 +94,19 @@ The file is `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for every
 ```
 
 To allow writes, remove `"--read-only"` from `args`.
+
+The same server entry as a Cursor install link, generated from the JSON shown with it:
+
+:::deeplink{host=cursor name=relate}
+```json
+{
+  "command": "relate",
+  "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+}
+```
+:::
+
+The link carries the path as written, `<absolute-path>` included, so the entry needs the store's real path in `mcp.json` once it is added.
 
 ### Codex
 
@@ -223,7 +236,7 @@ The server opened the store read-only, so this entry cannot write.
 
 ## Add the relate docs server
 
-The relate docs server at `https://relatedb.ai/mcp` gives the agent the relate documentation as three tools: `search_docs`, `get_page` and `explain_error`. The URL is a launch-day target: the server is not deployed yet, so until launch these entries do not connect. It needs no relate install, no credential and no store, and it cannot write anything, so these entries carry no `--read-only`. Its tool names differ from the local server's, so a host can have both. [The hosted docs MCP server](/docs/reference/server/docs-mcp) lists its tools, limits, and threat model.
+The relate docs server at `https://relatedb.ai/mcp` gives the agent the relate documentation as five tools: `search_docs`, `get_page`, `explain_error`, `validate_cypher`, which checks a statement with `EXPLAIN` on an empty engine on the server and never runs it, and `discover_capabilities`, which matches a problem to what relate offers. The URL is a launch-day target: the server is not deployed yet, so until launch these entries do not connect. It needs no relate install, no credential and no store, and it cannot write anything, so these entries carry no `--read-only`. Its tool names differ from the local server's, so a host can have both. [The hosted docs MCP server](/docs/reference/server/docs-mcp) lists its tools, limits, and threat model.
 
 **Claude Code.** The command adds it for the current project; with `--scope project`, Claude Code writes the `.mcp.json` entry instead:
 
@@ -326,7 +339,7 @@ url = "https://relatedb.ai/mcp"
 }
 ```
 
-The same docs graph also runs locally and offline: [the local equivalent](/docs/reference/server/docs-mcp#the-local-equivalent) loads it with `--load`, read-only, and serves it with relate's own `read_cypher` and `get_schema` instead of these three tools.
+The same docs graph also runs locally and offline: [the local equivalent](/docs/reference/server/docs-mcp#the-local-equivalent) loads it with `--load`, read-only, and serves it with relate's own `read_cypher` and `get_schema` instead of these five tools.
 
 ## Verify
 

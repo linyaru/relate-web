@@ -77,7 +77,7 @@ An explicit mode always overrides the default. `--json`, `--csv`, `--jsonl`, `--
 
 ## Store and storage
 
-`--database PATH` names the store: a directory (a snapshot plus a :term[WAL]{id=wal}), a single-file `.rl` store, or `:memory:`, the default. It is never a URL; a remote store is a `--load` source.
+`--database PATH` names the :term[store]{id=store}: a directory (a snapshot plus a :term[WAL]{id=wal}), a single-file `.rl` store, or `:memory:`, the default. It is never a URL; a remote store is a `--load` source.
 
 | Flag | Behavior |
 | --- | --- |
@@ -104,7 +104,7 @@ The [durability modes guide](/docs/guides/operate/durability-modes) covers choos
 | `--max-traversal-depth N` | `500` | An explicit hop bound over `N` (1 through 2000): `TraversalDepthExceeded` | 6 |
 | `--fetch-params N=SRC` | unset | A fetched file over 64 MiB, or a fetch over 60 seconds. There is no URL allowlist: the fetch runs in the CLI process with the same trust as `--param`. | 1 |
 
-`--no-safe` turns safe mode off, including when `RELATE_SAFE_MODE=1` set it. The errors behind the exit codes are in the [errors reference](/docs/reference/errors#engine-safe-mode-violation).
+`--no-safe` turns safe mode off, including when `RELATE_SAFE_MODE=1` set it. The errors behind the :term[exit codes]{id=exit-code} are in the [errors reference](/docs/reference/errors#engine-safe-mode-violation).
 
 ## Memory limits
 
@@ -136,7 +136,7 @@ exit=2
 
 ## Agent ergonomics
 
-`--agent-mode` and `--no-agent-mode` turn agent mode on or off: the 100-row cap default and the piped `toon` default. `--max-rows N` sets the cap directly; `0` prints every row. The [agent mode page](/docs/reference/cli/agent-mode) has the detection rules and what each output mode prints when the cap cuts a result.
+`--agent-mode` and `--no-agent-mode` turn :term[agent mode]{id=agent-mode} on or off: the 100-row cap default and the piped `toon` default. `--max-rows N` sets the cap directly; `0` prints every row. The [agent mode page](/docs/reference/cli/agent-mode) has the detection rules and what each output mode prints when the cap cuts a result.
 
 ## Query-run flags
 

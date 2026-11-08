@@ -1,0 +1,18 @@
+---
+id: path
+term: "path"
+short: "An alternating sequence of nodes and relationships that a pattern matched, bound with `p = …` and read with `nodes(p)`, `relationships(p)` and `length(p)`."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["relationship", "quantified-path-pattern", "node"]
+---
+
+Binding a pattern to a variable, `MATCH p = (a)-[:KNOWS]->(b)`, makes `p` a path: it starts and ends with a node, with a relationship between each pair. `length(p)` counts its relationships, `nodes(p)` and `relationships(p)` return its parts as lists. A path is a value: a statement can return it or collect it into a list.
+
+```cypher
+MATCH p = (:Person {name: 'Ada'})-[:KNOWS]->(:Person)
+RETURN length(p) AS hops, [n IN nodes(p) | n.name] AS names
+```
+
+Path selectors such as `SHORTEST 1` and `ALL SHORTEST`, and modes such as `TRAIL` and `ACYCLIC`, choose which paths a variable-length pattern returns. The graph view on these pages draws a path result as a graph.

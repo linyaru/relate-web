@@ -8,7 +8,9 @@
 //                                   checks on dist/      (after npm run build)
 //   node scripts/docs.ts --vocab    write the Vale vocabulary from the glossary
 //   node scripts/docs.ts --lint     write the vocabulary, then run Vale on the
-//                                   docs prose and STYLE.md (npm run docs:lint)
+//                                   docs prose, the glossary bodies (their
+//                                   frontmatter blanked) and STYLE.md
+//                                   (npm run docs:lint)
 //   node scripts/docs.ts --record   rewrite every page's results sidecar and
 //                                   (DOCS_ONLY=<id>[,…] limits it to those pages)
 //                                   static graph forms from a run of its cells
@@ -25,19 +27,22 @@
 //     A link to a docs page that has no file yet is a warning, not an error:
 //     the page renders it as text until the page exists (src/lib/docs/links.ts)
 //   - words (STYLE.md §4.4, §4.5, §4.9), in prose only, never in code: banned
-//     words, the one-name-per-thing synonyms and every glossary alias, the
+//     words, the one-name-per-thing synonyms the glossary cannot express and
+//     every glossary alias (the glossary is the banned-synonym list), the
 //     product name, a "Note:" prefix, exclamation marks, self-reference words
 //     ("above", "as mentioned"), link text ("here"), bare URLs
 //   - headings: sentence case, no trailing punctuation, no `!`/`?`, no skipped
 //     level, no H1 in the body (the title is the H1)
 //   - fences: every block has a language; shell blocks have no `$` prompt; a
-//     `run` fence is a Cypher cell or a verified `python run` / `js run` sample
+//     `run` fence is a Cypher cell or a verified sample (`python run`, `js run`,
+//     `rust run`, `java run`, `go run`, `swift run`, `c run`)
 //   - page shape: the required sections for the page's type (README.md)
 //   - the twin round-trip (3a), rendered from the source exactly as the build
 //     renders it (src/lib/docs/twin.ts): it parses, carries the frontmatter
 //     fields with `verified` equal to _data/engine.json, holds every fenced
 //     block the page has, each diagram's fence is followed by its description,
-//     and the Terms section lists every linked term
+//     and the Terms section lists exactly the linked terms, in order of first
+//     use, with their short definitions (the glossary's Twin check)
 //   - trust (3d, ADR-0013): every bash/sh/json/toml/yaml block that mentions
 //     `relate serve`, `mcp` or a host config also has `--read-only`, and so
 //     does every `relate … --database` command in a markdown block; the
@@ -51,8 +56,9 @@
 //     entry; each recorded graph has a fresh, inert static form (light and
 //     dark) and its first node expands in the graph view; public/wasm is the
 //     engine _data/engine.json names. The example page is included
-//   - samples (src/lib/docs/checks/samples.ts): every ```python run / ```js run
-//     sample has a recorded "text" entry in its page's sidecar, ids are unique
+//   - samples (src/lib/docs/checks/samples.ts): every verified sample
+//     (```python run, ```js run, ```rust run, ```java run, ```go run,
+//     ```swift run, ```c run) has a recorded "text" entry in its page's sidecar, ids are unique
 //     and clash with no cell, no stale entries; the outputs themselves are
 //     replayed by scripts/docs-samples.ts (npm run docs:samples)
 //   - CLI facts (src/lib/docs/checks/cli.ts): every recorded run in _data/ is
@@ -64,8 +70,14 @@
 //   - diagrams (3f): every `mermaid` block has `accTitle` and a multi-line
 //     `accDescr`, and a fresh light and dark rendering whose hash matches and
 //     whose SVG is inert (src/lib/cookbook/diagrams.ts); stray renderings
-//   - the glossary (STYLE.md §4.11): ids, well-formed `short` definitions,
-//     `related` and `see` resolve, unused terms; the Vale vocabulary is current
+//   - the glossary (DOCS-PLAN.md §4.11, src/lib/docs/checks/glossary.ts): ids,
+//     the Short-definitions rule, `context`, `related` and `see` resolve,
+//     aliases distinct; every term has a body (the full definition) that
+//     renders, and its prose passes the word rules; every :term id on a page
+//     resolves (Glossary links); a term no page links is reported (Unused
+//     terms); a page that uses a term three or more times without linking it
+//     gets one warning listing them (First use, while the page links fewer
+//     than five terms); the Vale vocabulary is current
 //   - generated pages (src/lib/docs/checks/generated.ts): each renders with a
 //     well-formed twin that passes the imperative and injection checks; the
 //     glossary covers every term; the changelog data is valid with
@@ -81,8 +93,23 @@
 //   - the docs graph (item 3, src/lib/docs/checks/graph.ts): the seed script
 //     replays on public/wasm; no orphan page; every cli.json command and flag
 //     named on a reference page (a warning until the CLI reference exists);
-//     no published page with a planned prerequisite; every :term id exists.
+//     no published page with a planned prerequisite; every :term id exists;
+//     no page that is its own prerequisite; the search indexes exist and the
+//     seed sets as many section vectors as the artifact has current ones.
 //     Severities per rule: DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>,…
+//   - the embeddings (3e, src/lib/docs/checks/embeddings.ts): every section has a
+//     vector in _data/embeddings.json whose SHA-256 matches its text now, no
+//     orphaned or malformed vector, the recipe's questions current, and the
+//     `docs` block of the query-the-relate-docs recipe equal to the subset the
+//     graph gives; DOCS_EMBEDDINGS_SEVERITY=warning|off lowers them locally
+//   - the task skills (src/lib/docs/checks/skill.ts checkTaskSkills and
+//     checkTaskSkillCypher): frontmatter, citations, prose, read-only opens,
+//     the review record in _data/skill.json, every cypher fence on public/wasm;
+//     the skills CLI install form names a skill
+//   - the capability catalog (src/lib/docs/checks/capabilities.ts): every
+//     _capabilities/ file well formed, its citations and verify run resolve,
+//     the generated section of concepts/problems-relate-solves current
+//   - surfaces.json is well formed (src/components/docs/matrix.ts validate)
 //
 // From dist/ (--built, after `npm run build`):
 //   - every published page has its HTML page and its `.md` twin; each built
@@ -119,7 +146,8 @@
 // Exits 1 when there is any error, printing every finding by file and line.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -172,18 +200,23 @@ import {
   typeOf,
   type DocType,
 } from '../src/lib/docs/model.ts';
+import { aliasRules, readGlossary as readGlossaryEntries } from '../src/lib/docs/glossary.ts';
 import { parsePage } from '../src/lib/docs/parse.ts';
 import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
 import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
 import { cliCheck } from '../src/lib/docs/checks/cli.ts';
+import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
 import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
+import { blankFrontmatter, bodyFences, checkFirstUse, checkGlossaryFiles, checkGlossaryLinks, checkUnusedTerms, linkedTerms, twinTermsProblems } from '../src/lib/docs/checks/glossary.ts';
 import { checkGraph } from '../src/lib/docs/checks/graph.ts';
 import { checkSamples } from '../src/lib/docs/checks/samples.ts';
-import { checkSkill } from '../src/lib/docs/checks/skill.ts';
+import { checkSkill, checkTaskSkillCypher } from '../src/lib/docs/checks/skill.ts';
+import { IMPERATIVE_VERBS, INJECTION } from '../src/lib/docs/skill.ts';
+import { SURFACES_FILE, validate as validateSurfaces, type SurfacesData } from '../src/components/docs/matrix.ts';
 import { feedbackMarkdown, GENERATED, generatedContext } from '../src/lib/docs/generated/index.ts';
 import { resultGraphCell } from '../src/lib/docs/results.ts';
-import { parseSampleInfo } from '../src/lib/docs/samples.ts';
+import { clientEnv, parseSampleInfo } from '../src/lib/docs/samples.ts';
 
 // ---------------------------------------------------------------------------
 // Findings
@@ -247,21 +280,19 @@ const BANNED_WORDS: WordRule[] = [
   },
 ];
 
-/** STYLE.md §4.4 "One name per thing"; the glossary aliases are added at run time. */
+/**
+ * STYLE.md §4.4 "One name per thing": the glossary is the source (each term's
+ * `aliases`, glossary.ts aliasRules, added at run time). This list keeps only
+ * what a glossary alias cannot say: a preferred word that is not a term
+ * (agent, Neo4j, WebAssembly), two preferred terms for one word (plugin), or
+ * a pattern with an exception ("edge case", "bind a parameter").
+ */
 const SYNONYMS: { phrase: RegExp; say: string; label: string }[] = [
-  { phrase: /\bdatabase files?\b/gi, say: 'store', label: 'database file' },
-  { phrase: /\bgraph files?\b/gi, say: 'store', label: 'graph file' },
-  { phrase: /\bdb\b/gi, say: 'store', label: 'db' },
-  { phrase: /(?<![\w`])\.cl\b/g, say: '.rl', label: '.cl' },
-  { phrase: /\bvert(?:ex|ices)\b/gi, say: 'node', label: 'vertex' },
   { phrase: /\bedges?\b(?! case)/gi, say: 'relationship', label: 'edge' },
   // The noun only: "bind a parameter" and "without binding it" are fine.
   { phrase: /\b(?:a|the|python|node(?:\.js)?|go|rust|java|swift|c|language|native|wasm)\s+bindings?\b|\bbindings\b/gi, say: 'client (a language package) or surface (a front door)', label: 'binding' },
   { phrase: /\bplug-?ins?\b/gi, say: 'skill, or extension for a `relate run` package', label: 'plugin' },
-  { phrase: /\badd-ons?\b/gi, say: 'extension', label: 'add-on' },
   { phrase: /\bbots?\b/gi, say: 'agent', label: 'bot' },
-  { phrase: /\bOpenCypher\b/g, say: 'openCypher', label: 'OpenCypher' },
-  { phrase: /\bcypher\b/g, say: 'Cypher', label: 'cypher' },
   { phrase: /\bneo4j\b/g, say: 'Neo4j', label: 'neo4j' },
   { phrase: /\bWasm\b/g, say: 'WebAssembly, then WASM', label: 'Wasm' },
 ];
@@ -311,19 +342,10 @@ const PROMPT_LANGS = new Set(['text', 'markdown', 'md', 'prompt', 'txt']);
 const INSTALLS = /install\.sh|pip install|npm (?:install|i)\b|npx |brew install|relate skill install|cargo install|go install/i;
 const SEMVER = /\b\d+\.\d+\.\d+\b/g;
 
-/** Sentence-initial verbs that make a twin sentence an instruction (the imperative heuristic). */
-const IMPERATIVE_VERBS = new Set([
-  'run', 'install', 'copy', 'use', 'read', 'open', 'add', 'pass', 'call', 'paste', 'execute', 'download',
-  'remove', 'delete', 'edit', 'replace', 'configure', 'enable', 'disable', 'click', 'tell', 'ask', 'create',
-  'write', 'try', 'ignore', 'disregard', 'forget',
-]);
+// IMPERATIVE_VERBS (sentence-initial verbs that make a twin sentence an
+// instruction) and INJECTION come from src/lib/docs/skill.ts, one copy of the
+// trust patterns for the pages, the task skills and the capability catalog.
 const INSTRUCTIVE_TYPES = new Set<DocType>(['tutorial', 'how-to']);
-
-const INJECTION: RegExp[] = [
-  /\b(?:ignore|disregard|forget|override)\b[^.]{0,40}\b(?:previous|prior|earlier|above|system|your|all)\b[^.]{0,20}\b(?:instructions?|prompts?|rules|limits|guidelines|directions)\b/i,
-  /\byou are (?:an? |now (?:an? )?)?(?:AI|assistant|language model|LLM|chatbot)\b/i,
-  /\bas an AI\b/i,
-];
 
 // ---------------------------------------------------------------------------
 // Rules: page shapes (src/content/docs/README.md "Sections")
@@ -595,6 +617,8 @@ function checkSource(page: PageFile, text: string, site: Site) {
   const lineOf = (node: { position?: { start: { line: number } } }) => (node.position?.start.line ?? 1) + offset;
   const blocks: Prose[] = [];
   const paragraphs: Prose[] = [];
+  /** Paragraphs and table cells, for the glossary's First-use count. */
+  const termProse: string[] = [];
   let lastDepth = 1;
   const headings: string[] = [];
 
@@ -623,6 +647,7 @@ function checkSource(page: PageFile, text: string, site: Site) {
           const p = { text: proseOf(node), line, ignore };
           blocks.push(p);
           paragraphs.push(p);
+          if (!ignore.has('glossary-first-use')) termProse.push(p.text);
           if (/^\s*Note:/.test(p.text) && !ignore.has('note-prefix')) {
             report(file, line, 'error', 'note-prefix', 'a "Note:" prefix in body text; use a `:::note` callout (STYLE.md §4.4)');
           }
@@ -631,6 +656,7 @@ function checkSource(page: PageFile, text: string, site: Site) {
         }
         case 'tableCell':
           blocks.push({ text: proseOf(node), line, ignore });
+          if (!ignore.has('glossary-first-use')) termProse.push(proseOf(node));
           checkLinks(node, file, line, ignore, site, id);
           break;
         case 'code':
@@ -651,6 +677,9 @@ function checkSource(page: PageFile, text: string, site: Site) {
   visit(tree, new Set());
 
   for (const block of blocks) checkWords(block, file);
+  // The glossary (DOCS-PLAN.md §4.11): every :term id resolves; a term used often but never linked is reported.
+  checkGlossaryLinks(file, body, offset, new Set(site.glossary.keys()), report);
+  if (!id.startsWith('_example/')) checkFirstUse(file, termProse, new Set(linkedTerms(body).map((t) => t.id)), MAX_TERMS, report);
   checkExclamations(paragraphs, blocks, file, type);
   if (type) checkShape(type, headings, paragraphs, tree, file);
   site.anchors.set(id, sourceAnchors(tree, body));
@@ -676,15 +705,10 @@ let synonymCache: { phrase: RegExp; say: string; source: string }[] | null = nul
 function synonymRules() {
   if (synonymCache) return synonymCache;
   const out = SYNONYMS.map((s) => ({ phrase: s.phrase, say: `"${s.say}"`, source: 'STYLE.md §4.4', label: s.label.toLowerCase() }));
-  for (const file of glossaryFiles()) {
-    const { data } = splitFrontmatter(readFileSync(file, 'utf8'), rel(file));
-    const term = String(data.term ?? '');
-    for (const alias of Array.isArray(data.aliases) ? data.aliases : []) {
-      const a = String(alias).trim();
-      if (!a || out.some((o) => o.label === a.toLowerCase())) continue;
-      const pattern = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      out.push({ phrase: new RegExp(`(?<![\\w-])${pattern}(?![\\w-])`, 'gi'), say: `"${term}"`, source: `glossary: ${String(data.id ?? '')}`, label: a.toLowerCase() });
-    }
+  // The glossary's aliases (DOCS-PLAN.md §4.11): each flagged with its preferred term.
+  for (const a of aliasRules(readGlossaryEntries())) {
+    if (out.some((o) => o.label === a.alias.toLowerCase())) continue;
+    out.push({ phrase: a.phrase, say: `"${a.term}"`, source: `glossary: ${a.id}`, label: a.alias.toLowerCase() });
   }
   synonymCache = out;
   return out;
@@ -756,7 +780,7 @@ function checkFence(node: Code, file: string, line: number, ignore: Set<string>,
   }
   if (node.lang !== 'cypher' && /^run\b/.test(node.meta ?? '')) {
     try {
-      if (!parseSampleInfo(node.lang, node.meta)) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher, verified samples are \`python run\` or \`js run\``);
+      if (!parseSampleInfo(node.lang, node.meta)) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher, verified samples are \`python run\`, \`js run\`, \`rust run\`, \`java run\`, \`go run\`, \`swift run\` or \`c run\``);
     } catch (e) {
       hit('fence-run', (e as Error).message);
     }
@@ -892,10 +916,8 @@ function checkTwin(page: PageFile, text: string, site: Site, links: { pages: Set
   if (termCount > MAX_TERMS && !id.startsWith('_example/')) {
     report(file, null, 'warning', 'terms-cap', `the page links ${termCount} glossary terms; the Terms section holds at most ${MAX_TERMS} (DOCS-PLAN.md §3.1), so link the rest as plain text`);
   }
-  const termIds = new Set([...body.matchAll(/:term\[[^\]]*\]\{[^}]*\bid=([a-z0-9-]+)/g)].map((m) => m[1]));
-  if (termIds.size !== termCount) {
-    report(file, null, 'error', 'twin', `the page links ${termIds.size} glossary term(s), the twin's Terms section lists ${termCount}`);
-  }
+  // The twin's Terms section lists exactly the page's linked terms, in order of first use (DOCS-PLAN.md §4.11).
+  for (const problem of twinTermsProblems(markdown, linkedTerms(body).map((t) => t.id), site.glossary)) report(file, null, 'error', 'twin', problem);
   twinProse(twinTree, typeOf(id), file);
 }
 
@@ -1053,41 +1075,37 @@ function glossaryFiles(): string[] {
   return readdirSync(GLOSSARY_DIR).filter((n) => n.endsWith('.mdx')).sort().map((n) => join(GLOSSARY_DIR, n));
 }
 
+/**
+ * The glossary (DOCS-PLAN.md §4.11, src/lib/docs/checks/glossary.ts): the
+ * term files and their bodies, and unused terms; the bodies' prose also gets
+ * the word rules (banned words, synonyms and aliases, self-reference), as a
+ * page's prose does. Runs after the pages, so `site.termsUsed` is complete.
+ */
 function checkGlossary(site: Site) {
-  const ids = new Set(site.glossary.keys());
-  for (const file of glossaryFiles()) {
-    const err = (msg: string) => report(file, 1, 'error', 'glossary', msg);
-    let data: Record<string, unknown>;
+  const entries = readGlossaryEntries();
+  const gsite = { pages: new Set([...site.published.keys(), ...GENERATED_IDS]), termsUsed: site.termsUsed };
+  checkGlossaryFiles(gsite, report, (ref) => checkPageRef(ref, site), entries);
+  checkUnusedTerms(gsite, report, entries);
+  for (const e of entries) {
+    if (!e.body) continue;
+    const raw = readFileSync(e.file, 'utf8');
+    const fm = frontmatterLines(raw);
+    const offset = fm + Math.max(0, raw.split('\n').slice(fm).findIndex((l) => l.trim()));
+    let tree: Root;
     try {
-      data = splitFrontmatter(readFileSync(file, 'utf8'), rel(file)).data;
-    } catch (e) {
-      err((e as Error).message);
-      continue;
+      tree = parsePage(e.body);
+    } catch {
+      continue; // checkGlossaryFiles reports it
     }
-    const stem = file.split(sep).pop()!.replace(/\.mdx$/, '');
-    const id = String(data.id ?? '');
-    if (id !== stem) err(`\`id: ${id}\` differs from the file name (${stem}.mdx)`);
-    if (!/^[a-z0-9-]+$/.test(id)) err(`\`id: ${id}\` uses lowercase letters, digits and - only`);
-    const term = typeof data.term === 'string' ? data.term : '';
-    if (!term) err('`term` is required');
-    const short = typeof data.short === 'string' ? data.short.trim() : '';
-    if (!short) err('`short` is required');
-    else {
-      if (short.length >= 160) err(`\`short\` is ${short.length} characters; keep it under 160`);
-      if (!short.endsWith('.')) err('`short` ends with a period');
-      if (/\]\(|https?:\/\//.test(short)) err('`short` is plain text; no links');
-      if (term && short.toLowerCase().startsWith(term.toLowerCase())) err('`short` does not start with the term itself');
-    }
-    if (!['cypher', 'storage', 'cli', 'agents', 'surfaces', 'engine'].includes(String(data.context))) {
-      err(`\`context: ${String(data.context)}\` is not one of cypher, storage, cli, agents, surfaces, engine`);
-    }
-    for (const r of Array.isArray(data.related) ? data.related : []) if (!ids.has(String(r))) err(`related term \`${String(r)}\` has no _glossary/${String(r)}.mdx`);
-    for (const a of Array.isArray(data.aliases) ? data.aliases : []) if (String(a).toLowerCase() === term.toLowerCase()) err(`alias "${String(a)}" is the term itself`);
-    if (typeof data.see === 'string') {
-      const verdict = checkPageRef(data.see, site);
-      if (!verdict.ok) report(file, 1, verdict.severity, verdict.severity === 'error' ? 'glossary' : 'link-pending', `see: ${verdict.message}`);
-    }
-    if (!site.termsUsed.has(id)) report(file, 1, 'warning', 'glossary-unused', `no page links \`${id}\` with :term[…]{id=${id}}`);
+    visitAll(tree, (node) => {
+      if (node.type !== 'paragraph' && node.type !== 'tableCell') return;
+      const line = (node.position?.start.line ?? 1) + offset;
+      checkWords({ text: proseOf(node), line, ignore: new Set() }, e.file);
+    });
+    // A body's fences get the page fences' trust rules (ADR-0013): a block that
+    // starts relate serve, MCP or a host config carries --read-only. A body
+    // holds no comments, so nothing lifts the rule.
+    for (const f of bodyFences(tree)) trustFence(f.lang, f.value, e.file, f.line + offset, new Set(), site);
   }
 }
 
@@ -1133,7 +1151,7 @@ function checkVersions(site: Site) {
   if (lag(site.engine.version, site.engine.verified) > 1) {
     report(ENGINE_FILE, null, 'error', 'trust-lag', `verified ${site.engine.verified} lags the engine ${site.engine.version} by more than one minor; re-verify the pages`);
   }
-  for (const name of ['errors.json', 'cli.json']) {
+  for (const name of ['errors.json', 'cli.json', 'surfaces.json']) {
     const file = join(DOCS_DIR, '_data', name);
     if (!existsSync(file)) continue;
     let data: { verified?: unknown };
@@ -1146,6 +1164,14 @@ function checkVersions(site: Site) {
     const v = typeof data.verified === 'string' ? data.verified.replace(/^v/, '') : null;
     if (v && lag(site.engine.version, v) > 1) {
       report(file, null, 'error', 'trust-lag', `verified ${v} lags the engine ${site.engine.version} by more than one minor`);
+    }
+  }
+  // <Matrix /> fails the build on an invalid surfaces file, but only on a page that uses it.
+  if (existsSync(SURFACES_FILE)) {
+    try {
+      for (const p of validateSurfaces(JSON.parse(readFileSync(SURFACES_FILE, 'utf8')) as SurfacesData)) report(SURFACES_FILE, null, 'error', 'data', p);
+    } catch (e) {
+      report(SURFACES_FILE, null, 'error', 'data', `not JSON: ${(e as Error).message}`);
     }
   }
 }
@@ -1262,13 +1288,25 @@ function lint(): number {
     const sync = spawnSync('vale', ['--config', valeIni, 'sync'], { cwd: ROOT, stdio: 'inherit' });
     if (sync.status !== 0) return sync.status ?? 1;
   }
-  const files = [
-    ...pageFiles().map((p) => p.file),
-    ...glossaryFiles(),
-    join(DOCS_DIR, 'STYLE.md'),
-  ].map(rel);
+  const files = [...pageFiles().map((p) => p.file), join(DOCS_DIR, 'STYLE.md')].map(rel);
   const run = spawnSync('vale', ['--config', valeIni, ...files], { cwd: ROOT, stdio: 'inherit' });
-  return run.status ?? 1;
+  // The glossary's term files: Vale 3.25.1 lints front-matter string values,
+  // and a term's id, context and see are lowercase identifiers the vocabulary's
+  // case check flags (`context: cypher`). Vale reads copies of the files with
+  // the frontmatter blanked out instead, so the bodies get every Vale rule and
+  // the lines and the printed paths stay the real ones.
+  const tmp = mkdtempSync(join(tmpdir(), 'relate-docs-lint-'));
+  try {
+    const terms = glossaryFiles().map(rel);
+    for (const f of terms) {
+      mkdirSync(dirname(join(tmp, f)), { recursive: true });
+      writeFileSync(join(tmp, f), blankFrontmatter(readFileSync(join(ROOT, f), 'utf8')));
+    }
+    const runTerms = terms.length ? spawnSync('vale', ['--config', valeIni, ...terms], { cwd: tmp, stdio: 'inherit' }) : { status: 0 };
+    return Math.max(run.status ?? 1, runTerms.status ?? 1);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1360,7 +1398,7 @@ async function main(): Promise<number> {
   }
   strayRenderings([...published.values()]);
   await checkCells(site, report);
-  checkSamples(site, report);
+  checkSamples(site, report, clientEnv());
   checkGlossary(site);
   checkGenerated(site, report);
   for (const g of GENERATED) {
@@ -1372,7 +1410,10 @@ async function main(): Promise<number> {
   }
   twinProse(parseMarkdown(splitFrontmatter(feedbackMarkdown(genCtx), 'feedback.md').body), 'reference', join(ROOT, 'src/lib/docs/generated/feedback.ts'));
   checkSkill(site, report);
+  await checkTaskSkillCypher(report);
   checkGraph(site, report);
+  checkEmbeddings(site, report);
+  (await import('../src/lib/docs/checks/capabilities.ts')).checkCapabilities(site, report); // the capability catalog (DOCS-PLAN.md §3.8)
   if (existsSync(VOCAB_FILE) || glossaryFiles().length) {
     const current = existsSync(VOCAB_FILE) ? readFileSync(VOCAB_FILE, 'utf8') : '';
     if (current !== vocabulary()) report(VOCAB_FILE, null, 'error', 'vocab', 'the Vale vocabulary is stale; run `node scripts/docs.ts --vocab` (or `npm run docs:lint`)');

@@ -1,0 +1,17 @@
+---
+id: graph-type
+term: "graph type"
+short: "A schema for a whole graph, declared in Cypher, that lists node and relationship types with their properties; writes that break it fail."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["constraint", "ontology", "schema-folder"]
+---
+
+A graph type describes what the graph may hold: for each node type its label and properties, with types and `NOT NULL`, and for each relationship type its endpoints. `ALTER CURRENT GRAPH TYPE SET { … }` replaces the graph type of the `neo4j` namespace, `SHOW CURRENT GRAPH TYPE` prints it, and `CREATE GRAPH TYPE` defines one. The store derives :term[constraints]{id=constraint} from it, so a write that breaks it fails with `ConstraintValidationFailed`.
+
+```cypher
+ALTER CURRENT GRAPH TYPE SET { (p:Person => {name :: STRING NOT NULL}) }
+```
+
+After that statement, `CREATE (:Person {age: 3})` fails, because a `Person` needs a `name`. Optional properties, default values and implied labels are preview features. The graph type is written to the schema folder at each checkpoint, and an :term[ontology]{id=ontology} can be applied as one.

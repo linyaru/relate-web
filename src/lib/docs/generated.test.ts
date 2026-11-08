@@ -18,6 +18,7 @@ import { changelogData, changelogFeed, changelogPage, changelogProblems, sinceTa
 import { cliData, settled } from './generated/cli.ts';
 import { feedbackMarkdown } from './generated/feedback.ts';
 import { glossaryPage } from './generated/glossary.ts';
+import { readGlossary, sortKey } from './glossary.ts';
 import { GENERATED, generatedContext } from './generated/index.ts';
 import { codeSpan, tableHtml, tableMarkdown, type Table } from './generated/table.ts';
 import { checkGenerated, type Severity } from './checks/generated.ts';
@@ -41,9 +42,9 @@ function imperativeSentences(md: string): string[] {
     .filter((s) => !s.startsWith('[') && IMPERATIVE.test(s.replace(/^[^A-Za-z]+/, '')) && /[.!?:]$/.test(s) && s.split(/\s+/).length >= 3);
 }
 
-test('the registry holds the five phase 1 components, each with a twin (ADR-0015)', () => {
-  assert.deepEqual(Object.keys(COMPONENT_TWINS).sort(), ['EnvVars', 'Errors', 'ExitCodes', 'Flags', 'Install']);
-  for (const name of ['Errors', 'ExitCodes', 'Flags', 'EnvVars']) assert.ok(COMPONENT_ANCHORS[name]().length > 0, `${name} has anchors`);
+test('the registry holds the six components, each with a twin (ADR-0015; the sixth, <Matrix />, by ADR-0031)', () => {
+  assert.deepEqual(Object.keys(COMPONENT_TWINS).sort(), ['EnvVars', 'Errors', 'ExitCodes', 'Flags', 'Install', 'Matrix']);
+  for (const name of ['Errors', 'ExitCodes', 'Flags', 'EnvVars', 'Matrix']) assert.ok(COMPONENT_ANCHORS[name]().length > 0, `${name} has anchors`);
 });
 
 test('<ExitCodes />: one row per exit code at #exit-<n>, kinds from the errors data, retry advice', () => {
@@ -127,10 +128,26 @@ test('the glossary page: every term at its anchor, alphabetical, with its short 
     assert.ok(r.anchors.has(t.id) && r.html.includes(`id="${t.id}"`), `#${t.id}`);
     assert.ok(r.markdown.includes(`### ${t.term}\n\n${t.short}`), `${t.id}: heading and short definition in the twin`);
   }
-  const order = [...r.markdown.matchAll(/^### (.+)$/gm)].map((m) => m[1].toLowerCase());
+  // Alphabetical by the term without leading punctuation (`.rl` files under R), case ignored.
+  const order = [...r.markdown.matchAll(/^### (.+)$/gm)].map((m) => sortKey(m[1]).toLowerCase());
   assert.deepEqual(order, [...order].sort((a, b) => a.localeCompare(b, 'en')));
   // A term's `see` page renders only once published; links into the glossary are absolute in the twin.
   assert.doesNotMatch(r.markdown, /\]\(\/docs\//);
+  // Phase 2: the full definition follows the short one in both renderings; the filter is progressive; JSON-LD for the head.
+  const html = r.html;
+  for (const e of readGlossary()) {
+    assert.ok(e.body.length > 0, `${e.id}: a body`);
+    const entry = html.slice(html.indexOf(`id="${e.id}"`), html.indexOf('</dd></div>', html.indexOf(`id="${e.id}"`)));
+    assert.match(entry, /<p class="glossary-short">[\s\S]*<div class="glossary-body">/, `${e.id}: short, then the full definition`);
+  }
+  assert.match(html, /<form class="glossary-filter"[^>]*\bhidden\b/, 'the filter box is hidden until the script runs');
+  assert.match(html, /<script>\(\(\) => \{/, 'the inline filter script');
+  assert.doesNotMatch(html, /popovertarget/, 'no toggletip on the glossary page');
+  const head = (r as typeof r & { head: string }).head;
+  const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*)<\/script>/.exec(head)![1]);
+  assert.equal(ld['@type'], 'DefinedTermSet');
+  assert.equal(ld.hasDefinedTerm.length, terms.length);
+  assert.doesNotMatch(head.slice(head.indexOf('>') + 1, head.lastIndexOf('<')), /</, 'no raw < inside the JSON-LD');
 });
 
 test('the changelog: well-formed data, #<version> and #since-<version> anchors, the feed carries the same entries', () => {

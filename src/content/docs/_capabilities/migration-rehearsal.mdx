@@ -1,0 +1,22 @@
+---
+id: migration-rehearsal
+title: Migration rehearsal
+order: 180
+problem: "Check that a data migration changed only what it was meant to, before it runs on the real graph."
+capability: "A fingerprint of the graph taken in Cypher before the migration, probes that compare it afterwards, and `relate clone` or `--load` to run the migration on a copy."
+intents:
+  - test a graph data migration
+  - check what a migration changed
+  - rehearse a migration on a copy
+  - catch data lost in a migration
+surfaces: [cypher, cli]
+guides: [guides/storage/backup-and-restore, guides/agents/agent-safety#back-up-before-a-write]
+recipes: [migration-rehearsal]
+reference: [reference/cypher/overview]
+schema: null
+verify: migration-rehearsal#verdict
+---
+
+A migration can keep every node count right and every intended change in place and still destroy data. Counting nodes before and after misses it, and so does checking the changes the migration was written to make.
+
+The [migration rehearsal recipe](/cookbook/migration-rehearsal/) fingerprints the graph in Cypher before the migration runs, writes down what the migration is allowed to change, and compares afterwards. A probe on each organization's relationships catches a bug that deletes 352 city links across 61 organizations, and the fingerprint puts the links back. The rehearsal belongs on a copy: `relate clone` writes one from a store, a directory store even while its writer runs ([Back up and restore a store](/docs/guides/storage/backup-and-restore)), and `--load` gives an in-memory copy to try a statement against.

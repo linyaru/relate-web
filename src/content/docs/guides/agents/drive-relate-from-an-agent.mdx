@@ -141,12 +141,12 @@ semantic error: ParameterMissing: Expected parameter(s): name
 exit=6
 ```
 
-The object's `code` names the class and always comes with the same exit code. `retryable` is `true` for one error only, a write-write conflict, which a fresh transaction can fix:
+The object's `code` names the class and always comes with the same exit code. `retryable` is `true` for a write-write conflict, which a fresh transaction can fix, and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool:
 
 | Exit | `code` | Remedy |
 | --- | --- | --- |
 | 0 | `success` | Read the rows; an empty result is still a success |
-| 1 | `fatal_error` | Read `message`: a missing store, an I/O error, a capacity limit, a `LOAD CSV` path outside its directory. The same command fails again |
+| 1 | `fatal_error` | Read `message`: a missing store, an I/O error, a capacity limit, a `LOAD CSV` path outside its directory. The same command fails again, except a workspace pool refusal with `retryable: true` (kind `resource`), which can run again once other statements finish |
 | 2 | `usage_error` | Fix the command line: an unknown flag or a bad value. No error object is printed |
 | 5 | `conflict` | With `retryable: true` (kind `conflict`), run the statement again in a fresh transaction. With `retryable: false` (kind `locked`), another process holds the store: wait for it to exit. A directory store can also be opened `--read-only` beside its writer; a `.rl` store cannot |
 | 6 | `validation_error` | Fix the statement: syntax, a missing parameter, a type error, a safe mode refusal, or a write on a read-only store |

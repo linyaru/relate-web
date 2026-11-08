@@ -1,0 +1,18 @@
+---
+id: element-id
+term: "element id"
+short: "The string `elementId()` returns for a node or relationship, such as `4:relate:n0`; it stays the same when the store is closed and opened again."
+aliases: []
+context: cypher
+see: reference/cypher/differences-from-neo4j
+related: ["node", "relationship"]
+---
+
+`elementId(n)` gives each node and relationship an id string: `4:relate:n0` for a node, `5:relate:r0` for a relationship, in the stores tested for these docs. It is the way to name one entity across statements, and it survives closing and reopening the store.
+
+```cypher
+CREATE (a:Person)-[r:KNOWS]->(b:Person)
+RETURN elementId(a) AS a, elementId(r) AS r, elementId(b) AS b
+```
+
+`id()`, the older integer id, still runs and is deprecated: `EXPLAIN` reports it with the remedy ``Use `elementId` instead.``

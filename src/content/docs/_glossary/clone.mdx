@@ -1,0 +1,19 @@
+---
+id: clone
+term: "clone"
+short: "`relate clone`: the command that copies a store into a new one, optionally in another codec, reading the source without writing it."
+aliases: []
+context: cli
+see: guides/storage/backup-and-restore
+related: ["store", "codec", "pull", "push"]
+---
+
+`relate clone SOURCE DEST` copies a store and exits. Each side is a directory store, or a single-file store when its path ends in `.rl`, so clone also converts between layouts. It reads the source as of its open, does not follow later commits, and never writes the source. `:memory:` is refused on both sides.
+
+`--to-snapshot-format parquet|json|markdown` writes the destination in another :term[codec]{id=codec}; without it the destination keeps the source's codec. A clone of a `.rl` file is a compact copy, which is how a single-file store gives back space it no longer uses.
+
+```bash
+relate clone ./team.rl ./team-backup.rl
+```
+
+`--load SOURCE` with a `--database` path does the same copy before a run, and with `:memory:` loads the copy into memory.

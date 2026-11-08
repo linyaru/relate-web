@@ -76,3 +76,12 @@ plus the seed replay is about 320 ms; warm searches take about 22 ms.
 - The cold-start measurement is a script in the package and is re-run
   against the deployed Worker at launch; the replay grows with the docs'
   section text (ADR-0020).
+
+## Later references
+
+- Amended by ADR-0033 (phase 2 surface): `validate_cypher` takes a caller's
+  statement and plans it with `EXPLAIN` on a fresh WebAssembly instance per
+  call, never the seeded docs instance. The docs instance runs three constant
+  statements (full-text, vector, vector load); it replays the seed without
+  vectors and loads them on the first hybrid search. The cold start is
+  re-measured with `npm run docs:mcp-check -- --coldstart 5`.

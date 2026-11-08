@@ -6,7 +6,7 @@ surfaces: [cypher, cli, python]
 related: [reference/cypher/overview, reference/cypher/search, reference/limitations, reference/errors, concepts/cypher-dialect]
 ---
 
-relate speaks Neo4j's Cypher, including much of Cypher 25, inside your process. It runs embedded, with no procedure libraries such as APOC and no user accounts, and serves a network surface only when `relate serve` starts one, so a statement or a connection string written from Neo4j habits can fail in relate. The table lists those habits with the error relate returns, character for character, and the form that works. Everything not in the table behaves as the [Cypher overview](/docs/reference/cypher/overview) describes.
+relate speaks Neo4j's :term[Cypher]{id=cypher}, including much of Cypher 25, inside your process. It runs embedded, with no procedure libraries such as APOC and no user accounts, and serves a network surface only when `relate serve` starts one, so a statement or a connection string written from Neo4j habits can fail in relate. The table lists those habits with the error relate returns, character for character, and the form that works. Everything not in the table behaves as the [Cypher overview](/docs/reference/cypher/overview) describes.
 
 ## Synopsis
 
@@ -39,7 +39,7 @@ The Neo4j column gives the habit's origin in Neo4j as of 2026-11-07, for current
 
 ## Examples
 
-The examples run in page order on one in-memory store with the shared example graph:
+The examples run in page order on one in-memory :term[store]{id=store} with the shared example graph:
 
 ```cypher run name=seed
 CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
@@ -140,5 +140,5 @@ LOAD CSV file unavailable
 - [Cypher overview](/docs/reference/cypher/overview): what the dialect covers, and the preview features.
 - [Search](/docs/reference/cypher/search): the `SEARCH` clause and the vector functions.
 - [Limitations](/docs/reference/limitations): the scope choices behind several rows.
-- [Errors](/docs/reference/errors): every message with its exit code and remedy.
+- [Errors](/docs/reference/errors): every message with its :term[exit code]{id=exit-code} and remedy.
 - [The Cypher dialect](/docs/concepts/cypher-dialect): why the dialect differs where it does.

@@ -37,7 +37,7 @@ flowchart LR
 
 ## Write the program
 
-The program opens `./memory.rl`, a single-file store, for writing, and seeds the team graph on its first run. It defines the `remember` and `recall` tools and a two-node graph, then runs two turns in two conversations and prints what memory holds about `relate`. The `finally` closes the store even when a node raises. The last lines read the episodes back on a new read-only connection:
+The program opens `./memory.rl`, a single-file store, for writing, and seeds the team graph on its first run. It defines the `remember` and `recall` tools and a two-node graph, then runs two turns in two conversations and prints what memory holds about `relate`. The `finally` closes the store even when a node raises. The last lines read the episodes back on a new :term[read-only]{id=read-only} connection:
 
 ```python run name=memory-graph title="memory_graph.py"
 from concurrent.futures import ThreadPoolExecutor

@@ -1,0 +1,18 @@
+---
+id: gql
+term: "GQL"
+short: "The ISO standard graph query language; Neo4j's Cypher 25 aligns Cypher with it, and relate follows that alignment."
+aliases: []
+context: cypher
+see: concepts/cypher-dialect
+related: ["cypher-25", "cypher", "label-expression", "quantified-path-pattern"]
+---
+
+GQL is the graph query language standardized by ISO. Cypher and GQL share their pattern syntax, and Neo4j's :term[Cypher 25]{id=cypher-25} brings Cypher closer to the standard with new syntax rather than a new language.
+
+In relate, the GQL-aligned forms run by default, without an opt-in: :term[label expressions]{id=label-expression} with `&`, `|`, `!` and `IS`, path selectors such as `SHORTEST 1`, :term[quantified path patterns]{id=quantified-path-pattern}, `LET`, `FILTER`, `NEXT`, `INSERT`, explicit `GROUP BY`, string concatenation with `||`, type predicates such as `x IS :: INTEGER`, and :term[graph types]{id=graph-type}. Some GQL function spellings, such as `stddev_samp`, wait behind a preview opt-in.
+
+```cypher
+MATCH (n IS Person|Project)
+RETURN labels(n) AS labels, n.name AS name
+```

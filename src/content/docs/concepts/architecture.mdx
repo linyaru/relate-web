@@ -30,7 +30,7 @@ flowchart TB
 
 ## The crate map
 
-The source is one Cargo workspace, split into groups by role. Engine crates depend only on other engine crates; surfaces depend on the engine and on each other; a boundary check in the build keeps it that way.
+The source is one Cargo workspace, split into groups by role. Engine crates depend only on other engine crates; :term[surfaces]{id=surface} depend on the engine and on each other; a boundary check in the build keeps it that way.
 
 | Group | Crates | Role |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ CREATE INDEX person_name FOR (p:Person) ON (p.name);
 EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(r:Project) RETURN r.name AS project"
 ```
 
-The first plan has no index to use: it starts from `:Project`, which has fewer nodes, walks back to `:Person`, and the notification names the index that would help. The second plan seeks Ada through the new index and estimates one row:
+The first plan has no index to use: it starts from `:Project`, which has fewer nodes, walks back to `:Person`, and the :term[notification]{id=notification} names the index that would help. The second plan seeks Ada through the new index and estimates one row:
 
 ```text
 Query: MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(r:Project) RETURN r.name AS project

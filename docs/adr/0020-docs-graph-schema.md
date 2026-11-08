@@ -79,3 +79,11 @@ DOCS-PLAN.md §3.5 lists about twenty labels; most of their sources
 - The `.graph.md` URLs are public from launch: removing them later is a
   breaking change, like a label rename.
 - `reference/docs-graph` documents this schema when it is written.
+
+## Later references
+
+- Amended by ADR-0026 (capability catalog): the Capability and Problem
+  labels, SOLVES, CITES, DEMONSTRATES, VERIFIED_BY and HAS_CAPABILITY,
+  APPLIES_TO from a Capability, and the problems full-text index.
+- Amended by ADR-0028 (embeddings): `Section.embedding`, a 384-dimension
+  vector from `_data/embeddings.json`, and the vector index `docs_vector`.

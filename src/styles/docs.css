@@ -164,9 +164,31 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 .docs-body th, .docs-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 .docs-body th { background: var(--bg-alt); }
 .docs-body img { max-width: 100%; height: auto; }
+/* Glossary terms (ADR-0009): a plain link in tables and tabs, the toggletip on a term's first use. */
 .docs-shell a.term { color: inherit; text-decoration: underline dotted var(--fg-muted); text-underline-offset: 3px; }
 .docs-shell a.term:hover { color: var(--accent); }
 span.term { text-decoration: underline dotted var(--fg-muted); text-underline-offset: 3px; cursor: help; }
+.docs-shell button.term {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  text-decoration: underline dotted var(--fg-muted); text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+.docs-shell button.term:hover { color: var(--accent); }
+.docs-shell button.term:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+/* The panel: a popover in the top layer; centred where anchor positioning is not supported. */
+.term-tip {
+  max-width: min(22rem, calc(100vw - 32px)); padding: 10px 14px; margin: auto;
+  background: var(--bg-alt); color: var(--fg); border: 1px solid var(--border-strong); border-radius: 6px;
+  box-shadow: var(--shadow-overlay); font-size: 15px; line-height: 1.5; text-align: left;
+}
+.term-tip:popover-open { display: block; }
+.term-tip-name { display: block; font-weight: 600; margin-bottom: 2px; }
+.term-tip-short { display: block; color: var(--fg-muted); }
+.term-tip-more { display: inline-block; margin-top: 6px; color: var(--accent); }
+.term-tip code { font-size: 0.9em; }
+/* Next to the term where the browser anchors a popover to the button that opened it. */
+@supports (position-area: block-end) {
+  .term-tip { margin: 6px 0 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
+}
 
 /* Callouts (:::note, :::tip, :::warning, :::danger) */
 .callout {
@@ -307,3 +329,55 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 /* A deep link to an error (/docs/reference/errors/#<id>) marks its row. */
 .errors-table tr:target { background: var(--bg-alt); }
 .docs-install-agents-md { margin-top: 1.5rem; }
+
+/* The glossary page (/docs/reference/glossary/, src/lib/docs/generated/glossary.ts) */
+.generated .glossary-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 16px 0 8px; }
+.generated .glossary-filter[hidden] { display: none; }
+.generated .glossary-filter label { font-weight: 600; }
+.generated .glossary-filter input {
+  flex: 1 1 14rem; min-width: 0; font: inherit; padding: 6px 10px; color: var(--fg);
+  background: var(--bg-alt); border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.generated .glossary-count { color: var(--fg-muted); font-size: 14px; }
+.generated .glossary-letters ul { display: flex; flex-wrap: wrap; gap: 4px 10px; list-style: none; padding: 0; margin: 8px 0 16px; }
+.generated .glossary-letters a { font-weight: 600; }
+.generated .glossary-letter[hidden], .generated .glossary-entry[hidden] { display: none; }
+.generated .glossary-short { font-weight: 500; }
+.generated .glossary-body { color: var(--fg); }
+.generated .glossary-body p, .generated .glossary-body li { line-height: 1.6; }
+.generated .glossary-body .code-block { margin: 10px 0; }
+
+/* ---------- Phase 2 constructs (constructs.ts, Matrix.astro, LanguagePicker.astro) ---------- */
+/* ::::agentic: a two-tab set (the tab rules); a rule at its side sets the step's two views apart. */
+.agentic { border-left: 3px solid var(--border); padding-left: 12px; }
+/* :::deeplink: the host's button, the JSON its link carries, the link as text. */
+.deeplink { margin: 16px 0 20px; }
+.deeplink-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.deeplink-note { font-size: 14px; color: var(--fg-muted); }
+.deeplink .code-block { margin: 8px 0; }
+.deeplink-url summary { cursor: pointer; font-size: 13px; color: var(--fg-muted); }
+.deeplink-url code { display: block; margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; word-break: break-all; }
+/* <Matrix />: twelve columns scroll inside their frame, never the page. */
+.matrix-frame { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; }
+.matrix-frame:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.docs-body .matrix-table { margin: 0; border-collapse: collapse; font-size: 13px; min-width: 960px; }
+.matrix-table th, .matrix-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.matrix-table thead th { position: sticky; top: 0; background: var(--bg-alt); white-space: nowrap; }
+.matrix-table tbody th { position: sticky; left: 0; z-index: 1; background: var(--bg-alt); min-width: 150px; font-weight: 600; }
+.matrix-table tr:target th, .matrix-table tr:target td { background: var(--bg-inset); }
+.matrix-means { display: block; margin-top: 2px; font-weight: 400; font-size: 12px; color: var(--fg-muted); }
+.matrix-value { display: block; font-weight: 600; }
+.matrix-yes .matrix-value { color: var(--success); }
+.matrix-no .matrix-value { color: var(--fg-muted); }
+.matrix-partial .matrix-value { color: var(--discovery); }
+.matrix-unknown .matrix-value { color: var(--danger); }
+.matrix-note { display: block; margin-top: 2px; font-size: 12px; color: var(--fg-muted); overflow-wrap: anywhere; }
+/* The language picker: its space is held until its script defines it, so nothing moves. */
+.lang-picker { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.lang-picker:not(:defined) { visibility: hidden; }
+.lang-picker label { display: inline-flex; align-items: center; gap: 8px; color: var(--fg-muted); }
+.lang-picker select {
+  font: 500 14px var(--font-sans); color: var(--fg); background: var(--bg-alt);
+  border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 8px;
+}
+.lang-picker-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

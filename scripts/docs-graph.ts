@@ -6,9 +6,15 @@
 //   node scripts/docs-graph.ts [--out <dir>]          (npm run docs:graph)
 //
 // Always: generates the seed (src/lib/docs/graph.ts), prints its size in
-// bytes and lines, replays it on the WASM in public/wasm and prints the
-// time, and, when the build has written <out>/graph.cypher, checks that the
-// built seed is byte for byte the one generated here.
+// bytes, gzipped bytes and lines (and how much of it is section vectors),
+// replays it on the WASM in public/wasm and prints the time, both for the
+// whole seed and for the seed without its vector statements followed by the
+// vectors as one parameter (the faster path a Worker can take), and for the
+// seed without vectors alone (seedWithoutVectors: what the docs MCP Worker
+// replays while it does not search by vector), checks that
+// the vector index answers a recipe question's precomputed vector, and, when
+// the build has written <out>/graph.cypher, checks that the built seed is
+// byte for byte the one generated here.
 //
 // With RELATE_BIN set to a relate binary: replays the seed through it
 // (`relate query --database <tmp>/relate-docs.rl`, the script on stdin) and
@@ -16,9 +22,11 @@
 //   <out>/relate-docs.rl          the store `relate --load` opens
 //   <out>/relate-docs.rl.sha256   its SHA-256, as `sha256sum` prints it
 //   <out>/relate-docs.json        the JSON codec's graph.json, for diffing
-// then opens the .rl with `relate --load` and checks its node and
-// relationship counts against the graph, and prints the SHA-256 and size of
-// each file for the docs-artifacts manifest. DO_NOT_TRACK defaults to 1 for
+// then opens the .rl with `relate --load … --read-only` and checks its node
+// and relationship counts against the graph, that the full-text index and
+// the vector index (with a precomputed question vector from
+// _data/embeddings.json, passed with --param) answer, and prints the SHA-256
+// and size of each file for the docs-artifacts manifest. DO_NOT_TRACK defaults to 1 for
 // the child process. Without RELATE_BIN it says so and exits 0.
 //
 // <out> defaults to dist/docs. Exits 1 when the seed fails on either engine,
@@ -28,12 +36,13 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { gzipSync } from 'node:zlib';
 import { join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { loadWasmSync } from '../src/lib/docs/checks/graph.ts';
 import { ROOT } from '../src/lib/docs/content.ts';
-import { docsGraph, FULLTEXT_INDEX, seedScript } from '../src/lib/docs/graph.ts';
+import { decodeVector, docsGraph, FULLTEXT_INDEX, readEmbeddings, seedScript, seedWithoutVectors, VECTOR_INDEX, VECTOR_LOAD_STATEMENT, vectorRows } from '../src/lib/docs/graph.ts';
 
 const { values: args } = parseArgs({ options: { out: { type: 'string', default: join(ROOT, 'dist/docs') } } });
 const OUT = resolve(args.out!);
@@ -50,7 +59,14 @@ function main(): number {
   const graph = docsGraph();
   const seed = seedScript(graph);
   const seedBytes = Buffer.byteLength(seed);
-  console.log(`seed script: ${kib(seedBytes)}, ${seed.split('\n').length - 1} lines; ${graph.nodes.length} nodes, ${graph.rels.length} relationships`);
+  const base = seedScript(graph, { vectors: false });
+  if (seedWithoutVectors(seed) !== base) fail('seedWithoutVectors(seed) differs from seedScript(graph, {vectors: false}); the docs MCP Worker would replay a different graph');
+  const sections = graph.nodes.filter((n) => n.label === 'Section').length;
+  console.log(`seed script: ${kib(seedBytes)}, ${kib(gzipSync(seed, { level: 9 }).length)} gzipped, ${seed.split('\n').length - 1} lines; ${graph.nodes.length} nodes, ${graph.rels.length} relationships`);
+  console.log(`  section vectors: ${graph.vectors.size} of ${sections} sections; without them the seed is ${kib(Buffer.byteLength(base))}, ${kib(gzipSync(base, { level: 9 }).length)} gzipped`);
+  if (graph.vectors.size < sections) console.warn(`  warning: ${sections - graph.vectors.size} section(s) have no current vector; npm run docs:check names them`);
+  // A precomputed question vector (the cookbook recipe's), to ask the vector index with.
+  const question = readEmbeddings()?.queries[0] ?? null;
   if (graph.problems.length) console.warn(`  pages read from the raw source (the twin renderer refused them; docs:check says why):\n${graph.problems.map((p) => `    ${p}`).join('\n')}`);
 
   const built = join(OUT, 'graph.cypher');
@@ -60,17 +76,39 @@ function main(): number {
 
   // The WASM replay: the cost a Worker pays on each cold isolate (ADR-0015).
   const wasm = loadWasmSync();
-  const db = new wasm.RelateDb();
-  try {
-    const t0 = performance.now();
-    const envelopes = db.executeScript(seed, null);
-    const ms = performance.now() - t0;
-    const failed = envelopes.map((e) => JSON.parse(e) as { error: string | null }).find((e) => e.error);
-    if (failed) fail(`the seed fails on public/wasm: ${failed.error}`);
-    console.log(`WASM replay (public/wasm): ${ms.toFixed(1)} ms for ${envelopes.length} statements`);
-  } finally {
-    db.free();
-  }
+  const replay = (label: string, steps: [string, unknown][], withVectors = true) => {
+    const db = new wasm.RelateDb();
+    try {
+      const t0 = performance.now();
+      let statements = 0;
+      for (const [script, params] of steps) {
+        const envelopes = db.executeScript(script, params === null ? null : JSON.stringify(params));
+        statements += envelopes.length;
+        const failed = envelopes.map((e) => JSON.parse(e) as { error: string | null }).find((e) => e.error);
+        if (failed) fail(`${label} fails on public/wasm: ${failed.error}`);
+      }
+      const ms = performance.now() - t0;
+      let hit = 'no question vector in _data/embeddings.json';
+      if (!withVectors) hit = 'not asked (no vectors loaded)';
+      else if (question) {
+        const out = JSON.parse(
+          db.executeScript(`MATCH (s:Section) SEARCH s IN (VECTOR INDEX ${VECTOR_INDEX} FOR $v LIMIT 1) SCORE AS score RETURN s.id AS id`, JSON.stringify({ v: decodeVector(question.vector) }))[0],
+        ) as { error: string | null; rows: { id: string }[] };
+        if (out.error || (graph.vectors.size && !out.rows.length)) fail(`${label}: the vector index \`${VECTOR_INDEX}\` does not answer: ${out.error ?? 'no rows'}`);
+        hit = `${JSON.stringify(question.id)} -> ${out.rows[0]?.id ?? 'nothing'}`;
+      }
+      console.log(`WASM replay (public/wasm), ${label}: ${ms.toFixed(1)} ms for ${statements} statements; vector index: ${hit}`);
+    } finally {
+      db.free();
+    }
+  };
+  replay('the whole seed', [[seed, null]]);
+  replay('the seed without vectors, then the vectors as a parameter', [
+    [base, null],
+    [VECTOR_LOAD_STATEMENT, { rows: vectorRows(graph) }],
+  ]);
+  // What the docs MCP Worker replays while it does not search by vector.
+  replay('the seed without vectors alone (seedWithoutVectors)', [[seedWithoutVectors(seed), null]], false);
 
   const bin = process.env.RELATE_BIN;
   if (!bin) {
@@ -102,8 +140,8 @@ function main(): number {
     run(['query', '--database', jsonStore, '--snapshot-format', 'json'], seed);
 
     // Open it the way an agent will, and check the counts.
-    const count = (cypher: string) => {
-      const out = run(['--load', rl, '--mode', 'jsonl', cypher]).trim().split('\n').filter(Boolean);
+    const count = (cypher: string, params: string[] = []) => {
+      const out = run(['--load', rl, '--read-only', '--mode', 'jsonl', ...params, cypher]).trim().split('\n').filter(Boolean);
       return JSON.parse(out[out.length - 1]) as Record<string, number | string>;
     };
     const nodes = Number(count('MATCH (n) RETURN count(n) AS n').n);
@@ -112,6 +150,15 @@ function main(): number {
       fail(`relate-docs.rl holds ${nodes} nodes and ${rels} relationships; the graph has ${graph.nodes.length} and ${graph.rels.length}`);
     }
     const hit = count(`MATCH (s:Section) SEARCH s IN (FULLTEXT INDEX ${FULLTEXT_INDEX} FOR 'exit code' LIMIT 1) RETURN s.id AS id`);
+    const withVectors = Number(count('MATCH (s:Section) WHERE s.embedding IS NOT NULL RETURN count(s) AS n').n);
+    if (withVectors !== graph.vectors.size) fail(`relate-docs.rl holds ${withVectors} section vectors; the graph has ${graph.vectors.size}`);
+    const vectorHit = question
+      ? count(`MATCH (s:Section) SEARCH s IN (VECTOR INDEX ${VECTOR_INDEX} FOR $v LIMIT 1) SCORE AS score RETURN s.id AS id, score`, [
+          '--param',
+          `v=${JSON.stringify(decodeVector(question.vector))}`,
+        ])
+      : null;
+    if (question && graph.vectors.size && !vectorHit?.id) fail(`relate-docs.rl: the vector index \`${VECTOR_INDEX}\` does not answer`);
 
     mkdirSync(OUT, { recursive: true });
     const outRl = join(OUT, 'relate-docs.rl');
@@ -129,7 +176,8 @@ function main(): number {
     console.log(`  ${rel(outRl)}: ${kib(statSync(outRl).size)}, sha256 ${rlSha}`);
     console.log(`  ${rel(join(OUT, 'relate-docs.rl.sha256'))}: written`);
     console.log(`  ${rel(outJson)}: ${kib(jsonBytes.length)}, sha256 ${sha256(jsonBytes)}`);
-    console.log(`  checked with relate --load: ${nodes} nodes, ${rels} relationships; full-text index \`${FULLTEXT_INDEX}\` answers 'exit code' with ${hit.id ?? 'nothing'}`);
+    console.log(`  checked with relate --load --read-only: ${nodes} nodes, ${rels} relationships, ${withVectors} section vectors; full-text index \`${FULLTEXT_INDEX}\` answers 'exit code' with ${hit.id ?? 'nothing'}`);
+    if (vectorHit) console.log(`  vector index \`${VECTOR_INDEX}\` answers ${JSON.stringify(question!.id)} (its precomputed vector, --param) with ${vectorHit.id} (score ${vectorHit.score})`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

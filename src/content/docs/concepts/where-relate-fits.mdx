@@ -14,7 +14,7 @@ Not the Neo4j Desktop Relate framework: that project publishes `@relate/cli` on 
 
 A relate :term[store]{id=store} is a directory, a single `.rl` file, or `:memory:`. One process opens it and owns it. Inside that process the engine holds the whole graph in memory and answers statements from there; disk is for durability, not for scanning. Every commit goes to the write-ahead log (:term[WAL]{id=wal}) before it applies, and a checkpoint later writes the committed graph back to the store.
 
-The same engine sits behind every front door: the `relate` CLI, the Python, Node.js, Rust, Java, Go and Swift clients, the C ABI, and a WebAssembly build for the browser. `relate serve` hosts one store in one process for Bolt, HTTP Query API and MCP clients, so several clients can share a store through that one process.
+The same engine sits behind every front door: the `relate` CLI, the Python, Node.js, Rust, Java, Go and Swift clients, the C ABI, and a WebAssembly build for the browser. `relate serve` hosts one store in one process for Bolt, HTTP Query API and :term[MCP]{id=mcp} clients, so several clients can share a store through that one process.
 
 ```mermaid
 flowchart TB
@@ -38,7 +38,7 @@ flowchart TB
 | The graph belongs to one application, agent, or tool on one machine | The engine runs in that process, so a statement never crosses a network |
 | You want Cypher with nothing to install beyond a binary or a package | The CLI is one binary; each client package carries the engine; `:memory:` needs no files at all |
 | A graph should travel as one file | A `.rl` store is one file that can be copied, attached or committed; `--load` opens one from a path or an `https` URL |
-| An agent drives the database from a shell or over MCP | Envelopes, typed exit codes, a row cap under agent harnesses, the skill and the MCP surface ([agent-native by design](/docs/concepts/agent-native)) |
+| An agent drives the database from a shell or over MCP | Envelopes, typed exit codes, a row cap under agent harnesses, the skill and the MCP :term[surface]{id=surface} ([agent-native by design](/docs/concepts/agent-native)) |
 | Tests or CI need a fresh graph on every run | `:memory:` forgets everything when the process exits |
 | Neo4j tools need to reach a local graph | `relate serve` speaks Bolt and the HTTP Query API; `relate pull` and `relate push` copy subgraphs from and to Neo4j or Aura |
 

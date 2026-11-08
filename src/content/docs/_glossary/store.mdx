@@ -1,9 +1,19 @@
 ---
 id: store
-term: store
+term: "store"
 short: "A relate database: a directory, a single `.rl` file, or `:memory:`, opened with `--database`."
 aliases: ["database file", "graph file", "db"]
 context: storage
 see: reference/storage/formats
-related: ["namespace", "snapshot", "codec", "read-only"]
+related: ["directory-store", "single-file-store", "in-memory-store", "namespace", "snapshot", "read-only"]
 ---
+
+A store is what `--database` names, and every surface opens one: the CLI, the clients, `relate serve` and the WebAssembly build. The path picks the layout. `:memory:`, the default, is an :term[in-memory store]{id=in-memory-store}; a path ending in `.rl` is a :term[single-file store]{id=single-file-store}; any other path is a :term[directory store]{id=directory-store}. A store is never a URL: a remote store is a `--load` source, copied in first.
+
+Whatever the layout, the whole graph is held in the memory of the process that opened the store, and each commit goes to the store's :term[WAL]{id=wal} before it applies. The layouts differ only in what a :term[checkpoint]{id=checkpoint} writes to disk and in who else may open the store at the same time. A missing path is created on the first writable open; a `--read-only` open of a missing path fails and creates nothing.
+
+A store has one writer process at a time. A second writable open of the same store fails with `storage locked: <path>` and exit code 5. Inside the store sit three :term[namespaces]{id=namespace}, and user data lives in `neo4j`.
+
+```bash
+relate --database ./team.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"
+```

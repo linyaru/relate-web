@@ -11,6 +11,11 @@ verified_by:
   - cypher
   - python
   - node
+  - rust
+  - java
+  - go
+  - swift
+  - c
 canonical_url: https://relatedb.ai/docs/_example/example/
 prerequisites:
   - get-started/install
@@ -59,6 +64,60 @@ db = relate.connect(":memory:")
 ```javascript
 const db = new Database(":memory:");
 ```
+
+A second set spells Node.js `js`; the language picker treats both keys as one language:
+
+### Python
+
+```python
+print(db.execute("RETURN 1 AS n").data)
+```
+
+### JavaScript
+
+```javascript
+console.log(conn.query("RETURN 1 AS n").rows);
+```
+
+## An agentic step
+
+### At a terminal
+
+A table, for reading:
+
+```bash
+relate --database ./team.rl --read-only "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+### As an agent
+
+The envelope, for parsing; a failure prints the error object and exits non-zero:
+
+```bash
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+## A host deeplink
+
+```json
+{
+  "command": "relate",
+  "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+}
+```
+
+Cursor install link for the server `relate`, generated from this JSON: `cursor://anysphere.cursor-deeplink/mcp/install?name=relate&config=eyJjb21tYW5kIjoicmVsYXRlIiwiYXJncyI6WyJzZXJ2ZSIsIi0tbWNwIiwic3RkaW8iLCItLWRhdGFiYXNlIiwiPGFic29sdXRlLXBhdGg%2BL2dyYXBoLnJsIiwiLS1yZWFkLW9ubHkiXX0%3D`
+
+```json title="server entry"
+{
+  "command": "relate",
+  "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+}
+```
+
+VS Code install link for the server `relate`, generated from this JSON: `vscode:mcp/install?%7B%22name%22%3A%22relate%22%2C%22command%22%3A%22relate%22%2C%22args%22%3A%5B%22serve%22%2C%22--mcp%22%2C%22stdio%22%2C%22--database%22%2C%22%3Cabsolute-path%3E%2Fgraph.rl%22%2C%22--read-only%22%5D%7D`
+
+To allow writes, remove `"--read-only"` from `args`.
 
 ## Code and cells
 
@@ -156,6 +215,225 @@ console.log(conn.query("MATCH (p:Person) RETURN count(p) AS n").rows[0].n);
 
 ```text
 1
+```
+
+A Python fence can name a second environment with `env=`, for a framework whose pins clash with the main one's. This sample runs beside crewai:
+
+```python run env=crewai
+import importlib.metadata
+
+import crewai
+import relate
+
+db = relate.Database(":memory:")
+db.execute("CREATE (:Person {name: 'Ada'}), (:Person {name: 'Grace'})")
+result = db.execute("MATCH (p:Person) RETURN count(p) AS people")
+print("crewai", importlib.metadata.version("crewai"), "imports beside relate")
+print("people:", result.data[0]["people"])
+db.close()
+```
+
+```text
+crewai 1.15.37 imports beside relate
+people: 2
+```
+
+The compiled clients take the same fence with their language: `rust run`, `java run`, `go run`, `swift run` and `c run`. Each of these five programs builds the team graph in memory and prints how many people it holds:
+
+```rust run title="main.rs"
+use relate::Database;
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+    let result = conn.query("MATCH (p:Person) RETURN count(p) AS people")?;
+    println!("people: {}", result.rows[0][0].as_int().expect("an integer"));
+    Ok(())
+}
+```
+
+```text
+people: 3
+```
+
+```java run title="Team.java"
+import com.relate.Database;
+
+public class Team {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    public static void main(String[] args) {
+        try (var db = Database.open(":memory:"); var conn = db.connect()) {
+            conn.query(TEAM);
+            var result = conn.query("MATCH (p:Person) RETURN count(p) AS people");
+            System.out.println("people: " + result.rows().get(0).get(0));
+        }
+    }
+}
+```
+
+```text
+people: 3
+```
+
+```go run title="main.go"
+package main
+
+import (
+	"fmt"
+	"os"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`
+
+func check(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func main() {
+	db, err := relate.Open(":memory:")
+	check(err)
+	defer db.Close()
+	conn, err := db.Connect()
+	check(err)
+	defer conn.Close()
+	_, err = conn.Query(team)
+	check(err)
+	res, err := conn.Query("MATCH (p:Person) RETURN count(p) AS people")
+	check(err)
+	fmt.Println("people:", res.Rows[0][0])
+}
+```
+
+```text
+people: 3
+```
+
+```swift run title="main.swift"
+import Relate
+
+let team = """
+    CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+           (grace:Person {name: 'Grace', role: 'engineer'}),
+           (noor:Person {name: 'Noor', role: 'maintainer'}),
+           (relate:Project {name: 'relate', language: 'Rust'}),
+           (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+           (ada)-[:WORKS_ON {since: 2024}]->(relate),
+           (grace)-[:WORKS_ON {since: 2023}]->(relate),
+           (grace)-[:WORKS_ON {since: 2022}]->(tck),
+           (noor)-[:MAINTAINS]->(relate),
+           (ada)-[:KNOWS]->(grace)
+    """
+
+let db = try Database(path: ":memory:")
+let conn = try db.connect()
+try conn.query(team)
+let result = try conn.query("MATCH (p:Person) RETURN count(p) AS people")
+print("people:", result.rows[0][0].intValue!)
+```
+
+```text
+people: 3
+```
+
+```c run title="team.c"
+#include <stdio.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),\n"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),\n"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),\n"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n"
+    "       (noor)-[:MAINTAINS]->(relate),\n"
+    "       (ada)-[:KNOWS]->(grace)\n";
+
+/* A call that failed before a result existed: print its error and free it. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+/* A statement that failed rides its result: print the error it carries. */
+static int failed_statement(relate_query_result r) {
+    fprintf(stderr, "statement failed: %s\n", relate_result_error_json(r));
+    relate_destroy_result(r);
+    return 1;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    int64_t people = 0;
+
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (relate_query_params(conn, TEAM, NULL, &r, &err) != RELATE_OK) return fail("create", err);
+    if (relate_result_is_error(r)) return failed_statement(r);
+    relate_destroy_result(r);
+
+    if (relate_query_params(conn, "MATCH (p:Person) RETURN count(p) AS people", NULL, &r, &err) != RELATE_OK) return fail("count", err);
+    if (relate_result_is_error(r)) return failed_statement(r);
+    if (relate_value_int(relate_value_at(r, 0, 0), &people) != RELATE_OK) return 1;
+    printf("people: %lld\n", (long long)people);
+
+    relate_destroy_result(r);
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+```text
+people: 3
 ```
 
 ## A diagram
@@ -466,6 +744,13 @@ relate, the embedded Cypher graph database (relatedb.ai). This repository uses v
 | `mcp-invalid-params`; JSON-RPC -32602 | — | Malformed `tools/call` params. | Match the tool's input schema. | — | — |
 | `mcp-parse-error`; JSON-RPC -32700 | `malformed JSON-RPC message: <detail>` | A body that is not JSON, omits `jsonrpc` or `method`, or carries an unknown member. | Send a strict JSON-RPC 2.0 message. | — | — |
 | `mcp-unsupported-version`; JSON-RPC -32600 | `unsupported JSON-RPC version '<version>'` | A `jsonrpc` version other than `2.0`. | Send `"jsonrpc": "2.0"`. | — | — |
+
+| Feature | CLI | Python | Browser (WASM) |
+| --- | --- | --- | --- |
+| Read-only open. An open that loads the store once and refuses every write. | yes: `--read-only`; a write exits 6 | yes: `read_only=True` | yes: `new RelateDb(true)` |
+| Explicit transactions. Several statements committed or rolled back together. | yes: `.begin`, `.commit`, `.rollback` in a script on stdin or the shell | yes: `autocommit = False`, then `commit()` or `rollback()` | no: each statement commits on its own; `BEGIN` is a syntax error |
+
+Each cell is yes, no, partial or unknown, with the call, flag or reason. Checked on 2026-11-07 against relate 0.16.1: runs of the CLI binary, the WebAssembly build this site ships and the Python and Node.js clients, and each surface's upstream reference. The C, Java, Go and Swift clients load the same C ABI library as the Node.js client.
 
 ## Links
 

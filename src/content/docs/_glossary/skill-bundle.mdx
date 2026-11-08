@@ -1,0 +1,17 @@
+---
+id: skill-bundle
+term: "skill bundle"
+short: "The set of files that make up the relate skill: `SKILL.md` and 15 reference files, embedded in the binary and served by the site."
+aliases: []
+context: agents
+see: guides/agents/install-the-skill
+related: ["skill"]
+---
+
+The skill bundle is the :term[skill]{id=skill} as files. The binary carries a copy, which `relate skill install` writes into each agent's skills folder under `relate/`, with a marker file that `relate skill remove` checks before it deletes anything. The site serves the same bundle at `/skills/relate/`, copied from the engine's repository at a recorded commit.
+
+`relate skill list` prints each target agent's install state and path, and `relate skill check` exits 1 when an installed copy differs from the binary's bundle, and 0 when every copy matches. `--force` lets install or remove act on a folder without the marker; it is not valid with `list` or `check`.
+
+```bash
+relate skill check
+```

@@ -1,9 +1,19 @@
 ---
 id: read-only
-term: read-only
+term: "read-only"
 short: "An open mode (`--read-only`) that never writes, checkpoints or migrates the store; writes fail, and a directory store can be read beside its writer."
 aliases: ["readonly"]
 context: storage
 see: reference/cli/flags#read-only
-related: ["store", "checkpoint"]
+related: ["live-read-only", "store", "checkpoint", "safe-mode"]
 ---
+
+The `--read-only` flag opens an existing store without changing it: no write, no checkpoint, no migration, and nothing created when the path is missing. A statement that writes fails with exit code 6. `relate serve --read-only` lists only the reading MCP tools, and it takes no writer lease, so it can run beside a writer.
+
+Who else may hold the store depends on the layout. A directory store can be read by several read-only processes while one writer works on it. A `.rl` file opens read-only only while no writer holds it. `:memory:` read-only rejects writes and creates nothing.
+
+The flag takes an optional freshness: `--read-only=snapshot`, the default, sees the store as of the open, and `--read-only=live` follows the writer's commits (:term[live read-only]{id=live-read-only}). Every copyable host config block in these docs opens the store read-only, and removing the flag allows writes.
+
+```bash
+relate --database ./team.rl --read-only "MATCH (p:Person) RETURN p.name AS name LIMIT 5"
+```

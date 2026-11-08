@@ -35,6 +35,7 @@ const canonical = new URL(Astro.url.pathname.replace(/\/?$/, '/'), CANONICAL_ORI
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="article" />
+    <slot name="head" />
   </Fragment>
   <div class="docs-shell">
     <div class="docs-bar">

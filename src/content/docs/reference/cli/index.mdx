@@ -99,7 +99,7 @@ A line that starts with a dot is a shell command, not Cypher. Dot commands work 
 | `.timer on`, `.timer off` | Prints `Timer: on` or `Timer: off`, and while on, a `Time: <n>ms (parse … / plan … / execute …)` line on stdout after each result | — (without an argument it prints `Usage: .timer on\|off`) |
 | `.quit` | Ends the session; lines after it are not read | — |
 
-Any other dot command fails with `Error: unknown command .<name>` (exit code 1). A session that ends with a transaction open, by `.quit` or at the end of a script, rolls it back, prints `Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.` on stderr, and exits 1. In a script, a failed dot command stops the script with exit code 1, like a failed statement.
+Any other dot command fails with `Error: unknown command .<name>` (exit code 1). A session that ends with a :term[transaction]{id=transaction} open, by `.quit` or at the end of a script, rolls it back, prints `Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.` on stderr, and exits 1. In a script, a failed dot command stops the script with exit code 1, like a failed statement.
 
 A transaction in a piped script, rolled back:
 

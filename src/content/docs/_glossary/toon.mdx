@@ -1,0 +1,25 @@
+---
+id: toon
+term: "TOON"
+short: "Token-Oriented Object Notation: an output mode that prints the columns once, then one comma-separated line per row; the piped default in agent mode."
+aliases: []
+context: cli
+see: reference/cli/agent-mode
+related: ["agent-mode", "envelope"]
+---
+
+TOON spends fewer characters than JSON on a uniform set of rows, because the column names appear once, in a header line, instead of in every row. `--toon` or `--mode toon` selects it, and :term[agent mode]{id=agent-mode} makes it the default when stdout is piped and no output flag is given.
+
+The header is `rows[N]{col1,col2,…}:`, followed by one line per row, indented by two spaces. Integers, floats, booleans and `null` print bare; a string prints bare unless it would read back as something else, and then it is quoted as JSON. Nested values such as lists, maps, nodes, and paths print as compact JSON.
+
+```bash
+relate --toon "UNWIND [1, 2] AS x RETURN x, x * 10 AS y"
+```
+
+```text
+rows[2]{x,y}:
+  1,10
+  2,20
+```
+
+TOON prints no error object, so a failed statement shows only on stderr and in the exit code.

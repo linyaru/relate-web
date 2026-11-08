@@ -22,22 +22,52 @@
 //   /.well-known/security.txt              RFC 9116; built only once
 //                                          _data/project.json names a contact
 //
+// The task skills authored here (public/skills/<name>/, src/lib/docs/skill.ts)
+// are listed in both indexes after the CLI bundle, served under
+// /.well-known/skills/<name>/ the same way, and listed in the manifest;
+// `checkTaskSkills` (in `checkSkill`) and `checkTaskSkillCypher` check them.
+//
 // The endpoints under src/pages/ call the builders below; `checkSkill` is the
 // docs:check entry point. Node only (the build and the checks), never shipped
 // to the browser.
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
 
 import { SIGNER, SIGNING_KEY } from '../../../components/docs/install.ts';
 import { CANONICAL_ORIGIN } from '../../cookbook/links.ts';
-import { DOCS_DIR, pageFiles, ROOT, splitFrontmatter, type Engine } from '../content.ts';
+import { CAPABILITIES_JSON_URL, capabilitiesJsonText } from '../capabilities.ts';
+import { DOCS_DIR, engine as readEngine, pageFiles, ROOT, splitFrontmatter, type Engine } from '../content.ts';
+import { GLOSSARY_JSON_PATH, glossaryJsonText } from '../glossary.ts';
 import { docsGraph, seedScript } from '../graph.ts';
 import { docsIdOf } from '../links.ts';
 import { CANONICAL_PHRASE } from '../llms.ts';
+import { GENERATED_IDS } from '../model.ts';
+import {
+  builtResults,
+  citations,
+  cypherSteps,
+  FRONTMATTER_KEYS,
+  frontmatterOf,
+  proseProblems,
+  readTaskSkillRecords,
+  recipeSource,
+  relativeLinks as skillRelativeLinks,
+  resultsDigest,
+  runSkillCypher,
+  skillFences,
+  skillFiles,
+  taskSkills,
+  CLIENT_LANGS,
+  clientWritableOpens,
+  writableOpens,
+  type TaskSkill,
+  type TaskSkillRecord,
+  type Wasm,
+} from '../skill.ts';
 
 // ---------------------------------------------------------------------------
 // Where things are
@@ -72,7 +102,7 @@ export const MANIFEST_SIG_FILE = join(PUBLIC_DIR, 'docs/docs-artifacts.json.sig'
 /** The SSH signature namespace the manifest is signed under (the release key's, as install.sh verifies SHA256SUMS). */
 export const MANIFEST_SIG_NAMESPACE = 'relate-release';
 /** Agent artifacts listed in the manifest when the build finds them under public/ (DOCS-PLAN.md §3.5, §3.8). */
-export const OPTIONAL_ARTIFACTS = ['/docs/relate-docs.rl', '/docs/capabilities.json'];
+export const OPTIONAL_ARTIFACTS = ['/docs/relate-docs.rl'];
 
 export const SECURITY_TXT_PATH = '/.well-known/security.txt';
 /** Holds `security.contact` (a `mailto:` or `https:` URI) once one exists; until then no security.txt is built. */
@@ -122,20 +152,7 @@ export function servedBytes(rel: string, upstream: Buffer, version: string): Buf
 }
 
 /** The bundle's files, relative and `/`-separated: SKILL.md first, then the rest sorted. */
-export function bundleFiles(dir = SKILL_DIR): string[] {
-  const out: string[] = [];
-  const walk = (sub: string) => {
-    const abs = sub ? join(dir, sub) : dir;
-    if (!existsSync(abs)) return;
-    for (const e of readdirSync(abs, { withFileTypes: true })) {
-      const rel = sub ? `${sub}/${e.name}` : e.name;
-      if (e.isDirectory()) walk(rel);
-      else if (e.isFile() && e.name !== '.DS_Store') out.push(rel);
-    }
-  };
-  walk('');
-  return out.sort((a, b) => (a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a < b ? -1 : a > b ? 1 : 0));
-}
+export const bundleFiles = (dir = SKILL_DIR): string[] => skillFiles(dir);
 
 export interface SkillFrontmatter {
   name: string;
@@ -173,25 +190,28 @@ export interface IndexV1 {
 /** JSON as the endpoints serve it. */
 export const toJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
-/**
- * /.well-known/agent-skills/index.json, from the served SKILL.md: one
- * `skill-md` entry whose digest is over the bytes at its `url`. The `url` is
- * relative to the index (resolved against the index URL), so the same index
- * works on the preview host and on relatedb.ai.
- */
-export function agentSkillsIndex(dir = SKILL_DIR): IndexV2 {
+/** One `skill-md` entry: the digest is over the bytes at `url`, root-relative (resolved against the index URL). */
+function entryV2(name: string, dir: string): IndexEntryV2 {
   const bytes = readFileSync(join(dir, 'SKILL.md'));
   const front = skillFrontmatter(bytes.toString('utf8'));
-  return {
-    $schema: DISCOVERY_SCHEMA,
-    skills: [{ name: SKILL_NAME, type: 'skill-md', description: front.description, url: `${SKILL_PATH}SKILL.md`, digest: `sha256:${sha256(bytes)}` }],
-  };
+  return { name, type: 'skill-md', description: front.description, url: `/skills/${name}/SKILL.md`, digest: `sha256:${sha256(bytes)}` };
 }
 
-/** /.well-known/skills/index.json, the 0.1.0 shape: every bundle file, fetched from /.well-known/skills/relate/<file>. */
-export function legacySkillsIndex(dir = SKILL_DIR): IndexV1 {
-  const front = skillFrontmatter(readFileSync(join(dir, 'SKILL.md'), 'utf8'));
-  return { skills: [{ name: SKILL_NAME, description: front.description, files: bundleFiles(dir) }] };
+/**
+ * /.well-known/agent-skills/index.json, from the served SKILL.md files: one
+ * `skill-md` entry for the CLI bundle, then one per task skill (`tasks`,
+ * default every folder under public/skills/ but the bundle), each with a
+ * digest over the bytes at its `url`. The `url` is relative to the index, so
+ * the same index works on the preview host and on relatedb.ai.
+ */
+export function agentSkillsIndex(dir = SKILL_DIR, tasks: TaskSkill[] = taskSkills()): IndexV2 {
+  return { $schema: DISCOVERY_SCHEMA, skills: [entryV2(SKILL_NAME, dir), ...tasks.map((s) => entryV2(s.name, s.dir))] };
+}
+
+/** /.well-known/skills/index.json, the 0.1.0 shape: every file of each skill, fetched from /.well-known/skills/<name>/<file>. */
+export function legacySkillsIndex(dir = SKILL_DIR, tasks: TaskSkill[] = taskSkills()): IndexV1 {
+  const entry = (name: string, d: string) => ({ name, description: skillFrontmatter(readFileSync(join(d, 'SKILL.md'), 'utf8')).description, files: skillFiles(d) });
+  return { skills: [entry(SKILL_NAME, dir), ...tasks.map((s) => entry(s.name, s.dir))] };
 }
 
 /** A skill name the discovery format accepts (the skills CLI's `isValidSkillName`). */
@@ -265,18 +285,22 @@ export interface Served {
 
 /**
  * Every skill and discovery file the site serves, with the bytes the build
- * writes: the two indexes, the bundle under /skills/relate/ and again under
- * /.well-known/skills/relate/ (where the legacy index's files are fetched), and
- * the /skill.md alias.
+ * writes: the two indexes, each skill (the bundle and every task skill under
+ * `<publicDir>/skills/`) under /skills/<name>/ and again under
+ * /.well-known/skills/<name>/ (where the legacy index's files are fetched),
+ * and the /skill.md alias.
  */
-export function servedSkillFiles(dir = SKILL_DIR, publicDir = PUBLIC_DIR): Served[] {
-  const files = bundleFiles(dir).map((rel) => ({ rel, bytes: readFileSync(join(dir, rel)) }));
+export function servedSkillFiles(dir = SKILL_DIR, publicDir = PUBLIC_DIR, tasks: TaskSkill[] = taskSkills(join(publicDir, 'skills'))): Served[] {
+  const skills = [{ name: SKILL_NAME, dir }, ...tasks];
   const out: Served[] = [
-    { path: AGENT_SKILLS_INDEX_PATH, bytes: Buffer.from(toJson(agentSkillsIndex(dir))) },
-    { path: LEGACY_INDEX_PATH, bytes: Buffer.from(toJson(legacySkillsIndex(dir))) },
-    ...files.map((f) => ({ path: `${SKILL_PATH}${f.rel}`, bytes: f.bytes })),
-    ...files.map((f) => ({ path: `${LEGACY_SKILL_PATH}${f.rel}`, bytes: f.bytes })),
+    { path: AGENT_SKILLS_INDEX_PATH, bytes: Buffer.from(toJson(agentSkillsIndex(dir, tasks))) },
+    { path: LEGACY_INDEX_PATH, bytes: Buffer.from(toJson(legacySkillsIndex(dir, tasks))) },
   ];
+  for (const s of skills) {
+    const files = skillFiles(s.dir).map((rel) => ({ rel, bytes: readFileSync(join(s.dir, rel)) }));
+    out.push(...files.map((f) => ({ path: `/skills/${s.name}/${f.rel}`, bytes: f.bytes })));
+    out.push(...files.map((f) => ({ path: `/.well-known/skills/${s.name}/${f.rel}`, bytes: f.bytes })));
+  }
   const alias = join(publicDir, ALIAS_PATH.slice(1));
   if (existsSync(alias)) out.push({ path: ALIAS_PATH, bytes: readFileSync(alias) });
   return out;
@@ -302,12 +326,18 @@ export function recordedCommit(): string | null {
 export const GRAPH_SEED_PATH = '/docs/graph.cypher';
 
 /**
- * Artifacts the build generates rather than copies from public/: the docs
- * graph's seed script, byte for byte what src/pages/docs/graph.cypher.ts
- * serves (the seed is deterministic, src/lib/docs/graph.ts).
+ * Artifacts the build generates rather than copies from public/, each byte
+ * for byte what its endpoint serves: the docs graph's seed script
+ * (src/pages/docs/graph.cypher.ts; the seed is deterministic,
+ * src/lib/docs/graph.ts), the glossary as data (glossary.json.ts) and the
+ * capability catalog (capabilities.json.ts).
  */
 export function builtArtifacts(): Served[] {
-  return [{ path: GRAPH_SEED_PATH, bytes: Buffer.from(seedScript(docsGraph())) }];
+  return [
+    { path: GRAPH_SEED_PATH, bytes: Buffer.from(seedScript(docsGraph())) },
+    { path: GLOSSARY_JSON_PATH, bytes: Buffer.from(glossaryJsonText(readEngine().verified)) },
+    { path: CAPABILITIES_JSON_URL, bytes: Buffer.from(capabilitiesJsonText()) },
+  ];
 }
 
 /**
@@ -400,6 +430,8 @@ export interface SkillData {
   version: string;
   /** Every served file: its SHA-256 as served, and for SKILL.md the upstream bytes' too. */
   files: { path: string; sha256: string; upstream_sha256?: string }[];
+  /** The task skills authored here, as the last review recorded them (src/lib/docs/skill.ts `recordTaskSkills`). */
+  task_skills?: TaskSkillRecord[];
 }
 
 export function readSkillData(file = SKILL_DATA_FILE): SkillData | null {
@@ -477,6 +509,28 @@ export interface SkillCheckSite {
 }
 
 const SYNC = 'run `npm run skill:sync` and review the diff';
+/** The skills CLI's install form for the site (DOCS-PLAN.md §9: the full https:// URL). */
+export const SKILLS_ADD = 'npx skills add https://relatedb.ai';
+/**
+ * An install line that does not name a skill (`npx skills add https://relatedb.ai`
+ * with no `--skill <name>`, which installs every skill in the index when an
+ * agent runs it), or that names a path (`https://relatedb.ai/skills/…`, which
+ * installs nothing): the documented form is `${SKILLS_ADD} --skill <name>`.
+ */
+export function installFormProblems(text: string): { line: number; message: string }[] {
+  const out: { line: number; message: string }[] = [];
+  text.split('\n').forEach((l, i) => {
+    for (const m of l.matchAll(/npx skills add https:\/\/relatedb\.ai([^\s`|)'"<>]*)([^`|\n]*)/g)) {
+      const path = m[1].replace(/[.,;:]+$/, '');
+      if (path && path !== '/') out.push({ line: i + 1, message: `"${m[0].trim()}": a URL with a path selects no skill, and the skills CLI installs nothing; the form is \`${SKILLS_ADD} --skill <name>\`` });
+      else if (!/^\s+--skill\s+[a-z0-9-]+/.test(m[2])) out.push({ line: i + 1, message: `"${m[0].trim()}" names no skill; without --skill the skills CLI installs every skill in the index when an agent runs it; the form is \`${SKILLS_ADD} --skill <name>\`` });
+    }
+  });
+  return out;
+}
+
+/** What re-records the task skills after a review (scripts/skills-record.ts). */
+export const RECORD = 'review the diff, then run `npm run skills:record` (after a build, `-- --dist dist`)';
 
 /** Read a file of the upstream checkout at `commit` without touching its working tree or index. */
 function gitShow(dir: string, spec: string): Buffer | null {
@@ -515,7 +569,14 @@ function resolvesOnSite(path: string, site: SkillCheckSite, dist: string | null)
   const id = docsIdOf(clean);
   if (id !== null && (id === '' || site.published.has(id))) return true;
   const generated = [AGENT_SKILLS_INDEX_PATH, LEGACY_INDEX_PATH, MANIFEST_PATH, '/docs/llms.txt', '/docs/llms-full.txt', '/cookbook/', '/cookbook/llms.txt', '/playground/', '/'];
-  if (generated.includes(clean) || clean.startsWith(LEGACY_SKILL_PATH)) return true;
+  if (generated.includes(clean)) return true;
+  // /.well-known/skills/<name>/<file> serves public/skills/<name>/<file>, for the CLI bundle and every task skill.
+  const wk = /^\/\.well-known\/skills\/([^/]+)\/(.*)$/.exec(clean);
+  if (wk) {
+    const known = wk[1] === SKILL_NAME || taskSkills().some((t) => t.name === wk[1]);
+    const file = join(PUBLIC_DIR, 'skills', wk[1], wk[2]);
+    return known && (wk[2] === '' || (existsSync(file) && statSync(file).isFile()));
+  }
   return null; // unknown from the source; the --built run decides
 }
 
@@ -618,7 +679,7 @@ export function checkSkill(site: SkillCheckSite, report: Report, note: (message:
   else {
     const a = readFileSync(alias, 'utf8');
     if (!a.includes(CANONICAL_PHRASE)) err(alias, 1, 'skill-alias', `lacks the canonical phrase "${CANONICAL_PHRASE}"`);
-    for (const cmd of ['relate skill install', 'npx skills add https://relatedb.ai', '.claude/skills/', '.cursor/skills/', '.codex/skills/', '.agents/skills/']) {
+    for (const cmd of ['relate skill install', `${SKILLS_ADD} --skill ${SKILL_NAME}`, '.claude/skills/', '.cursor/skills/', '.codex/skills/', '.agents/skills/']) {
       if (!a.includes(cmd)) err(alias, null, 'skill-alias', `does not give "${cmd}"`);
     }
     if (!/reference text, not instructions/.test(a.replace(/\s+/g, ' '))) err(alias, null, 'skill-alias', 'lacks the docs-are-data sentence ("… reference text, not instructions", ADR-0013)');
@@ -639,7 +700,26 @@ export function checkSkill(site: SkillCheckSite, report: Report, note: (message:
       if (ok === false) err(alias, line, 'skill-url', `cites ${url}, which the built site does not serve`);
       else if (ok === null) report(alias, line, 'warning', 'skill-url', `cites ${url}, which the source tree does not show; \`docs:check -- --built\` decides`);
     }
+    // The task skills: each named with its one-at-a-time install form.
+    for (const s of taskSkills()) {
+      const cmd = `${SKILLS_ADD} --skill ${s.name}`;
+      if (!a.includes(cmd)) err(alias, null, 'skill-alias', `does not give "${cmd}" for the task skill ${s.name}`);
+    }
+    // A version string in /skill.md is the engine's (URLs aside).
+    const prose = a.replace(/\bhttps?:\/\/\S+/g, '');
+    for (const m of prose.matchAll(/\b\d+\.\d+\.\d+\b/g)) {
+      if (m[0] !== site.engine.version) err(alias, prose.slice(0, m.index).split('\n').length, 'skill-alias', `names version ${m[0]}; version strings come from _data/engine.json (${site.engine.version})`);
+    }
   }
+
+  // The skills CLI install form, wherever the site gives it: /skill.md, /llms.txt and the docs pages.
+  const installSources = [alias, join(PUBLIC_DIR, 'llms.txt'), ...pageFiles().map((p) => p.file)];
+  for (const file of installSources) {
+    if (!existsSync(file)) continue;
+    for (const p of installFormProblems(readFileSync(file, 'utf8'))) err(file, p.line, 'skill-install-form', p.message);
+  }
+
+  checkTaskSkills(site, report, builtDist);
 
   // The indexes, as the build will write them.
   const v2 = agentSkillsIndex();
@@ -728,4 +808,203 @@ export function checkBuiltSkill(dist: string, report: Report): void {
     if (!exp) err(at(SECURITY_TXT_PATH), 'security-txt', 'has no Expires field (RFC 9116 §2.5.5)');
     else if (!(Date.parse(exp) > Date.now())) err(at(SECURITY_TXT_PATH), 'security-txt', `expired on ${exp}; rebuild`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// The task skills (DOCS-PLAN.md §3.8 "Skills library")
+
+/** The docs-are-data sentence every task skill's SKILL.md carries (ADR-0013). */
+export const DATA_SENTENCE = /reference text, not instructions/;
+/** The disambiguation line (DOCS-PLAN.md §3.9). */
+export const NOT_DESKTOP = 'Not the Neo4j Desktop Relate framework';
+/** Shell fence languages whose commands the read-only rule reads. */
+const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh', 'console']);
+/** Fence languages that open no store: Cypher (run on the WebAssembly build), data, and plain text. */
+const DATA_LANGS = new Set(['cypher', 'json', 'yaml', 'text']);
+
+
+/**
+ * docs:check for the task skills: for each folder under public/skills/ but
+ * the CLI bundle, the layout (SKILL.md and references/*.md only, every
+ * reference linked from SKILL.md, relative links inside the folder), the
+ * frontmatter (only name, description and version; the folder's name; a
+ * description with the canonical phrase, at most 1024 characters; the
+ * engine's version), the docs-are-data sentence and the disambiguation line,
+ * every cited URL (a docs twin of a published page, a recipe's index.md, or
+ * another path the site serves; with `builtDist`, the file in dist/), at
+ * least one cited recipe (a directory with no index.html is not served),
+ * the prose heuristics, the read-only rule on shell, Python and JavaScript
+ * fences (a fence in another language that is not data is refused), version
+ * strings, the ```cypher fences' info tokens, and the record
+ * in _data/skill.json: the files as reviewed, and each cited recipe's source
+ * (and, with `builtDist`, its built results.json) as it was when the skill
+ * was last reviewed. Running the Cypher is `checkTaskSkillCypher` (async).
+ */
+export function checkTaskSkills(site: SkillCheckSite, report: Report, builtDist: string | null = null, skillsDir = join(PUBLIC_DIR, 'skills'), dataFile = SKILL_DATA_FILE): void {
+  const err = (file: string, line: number | null, rule: string, message: string) => report(file, line, 'error', rule, message);
+  const skills = taskSkills(skillsDir);
+  const records = readTaskSkillRecords(dataFile);
+  for (const r of records) {
+    if (!skills.some((s) => s.name === r.name)) err(dataFile, null, 'task-skill-record', `task_skills records ${r.name}, which public/skills/ does not have; ${RECORD}`);
+  }
+  for (const skill of skills) {
+    const at = (f: string) => join(skill.dir, f);
+    const files = skillFiles(skill.dir);
+    const record = records.find((r) => r.name === skill.name);
+
+    // Layout.
+    if (!files.includes('SKILL.md')) {
+      err(skill.dir, null, 'task-skill', 'has no SKILL.md');
+      continue;
+    }
+    for (const f of files) {
+      if (f !== 'SKILL.md' && !/^references\/[a-z0-9-]+\.md$/.test(f)) err(at(f), null, 'task-skill', 'a task skill holds SKILL.md and references/<name>.md only');
+    }
+    const texts = new Map(files.filter((f) => f.endsWith('.md')).map((f) => [f, readFileSync(at(f), 'utf8')]));
+    const skillMd = texts.get('SKILL.md')!;
+
+    // Frontmatter.
+    let front: Record<string, unknown> = {};
+    try {
+      front = frontmatterOf(skillMd, at('SKILL.md'));
+    } catch (e) {
+      err(at('SKILL.md'), 1, 'task-skill', (e as Error).message);
+    }
+    for (const k of Object.keys(front)) {
+      if (!(FRONTMATTER_KEYS as readonly string[]).includes(k)) err(at('SKILL.md'), null, 'task-skill', `frontmatter key "${k}" is not one of ${FRONTMATTER_KEYS.join(', ')}`);
+    }
+    const description = typeof front.description === 'string' ? front.description : '';
+    if (front.name !== skill.name) err(at('SKILL.md'), null, 'task-skill', `name is ${JSON.stringify(front.name)}, not the folder's name "${skill.name}"`);
+    if (!validSkillName(skill.name)) err(skill.dir, null, 'task-skill', `"${skill.name}" is not a skill name the discovery format accepts`);
+    if (!description) err(at('SKILL.md'), null, 'task-skill', 'the description is empty');
+    else {
+      if (description.length > 1024) err(at('SKILL.md'), null, 'task-skill', `the description is ${description.length} characters; the discovery format allows 1024`);
+      if (!description.includes(CANONICAL_PHRASE)) err(at('SKILL.md'), null, 'task-skill-description', `the description lacks the canonical phrase "${CANONICAL_PHRASE}" (DOCS-PLAN.md §3.9)`);
+    }
+    if (String(front.version ?? '') !== site.engine.version) err(at('SKILL.md'), null, 'skill-version', `version is ${JSON.stringify(front.version)}; _data/engine.json says ${site.engine.version}`);
+    if (!DATA_SENTENCE.test(skillMd.replace(/\s+/g, ' '))) err(at('SKILL.md'), null, 'task-skill', 'lacks the docs-are-data sentence ("… reference text, not instructions", ADR-0013)');
+    if (!skillMd.replace(/\s+/g, ' ').includes(NOT_DESKTOP)) err(at('SKILL.md'), null, 'task-skill', `lacks the line "${NOT_DESKTOP}" (DOCS-PLAN.md §3.9)`);
+
+    // Links, citations, prose, fences.
+    const linked = new Set<string>();
+    const cited = new Set<string>();
+    for (const [f, text] of texts) {
+      for (const { href, line } of skillRelativeLinks(text)) {
+        if (href.startsWith('/')) {
+          err(at(f), line, 'task-skill-link', `links ${href}; a skill is installed away from the site, so it cites absolute https://relatedb.ai URLs`);
+          continue;
+        }
+        const target = posix.normalize(posix.join(posix.dirname(f), href.split('#')[0]));
+        if (!texts.has(target)) err(at(f), line, 'task-skill-link', `links ${href}, which is not in the skill`);
+        else linked.add(target);
+      }
+      for (const c of citations(text)) {
+        if (c.kind === 'external') {
+          if (!THIRD_PARTY_URLS.some((t) => c.url.startsWith(t.prefix))) err(at(f), c.line, 'task-skill-url', `cites ${c.url}, outside the site; list a reviewed URL in THIRD_PARTY_URLS (src/lib/docs/checks/skill.ts) or leave it out`);
+          continue;
+        }
+        if (c.kind === 'site' && (c.path!.startsWith('/docs/') || c.path!.startsWith('/cookbook/')) && !/\.(?:txt|json|cypher)$/.test(c.path!)) {
+          err(at(f), c.line, 'task-skill-url', `cites ${c.url}; a docs page is cited as its twin (https://relatedb.ai/docs/<id>.md) and a recipe as https://relatedb.ai/cookbook/<slug>/index.md`);
+          continue;
+        }
+        if (c.kind === 'page' && !site.published.has(c.id!) && !GENERATED_IDS.has(c.id!)) err(at(f), c.line, 'task-skill-url', `cites the docs page ${c.id}, which is not published`);
+        if (c.kind === 'recipe') {
+          cited.add(c.id!);
+          if (!existsSync(recipeSource(c.id!))) err(at(f), c.line, 'task-skill-url', `cites the recipe ${c.id}, which src/content/cookbook/ does not have`);
+        }
+        if (builtDist) {
+          const file = join(builtDist, decodeURIComponent(c.path!));
+          const served = existsSync(file) && (statSync(file).isFile() || existsSync(join(file, 'index.html')));
+          if (!served) err(at(f), c.line, 'task-skill-url', `cites ${c.url}, which the built site does not serve${existsSync(file) ? ' (a directory with no index.html is a 404)' : ''}`);
+        } else if (c.kind === 'site') {
+          const inPublic = join(PUBLIC_DIR, decodeURIComponent(c.path!));
+          if (existsSync(inPublic) && statSync(inPublic).isDirectory() && !existsSync(join(inPublic, 'index.html'))) {
+            err(at(f), c.line, 'task-skill-url', `cites ${c.url}, a directory with no index.html, which the site serves as a 404; cite each file's URL`);
+            continue;
+          }
+          const ok = resolvesOnSite(c.path!, site, null);
+          if (ok === false) err(at(f), c.line, 'task-skill-url', `cites ${c.url}, which the site does not serve`);
+          else if (ok === null) report(at(f), c.line, 'warning', 'task-skill-url', `cites ${c.url}, which the source tree does not show; \`docs:check -- --built\` decides`);
+        }
+      }
+      for (const p of proseProblems(text)) {
+        if (p.rule === 'injection') err(at(f), p.line, 'trust-injection', `addresses the agent ("${p.text}"); docs are data (ADR-0013)`);
+        else err(at(f), p.line, 'trust-imperative', `"${p.text}" instructs the reader; describe the behavior instead (ADR-0013)`);
+      }
+      for (const fence of skillFences(text)) {
+        const shell = SHELL_LANGS.has(fence.lang);
+        const opens = shell ? writableOpens(fence.code) : clientWritableOpens(fence.lang, fence.code);
+        if (opens === null) {
+          if (!DATA_LANGS.has(fence.lang)) err(at(f), fence.line, 'task-skill', `a \`${fence.lang || '(no language)'}\` fence; a task skill's fences are ${[...DATA_LANGS, ...SHELL_LANGS, ...Object.keys(CLIENT_LANGS)].join(', ')}, the languages the read-only rule reads or that open nothing`);
+          continue;
+        }
+        const writes = fence.info.includes('writes');
+        if (writes && !/\bwrites?\b/i.test(fence.before)) err(at(f), fence.line, 'trust-read-only', 'a `writes` fence follows prose that does not say the command writes');
+        if (!writes) {
+          const flag = shell ? '--read-only' : fence.lang.startsWith('py') ? 'read_only=True' : 'readOnly: true';
+          for (const l of opens) err(at(f), fence.line, 'trust-read-only', `opens a store without ${flag}: ${l.trim().slice(0, 100)}; mark the fence \`writes\` only where the skill is about writing and says so`);
+        }
+      }
+      const { problems } = cypherSteps(text);
+      for (const p of problems) err(at(f), p.line, 'task-skill-cypher', p.message);
+      const prose = text.replace(/\bhttps?:\/\/\S+/g, '');
+      for (const m of prose.matchAll(/\b\d+\.\d+\.\d+\b/g)) {
+        if (m[0] !== site.engine.version) err(at(f), prose.slice(0, m.index).split('\n').length, 'task-skill-version', `names version ${m[0]}; version strings come from _data/engine.json (${site.engine.version})`);
+      }
+    }
+    for (const f of texts.keys()) if (f !== 'SKILL.md' && !linked.has(f)) err(at(f), null, 'task-skill-link', 'is not linked from SKILL.md, so an agent reading SKILL.md never finds it');
+    if (!cited.size) err(at('SKILL.md'), null, 'task-skill-url', 'cites no recipe; each task skill cites the recipes that test it (DOCS-PLAN.md §3.8)');
+
+    // The record: reviewed files, and the recipes as they were then.
+    if (!record) {
+      err(dataFile, null, 'task-skill-record', `task_skills does not record ${skill.name}; ${RECORD}`);
+      continue;
+    }
+    const want = new Map(record.files.map((x) => [x.path, x.sha256]));
+    for (const f of files) {
+      const hash = sha256(readFileSync(at(f)));
+      if (!want.has(f)) err(at(f), null, 'task-skill-record', `not in task_skills; ${RECORD}`);
+      else if (want.get(f) !== hash) err(at(f), null, 'task-skill-record', `changed since the review recorded on ${record.reviewed}; ${RECORD}`);
+    }
+    for (const p of want.keys()) if (!files.includes(p)) err(at(p), null, 'task-skill-record', `recorded in task_skills but missing; ${RECORD}`);
+    const recorded = new Map(record.recipes.map((r) => [r.slug, r]));
+    for (const slug of cited) if (!recorded.has(slug)) err(dataFile, null, 'task-skill-stale', `${skill.name} cites the recipe ${slug}, which task_skills does not record; ${RECORD}`);
+    for (const r of record.recipes) {
+      if (!cited.has(r.slug)) {
+        err(dataFile, null, 'task-skill-stale', `${skill.name}: task_skills records the recipe ${r.slug}, which the skill no longer cites; ${RECORD}`);
+        continue;
+      }
+      const src = recipeSource(r.slug);
+      if (existsSync(src) && sha256(readFileSync(src)) !== r.source_sha256) {
+        err(at('SKILL.md'), null, 'task-skill-stale', `the recipe ${r.slug} changed since ${skill.name} was reviewed; re-check the skill against it, then ${RECORD}`);
+      }
+      if (builtDist) {
+        const built = builtResults(builtDist, r.slug);
+        if (!built) err(at('SKILL.md'), null, 'task-skill-stale', `the built site has no /cookbook/${r.slug}/results.json`);
+        else if (r.results_sha256 === null) err(dataFile, null, 'task-skill-stale', `${skill.name}: no results digest recorded for ${r.slug}; record after a build (\`npm run skills:record -- --dist dist\`)`);
+        else if (resultsDigest(built) !== r.results_sha256) err(at('SKILL.md'), null, 'task-skill-stale', `the recipe ${r.slug}'s results changed since ${skill.name} was reviewed; re-check the skill against them, then ${RECORD}`);
+      }
+    }
+  }
+}
+
+/**
+ * Run every task skill's ```cypher fences on the WebAssembly build
+ * (src/lib/docs/skill.ts `runSkillCypher`): each file on its own fresh
+ * in-memory store, fences in document order. Reports each failure with the
+ * fence's line and what the engine returned; returns the counts.
+ */
+export async function checkTaskSkillCypher(report: Report, wasm?: Wasm, skillsDir = join(PUBLIC_DIR, 'skills')): Promise<{ files: number; fences: number; statements: number }> {
+  const engine = wasm ?? ((await (await import('../../cookbook/run.ts')).loadEngine()) as unknown as Wasm);
+  const totals = { files: 0, fences: 0, statements: 0 };
+  for (const skill of taskSkills(skillsDir)) {
+    for (const f of skillFiles(skill.dir).filter((x) => x.endsWith('.md'))) {
+      const run = runSkillCypher(engine, readFileSync(join(skill.dir, f), 'utf8'));
+      totals.files++;
+      totals.fences += run.steps;
+      totals.statements += run.statements;
+      for (const x of run.failures) report(join(skill.dir, f), x.line, 'error', 'task-skill-cypher', x.message);
+    }
+  }
+  return totals;
 }

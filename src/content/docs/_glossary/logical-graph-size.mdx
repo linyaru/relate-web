@@ -1,9 +1,23 @@
 ---
 id: logical-graph-size
-term: logical graph size
+term: "logical graph size"
 short: "relate's own byte count of the live nodes, relationships, properties and index entries; what `--logical-graph-size-limit` caps."
 aliases: []
 context: storage
 see: guides/operate/sizing-and-memory
-related: ["store"]
+related: ["store", "index"]
 ---
+
+The logical graph size is an estimate relate keeps of the graph it holds in memory: the live nodes, relationships, properties and index entries, counted in bytes by the engine's own accounting. It is not the size of the files on disk, which depends on the codec, and not the process's resident memory, which also holds the engine, buffers, and the results of running statements.
+
+`--logical-graph-size-limit` caps it, in bytes or with a unit: `mb` or `gb` for powers of 1000, `mib` or `gib` for powers of 1024. The default is unlimited, and `0` means unlimited too. A write that would take the graph past the cap fails with `capacity exceeded: used=… limit=…` and exit code 1.
+
+```bash
+relate --logical-graph-size-limit 1000 "UNWIND range(1, 1000) AS i CREATE (:N {i: i})"
+```
+
+```text
+capacity exceeded: used=258 limit=1000
+```
+
+The command writes to an in-memory store, so nothing on disk changes.

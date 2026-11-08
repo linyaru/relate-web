@@ -113,11 +113,11 @@ No address for reporting a vulnerability exists yet. It is to be published at la
 
 ## Served surfaces
 
-`relate serve` hosts the HTTP Query API, MCP, and Bolt on one open store. Its defaults:
+`relate serve` hosts the :term[HTTP Query API]{id=http-query-api}, :term[MCP]{id=mcp}, and :term[Bolt]{id=bolt} on one open :term[store]{id=store}. Its defaults:
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Bind address (`--host`) | `127.0.0.1`, loopback only | Any other host exposes every surface in plaintext and prints a warning at startup |
+| Bind address (`--host`) | `127.0.0.1`, loopback only | Any other host exposes every :term[surface]{id=surface} in plaintext and prints a warning at startup |
 | TLS | None | No surface has TLS |
 | Authentication (`--auth`) | A generated token, printed at startup and kept in `<dir>.auth-token` with mode `0600` | One Basic-auth credential for every surface; `--auth none` turns authentication off; no users or roles |
 | Browser origins on HTTP (`--origin`) | Loopback origins, `https://browser.neo4j.io` and `https://console.neo4j.io` | Repeatable; `*` allows any origin |

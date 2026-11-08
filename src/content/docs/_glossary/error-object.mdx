@@ -1,0 +1,17 @@
+---
+id: error-object
+term: "error object"
+short: "The JSON object a failed query run prints on stdout in the `json`, `jsonl`, `envelope` and `speedscope` modes: the class, the kind, the message, the exit code."
+aliases: []
+context: cli
+see: reference/errors
+related: ["exit-code", "envelope", "conflict"]
+---
+
+When a statement fails in a JSON output mode, the CLI prints the message on stderr as always, and on stdout one object under the key `error`. `code` is the class (`validation_error`, `conflict` and the rest), `exit_code` equals the process exit code, `kind` is the engine's error variant, `retryable` is `true` for a write-write conflict and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool, and `message` repeats the stderr text. A syntax error also carries the `source` text and the `column`.
+
+```text
+{"error":{"code":"validation_error","column":10,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)   MATCH (n RETURN n            ^","retryable":false,"source":"MATCH (n RETURN n"}}
+```
+
+Exit codes 0 and 2 never come with one: 0 is success, and a usage error stops the run before any statement. The `table` and `toon` modes print none, so under agent mode's piped `toon` default a failure shows only on stderr and in the exit code.

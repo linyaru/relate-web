@@ -108,6 +108,7 @@ const data: SkillData = {
   synced: unchanged ? before.synced : new Date().toISOString().slice(0, 10),
   version,
   files,
+  ...(before?.task_skills ? { task_skills: before.task_skills } : {}),
 };
 writeFileSync(SKILL_DATA_FILE, toJson(data));
 

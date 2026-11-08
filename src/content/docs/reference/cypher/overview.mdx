@@ -6,7 +6,7 @@ surfaces: [cypher, cli]
 related: [reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations, concepts/cypher-dialect]
 ---
 
-relate runs openCypher, plus a large part of Neo4j's Cypher 25 and its extensions aligned with GQL, the ISO graph query language. Statements run as Cypher 25 unless a `CYPHER 5` prefix says otherwise. Preview features stay off until `RELATE_PREVIEW` names them. Cypher for servers and clusters, such as users, roles and composite databases, is out of scope for an engine that runs inside one process.
+relate runs :term[openCypher]{id=opencypher}, plus a large part of Neo4j's Cypher 25 and its extensions aligned with GQL, the ISO graph query language. Statements run as Cypher 25 unless a `CYPHER 5` prefix says otherwise. Preview features stay off until `RELATE_PREVIEW` names them. Cypher for servers and clusters, such as users, roles and composite databases, is out of scope for an engine that runs inside one process.
 
 ## Synopsis
 
@@ -57,7 +57,7 @@ Each feature runs on the WebAssembly build the cells on this site use and on the
 
 ## Preview features
 
-A preview feature ships in the engine and stays off until its name is in `RELATE_PREVIEW`, which is read once when the store opens. Several names are separated by commas. An unknown name fails the open with exit code 1 and lists the known names. The error a feature gives while it is off depends on the feature, as the When off column shows. Most give the preview message, `semantic error: SemanticError: preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>`, which names the opt-in. A name gate fails as an unknown function, and a few fail as the parser or the `SEARCH` rules would without the feature; those messages do not mention `RELATE_PREVIEW`.
+A :term[preview feature]{id=preview-feature} ships in the engine and stays off until its name is in `RELATE_PREVIEW`, which is read once when the :term[store]{id=store} opens. Several names are separated by commas. An unknown name fails the open with exit code 1 and lists the known names. The error a feature gives while it is off depends on the feature, as the When off column shows. Most give the preview message, `semantic error: SemanticError: preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>`, which names the opt-in. A name gate fails as an unknown function, and a few fail as the parser or the `SEARCH` rules would without the feature; those messages do not mention `RELATE_PREVIEW`.
 
 | Name | Enables | When off |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ The default language of each namespace:
 SHOW DATABASES YIELD name, defaultLanguage RETURN name, defaultLanguage
 ```
 
-A label expression with a pattern predicate, and a quantified path pattern:
+A :term[label expression]{id=label-expression} with a pattern predicate, and a quantified path pattern:
 
 ```cypher run name=label-expression
 MATCH (p:Person&!Project WHERE p.role = 'engineer') RETURN p.name AS name ORDER BY name

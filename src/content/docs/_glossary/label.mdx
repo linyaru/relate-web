@@ -1,0 +1,17 @@
+---
+id: label
+term: "label"
+short: "A name that classifies a node, such as `Person`; a node has zero or more, and patterns, indexes and constraints refer to them."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["node", "relationship-type", "label-expression", "index"]
+---
+
+A label groups nodes: `MATCH (p:Person)` reads only nodes labeled `Person`, and an :term[index]{id=index} or :term[constraint]{id=constraint} covers one label's property. A node can carry several labels, or none; `SET n:Admin` adds one, `REMOVE n:Person` removes one, and `labels(n)` lists them.
+
+```cypher
+MATCH (n:Person) SET n:Engineer RETURN labels(n) AS labels
+```
+
+:term[Label expressions]{id=label-expression} combine labels in a pattern, and dynamic labels, `MATCH (n:$($label))`, take a label from a parameter. A label the store has never seen is not an error in a read, but `EXPLAIN` reports it with a notification.

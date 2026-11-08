@@ -7,7 +7,7 @@ surfaces: [cli, mcp, agents]
 related: [reference/cli/agent-mode, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety, guides/agents/connect-over-mcp, reference/errors]
 ---
 
-What does it mean for a database to be agent-native? An agent reads every byte a command prints, pays for each one in its context window, and decides its next step from the result alone. relate's CLI is built for that reader: it prints results in shapes a model can parse, reports failures as typed objects with stable exit codes, keeps large results from flooding the context, and notices when an agent harness is running it. The skill and the MCP surface carry the same contract to agents that never open a shell.
+What does it mean for a database to be agent-native? An agent reads every byte a command prints, pays for each one in its context window, and decides its next step from the result alone. relate's CLI is built for that reader: it prints results in shapes a model can parse, reports failures as typed objects with stable exit codes, keeps large results from flooding the context, and notices when an :term[agent harness]{id=agent-harness} is running it. The skill and the :term[MCP]{id=mcp} surface carry the same contract to agents that never open a shell.
 
 ## The loop
 
@@ -32,7 +32,7 @@ flowchart TB
 
 **Shapes a model can parse.** `--mode envelope` prints one JSON object per result set. The :term[envelope]{id=envelope} keeps the column list even when there are no rows, so "no rows" never reads as "no output". `columnTypes` gives one type per column, taken from the first row, so an empty result reports `ANY`. The envelope also carries the query notifications. When stdout is piped, the default is one JSON object per row (`jsonl`).
 
-**Typed failures.** A failed statement prints its message on stderr and exits with the :term[exit code]{id=exit-code} of its class: 6 for a statement the engine rejected, 5 for a conflict or a locked store, 7 for a timeout. In the JSON modes it also prints an error object on stdout whose `code`, `kind` and `retryable` fields an agent branches on without parsing prose. `retryable` is `true` only for a write-write conflict, so an agent never loops on an error that cannot succeed.
+**Typed failures.** A failed statement prints its message on stderr and exits with the :term[exit code]{id=exit-code} of its class: 6 for a statement the engine rejected, 5 for a conflict or a locked store, 7 for a timeout. In the JSON modes it also prints an error object on stdout whose `code`, `kind` and `retryable` fields an agent branches on without parsing prose. `retryable` is `true` for a write-write conflict and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool, so an agent never loops on an error that cannot succeed.
 
 **A row cap.** One statement that returns every node of a large graph can fill a context window. Under a detected agent harness with stdout not a terminal, the CLI prints at most 100 rows per statement and says so in-band. Here the same cut is forced with `--max-rows 2`:
 

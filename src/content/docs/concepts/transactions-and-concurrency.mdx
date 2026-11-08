@@ -6,7 +6,7 @@ surfaces: [cli, python, node, bolt, http]
 related: [guides/operate/two-processes-one-store, guides/agents/agent-safety, concepts/storage-and-durability, reference/errors]
 ---
 
-What happens when two things use a relate store at once? Inside one process, readers never block and never see a half-finished write: each statement reads the graph as of the last commit before it started. Writers run side by side but commit one at a time, and when two transactions change the same node or relationship, the later commit fails with a retryable :term[write-write conflict]{id=conflict} instead of overwriting the first. Across processes, a store has one writer; other processes can read a directory store with `--read-only`.
+What happens when two things use a relate store at once? Inside one process, readers never block and never see a half-finished write: each statement reads the graph as of the last commit before it started. Writers run side by side but commit one at a time, and when two :term[transactions]{id=transaction} change the same node or relationship, the later commit fails with a retryable :term[write-write conflict]{id=conflict} instead of overwriting the first. Across processes, a store has one writer; other processes can read a :term[directory store]{id=directory-store} with `--read-only`.
 
 ## One process, one writer path
 

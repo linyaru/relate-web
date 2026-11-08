@@ -6,7 +6,7 @@ surfaces: [cli, agents]
 related: [reference/cli/flags, reference/cli/exit-codes-and-errors, concepts/agent-native, guides/agents/drive-relate-from-an-agent]
 ---
 
-:term[Agent mode]{id=agent-mode} is a pair of default changes the CLI makes for a query run under an agent harness: at most 100 rows printed per statement, with the cut reported, and `toon` instead of `jsonl` as the output mode when stdout is piped. It turns on when relate detects a harness and stdout is not a terminal, or when `--agent-mode` or `RELATE_AGENT_MODE=1` asks for it. An explicit `--mode` or `--max-rows` overrides either default. Agent mode never blocks a write, changes the envelope's shape, or changes an exit code, but its piped `toon` default prints no error object on stdout: a failure there shows only as the stderr message and the exit code.
+:term[Agent mode]{id=agent-mode} is a pair of default changes the CLI makes for a query run under an agent harness: at most 100 rows printed per statement, with the cut reported, and `toon` instead of `jsonl` as the output mode when stdout is piped. It turns on when relate detects a harness and stdout is not a terminal, or when `--agent-mode` or `RELATE_AGENT_MODE=1` asks for it. An explicit `--mode` or `--max-rows` overrides either default. Agent mode never blocks a write, changes the envelope's shape, or changes an exit code, but its piped `toon` default prints no :term[error object]{id=error-object} on stdout: a failure there shows only as the stderr message and the exit code.
 
 ## Synopsis
 

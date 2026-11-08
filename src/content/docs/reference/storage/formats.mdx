@@ -6,7 +6,7 @@ surfaces: [cli, python, node]
 related: [guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, concepts/storage-and-durability, reference/storage/wal-and-checkpoints, reference/storage/limits-and-sizing]
 ---
 
-A relate :term[store]{id=store} has one of three layouts, picked by the path given to `--database`: in memory, a directory, or a single `.rl` file. A durable store also has one :term[codec]{id=codec}, the encoding its checkpoints write the snapshot in: `parquet` (the default), `json` or `markdown`. Every layout and codec runs the same engine: the graph is held in memory while the store is open, and every commit goes to the store's :term[write-ahead log]{id=wal} (WAL) before it applies. The layout and codec decide only what a :term[checkpoint]{id=checkpoint} writes to disk.
+A relate :term[store]{id=store} has one of three layouts, picked by the path given to `--database`: in memory, a directory, or a single `.rl` file. A durable store also has one :term[codec]{id=codec}, the encoding its checkpoints write the :term[snapshot]{id=snapshot} in: `parquet` (the default), `json` or `markdown`. Every layout and codec runs the same engine: the graph is held in memory while the store is open, and every commit goes to the store's :term[write-ahead log]{id=wal} (WAL) before it applies. The layout and codec decide only what a :term[checkpoint]{id=checkpoint} writes to disk.
 
 ## Synopsis
 
@@ -89,6 +89,36 @@ A `markdown` store keeps `manifest.json` and the WAL in its `.cypherlite/` folde
 The snapshot files hold the state at the last checkpoint; the WAL holds every commit since. Opening a store loads the snapshot, then replays the WAL. A copy of the snapshot files without the WAL folder holds the state at the last checkpoint only, and a `--read-only` open of it fails.
 
 On-disk names that start with `.cypherlite` and the magic numbers in the version markers table keep the product's former name, so stores written by earlier releases open unchanged.
+
+The schema copy is plain text. After two schema statements on a directory store, `schema.cypher` holds one statement per index and constraint:
+
+```bash verify
+relate --database ./people --mode envelope "CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE"
+relate --database ./people --mode envelope "CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)"
+```
+
+```bash verify
+cat people/.cypherlite/schema/schema.cypher
+```
+
+```text
+CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`);
+CREATE CONSTRAINT `person_name` FOR (n:`Person`) REQUIRE (n.`name`) IS UNIQUE;
+```
+
+The copy is checked on every open, so an edited file stops the store from opening, read-only included:
+
+```bash verify
+echo "// edited" >> people/.cypherlite/schema/schema.cypher
+relate --database ./people --read-only --mode envelope "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Failed to open Relate: storage error: schema mirror .cypherlite/schema/schema.cypher differs from the schema this store's checkpoint persisted; it was edited by hand or copied from another store; delete the .cypherlite/schema/ directory and reopen: the next checkpoint regenerates it from the store's schema
+{"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: schema mirror .cypherlite/schema/schema.cypher differs from the schema this store's checkpoint persisted; it was edited by hand or copied from another store; delete the .cypherlite/schema/ directory and reopen: the next checkpoint regenerates it from the store's schema","retryable":false}}
+exit=1
+```
 
 ## Version markers
 

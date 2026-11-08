@@ -13,3 +13,16 @@ declare module '*.cypher' {
 declare module '*/generated/wasm/trap.js' {
   export function isWasmTrap(err: unknown): boolean;
 }
+
+declare module '*.txt' {
+  const text: string;
+  export default text;
+}
+
+declare module '*/generated/wasm/relate-factory.js' {
+  import type { RelateDb } from '../generated/wasm/relate.js';
+  export function createRelate(console: Pick<Console, 'error' | 'warn' | 'log'>): {
+    initSync(options: { module: WebAssembly.Module }): unknown;
+    RelateDb: typeof RelateDb;
+  };
+}

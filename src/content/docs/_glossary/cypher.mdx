@@ -1,0 +1,20 @@
+---
+id: cypher
+term: "Cypher"
+short: "The declarative graph query language relate runs, written as ASCII-art patterns such as `(a)-[:KNOWS]->(b)`; relate follows Neo4j's Cypher 25 by default."
+aliases: ["cypher"]
+context: cypher
+see: concepts/cypher-dialect
+related: ["opencypher", "cypher-25", "gql", "statement"]
+---
+
+Cypher describes what to find or change as patterns of nodes and relationships: `(p:Person)-[:WORKS_ON]->(proj:Project)` matches people and the projects they work on, and clauses such as `MATCH`, `WHERE`, `CREATE`, `MERGE` and `RETURN` say what to do with the matches. It came from Neo4j, and its open specification is :term[openCypher]{id=opencypher}.
+
+relate speaks one dialect on every surface: :term[Cypher 25]{id=cypher-25} by default, with openCypher as the floor and a `CYPHER 5` prefix for a statement that asks for the older version. Features that only make sense on a multi-user server, such as users, roles and several databases, are left out and fail with a typed error.
+
+```cypher
+MATCH (p:Person)-[:WORKS_ON]->(proj:Project)
+RETURN p.name AS person, proj.name AS project
+```
+
+The name is written Cypher, with a capital C, in prose.

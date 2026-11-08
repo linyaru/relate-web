@@ -7,7 +7,7 @@ prerequisites: [get-started/install]
 related: [get-started/install#keep-relate-up-to-date, reference/storage/formats, guides/storage/backup-and-restore, reference/changelog]
 ---
 
-This guide shows you how to take a store to a newer relate release. Migration is automatic and forward-only: the first writable open by a newer binary rewrites an older store in the current format before it runs a statement, and no release converts a store back. Once migrated, the older binary refuses the store, so the backup comes first.
+This guide shows you how to take a :term[store]{id=store} to a newer relate release. Migration is automatic and forward-only: the first writable open by a newer binary rewrites an older store in the current format before it runs a statement, and no release converts a store back. Once migrated, the older binary refuses the store, so the backup comes first.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ indexes: 0
 constraints: 0
 ```
 
-`format version` is the version of the Parquet snapshot, and `superblock version` that of the `.rl` file around it. `relate info --json` prints the same fields as `format_version` and `superblock_version`. A store with the JSON :term[codec]{id=codec} prints `format version: unavailable`, because its version is inside `graph.json`, which a cold read doesn't parse.
+`format version` is the version of the Parquet :term[snapshot]{id=snapshot}, and `superblock version` that of the `.rl` file around it. `relate info --json` prints the same fields as `format_version` and `superblock_version`. A store with the JSON :term[codec]{id=codec} prints `format version: unavailable`, because its version is inside `graph.json`, which a cold read doesn't parse.
 
 Where each part's version shows:
 

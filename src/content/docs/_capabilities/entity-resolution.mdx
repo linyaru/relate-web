@@ -1,0 +1,39 @@
+---
+id: entity-resolution
+title: Entity resolution
+order: 70
+problem: "Merge two messy exports that list the same customers spelled differently into one record per company, with doubtful pairs left for a person."
+capability: "Normalized keys, bigram similarity and IDF-weighted scores computed in Cypher over records, entities and tokens, with `SAME_AS` and `POSSIBLE_MATCH` relationships for the decisions."
+intents:
+  - deduplicate customer records
+  - match the same company across two exports
+  - fuzzy matching of names in Cypher
+  - merge duplicate entities in a graph
+  - review queue for uncertain matches
+surfaces: [cypher, cli]
+guides: [guides/cypher/import-csv]
+recipes: [entity-resolution]
+reference: [reference/cypher/overview]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for entity resolution: records, the entities they resolve to, and the words that match them
+    accDescr {
+      A Record from either export RESOLVES_TO an Entity. An Entity HAS_TOKEN
+      the words of its name, and tokens are SIMILAR to one another. Between two
+      entities, SAME_AS holds a scored match and POSSIBLE_MATCH a doubtful pair
+      left for review.
+    }
+    Record(("<b>Record</b><br/>id · name · domain<br/>city · key")) -- "<b>RESOLVES_TO</b>" --> Entity(("<b>Entity</b><br/>key · cluster"))
+    Entity -- "<b>HAS_TOKEN</b>" --> Token(("<b>Token</b><br/>text · idf"))
+    Token -- "<b>SIMILAR</b><br/>dice" --> Token
+    Entity -- "<b>SAME_AS</b><br/>score" --> Other(("<b>Entity</b><br/>another entity"))
+    Entity -- "<b>POSSIBLE_MATCH</b><br/>score · reason" --> Other
+    class Record l1
+    class Entity,Other l3
+    class Token l4
+verify: entity-resolution#score
+---
+
+A CRM export and a billing export name the same customers differently: one in capitals with a suffix, one with a typo. Matching them row by row in application code means a fuzzy-matching library, a pairwise loop and thresholds tuned by eye, and the evidence for each merge is gone once the loop ends.
+
+The [entity resolution recipe](/cookbook/entity-resolution/) does the matching inside the store, in Cypher. Each row becomes a `Record` that resolves to an `Entity` per normalized name; the words of the names become `Token` nodes weighted by rarity, and `SIMILAR` links words that look like typos of each other by bigram similarity. Strong candidate pairs become `SAME_AS` and doubtful ones `POSSIBLE_MATCH`, a queue for a person to check. On the recipe's data it resolves 396 records into 211 companies and, against the generator's ground truth, finds 216 of 218 duplicate pairs with no false merges. [Import a CSV](/docs/guides/cypher/import-csv) loads exports like these from files.

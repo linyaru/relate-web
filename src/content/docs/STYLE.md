@@ -56,7 +56,7 @@ Samples, in relate's voice:
 | Instead of | Write |
 |---|---|
 | Boom! Your graph is ALIVE 🎉 | You have a graph. It lives in one file, and you can email it. |
-| Simply run the following command to easily create a database. | Create a store: `relate query --database ./friends` |
+| Simply run the following command to easily create a database. | Create a store: `relate query --database ./team` |
 | Unfortunately, relate does not support cross-graph queries at this time. | A statement runs against one graph. To combine data from two stores, `clone` one into the other or query each and join in your code. |
 | `:memory:` is a great option for quick experiments! | `:memory:` forgets everything when the process exits. That's the feature. |
 | Please note that the row cap applies only when an agent harness is detected. | Under a detected agent harness, a statement prints at most 100 rows and says so in-band. `--max-rows 0` prints them all. |
@@ -180,9 +180,10 @@ tutorials, short fragments in tables, the Oxford comma, American spelling
   way is a real trap (a near miss), never an obvious one.
 - Exact strings only: error messages, exit codes, flag names, JSON keys.
   Quote the message the engine prints, character for character.
-- Example data: one shared example graph across the docs (the `friends`
-  graph from the quick start, extended as tutorials need), so a reader
-  moving between languages recognises it. Example names are short, varied,
+- Example data: one shared example graph across the docs (the team
+  graph: Ada, Grace and Noor; the `relate` and `opencypher-tck` projects;
+  extended as tutorials need), so a reader moving between languages
+  recognises it. Example names are short, varied,
   ASCII, and invented; no real people, companies, or pop-culture references.
   Example data is where the fun is allowed, within those rules.
 

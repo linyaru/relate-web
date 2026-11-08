@@ -1,4 +1,290 @@
 ---
 title: Choose a store layout
-status: planned
+description: Pick an in-memory store, a directory store or a single .rl file, and a codec, by their trade-offs in size, startup, diffs and sharing.
+order: 10
+surfaces: [cli, python, node]
+prerequisites: [get-started/install]
+related: [reference/storage/formats, guides/storage/backup-and-restore, guides/operate/two-processes-one-store, concepts/storage-and-durability]
 ---
+
+This guide shows you how to choose where a relate :term[store]{id=store} lives and how it is written to disk. The path you pass to `--database` picks the layout: `:memory:` keeps the graph in the process, a path ending in `.rl` is one file, and any other path is a directory. Use `:memory:` for throwaway work, a `.rl` file for a store you copy or hand to someone, and a directory store when a second process reads beside the writer or you want a text snapshot you can diff.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- For the client section: the Python client (`relate-db`) or the Node.js client (`@relate/relate`).
+
+## Compare the layouts
+
+Every layout runs the same engine: the whole graph lives in memory while the store is open, and every commit goes to the store's write-ahead log (WAL) first. The layouts differ in what sits on disk.
+
+| | In memory | `.rl` file | Directory store |
+| --- | --- | --- | --- |
+| `--database` value | `:memory:` (the default) | a path ending in `.rl` | any other path |
+| Survives the process | No | Yes | Yes |
+| On disk | Nothing | One file | A folder: snapshot files and a WAL folder |
+| A reader beside a writer | Not possible: one process owns it | No: a `--read-only` open is refused while a writer holds the file | Yes, with `--read-only` |
+| Size on disk | None | Grows to the most space it has needed and reuses it; `relate clone` writes a compact copy | The snapshot plus the WAL since the last checkpoint |
+| Diffable | No | No | With the JSON :term[codec]{id=codec}: `graph.json` is text |
+| Startup | Starts empty | Loads the whole graph, then replays the WAL | Loads the whole graph, then replays the WAL |
+
+Startup grows with the size of the graph in every durable layout, because relate loads all of it into memory before the first statement runs. The [storage formats reference](/docs/reference/storage/formats) has the file layout of each and measured sizes.
+
+## Start in memory
+
+With no `--database`, a statement runs against an in-memory store that is gone when the process exits:
+
+```bash verify
+relate --mode envelope "RETURN 1 AS ok"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+```
+
+Use it for tests, scratch statements and anything you rebuild from a script.
+
+## Create a single-file store
+
+The rest of this guide uses one small graph. Save its seed statement as `team.cypher`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+```
+
+Run it into a path that ends in `.rl`. relate creates the file on the first open:
+
+```bash verify
+relate query --database ./team.rl --mode envelope < team.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+`relate info` reads a store's metadata without opening it:
+
+```bash verify
+relate info --database ./team.rl
+```
+
+```text
+layout: .rl bundle
+superblock version: 1
+codec: parquet
+format version: 3
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 36864
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 1): 5
+relationships (at checkpoint LSN 1): 5
+indexes: 0
+constraints: 0
+```
+
+Choose a `.rl` file when the store travels: one file to copy, attach, or check in. To read it into memory without holding the file, pass it to `--load`; the in-memory copy is read-only:
+
+```bash verify
+relate --load ./team.rl --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+```
+
+## Create a directory store
+
+Any path that does not end in `.rl` becomes a directory store:
+
+```bash verify
+relate query --database ./team --mode envelope < team.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+The folder holds the snapshot (`manifest.json` and the Parquet files under `nodes/` and `relationships/`) and the WAL:
+
+```bash verify
+ls team
+```
+
+```text
+manifest.json
+nodes
+relationships
+wal
+```
+
+Choose a directory store when another process needs to read while one writes: a `--read-only` open of a directory works beside its writer, and a `.rl` file refuses it. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) covers that setup.
+
+## Pick a codec for a directory store
+
+A codec is the encoding a checkpoint writes the snapshot in. The default is Parquet: compact, binary columnar files. JSON writes the whole graph as one readable `graph.json`, which a code review can diff. Pass `--snapshot-format json` when you create the store:
+
+```bash verify
+relate query --database ./team-json --snapshot-format json --mode envelope < team.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+```bash verify
+ls team-json
+```
+
+```text
+graph.json
+manifest.json
+wal
+```
+
+The codec is fixed when the store is created and recorded in `manifest.json`, so later opens need no flag:
+
+```bash verify
+relate --database ./team-json --read-only --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name"
+```
+
+```text
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+```
+
+`RELATE_SNAPSHOT_FORMAT=json` makes the same choice for a new store, including from the clients. A third codec, `markdown`, writes one note per node for a folder people edit by hand; the [formats reference](/docs/reference/storage/formats) describes it.
+
+## Open a store from Python or Node.js
+
+The clients take the same three spellings: `":memory:"`, a directory path, or a path ending in `.rl`. Each opens writable by default and creates a missing store. In Python, `relate.connect(path)` opens one, as in the [Python tutorial](/docs/get-started/python), and `read_only=True` opens it read-only. This program writes the graph into each layout, then opens the `.rl` file :term[read-only]{id=read-only}:
+
+```python run name=open-layouts title="layouts.py"
+import relate
+
+seed = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+for path in [":memory:", "./team", "./team.rl"]:
+    conn = relate.connect(path)
+    conn.execute(seed)
+    people = conn.execute("MATCH (p:Person) RETURN count(p) AS people").fetchone()["people"]
+    print(f"{path}: {people} people")
+    conn.close()
+
+reader = relate.connect("./team.rl", read_only=True)
+rows = reader.execute("MATCH (p:Person) RETURN p.name AS name ORDER BY name").fetchall()
+print("read-only:", [row["name"] for row in rows])
+reader.close()
+```
+
+In Node.js, `Database.open` takes the same paths, and `{ readOnly: true }` opens a store read-only. The Node.js handles in this program stay open until it exits, so the read-only open goes to the directory store, which allows a reader beside its writer:
+
+```js run name=open-layouts-js title="layouts.cjs"
+const { Database } = require("@relate/relate");
+
+const seed = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`;
+
+for (const path of [":memory:", "./team", "./team.rl"]) {
+  const db = Database.open(path);
+  const conn = db.connect();
+  conn.query(seed);
+  const people = conn.query("MATCH (p:Person) RETURN count(p) AS people").rows[0].people;
+  console.log(`${path}: ${people} people`);
+}
+
+const reader = Database.open("./team", { readOnly: true }).connect();
+const names = reader.query("MATCH (p:Person) RETURN p.name AS name ORDER BY name").rows;
+console.log("read-only:", names.map((row) => row.name));
+```
+
+## Switch layouts later
+
+`relate clone` copies a store into a new store of either layout, and `--to-snapshot-format` changes the codec on the way. The source is opened read-only and never written; the destination must not exist yet. Turn the `.rl` file into a directory store:
+
+```bash verify
+relate clone ./team.rl ./team-copy
+```
+
+Then make a JSON copy of that:
+
+```bash verify
+relate clone --to-snapshot-format json ./team-copy ./team-copy-json
+```
+
+Switch when the job changes:
+
+| If | Move to |
+| --- | --- |
+| A second process must read while one writes | A directory store |
+| The store is shipped, attached, or archived | A `.rl` file |
+| Reviewers diff the graph in pull requests | A directory store with the JSON codec |
+| The `.rl` file is larger than its content | A fresh `.rl` from `relate clone` |
+
+## Verify
+
+`relate info` names the layout and codec of a store. The JSON copy reports both on its first two lines:
+
+```bash verify
+relate info --database ./team-copy-json | head -n 2
+```
+
+```text
+layout: native directory
+codec: json
+```
+
+## If it goes wrong
+
+- **`storage error: snapshot codec mismatch: directory is json, requested parquet`** (exit code 1). `--snapshot-format` named a codec other than the one the directory was created with. Asking for Parquet on the JSON store fails:
+
+  ```bash verify
+  relate --database ./team-json --snapshot-format parquet --read-only --mode envelope "RETURN 1 AS ok"
+  ```
+
+  ```text
+  Failed to open Relate: storage error: snapshot codec mismatch: directory is json, requested parquet
+  {"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: snapshot codec mismatch: directory is json, requested parquet","retryable":false}}
+  ```
+
+  Drop the flag, or make a copy in another codec with `relate clone --to-snapshot-format <codec> <source> <dest>`.
+
+- **`storage locked: <path>`** (exit code 5). Another process holds the store. A `.rl` file can't be opened at all while a writer holds it, even `--read-only`. If a reader has to run beside the writer, move to a directory store with `relate clone`. The [locked error](/docs/reference/errors#cli-conflict-locked) has the details.
+- **`Failed to clone database: storage error: clone destination already exists`** (exit code 1). `relate clone` never overwrites. Pick a new destination path.
+
+## Related
+
+- [Storage formats](/docs/reference/storage/formats): the files each layout and codec writes, versions, and measured sizes.
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): `relate clone` as the backup command.
+- [Storage and durability](/docs/concepts/storage-and-durability): the write path every layout shares.
+- [Share one store between two processes](/docs/guides/operate/two-processes-one-store): a writer and readers on one directory store.

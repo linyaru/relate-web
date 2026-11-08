@@ -1,4 +1,169 @@
 ---
 title: Cypher overview
-status: planned
+description: The Cypher dialect relate runs, from the openCypher floor to Neo4j's Cypher 25 and GQL-aligned extensions, the preview features, and what is out of scope.
+order: 10
+surfaces: [cypher, cli]
+related: [reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations, concepts/cypher-dialect]
 ---
+
+relate runs openCypher, plus a large part of Neo4j's Cypher 25 and its extensions aligned with GQL, the ISO graph query language. Statements run as Cypher 25 unless a `CYPHER 5` prefix says otherwise. Preview features stay off until `RELATE_PREVIEW` names them. Cypher for servers and clusters, such as users, roles and composite databases, is out of scope for an engine that runs inside one process.
+
+## Synopsis
+
+```text
+[CYPHER 5 | CYPHER 25] [EXPLAIN | PROFILE] <statement>
+```
+
+| Setting | Default | Values |
+| --- | --- | --- |
+| Language version | `CYPHER 25` for every :term[namespace]{id=namespace}, as `SHOW DATABASES` reports in `defaultLanguage` | A `CYPHER 5` or `CYPHER 25` prefix on one statement; `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` or `CYPHER 25` for a namespace |
+| Preview features | None enabled | `RELATE_PREVIEW=<feature>[,<feature>…]` in the environment of the process that opens the store |
+| Plan prefixes | None | `EXPLAIN` plans without running; `PROFILE` runs and measures ([tune a query](/docs/guides/cypher/tune-a-query)) |
+
+## Conformance
+
+The openCypher Technology Compatibility Kit (TCK) is the language contract. The relate project measures coverage against it outside the engine's own repository, and its published compliance record says that "no engine document publishes a current TCK pass count any more". This page therefore states no current pass rate.
+
+| Measure | What it covers | Published result |
+| --- | --- | --- |
+| Spec harness | Neo4j's Cypher spec suites, the openCypher TCK among them, run against the engine built from each ready-for-review pull request | Coverage reported on every such pull request; reporting only, never a merge gate; no pass count published |
+| In-repo TCK run, retired 2026-11-05 | A pinned openCypher TCK 2024.3 corpus, checked strictly: error class, error phase, and side effects | 3,892 of 3,892 expanded scenarios passed with 0 skipped, in CI, until 2026-11-05. The pinned corpus was not unmodified 2024.3: one scenario was removed and seven were re-pinned to current Neo4j behavior. The claim is retired |
+| Cypher Improvement Proposal (CIP) suite | Neo4j Cypher beyond the TCK, derived from Neo4j's CIP documents | Landing run in the spec harness: 4,942 passed, 924 failing and 51 skipped of 5,917 scenarios. A tracker, not a floor |
+
+## Supported Cypher 25 and GQL-aligned features
+
+Each feature runs on the WebAssembly build the cells on this site use and on the CLI, without an opt-in. The exception is a generated identifier: `uuid()` with no argument and `randomUUID()` run on the CLI and the clients, and on the WebAssembly build the engine panics with `time not implemented on this platform` and the instance stops. `uuid('<uuid string>')` runs on both.
+
+| Feature | Form |
+| --- | --- |
+| Label expressions | `(n:Person\|Project)`, `(n:Person&!Bot)`, `(n:%)`, `(n IS Person)` |
+| Pattern predicates | `(p:Person WHERE p.role = 'engineer')` |
+| Quantified path patterns | `((a)-[:KNOWS]->(b)){1,3}`, `-[:KNOWS]->{1,3}` |
+| Path selectors and modes | `SHORTEST 1`, `ANY SHORTEST`, `ALL SHORTEST`, `TRAIL`, `ACYCLIC`, `WALK` |
+| Dynamic labels and types | `MATCH (n:$($label))`, `CREATE ()-[:$($type)]->()` |
+| Type predicates | `x IS :: INTEGER`, `valueType(x)` |
+| New clauses | `LET`, `FILTER`, `NEXT`, `WHEN … THEN … ELSE`, `FINISH`, `INSERT` |
+| Subquery expressions | `COUNT { … }`, `COLLECT { … }`, `EXISTS { … }` |
+| `CALL` scope clause | `CALL (p) { … }`, `CALL () { … }` |
+| Batched writes | `CALL (row) { … } IN TRANSACTIONS OF <n> ROWS` |
+| String interpolation | `s'{p.name} works on {proj.name}'` |
+| Explicit grouping | `RETURN p.role AS role, count(*) AS n GROUP BY role` |
+| Concatenation | `'rel' \|\| 'ate'`, `[1] \|\| [2]` |
+| Map comprehensions | `{i IN [1, 2] \| toString(i): i * 10}` |
+| Value types | `VECTOR` through `vector(…)`, `UUID` through `uuid('<uuid string>')` |
+| Graph types | `CREATE GRAPH TYPE`, `ALTER CURRENT GRAPH TYPE`, `SHOW CURRENT GRAPH TYPE` |
+| Index search | `SEARCH` over vector and full-text indexes ([search](/docs/reference/cypher/search)) |
+| Unicode identifiers | `RETURN 1 AS café`, unquoted |
+
+## Preview features
+
+A preview feature ships in the engine and stays off until its name is in `RELATE_PREVIEW`, which is read once when the store opens. Several names are separated by commas. An unknown name fails the open with exit code 1 and lists the known names. The error a feature gives while it is off depends on the feature, as the When off column shows. Most give the preview message, `semantic error: SemanticError: preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>`, which names the opt-in. A name gate fails as an unknown function, and a few fail as the parser or the `SEARCH` rules would without the feature; those messages do not mention `RELATE_PREVIEW`.
+
+| Name | Enables | When off |
+| --- | --- | --- |
+| `hybrid-search` | `COMBINE` inside `SEARCH`: weighted reciprocal-rank fusion of two or more index searches | The preview message |
+| `local-callables` | `DEFINE FUNCTION` and `DEFINE PROCEDURE`, scoped to one statement | The preview message |
+| `ontology` | The `db.ontology.*` procedures: `get`, `set`, `apply` and `drop` | The preview message; any other `db.ontology.*` name is `syntax error: ProcedureNotFound: <name>` with the feature on or off |
+| `graph-type-opt-props` | Optional properties, `prop :: ANY`, in a graph type | The preview message |
+| `graph-type-default-values` | `DEFAULT ON COMMIT <value>` on a graph type's property | The preview message |
+| `graph-type-implied-labels` | Implied labels and inheritance between graph types | The preview message |
+| `obfuscated-literals` | The `******` placeholder literal | `syntax error: parse error: unexpected token "*"` |
+| `mixed-label-syntax` | Mixing `:A:B`, GQL label symbols and `IS` across one clause's label expressions | `syntax error: parse error: InvalidLabelExpression: mixing label expression symbols (\|, &, !, and %) with colon (:) between labels is not allowed`, or for `IS`, `syntax error: parse error: MixedIsAndColonConjunction: cannot mix the IS introducer with colon-conjunction within the same clause` |
+| `float16-coordinate-types` | `FLOAT16` and `BFLOAT16` vector coordinates | The preview message |
+| `chronological-comparisons` | `IS [NOT] BEFORE`, `AFTER`, `SAME INSTANT` and `SAME REPRESENTATION` | The preview message |
+| `complex-search-patterns` | `SEARCH` on a `MATCH` with more than one node or hop | The `MATCH` shape errors in the [search rules](/docs/reference/cypher/search#rules-of-the-search-clause): `SearchClauseTooComplexPattern` or `SearchClauseMultipleBoundVariables` |
+| `coll-zip` | The `coll.zip` function (name gate) | `syntax error: UnknownFunction: unknown function coll.zip()` |
+| `coll-has` | The `coll.hasAnyOf`, `coll.hasAllOf` and `coll.hasNoneOf` functions (name gate) | `syntax error: UnknownFunction: unknown function <name>()` |
+| `gql-stddev-aliases` | The `stddev_samp` and `stddev_pop` spellings (name gate) | `syntax error: UnknownFunction: unknown function <name>()` |
+
+## Out of scope
+
+| Area | relate | Alternative |
+| --- | --- | --- |
+| Users, roles, and privileges | Not implemented | File permissions on the store, `--read-only`, and `relate serve --auth` on a served store |
+| Several databases | Three fixed namespaces per store: `neo4j` for data, `system`, and `system_ontologies` (listed, not queryable) | One store per graph |
+| Database administration | Only `SHOW DATABASE[S]`, `SHOW DEFAULT DATABASE`, `SHOW HOME DATABASE` and `ALTER DATABASE … SET DEFAULT LANGUAGE`; anything else fails with `semantic error: UnsupportedAdministrationCommand: Unsupported administration command: <statement>` | — |
+| Composite, remote and sharded databases; clustering | Not implemented | — |
+| Queries across graphs | A statement runs against one graph | Query each store and join the results in your code |
+| APOC and Graph Data Science libraries | Not included | The built-in functions and procedures; [differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists the replacements |
+| Long explicit path bounds | An explicit bound of more than 500 hops fails with `TraversalDepthExceeded` | `--max-traversal-depth <n>`, up to 2000 |
+
+[Limitations](/docs/reference/limitations) lists each limit and the reason for it.
+
+## Examples
+
+The cells run in page order on one in-memory store, starting from the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+The default language of each namespace:
+
+```cypher run name=languages
+SHOW DATABASES YIELD name, defaultLanguage RETURN name, defaultLanguage
+```
+
+A label expression with a pattern predicate, and a quantified path pattern:
+
+```cypher run name=label-expression
+MATCH (p:Person&!Project WHERE p.role = 'engineer') RETURN p.name AS name ORDER BY name
+```
+
+```cypher run name=quantified-path
+MATCH (:Person {name: 'Ada'}) ((a)-[:KNOWS|WORKS_ON]->(b)){1,2} (reached)
+RETURN DISTINCT reached.name AS reached ORDER BY reached
+```
+
+`LET`, `FILTER` and a `COUNT` subquery in one pipeline:
+
+```cypher run name=let-filter
+MATCH (p:Person)
+LET projects = COUNT { (p)-[:WORKS_ON]->() }
+FILTER projects > 0
+RETURN p.name AS name, projects ORDER BY name
+```
+
+String interpolation, and explicit grouping:
+
+```cypher run name=interpolation
+MATCH (p:Person)-[w:WORKS_ON]->(proj:Project)
+RETURN s'{p.name} works on {proj.name}' AS line ORDER BY line
+```
+
+```cypher run name=group-by
+MATCH (p:Person) RETURN p.role AS role, count(*) AS people GROUP BY role ORDER BY role
+```
+
+A preview feature without its opt-in:
+
+```cypher run name=preview-off expect=error
+DEFINE FUNCTION twice(x) = x * 2
+RETURN twice(21) AS answer
+```
+
+The same statement on the CLI, with the opt-in in the command's environment:
+
+```bash verify
+RELATE_PREVIEW=local-callables relate --mode envelope "DEFINE FUNCTION twice(x) = x * 2 RETURN twice(21) AS answer"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["answer"],"notifications":[],"rows":[{"answer":42}],"truncated":false}
+```
+
+## See also
+
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the Neo4j habits that fail in relate, and what to write instead.
+- [Search](/docs/reference/cypher/search): vector and full-text indexes and the `SEARCH` clause.
+- [Limitations](/docs/reference/limitations): the scope choices, with their reasons.
+- [The Cypher dialect](/docs/concepts/cypher-dialect): why the dialect is shaped this way.

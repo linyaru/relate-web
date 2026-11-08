@@ -6,7 +6,7 @@
 import { ENVELOPE_CHECK, ENVELOPE_OUTPUT, VERSION_LINE } from '../../components/docs/install.ts';
 import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
 import type { Engine } from './content.ts';
-import { LLMS_GROUPS, llmsGroupOf } from './landing.ts';
+import { EVALUATE, LLMS_GROUPS, llmsGroupOf } from './landing.ts';
 import { CHANGELOG_FEED_URL, estimateTokens, FEEDBACK_URL, tokenLabel, twinUrl } from './model.ts';
 
 export interface IndexedPage {
@@ -36,7 +36,7 @@ export function factsBlock(engine: Engine): string {
     '- Run a statement: `relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"`; remove `--read-only` to write. `--mode envelope` prints one JSON object per result set.',
     '- Stores: `:memory:` (the default), a directory, or a single `.rl` file, named by `--database`. Add `--read-only` to open an existing store without writing.',
     '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',
-    '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store, 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
+    '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store (a query run; `relate serve` exits 1 on a locked store), 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
     '- MCP for a local agent: `relate serve --mcp stdio --database ./graph.rl --read-only`.',
     '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
     `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
@@ -52,6 +52,8 @@ export function llmsTxt(pages: IndexedPage[], engine: Engine, sections: [string,
   const lines = [`# ${CANONICAL_PHRASE}: docs`, '', '> The documentation index: a facts block, then every page by task.', '', factsBlock(engine), ''];
   for (const group of LLMS_GROUPS) {
     const members = pages.filter((p) => llmsGroupOf(p.id) === group);
+    // Evaluate keeps its own order (the fit page first, DOCS-PLAN.md §2); the other groups keep the sidebar's.
+    if (group === 'Evaluate') members.sort((a, b) => EVALUATE.indexOf(a.id) - EVALUATE.indexOf(b.id));
     if (!members.length) continue;
     lines.push(`## ${group}`, '');
     for (const p of members) {

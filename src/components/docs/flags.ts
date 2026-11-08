@@ -30,7 +30,7 @@ export const defaultCell = (d: string | null | undefined) =>
   d === null || d === undefined || d === '' ? NONE : /\s/.test(d) || STATES.has(d) ? d : codeSpan(d);
 
 function flagRow(f: CliFlag, scope: string, envIds: Map<string, string>): { id: string; cells: string[][] } {
-  const names = [...f.flag.split(/\s*\/\s*/).map(codeSpan), ...(f.short ? [codeSpan(f.short)] : [])].join(', ');
+  const names = [...f.flag.split(/\s*[/,]\s*/).map(codeSpan), ...(f.short ? [codeSpan(f.short)] : [])].join(', ');
   const description = [f.summary ?? NONE];
   if (f.env) {
     // The variable links its row in <EnvVars /> when cli.json lists it there.

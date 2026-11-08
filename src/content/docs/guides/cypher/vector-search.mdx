@@ -1,4 +1,172 @@
 ---
 title: Search by vector similarity
-status: planned
+label: Vector search
+description: Store embeddings as typed vectors, index them, and find the nearest nodes with the SEARCH clause, with the score range of each similarity function.
+order: 20
+surfaces: [cypher]
+prerequisites: [get-started/first-graph]
+related: [reference/cypher/search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j]
 ---
+
+This guide shows you how to store embeddings on nodes, index them, and find the nearest nodes with the `SEARCH` clause. The cells run in page order on one in-memory store, in your browser and in the docs build, so each step sees what the steps before it wrote.
+
+## Prerequisites
+
+- The example graph from [your first graph](/docs/get-started/first-graph): three people and the two projects they work on. The first step creates it, so this page runs on its own.
+- Embeddings from the model of your choice. This guide uses three-dimensional vectors so the numbers stay readable; a model's vectors have hundreds of dimensions, and every step works the same way.
+
+## Load the example graph
+
+This cell writes the shared graph: Ada, Grace and Noor, the `relate` and `opencypher-tck` projects, and who works on what.
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+## Store the vectors
+
+Give each person a `focus` vector: how much of their work goes to the engine, the tests, and the docs. Pass the vectors as a parameter and store each one with `vector(list, dimensions, FLOAT32)`. The typed vector is also a guard: a list of the wrong length fails the statement with `type error: vector() dimension does not match list` instead of being stored.
+
+```json data=focus
+{"people": [
+  {"name": "Ada", "focus": [0.9, 0.1, 0.2]},
+  {"name": "Grace", "focus": [0.3, 0.9, 0.1]},
+  {"name": "Noor", "focus": [0.2, 0.3, 0.9]}
+]}
+```
+
+```cypher run name=store-vectors params=focus
+UNWIND $people AS row
+MATCH (p:Person {name: row.name})
+SET p.focus = vector(row.focus, 3, FLOAT32)
+RETURN p.name AS name, valueType(p.focus) AS type
+ORDER BY name
+```
+
+The coordinate type is a bare keyword, such as `FLOAT32`, `FLOAT64`, `INT8` or `INT64`; the [search reference](/docs/reference/cypher/search#functions) lists every accepted spelling.
+
+## Create a vector index
+
+Create the index on the property, with the vector length and the similarity function in `OPTIONS`. `WITH [p.role]` declares a property that a search can filter on before it ranks.
+
+```cypher run name=create-index
+CREATE VECTOR INDEX person_focus IF NOT EXISTS
+FOR (p:Person) ON (p.focus) WITH [p.role]
+OPTIONS {indexConfig: {`vector.dimensions`: 3, `vector.similarity_function`: 'cosine'}}
+```
+
+The `indexConfig` keys contain dots, so quote them in backticks or single quotes; an unquoted `vector.dimensions` is a parse error. The similarity function is `'cosine'` (the default) or `'euclidean'`. The [search reference](/docs/reference/cypher/search#vector-index-options) lists every option and its default.
+
+## Find the nearest nodes
+
+The question vector leans hard on tests. `SEARCH` binds `p` to the nearest people and `SCORE AS` names the similarity:
+
+```json data=question
+{"question": [0.1, 0.9, 0.1]}
+```
+
+```cypher run name=nearest params=question
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR $question LIMIT 2) SCORE AS score
+RETURN p.name AS name, round(score, 4) AS score
+ORDER BY score DESC
+```
+
+Three rules shape the clause:
+
+- `LIMIT` is required: it is the number of neighbors the index returns.
+- The score exists only under the name `SCORE AS` gives it; there is no implicit `score` variable.
+- The variable after `SEARCH` is the one the `MATCH` pattern declares, and the query vector cannot refer to it.
+
+A higher score means more similar. The search uses the index's similarity function, so these scores are the ones `vector.similarity.cosine` returns.
+
+## Filter inside the search
+
+Put the filter inside the parentheses. It runs before the ranking and the `LIMIT`, so the search still returns two people when one of the nearest neighbors does not match:
+
+```cypher run name=filtered params=question
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR $question WHERE p.role = 'engineer' LIMIT 2) SCORE AS score
+RETURN p.name AS name, round(score, 4) AS score
+ORDER BY score DESC
+```
+
+Noor, the second nearest, is a maintainer, so Ada takes the second place. The filter may name only the properties in the index's `WITH [...]` list, compared with simple comparisons or `IN` a list, joined by `AND`. A `WHERE` after the `SEARCH` clause filters only the rows the search already returned, so it can leave fewer than `LIMIT`.
+
+The result is an ordinary match, so the next clause can walk the graph from it:
+
+```cypher run name=then-traverse
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR [0.2, 0.2, 0.9] LIMIT 1) SCORE AS score
+MATCH (p)-[:WORKS_ON|MAINTAINS]->(proj:Project)
+RETURN p.name AS name, collect(proj.name) AS projects
+```
+
+## Read the score
+
+The two similarity functions return a rebounded score, not a raw cosine or distance. Thresholds belong on these scales:
+
+| Function | Range | Closer means | Examples |
+| --- | --- | --- | --- |
+| `vector.similarity.cosine(a, b)` | 0 to 1 | higher | `1.0` same direction, `0.5` orthogonal, `0.0` opposite |
+| `vector.similarity.euclidean(a, b)` | greater than 0, up to 1: `1 / (1 + squared distance)` | higher | `1.0` identical; `[0, 0]` and `[3, 4]` give `0.03846153989434242` |
+| `vector_distance(a, b, <metric>)` | the raw metric | lower | `EUCLIDEAN` for `[0, 0]` and `[3, 4]` gives `5.0` |
+
+```cypher run name=scores
+RETURN vector.similarity.cosine([1, 0], [1, 0]) AS same,
+       vector.similarity.cosine([1, 0], [0, 1]) AS orthogonal,
+       vector.similarity.cosine([1, 0], [-1, 0]) AS opposite,
+       vector.similarity.euclidean([0, 0], [3, 4]) AS euclidean,
+       vector_distance(vector([0, 0], 2, FLOAT32), vector([3, 4], 2, FLOAT32), EUCLIDEAN) AS distance
+```
+
+The similarity functions take a list or a typed vector; `vector_distance` takes typed vectors only. The [search reference](/docs/reference/cypher/search#functions) lists the metrics.
+
+## Combine with full-text search
+
+A vector search finds what is near in meaning; a full-text search finds the exact words. To use both, chain one `MATCH … SEARCH` per index through `WITH`, so the second search keeps only what the first found, or fuse the two ranked lists by reciprocal rank. [Hybrid recall](/cookbook/hybrid-recall/) builds the fused version over 40 notes in one statement, and the [search reference](/docs/reference/cypher/search#hybrid-search) has both forms.
+
+## Verify
+
+`SHOW INDEXES` lists the index, the properties it covers (the vector property, then the `WITH` properties) and its state:
+
+```cypher run name=verify
+SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state
+WHERE type = 'VECTOR'
+RETURN name, type, labelsOrTypes, properties, state
+```
+
+An `ONLINE` index and two rows from the nearest-node search mean the index serves the query.
+
+## If it goes wrong
+
+A query vector whose length differs from `vector.dimensions` fails:
+
+```cypher run name=wrong-length expect=error
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR [0.1, 0.9] LIMIT 2) SCORE AS score
+RETURN p.name AS name, score
+```
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `type error: VectorIndexDimensionalityMismatch` | The query vector's length is not the index's `vector.dimensions`. | Embed the question with the same model as the stored vectors. |
+| `syntax error: UndefinedVariable: variable 'score' not defined` | The query reads `score` without `SCORE AS`. | Add `SCORE AS score` after the closing parenthesis. |
+| `syntax error: parse error: expected LIMIT, got ")" (RightParen)` | The search has no `LIMIT`. | Add `LIMIT <k>` inside the parentheses. |
+| `WrongPropertyForVectorSearchFilter` | The `WHERE` inside the search names a property the index does not declare. | Add the property to the index's `WITH [...]` list, or filter after the search. |
+| A node never comes back, and nothing fails | Its property holds a list or vector of another length: the index skips it without an error. | Store vectors with `vector(list, <dimensions>, FLOAT32)` at the index's dimensions; it refuses a list of another length at write time. |
+
+## Related
+
+- [Search](/docs/reference/cypher/search): index DDL, every `SEARCH` form, options and defaults, and the functions.
+- [Hybrid recall](/cookbook/hybrid-recall/): vector and full-text search fused in one statement.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the procedure forms and what to write instead.

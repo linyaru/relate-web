@@ -1,0 +1,352 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "label-expression": {
+      "kind": "table",
+      "text": "| labels      | name             |\n|-------------|------------------|\n| [\"Person\"]  | \"Ada\"            |\n| [\"Person\"]  | \"Grace\"          |\n| [\"Person\"]  | \"Noor\"           |\n| [\"Project\"] | \"opencypher-tck\" |\n| [\"Project\"] | \"relate\"         |\n5 rows",
+      "table": {
+        "columns": [
+          "labels",
+          "name"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\"]",
+            "\"Ada\""
+          ],
+          [
+            "[\"Person\"]",
+            "\"Grace\""
+          ],
+          [
+            "[\"Person\"]",
+            "\"Noor\""
+          ],
+          [
+            "[\"Project\"]",
+            "\"opencypher-tck\""
+          ],
+          [
+            "[\"Project\"]",
+            "\"relate\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "labels",
+          "name"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person"
+            ],
+            "name": "Ada"
+          },
+          {
+            "labels": [
+              "Person"
+            ],
+            "name": "Grace"
+          },
+          {
+            "labels": [
+              "Person"
+            ],
+            "name": "Noor"
+          },
+          {
+            "labels": [
+              "Project"
+            ],
+            "name": "opencypher-tck"
+          },
+          {
+            "labels": [
+              "Project"
+            ],
+            "name": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "shortest": {
+      "kind": "table",
+      "text": "| route                              |\n|------------------------------------|\n| [\"Ada\", \"Grace\", \"opencypher-tck\"] |\n1 row",
+      "table": {
+        "columns": [
+          "route"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "[\"Ada\", \"Grace\", \"opencypher-tck\"]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST"
+        ],
+        "columns": [
+          "route"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "route": [
+              "Ada",
+              "Grace",
+              "opencypher-tck"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "let-filter": {
+      "kind": "table",
+      "text": "| person  | project          | years |\n|---------|------------------|-------|\n| \"Grace\" | \"opencypher-tck\" | 4     |\n| \"Grace\" | \"relate\"         | 3     |\n2 rows",
+      "table": {
+        "columns": [
+          "person",
+          "project",
+          "years"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "\"opencypher-tck\"",
+            "4"
+          ],
+          [
+            "\"Grace\"",
+            "\"relate\"",
+            "3"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "person",
+          "project",
+          "years"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "person": "Grace",
+            "project": "opencypher-tck",
+            "years": 4
+          },
+          {
+            "person": "Grace",
+            "project": "relate",
+            "years": 3
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "version": {
+      "kind": "table",
+      "text": "| name                | defaultLanguage |\n|---------------------|-----------------|\n| \"neo4j\"             | \"CYPHER 25\"     |\n| \"system\"            | \"CYPHER 25\"     |\n| \"system_ontologies\" | \"CYPHER 25\"     |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "defaultLanguage"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"neo4j\"",
+            "\"CYPHER 25\""
+          ],
+          [
+            "\"system\"",
+            "\"CYPHER 25\""
+          ],
+          [
+            "\"system_ontologies\"",
+            "\"CYPHER 25\""
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "defaultLanguage"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "defaultLanguage": "CYPHER 25",
+            "name": "neo4j"
+          },
+          {
+            "defaultLanguage": "CYPHER 25",
+            "name": "system"
+          },
+          {
+            "defaultLanguage": "CYPHER 25",
+            "name": "system_ontologies"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "preview": {
+      "kind": "table",
+      "text": "error: semantic error: SemanticError: preview feature 'chronological-comparisons' is not enabled: set RELATE_PREVIEW=chronological-comparisons",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: SemanticError: preview feature 'chronological-comparisons' is not enabled: set RELATE_PREVIEW=chronological-comparisons",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "use-other": {
+      "kind": "table",
+      "text": "error: semantic error: DatabaseNotFound: Graph not found: friends",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: DatabaseNotFound: Graph not found: friends",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    }
+  }
+}

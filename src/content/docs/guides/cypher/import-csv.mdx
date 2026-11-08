@@ -1,4 +1,170 @@
 ---
 title: Import a CSV
-status: planned
+description: Load rows from CSV files into a relate store with LOAD CSV, convert their string values to types, and allow the one directory relate may read.
+order: 10
+surfaces: [cli, cypher]
+prerequisites: [get-started/install]
+related: [reference/cli/flags#load-csv-dir, reference/errors#cli-load-csv-unavailable, cookbook/entity-resolution]
 ---
+
+This guide shows you how to load rows from CSV files into a relate store with `LOAD CSV`: preview the rows, create nodes and relationships with typed properties, and check the result. Local file reads are denied by default; `--load-csv-dir <dir>` allows the files under one directory, and nothing outside it.
+
+The steps run in a terminal. `LOAD CSV` reads files from the machine's disk, which the in-browser cells on other pages cannot reach.
+
+## Prerequisites
+
+- relate on your `PATH` ([install](/docs/get-started/install)).
+- CSV files with a header row, in one directory. The steps write two small ones, so you can follow along in an empty directory.
+
+## Put the files in one directory
+
+Create a directory for the files relate may read, and two files in it: the people from the shared example graph, and who works on which project since when.
+
+```bash verify
+mkdir import
+cat > import/people.csv <<'CSV'
+name,role
+Ada,engineer
+Grace,engineer
+Noor,maintainer
+CSV
+cat > import/works_on.csv <<'CSV'
+person,project,language,since
+Ada,relate,Rust,2024
+Grace,relate,Rust,2023
+Grace,opencypher-tck,Gherkin,2022
+CSV
+```
+
+## Preview the rows
+
+Read a file without writing anything: with no `--database`, relate opens an in-memory store that is gone when the command exits. `WITH HEADERS` makes each row a map keyed by the header names.
+
+```bash verify
+relate --load-csv-dir ./import --mode table "LOAD CSV WITH HEADERS FROM 'file:///works_on.csv' AS row RETURN row.person AS person, row.since AS since, valueType(row.since) AS type"
+```
+
+```text
++---------+--------+-------------------+
+| person  | since  | type              |
++---------+--------+-------------------+
+| "Ada"   | "2024" | "STRING NOT NULL" |
+| "Grace" | "2023" | "STRING NOT NULL" |
+| "Grace" | "2022" | "STRING NOT NULL" |
++---------+--------+-------------------+
+```
+
+Every value `LOAD CSV` reads is a string, `since` included. The path `file:///works_on.csv` resolves inside the directory `--load-csv-dir` names; `'works_on.csv'` reads the same file.
+
+## Create the nodes
+
+Load the people into a new single-file store, `team.rl`. This step writes. `MERGE` matches a person who already exists, so running it twice creates nothing new, and `RETURN count(*)` reports the rows read.
+
+```bash verify
+relate --database ./team.rl --load-csv-dir ./import --mode table "LOAD CSV WITH HEADERS FROM 'file:///people.csv' AS row MERGE (p:Person {name: row.name}) SET p.role = row.role RETURN count(*) AS people"
+```
+
+```text
++--------+
+| people |
++--------+
+| 3      |
++--------+
+```
+
+## Create the relationships with types
+
+The second file connects people to projects. Convert each value as you store it: `toInteger(row.since)` stores a number, so a later `ORDER BY since` or `since >= 2023` compares numbers, not strings. This step writes too.
+
+```bash verify
+relate --database ./team.rl --load-csv-dir ./import --mode table "LOAD CSV WITH HEADERS FROM 'file:///works_on.csv' AS row MATCH (p:Person {name: row.person}) MERGE (proj:Project {name: row.project}) SET proj.language = row.language MERGE (p)-[w:WORKS_ON]->(proj) SET w.since = toInteger(row.since) RETURN count(w) AS relationships"
+```
+
+```text
++---------------+
+| relationships |
++---------------+
+| 3             |
++---------------+
+```
+
+The conversion functions are `toInteger`, `toFloat` and `toBoolean`, plus `date()` and `datetime()` for ISO 8601 strings. An empty field reads as `''`, and `toInteger('')` is `null`, so an empty cell stores no property. A row with fewer fields than the header maps the missing keys to `null`.
+
+## Read files without a header row
+
+Without `WITH HEADERS`, each row is a list of strings and the header, if the file has one, is the first row:
+
+```bash verify
+relate --load-csv-dir ./import --mode table "LOAD CSV FROM 'file:///people.csv' AS row RETURN row[0] AS first, row[1] AS second"
+```
+
+```text
++---------+--------------+
+| first   | second       |
++---------+--------------+
+| "name"  | "role"       |
+| "Ada"   | "engineer"   |
+| "Grace" | "engineer"   |
+| "Noor"  | "maintainer" |
++---------+--------------+
+```
+
+For a separator other than a comma, add `FIELDTERMINATOR` with one character, such as `FIELDTERMINATOR ';'`. Fields follow the quoting rules of RFC 4180, the Request for Comments (RFC) that defines CSV: a field in double quotes may hold the separator, a line break, or `""` for one quote.
+
+## Allow the directory relate may read
+
+`LOAD CSV` reads only regular files under the directory you allow. The flag wins over the environment variable, and with neither set every local read fails.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `--load-csv-dir <dir>` | denied | Allows files under `<dir>`; the directory must exist when the store opens |
+| `RELATE_LOAD_CSV_DIR` | unset | The directory when the flag is absent; the Python and Node.js clients read it too when they open a store |
+| Size limit per file | 8,388,608 bytes (8 MiB) | Fixed for the CLI; a larger file fails |
+
+| Path in `FROM` | Result |
+| --- | --- |
+| `'people.csv'`, `'sub/people.csv'` | Read, relative to the directory |
+| `'file:///people.csv'` | Read, relative to the directory |
+| `'file:///<absolute path>'` | Read when the absolute path is inside the directory |
+| `'/<absolute path>'`, without `file://` | Refused |
+| A path with `..`, or a symbolic link that leads outside | Refused |
+| `'https://…'` or any other scheme | Refused: `LOAD CSV` does not fetch URLs |
+
+A refused path fails with the same message as a missing file, `LOAD CSV file unavailable`, and the message never names the path.
+
+## Verify
+
+Open the store read-only and read the graph back:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p.name AS person, proj.name AS project, w.since AS since ORDER BY since"
+```
+
+```text
++---------+------------------+-------+
+| person  | project          | since |
++---------+------------------+-------+
+| "Grace" | "opencypher-tck" | 2022  |
+| "Grace" | "relate"         | 2023  |
+| "Ada"   | "relate"         | 2024  |
++---------+------------------+-------+
+```
+
+Three relationships, sorted by number. Noor has no row: `works_on.csv` has no line for Noor.
+
+## If it goes wrong
+
+Each of these exits with a nonzero :term[exit code]{id=exit-code} and prints the message on stderr:
+
+| Message | Exit code | Cause | Remedy |
+| --- | --- | --- | --- |
+| `LOAD CSV file unavailable` | 1 | No `--load-csv-dir` or `RELATE_LOAD_CSV_DIR`, or the file is missing, outside the directory, a symbolic link out of it, a special file, or a URL. | Pass `--load-csv-dir <dir>` and keep the file under it, named by a relative path or a `file:///` path. |
+| `Failed to open Relate: semantic error: LOAD CSV invalid configuration` | 1 | The directory given to `--load-csv-dir` does not exist. | Create the directory first, or correct the path. |
+| `LOAD CSV file exceeds byte limit` | 1 | The file is larger than 8,388,608 bytes. | Split the file and load the parts one statement each. |
+| `type error: LOAD CSV FIELDTERMINATOR must be exactly one character` | 6 | `FIELDTERMINATOR` has more or fewer than one character. | Use one character, such as `';'` or `'\t'`. |
+
+## Related
+
+- [Flags](/docs/reference/cli/flags#load-csv-dir): `--load-csv-dir` and the other query-run flags.
+- [Errors](/docs/reference/errors#cli-load-csv-unavailable): the `LOAD CSV` messages and their exit codes.
+- [Entity resolution](/cookbook/entity-resolution/): a worked example that merges messy records into one node each.

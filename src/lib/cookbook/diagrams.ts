@@ -154,6 +154,8 @@ const ATTRIBUTES = new Set([
   'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'alignment-baseline',
   'marker-start', 'marker-mid', 'marker-end', 'markerwidth', 'markerheight', 'markerunits', 'orient', 'refx', 'refy',
   'stddeviation', 'flood-color', 'flood-opacity',
+  // mermaid's sequenceDiagram sets name=<actor> on actor lines and boxes; it fetches nothing.
+  'name',
 ]);
 const CSS_FUNCTIONS = new Set(['rgb', 'rgba', 'hsl', 'hsla', 'var', 'calc', 'drop-shadow', 'rotate', 'scale', 'translate', 'url']);
 

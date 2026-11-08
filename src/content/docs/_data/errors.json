@@ -185,7 +185,7 @@
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
         "relate 0.16.1 (ac441ec), source build"
       ],
-      "note": "The error object's `message` is `storage locked: <path>`; stderr prints `Failed to open Relate: storage locked: <path>`. A `--read-only` open of a `.rl` file is refused the same way while a writer holds it. For a directory store, `<path>` is the writer lock file inside it.",
+      "note": "The error object's `message` is `storage locked: <path>`; stderr prints `Failed to open Relate: storage locked: <path>`. A `--read-only` open of a `.rl` file is refused the same way while a writer holds it. For a directory store, `<path>` is the writer lock file inside it. `relate serve` on a store another process holds stops at startup with `Error: Failed to open Relate: storage locked: <path>` and exit code 1, not 5 ([cli-serve-open-failed](/docs/reference/errors#cli-serve-open-failed)); `relate clone` of a held `.rl` source exits 1 too ([cli-clone-locked](/docs/reference/errors#cli-clone-locked)).",
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"RETURN 1 AS ok\"",
         "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
@@ -194,6 +194,68 @@
         "stderr": "Failed to open Relate: storage locked: <dir>/s.rl\n",
         "exit": 5
       }
+    },
+    {
+      "id": "cli-clone-locked",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to clone database: storage locked: <path>",
+      "cause": "`relate clone` with a `.rl` source while another process holds it open for writing; no error object is printed.",
+      "remedy": "Wait for the writer to exit, or clone a directory store, which can be cloned while its writer runs.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate clone ./a.rl ./b.rl",
+        "setup": "relate --database ./a.rl \"CREATE (:Person {name: 'Ada'})\"",
+        "hold": "relate query --database ./a.rl",
+        "stdout": "",
+        "stderr": "Failed to clone database: storage locked: <dir>/a.rl\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-serve-open-failed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: Failed to open Relate: <detail>",
+      "cause": "`relate serve` could not open its store: another process holds it (`storage locked: <path>`), or a `--read-only` open names a store that does not exist. It stops at startup; no error object is printed.",
+      "remedy": "Stop the other opener, or serve a directory store `--read-only` beside its writer; check the `--database` path.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The query run reports the same lock with exit code 5 ([cli-conflict-locked](/docs/reference/errors#cli-conflict-locked)); `relate serve` exits 1.",
+      "sources": [
+        "docs/api/cli/spec.md § relate serve",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": [
+        {
+          "command": "relate serve --mcp stdio --database ./s.rl --read-only < /dev/null",
+          "setup": "relate --database ./s.rl \"CREATE (:Person {name: 'Ada'})\"",
+          "hold": "relate query --database ./s.rl",
+          "stdout": "",
+          "stderr": "Error: Failed to open Relate: storage locked: <dir>/s.rl\n",
+          "exit": 1
+        },
+        {
+          "command": "relate serve --mcp stdio --database ./nope --read-only < /dev/null",
+          "stdout": "",
+          "stderr": "Error: Failed to open Relate: storage error: read-only open requires an existing database at <dir>/nope\n",
+          "exit": 1
+        }
+      ]
     },
     {
       "id": "cli-fatal-error-capacity",
@@ -224,6 +286,31 @@
       }
     },
     {
+      "id": "cli-fatal-error-resource",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "resource",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "resource limit exceeded: concurrent-logical-workspace-limit limit=<bytes>",
+      "cause": "The statement needs more shared workspace than `--concurrent-logical-workspace-limit` allows.",
+      "remedy": "Retry when fewer statements run, or raise `--concurrent-logical-workspace-limit`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope --concurrent-logical-workspace-limit 1 \"UNWIND range(1, 1000) AS i RETURN collect(i) AS c\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"resource\",\"message\":\"resource limit exceeded: concurrent-logical-workspace-limit limit=1\",\"retryable\":false}}\n",
+        "stderr": "resource limit exceeded: concurrent-logical-workspace-limit limit=1\n",
+        "exit": 1
+      }
+    },
+    {
       "id": "cli-fatal-error-storage",
       "surface": "cli",
       "code": "fatal_error",
@@ -243,7 +330,7 @@
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
         "relate 0.16.1 (ac441ec), source build"
       ],
-      "note": "Recorded forms: `storage error: database not found: <path>` (a missing `.rl`), `storage error: read-only open requires an existing database at <path>` (a missing directory). stderr prefixes `Failed to open Relate: `.",
+      "note": "Recorded forms: `storage error: database not found: <path>` (a missing `.rl`), `storage error: read-only open requires an existing database at <path>` (a missing or empty directory), `storage error: read-only open requires an existing WAL at <path>/wal` (a directory store without its WAL folder), `storage error: snapshot codec mismatch: directory is <codec>, requested <codec>` (`--snapshot-format` against an existing store), `storage error: wal_dir is not supported for .rl single-file databases …` (`--wal-dir` with a `.rl` store; nothing is created), and `storage error: unsupported snapshot version <n>` (a store written by a newer relate; `relate info` prints `Failed to read store info: storage error: unsupported snapshot version <n>`). Also seen: `storage error: WAL checksum mismatch` (a damaged WAL record before the tail; `--read-only` and `relate clone` fail the same way, clone prefixed `Failed to clone database: `) and `storage error: unsupported graph value encoding: <n>` (JSON). stderr prefixes `Failed to open Relate: `.",
       "recorded": [
         {
           "command": "relate --database ./missing.rl --read-only --mode envelope \"RETURN 1 AS ok\"",
@@ -256,8 +343,86 @@
           "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: read-only open requires an existing database at <dir>/missing\",\"retryable\":false}}\n",
           "stderr": "Failed to open Relate: storage error: read-only open requires an existing database at <dir>/missing\n",
           "exit": 1
+        },
+        {
+          "command": "relate --database ./j --snapshot-format parquet --mode envelope \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./j --snapshot-format json \"CREATE (:A)\"",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: snapshot codec mismatch: directory is json, requested parquet\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: storage error: snapshot codec mismatch: directory is json, requested parquet\n",
+          "exit": 1
+        },
+        {
+          "command": "relate --database ./s.rl --wal-dir ./w --mode envelope \"RETURN 1 AS ok\"",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)\n",
+          "exit": 1
+        },
+        {
+          "command": "relate --database ./s-copy --read-only --mode envelope \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./s \"CREATE (:A)\" && cp -R s s-copy && rm -rf s-copy/wal",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: read-only open requires an existing WAL at <dir>/s-copy/wal\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: storage error: read-only open requires an existing WAL at <dir>/s-copy/wal\n",
+          "exit": 1
+        },
+        {
+          "command": "relate --database ./s --mode envelope \"RETURN 1 AS ok\"",
+          "setup": "relate --database ./s \"CREATE (:Person {name: 'Ada'})\" && perl -0pi -e 's/\"format_version\": 3/\"format_version\": 9/' s/manifest.json",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unsupported snapshot version 9\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: storage error: unsupported snapshot version 9\n",
+          "exit": 1
         }
       ]
+    },
+    {
+      "id": "cli-unsupported-uri-scheme",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "storage",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "storage error: unsupported URI scheme <scheme>:// (engine URIs are :memory:, a filesystem path, or file://)",
+      "cause": "`--database` was given a URL such as `bolt://` or `neo4j://`; a store is a path or `:memory:`.",
+      "remedy": "Open a path, or serve the store with `relate serve --bolt <port> --database <path> --read-only`.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `.",
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database bolt://localhost:7687 --mode envelope \"RETURN 1 AS ok\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unsupported URI scheme bolt:// (engine URIs are :memory:, a filesystem path, or file://)\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: unsupported URI scheme bolt:// (engine URIs are :memory:, a filesystem path, or file://)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-live-freshness-unsupported",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "semantic",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: live freshness (WAL follow) is only supported for native directory databases",
+      "cause": "`--read-only=live` on a `.rl` store or `:memory:`; only a directory store has a WAL to follow.",
+      "remedy": "Use `--read-only` (a snapshot at open), or a directory store.",
+      "python_class": null,
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `.",
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --read-only=live --mode envelope \"RETURN 1 AS ok\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: live freshness (WAL follow) is only supported for native directory databases\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: semantic error: live freshness (WAL follow) is only supported for native directory databases\n",
+        "exit": 1
+      }
     },
     {
       "id": "cli-fatal-error-io",
@@ -406,6 +571,41 @@
         "stderr": "Error: invalid --param value: parameter p: invalid parameter JSON: key must be a string at line 1 column 2\n",
         "exit": 2
       }
+    },
+    {
+      "id": "cli-fetch-params-failed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --fetch-params <name>: <detail>",
+      "cause": "A `--fetch-params` source could not be read or fetched, is over the 64 MiB cap, or is not JSON; nothing runs, and no error object is printed.",
+      "remedy": "Check the path or URL and that the source is one JSON document.",
+      "python_class": null,
+      "http_status": null,
+      "note": "Recorded forms: `Error: --fetch-params <name>: invalid JSON: <detail>` and `Error: --fetch-params <name>: reading <path>: <reason>` (for example `No such file or directory (os error 2)`, or `source exceeded the 64 MiB cap`). A value without `=` is a usage error instead: `Error: invalid --fetch-params value: expected name=value`, exit code 2.",
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": [
+        {
+          "command": "relate --mode envelope --fetch-params people=bad.json 'RETURN 1'",
+          "setup": "echo '{bad' > bad.json",
+          "stdout": "",
+          "stderr": "Error: --fetch-params people: invalid JSON: key must be a string at line 1 column 2\n",
+          "exit": 1
+        },
+        {
+          "command": "relate --mode envelope --fetch-params p=missing.json 'RETURN 1'",
+          "stdout": "",
+          "stderr": "Error: --fetch-params p: reading missing.json: No such file or directory (os error 2)\n",
+          "exit": 1
+        }
+      ]
     },
     {
       "id": "cli-invalid-namespace",
@@ -558,6 +758,57 @@
       }
     },
     {
+      "id": "cli-safe-remote-load",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --safe refuses a remote --load source — a downloaded store is untrusted input, so safe mode introduces none …",
+      "cause": "`--safe` (or `RELATE_SAFE_MODE=1`) with an `https://` `--load` source, on the query run or on `relate serve`; refused before any network request.",
+      "remedy": "Download the file, check its SHA-256, and pass the local path to `--load`; or drop `--safe`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The binary ends the message with an upstream reference in parentheses.",
+      "sources": [
+        "docs/api/cli/spec.md § Loading a store from a source",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --safe --load https://example.com/graph.rl \"RETURN 1 AS ok\"",
+        "stdout": "",
+        "stderr": "Error: --safe refuses a remote --load source — a downloaded store is untrusted input, so safe mode introduces none (LABS-680, ADR-0477)\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-load-plain-http",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid --load: plain http:// is only allowed for a loopback host; use https://<rest>",
+      "cause": "A `--load` URL uses plain `http://` for a host other than a loopback address.",
+      "remedy": "Use the `https://` URL the message names, or a local file.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md § Loading a store from a source",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --load http://example.com/x.rl \"RETURN 1\"",
+        "stdout": "",
+        "stderr": "Error: invalid --load: plain http:// is only allowed for a loopback host; use https://example.com/x.rl\n",
+        "exit": 2
+      }
+    },
+    {
       "id": "cli-invalid-env-logical-graph-size-limit",
       "surface": "cli",
       "code": "usage_error",
@@ -700,6 +951,84 @@
       }
     },
     {
+      "id": "cli-invalid-env-pattern-engine",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "semantic",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine \"<value>\"; expected auto, nfa, or walk",
+      "cause": "`RELATE_PATTERN_ENGINE` is not `auto`, `nfa` or `walk`; the open fails.",
+      "remedy": "Use one of the three values, or unset it.",
+      "python_class": null,
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_PATTERN_ENGINE=bogus relate --mode envelope \"RETURN 1 AS x\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine \\\"bogus\\\"; expected auto, nfa, or walk\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine \"bogus\"; expected auto, nfa, or walk\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-invalid-env-bulk-batch-threshold",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "semantic",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: invalid RELATE_BULK_BATCH_THRESHOLD '<value>'",
+      "cause": "`RELATE_BULK_BATCH_THRESHOLD` is not a number; the open fails.",
+      "remedy": "Set a whole number, or unset it.",
+      "python_class": null,
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_BULK_BATCH_THRESHOLD=x relate --mode envelope \"RETURN 1 AS x\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: invalid RELATE_BULK_BATCH_THRESHOLD 'x'\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: semantic error: invalid RELATE_BULK_BATCH_THRESHOLD 'x'\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-invalid-env-snapshot-format",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "storage",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)",
+      "cause": "`RELATE_SNAPSHOT_FORMAT` names no codec; the open of a persistent store fails.",
+      "remedy": "Use `parquet`, `json` or `markdown`, or unset it.",
+      "python_class": null,
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `. The same value given as `--snapshot-format` is a usage error, exit code 2: `Error: invalid --snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`.",
+      "sources": [
+        "docs/api/cli/spec.md § Environment",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_SNAPSHOT_FORMAT=csv relate -d ./x --mode envelope \"RETURN 1\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\n",
+        "exit": 1
+      }
+    },
+    {
       "id": "cli-final-checkpoint-failed",
       "surface": "cli",
       "code": "fatal_error",
@@ -710,7 +1039,7 @@
       "neo4j_code": null,
       "message": "Error: final checkpoint failed: <reason>",
       "cause": "The checkpoint every persistent run takes on exit failed, for example on a full disk. A non-zero statement exit code is kept instead.",
-      "remedy": "Free disk space and check permissions; read-only runs also rewrite the snapshot on exit.",
+      "remedy": "Free disk space and check permissions.",
       "python_class": null,
       "http_status": null,
       "sources": [
@@ -829,6 +1158,32 @@
       }
     },
     {
+      "id": "cli-load-csv-invalid-configuration",
+      "surface": "cli",
+      "code": "fatal_error",
+      "kind": "semantic",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: LOAD CSV invalid configuration",
+      "cause": "The directory given to `--load-csv-dir` (or `RELATE_LOAD_CSV_DIR`) does not exist or is not a directory; the open fails.",
+      "remedy": "Create the directory first, or correct the path.",
+      "python_class": null,
+      "http_status": null,
+      "note": "stderr prefixes `Failed to open Relate: `.",
+      "sources": [
+        "docs/api/rust/spec.md § Local LOAD CSV capability",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --load-csv-dir ./missing --mode envelope \"RETURN 1 AS ok\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: LOAD CSV invalid configuration\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: semantic error: LOAD CSV invalid configuration\n",
+        "exit": 1
+      }
+    },
+    {
       "id": "cli-parquet-not-compiled",
       "surface": "cli",
       "code": null,
@@ -897,6 +1252,31 @@
         "stdout": "",
         "stderr": "Error: skill: unknown agent: 'bogus'\nvalid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie\n",
         "exit": 2
+      }
+    },
+    {
+      "id": "cli-skill-no-agents",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: skill: no supported agents detected",
+      "cause": "A `relate skill` action ran without `--agent` and none of the agents' configuration directories exists in the home directory; a second line lists the valid agents.",
+      "remedy": "Pass `--agent <name>` with a name from the `valid agents:` line.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate skill --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate skill install",
+        "stdout": "",
+        "stderr": "Error: skill: no supported agents detected\nvalid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie\n",
+        "exit": 1
       }
     },
     {
@@ -1023,6 +1403,26 @@
       }
     },
     {
+      "id": "engine-storage-locked",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": "42000",
+      "neo4j_code": "Neo.DatabaseError.General.UnknownError",
+      "message": "storage locked: <path>",
+      "cause": "Another process holds the store for writing when a client opens it: `relate.connect(path)` in Python, `Database.open(path)` in Node.js.",
+      "remedy": "Close the other opener, or open a directory store read-only beside its writer.",
+      "python_class": "OperationalError",
+      "http_status": null,
+      "note": "Python raises `OperationalError` with kind `StorageError` and this message. The Node.js client (@relate/relate 0.16.1) reports every `Database.open` failure, this one, a missing store and a `{ readOnly: true }` open of a `.rl` store a writable handle holds included, as `RelateError` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, stage `internal` and `gqlStatus` `42000`. The CLI reports the lock as [cli-conflict-locked](/docs/reference/errors#cli-conflict-locked).",
+      "sources": [
+        "relate-db 0.16.1 (ac441ec), source build",
+        "@relate/relate 0.16.1 (ac441ec), source build"
+      ]
+    },
+    {
       "id": "engine-undefined-variable",
       "surface": "engine",
       "code": "validation_error",
@@ -1139,8 +1539,16 @@
       "sources": [
         "docs/api/rust/errors.md",
         "docs/api/python/spec.md",
-        "docs/api/bolt/spec.md"
-      ]
+        "docs/api/bolt/spec.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "note": "The message writes the 64 MiB (67,108,864-byte) cap as `64 MB`.",
+      "recorded": {
+        "command": "relate --mode envelope \"WITH reduce(s = 'a', i IN range(1, 26) | s + s) AS s CREATE (:Blob {s: s})\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"capacity\",\"message\":\"This statement tried to commit a single WAL record of at least 64 MB. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is 64 MB; commit the data in smaller transactions.\",\"retryable\":false}}\n",
+        "stderr": "This statement tried to commit a single WAL record of at least 64 MB. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is 64 MB; commit the data in smaller transactions.\n",
+        "exit": 1
+      }
     },
     {
       "id": "engine-graph-size-cap",
@@ -1319,38 +1727,52 @@
     {
       "id": "engine-composite-only-function",
       "surface": "engine",
-      "code": null,
-      "kind": null,
-      "exit_code": null,
-      "retryable": null,
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
       "gql_status": "42N72",
       "neo4j_code": null,
-      "message": null,
+      "message": "semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph <name>",
       "cause": "`graph.byName`, `graph.names` or `graph.propertiesByName`, which are composite-only.",
       "remedy": "A statement runs against one graph; query each store separately.",
       "python_class": null,
       "http_status": null,
       "sources": [
-        "docs/limitations.md"
-      ]
+        "docs/limitations.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"RETURN graph.names() AS g\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph graph.names()\",\"retryable\":false}}\n",
+        "stderr": "semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph graph.names()\n",
+        "exit": 6
+      }
     },
     {
       "id": "engine-multiple-use-targets",
       "surface": "engine",
-      "code": null,
-      "kind": null,
-      "exit_code": null,
-      "retryable": null,
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
       "gql_status": "42NA5",
       "neo4j_code": null,
-      "message": null,
+      "message": "semantic error: SemanticError: Multiple graphs in the same query not allowed here. This feature is only available on composite databases. Attempted to access graph <name>",
       "cause": "Several distinct `USE` targets in one statement (across `UNION` arms, `CALL` subqueries or `NEXT`).",
       "remedy": "Use one target per statement.",
       "python_class": null,
       "http_status": null,
       "sources": [
-        "docs/limitations.md"
-      ]
+        "docs/limitations.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"USE neo4j RETURN 1 AS a UNION USE system RETURN 1 AS a\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: SemanticError: Multiple graphs in the same query not allowed here. This feature is only available on composite databases. Attempted to access graph system\",\"retryable\":false}}\n",
+        "stderr": "semantic error: SemanticError: Multiple graphs in the same query not allowed here. This feature is only available on composite databases. Attempted to access graph system\n",
+        "exit": 6
+      }
     },
     {
       "id": "engine-unknown-function",
@@ -1378,6 +1800,30 @@
       }
     },
     {
+      "id": "engine-procedure-not-found",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "syntax error: ProcedureNotFound: <name>",
+      "cause": "`CALL` names a procedure relate does not have.",
+      "remedy": "Check the name with `SHOW PROCEDURES`; APOC and GDS are not included ([differences from Neo4j](/docs/reference/cypher/differences-from-neo4j)).",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CALL apoc.meta.schema() YIELD value RETURN value\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: ProcedureNotFound: apoc.meta.schema\",\"retryable\":false}}\n",
+        "stderr": "syntax error: ProcedureNotFound: apoc.meta.schema\n",
+        "exit": 6
+      }
+    },
+    {
       "id": "engine-preview-feature-not-enabled",
       "surface": "engine",
       "code": "validation_error",
@@ -1387,14 +1833,15 @@
       "gql_status": null,
       "neo4j_code": null,
       "message": "preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>",
-      "cause": "A gated preview feature was used while disabled. For ontology the full text is `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology`.",
+      "cause": "A gated preview feature was used while disabled. For ontology the full text is `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology`. Not every preview feature fails with this message: obfuscated-literals fails as `syntax error: parse error: unexpected token \"*\"`, mixed-label-syntax as `InvalidLabelExpression` or `MixedIsAndColonConjunction`, complex-search-patterns as `SearchClauseTooComplexPattern` or `SearchClauseMultipleBoundVariables`, and the coll-zip, coll-has and gql-stddev-aliases name gates as `UnknownFunction` ([Cypher overview](/docs/reference/cypher/overview), the When off column).",
       "remedy": "Set `RELATE_PREVIEW=<name>` in the environment of the process that opens the store.",
       "python_class": null,
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md",
-        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
+        "relate 0.16.1 (ac441ec), source build"
       ]
     },
     {
@@ -1464,12 +1911,91 @@
       }
     },
     {
+      "id": "engine-query-too-large",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes",
+      "cause": "The statement text is over 4 MiB (4,194,304 bytes).",
+      "remedy": "Send the data as parameters, or split the statement.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/limitations.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate query --mode envelope < big.cypher",
+        "setup": "printf \"RETURN '\" > big.cypher; head -c 4194304 /dev/zero | tr '\\0' a >> big.cypher; printf \"' AS x;\\n\" >> big.cypher",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: query text of 4194318 bytes exceeds the maximum query size of 4194304 bytes\",\"retryable\":false}}\n",
+        "stderr": "syntax error: query text of 4194318 bytes exceeds the maximum query size of 4194304 bytes\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-nesting-depth-exceeded",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "syntax error: parse error: maximum nesting depth of 500 exceeded",
+      "cause": "The statement's expressions and clauses nest more than 500 levels deep.",
+      "remedy": "Flatten the expression.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The error object also carries `column` and `source`.",
+      "sources": [
+        "docs/limitations.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate query --mode envelope < nest.cypher",
+        "setup": "printf 'RETURN %s1%s AS x;\\n' \"$(printf '(%.0s' $(seq 501))\" \"$(printf ')%.0s' $(seq 501))\" > nest.cypher",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"column\":122,\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: parse error: maximum nesting depth of 500 exceeded   …(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))…                                                                                                                            ^\",\"retryable\":false,\"source\":\"…(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))…\"}}\n",
+        "stderr": "syntax error: parse error: maximum nesting depth of 500 exceeded\n  …(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))…\n                                                                                                                           ^\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-value-depth-exceeded",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level (security limit).",
+      "cause": "A list or map built at run time nests more than 500 levels.",
+      "remedy": "Build a flatter value.",
+      "python_class": null,
+      "http_status": null,
+      "name": "ValueDepthExceeded",
+      "sources": [
+        "docs/limitations.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"RETURN size(reduce(x = [], i IN range(1, 501) | [x])) AS depth\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"execution\",\"message\":\"ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level (security limit).\",\"retryable\":false}}\n",
+        "stderr": "ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level (security limit).\n",
+        "exit": 1
+      }
+    },
+    {
       "id": "engine-nested-evaluation-budget",
       "surface": "engine",
-      "code": null,
-      "kind": null,
-      "exit_code": null,
-      "retryable": null,
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
       "gql_status": null,
       "neo4j_code": "Neo.ClientError.Statement.SemanticError",
       "message": "NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level (security budget).",
@@ -1479,8 +2005,16 @@
       "http_status": null,
       "sources": [
         "docs/api/rust/spec.md",
-        "docs/api/bolt/spec.md"
-      ]
+        "docs/api/bolt/spec.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "note": "A `CALL` subquery runs once per input row and each run counts against the budget, so a `CALL { … }` over more than 100,000 rows fails, `IN TRANSACTIONS` included; the same statement over 99,999 rows succeeds.",
+      "recorded": {
+        "command": "relate --mode envelope \"UNWIND range(1, 100001) AS i CALL (i) { RETURN i AS j } RETURN count(*) AS c\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"execution\",\"message\":\"NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level (security budget).\",\"retryable\":false}}\n",
+        "stderr": "NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level (security budget).\n",
+        "exit": 1
+      }
     },
     {
       "id": "engine-write-on-read-only",
@@ -1525,21 +2059,151 @@
     {
       "id": "engine-uniqueness-violation",
       "surface": "engine",
-      "code": null,
-      "kind": null,
-      "exit_code": null,
-      "retryable": null,
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
       "gql_status": null,
       "neo4j_code": "Neo.ClientError.Schema.ConstraintValidationFailed",
-      "message": null,
+      "message": "semantic error: ConstraintValidationFailed: `<constraint>` uniqueness",
       "cause": "A write violates a uniqueness constraint.",
       "remedy": "Use `MERGE` on the constrained key, or fix the duplicate.",
       "python_class": "IntegrityError",
       "http_status": null,
       "sources": [
         "docs/api/bolt/spec.md",
-        "surfaces/relate-python/python/relate/exceptions.py"
-      ]
+        "surfaces/relate-python/python/relate/exceptions.py",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"CREATE (:Entity {key: 'ada'})\"",
+        "setup": "relate --database ./s.rl \"CREATE CONSTRAINT entity_key FOR (e:Entity) REQUIRE e.key IS UNIQUE; CREATE (:Entity {key: 'ada'})\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: ConstraintValidationFailed: `entity_key` uniqueness\",\"retryable\":false}}\n",
+        "stderr": "semantic error: ConstraintValidationFailed: `entity_key` uniqueness\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-vector-dimension-mismatch",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "type error: vector() dimension does not match list",
+      "cause": "`vector(list, n, type)` was given a list whose length is not `n`.",
+      "remedy": "Pass a dimension equal to the list length.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/reference/cypher-syntax.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"RETURN vector([0.1, 0.2, 0.3], 4, FLOAT32) AS v\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: vector() dimension does not match list\",\"retryable\":false}}\n",
+        "stderr": "type error: vector() dimension does not match list\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-vector-index-dimensionality-mismatch",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "type error: VectorIndexDimensionalityMismatch",
+      "cause": "A query vector or a stored vector whose length is not the index's `vector.dimensions`.",
+      "remedy": "Embed with the model the index was built for, or create the index with the right dimension.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"MATCH (d:Doc) SEARCH d IN (VECTOR INDEX doc_vec FOR [0.1, 0.2, 0.3] LIMIT 1) RETURN d.id AS id\"",
+        "setup": "relate --database ./s.rl \"CREATE VECTOR INDEX doc_vec FOR (d:Doc) ON (d.embedding) OPTIONS {indexConfig: {\\`vector.dimensions\\`: 4}}; CREATE (:Doc {id: 1, embedding: [0.1, 0.2, 0.3, 0.4]})\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: VectorIndexDimensionalityMismatch\",\"retryable\":false}}\n",
+        "stderr": "type error: VectorIndexDimensionalityMismatch\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-equivalent-schema-rule-already-exists",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: EquivalentSchemaRuleAlreadyExists",
+      "cause": "An index equivalent to an existing one: a vector index on the same label and property with the same `WITH [...]` list (same properties, same order), whatever its `OPTIONS`, or a full-text index on the same label and properties.",
+      "remedy": "Check `SHOW INDEXES`; the existing index already serves the statement, or give the new vector index a different `WITH` list.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CREATE VECTOR INDEX a FOR (p:Person) ON (p.focus) WITH [p.role]; CREATE VECTOR INDEX b FOR (p:Person) ON (p.focus) WITH [p.role] OPTIONS {indexConfig: {\\`vector.dimensions\\`: 4}}\"",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: EquivalentSchemaRuleAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stderr": "semantic error: EquivalentSchemaRuleAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-index-already-exists",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: IndexAlreadyExists",
+      "cause": "A `CREATE INDEX` names an index that already exists.",
+      "remedy": "Add `IF NOT EXISTS`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CREATE INDEX i FOR (p:P) ON (p.x); CREATE INDEX i FOR (p:P) ON (p.x)\"",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: IndexAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stderr": "semantic error: IndexAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-no-such-index",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: NoSuchIndex: `<name>`",
+      "cause": "A `DROP INDEX` names an index that does not exist.",
+      "remedy": "Check `SHOW INDEXES`, or add `IF EXISTS`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"DROP INDEX missing_index\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: NoSuchIndex: `missing_index`\",\"retryable\":false}}\n",
+        "stderr": "semantic error: NoSuchIndex: `missing_index`\n",
+        "exit": 6
+      }
     },
     {
       "id": "engine-namespace-change-in-transaction",
@@ -1557,6 +2221,51 @@
       "http_status": null,
       "sources": [
         "docs/api/python/spec.md § Session namespace"
+      ]
+    },
+    {
+      "id": "engine-already-in-transaction",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": "42000",
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
+      "message": "semantic error: already in a transaction",
+      "cause": "A second begin while a transaction is open; transactions do not nest.",
+      "remedy": "Commit or roll back the open transaction first.",
+      "python_class": null,
+      "http_status": null,
+      "note": "In the CLI shell a second `.begin` prints the message and exits 1; the Node.js client raises it from `begin()`.",
+      "sources": [
+        "@relate/relate 0.16.1 (ac441ec), source build",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "printf '.begin\\n.begin\\n' | relate query --mode envelope",
+        "stdout": "",
+        "stderr": "semantic error: already in a transaction\nWarning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "engine-transaction-failed-rollback-required",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": "42000",
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
+      "message": "semantic error: transaction failed; rollback required",
+      "cause": "A statement failed inside an explicit transaction; every later statement and the commit fail until rollback.",
+      "remedy": "Roll back, then run the transaction again.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The CLI stops a script at its first failure, so it does not reach this error.",
+      "sources": [
+        "@relate/relate 0.16.1 (ac441ec), source build"
       ]
     }
   ],
@@ -1782,6 +2491,33 @@
       "sources": [
         "docs/api/mcp/spec.md"
       ]
+    },
+    {
+      "id": "mcp-unknown-tool",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "unknown tool '<name>'",
+      "cause": "`tools/call` named a tool the server does not list; `write_cypher` is not listed when the store is opened `--read-only`.",
+      "remedy": "Call a tool from `tools/list`; to write, serve the store without `--read-only`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "Returned as a tool result with `isError: true`, not as a JSON-RPC error.",
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"query\":\"CREATE (:B)\"}}}' | relate serve --mcp stdio --database ./graph.rl --read-only",
+        "setup": "relate --database ./graph.rl \"CREATE (:A)\"",
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"0.16.1\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
+        "stderr": "serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails\nserve: MCP (stdio) serving on stdin/stdout (auth: none)\nserve: stdin closed, shutting down\n",
+        "exit": 0
+      }
     },
     {
       "id": "mcp-internal-error",
@@ -2073,7 +2809,10 @@
   ],
   "gql_status_index": {
     "42000": [
-      "http-general"
+      "http-general",
+      "engine-storage-locked",
+      "engine-already-in-transaction",
+      "engine-transaction-failed-rollback-required"
     ],
     "22G03": [
       "cli-validation-error-type",

@@ -1,0 +1,480 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "store-vectors": {
+      "kind": "table",
+      "text": "| name    | type                                   |\n|---------|----------------------------------------|\n| \"Ada\"   | \"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\" |\n| \"Grace\" | \"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\" |\n| \"Noor\"  | \"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\" |\n3 rows · properties set: 3",
+      "table": {
+        "columns": [
+          "name",
+          "type"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada\"",
+            "\"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\""
+          ],
+          [
+            "\"Grace\"",
+            "\"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\""
+          ],
+          [
+            "\"Noor\"",
+            "\"VECTOR<FLOAT32 NOT NULL>(3) NOT NULL\""
+          ]
+        ],
+        "summary": "3 rows · properties set: 3"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "type"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Ada",
+            "type": "VECTOR<FLOAT32 NOT NULL>(3) NOT NULL"
+          },
+          {
+            "name": "Grace",
+            "type": "VECTOR<FLOAT32 NOT NULL>(3) NOT NULL"
+          },
+          {
+            "name": "Noor",
+            "type": "VECTOR<FLOAT32 NOT NULL>(3) NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-index": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "nearest": {
+      "kind": "table",
+      "text": "| name    | score  |\n|---------|--------|\n| \"Grace\" | 0.989  |\n| \"Noor\"  | 0.7151 |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "0.989"
+          ],
+          [
+            "\"Noor\"",
+            "0.7151"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "score": 0.989
+          },
+          {
+            "name": "Noor",
+            "score": 0.7151
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "filtered": {
+      "kind": "table",
+      "text": "| name    | score  |\n|---------|--------|\n| \"Grace\" | 0.989  |\n| \"Ada\"   | 0.6184 |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "0.989"
+          ],
+          [
+            "\"Ada\"",
+            "0.6184"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "score": 0.989
+          },
+          {
+            "name": "Ada",
+            "score": 0.6184
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "then-traverse": {
+      "kind": "table",
+      "text": "| name   | projects   |\n|--------|------------|\n| \"Noor\" | [\"relate\"] |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "projects"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Noor\"",
+            "[\"relate\"]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "name",
+          "projects"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Noor",
+            "projects": [
+              "relate"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "scores": {
+      "kind": "table",
+      "text": "| same | orthogonal | opposite | euclidean           | distance |\n|------|------------|----------|---------------------|----------|\n| 1.0  | 0.5        | 0.0      | 0.03846153989434242 | 5.0      |\n1 row",
+      "table": {
+        "columns": [
+          "same",
+          "orthogonal",
+          "opposite",
+          "euclidean",
+          "distance"
+        ],
+        "numeric": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "1.0",
+            "0.5",
+            "0.0",
+            "0.03846153989434242",
+            "5.0"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT"
+        ],
+        "columns": [
+          "same",
+          "orthogonal",
+          "opposite",
+          "euclidean",
+          "distance"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "distance": 5,
+            "euclidean": 0.03846153989434242,
+            "opposite": 0,
+            "orthogonal": 0.5,
+            "same": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "verify": {
+      "kind": "table",
+      "text": "| name           | type     | labelsOrTypes | properties        | state    |\n|----------------|----------|---------------|-------------------|----------|\n| \"person_focus\" | \"VECTOR\" | [\"Person\"]    | [\"focus\", \"role\"] | \"ONLINE\" |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"person_focus\"",
+            "\"VECTOR\"",
+            "[\"Person\"]",
+            "[\"focus\", \"role\"]",
+            "\"ONLINE\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labelsOrTypes": [
+              "Person"
+            ],
+            "name": "person_focus",
+            "properties": [
+              "focus",
+              "role"
+            ],
+            "state": "ONLINE",
+            "type": "VECTOR"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "wrong-length": {
+      "kind": "table",
+      "text": "error: type error: VectorIndexDimensionalityMismatch",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "type error: VectorIndexDimensionalityMismatch",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    }
+  }
+}

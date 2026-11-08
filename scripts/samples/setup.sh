@@ -11,13 +11,17 @@
 # What it builds, under --out (default ${XDG_CACHE_HOME:-$HOME/.cache}/relate-web-samples):
 #   py/                        a venv with relate-db installed from a wheel that
 #                              maturin builds from surfaces/relate-python
-#                              (not editable, so nothing is written into the checkout)
+#                              (not editable, so nothing is written into the checkout),
+#                              its pandas extra, and the frameworks the integration
+#                              pages' samples import (langgraph, claude-agent-sdk)
 #   wheels/                    that wheel
 #   node/node_modules/@relate/relate
 #                              a copy of clients/javascript with its one
 #                              dependency (koffi) installed; the unpublished
 #                              platform packages are omitted, so the client
 #                              finds the native library through RELATE_LIB
+#   node/node_modules/{ai,zod}  the Vercel AI SDK and zod, for the integration
+#                              page's sample (ai 7 needs Node 22+)
 #   env.sh                     the variables docs:samples reads
 # and the FFI library with `cargo build -p relate-ffi --release` in the
 # checkout's own target directory (or CARGO_TARGET_DIR).
@@ -31,7 +35,7 @@
 #   --github-env     also append the variables to $GITHUB_ENV (GitHub Actions)
 #
 # Needs: the Rust toolchain the checkout pins (rust-toolchain.toml), Python 3.9+
-# with venv, Node 18+ and npm. The first build compiles the engine twice (the
+# with venv, Node 22+ and npm. The first build compiles the engine twice (the
 # Python extension and the FFI library) and takes several minutes.
 set -euo pipefail
 
@@ -101,13 +105,20 @@ if [ "$do_python" = 1 ]; then
   wheel="${wheels[0]}"
   [ -f "$wheel" ] || die "maturin produced no wheel in $out/wheels"
   "$py" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "$wheel"
+  # The pandas extra (get-started/python's to_df() sample) and the frameworks
+  # guides/integrations/{langgraph,claude-agent-sdk} import, at the versions the
+  # pages were checked against (LAUNCH.md has the re-check item). claude-agent-sdk
+  # bundles the Claude Code CLI (about 360 MB).
+  "$py" -m pip install --quiet --disable-pip-version-check 'pandas>=2.0' 'langgraph==1.2.20' 'claude-agent-sdk==0.2.179'
   (cd "$out" && PYTHONDONTWRITEBYTECODE=1 "$py" -c 'import importlib.metadata as m, relate; print("setup.sh: Python: relate-db", m.version("relate-db"))') >&2
 fi
 
 lib=""
 node_modules="$out/node/node_modules"
 if [ "$do_node" = 1 ]; then
-  command -v node >/dev/null 2>&1 || die "node is required (18+)"
+  command -v node >/dev/null 2>&1 || die "node is required (22+)"
+  node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' ||
+    die "node $(node --version) is older than 22 (the ai package the Vercel AI SDK sample imports needs 22+)"
   command -v npm >/dev/null 2>&1 || die "npm is required"
   say "Node: building the FFI library (cargo build -p relate-ffi --release)"
   (cd "$upstream" && cargo build --release -p relate-ffi)
@@ -115,6 +126,12 @@ if [ "$do_node" = 1 ]; then
   [ -f "$lib" ] || die "the FFI build produced no $lib"
   say "Node: copying clients/javascript to $node_modules/@relate/relate"
   rm -rf "$out/node"
+  mkdir -p "$out/node"
+  # guides/integrations/vercel-ai-sdk's sample imports ai and zod, at the versions
+  # the page was checked against; installed first, so the client copy below is
+  # not pruned by npm.
+  say "Node: installing ai and zod"
+  npm install --no-save --no-package-lock --no-audit --no-fund --loglevel=error --prefix "$out/node" ai@7.0.165 zod@4.6.7
   mkdir -p "$node_modules/@relate"
   cp -R "$upstream/clients/javascript" "$node_modules/@relate/relate"
   rm -rf "$node_modules/@relate/relate/node_modules"

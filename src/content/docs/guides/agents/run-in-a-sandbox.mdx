@@ -1,4 +1,211 @@
 ---
 title: Run relate in a sandbox
-status: planned
+description: Install relate where an agent runs isolated, from Claude Code's sandbox to Docker, with the hosts to allow, usage metrics off and the right store.
+order: 50
+surfaces: [cli, docker, agents]
+prerequisites: [get-started/install]
+related: [guides/agents/connect-over-mcp, guides/agents/agent-safety, guides/agents/drive-relate-from-an-agent, reference/privacy-and-telemetry, reference/cli/flags]
 ---
+
+This guide shows you how to run relate inside an agent sandbox: which hosts to allow, where the binary lands, how to keep usage metrics off, and which store to use. Once relate is installed and usage metrics are off, it needs no network, so most sandboxes need egress only while the image is built.
+
+## Prerequisites
+
+- A sandbox that runs Linux on amd64 or arm64, or macOS for Claude Code's local sandbox. The Linux binaries are built for glibc (`x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`), so use a Debian or Ubuntu base rather than Alpine.
+- `curl` and `ssh-keygen` (the OpenSSH client) in the image, for the install script's checks.
+
+## What relate needs from any sandbox
+
+| Need | relate's side |
+| --- | --- |
+| Hosts to allow while installing | `install.sh`: `relatedb.ai`, `api.github.com` and `release-assets.githubusercontent.com`. The pinned binary: `github.com` and `release-assets.githubusercontent.com` |
+| Hosts to allow at run time | None once usage metrics are off (`DO_NOT_TRACK=1`), except the host of a `--load https://…` or `--fetch-params` URL an agent uses. `relate upgrade` and `relate extension install` reach `relatedb.ai` and GitHub; `pull` and `push` reach the Neo4j server they name |
+| Where the binary lands | `$HOME/.local/bin/relate` for the user that ran `install.sh` |
+| Usage metrics | On by default in release binaries; `DO_NOT_TRACK=1` turns them off and wins over every other setting |
+| Store | `:memory:` (the default) forgets everything when the process exits; a `.rl` file in the workspace persists |
+| Served surfaces | `relate serve` binds `127.0.0.1` by default and has no TLS |
+
+The release asset host is where GitHub redirects release downloads, as of 2026-11-07.
+
+## Install relate into the image
+
+Install at image or setup time, while the sandbox still has egress:
+
+```bash
+curl -sSfL https://relatedb.ai/install.sh | bash
+```
+
+The script checks the release's signature, its signed version line and the binary's SHA-256 before it installs the latest release to `$HOME/.local/bin`. For an exact version, the Pinned binary steps on the [install page](/docs/get-started/install) make the same checks. If `$HOME/.local/bin` is not on the agent's `PATH`, add it, or call the binary by its absolute path.
+
+:::note[The agent build]
+Release binaries are the `full` build. The `agent` build, built from source with `cargo build -p relate-cli --no-default-features --features agent`, leaves out `serve`, `upgrade` and usage metrics, and keeps statements, `--load` from a URL, `--fetch-params`, the skill and `agent-context`.
+:::
+
+## Turn off usage metrics
+
+Set `DO_NOT_TRACK=1` in the sandbox's environment: nothing is sent, and the first run prints no notice on stderr. Where a harness has no place for environment variables, run `relate telemetry off` once at setup; it writes the choice to relate's config folder in the image. The [privacy and telemetry reference](/docs/reference/privacy-and-telemetry) lists every event.
+
+## Choose where the store lives
+
+Each `relate` command is its own process, so an in-memory store lasts one command. Work that spans commands needs a file in the workspace, `--database ./work.rl`, which can be committed with the change. Reads open it `--read-only`, so a mistake cannot change it.
+
+relate turns on :term[agent mode]{id=agent-mode} when it detects a harness variable such as `CLAUDECODE`, `CODEX_SANDBOX` or `CURSOR_AGENT` and stdout is not a terminal: each statement prints at most 100 rows and says so on stderr. `--max-rows 0` prints them all.
+
+## Load a dataset from a URL
+
+`--load https://<dataset-host>/<name>.rl` fetches a `.rl` file, so `<dataset-host>` has to be allowed; a GitHub file link is fetched from `raw.githubusercontent.com`. relate keeps no copy, so nothing is left to check afterwards. To check what you load, download it, compare its SHA-256 with the one its publisher lists, then load the local file:
+
+```bash
+curl -fsSLO https://<dataset-host>/<name>.rl
+sha256sum <name>.rl
+relate --load ./<name>.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS nodes"
+```
+
+`--safe` refuses a remote `--load` source before any network request and exits 2: a downloaded store is untrusted input. The download-and-check form works under `--safe`, because the source is then a local file.
+
+## Keep served surfaces on loopback
+
+`relate serve` binds `127.0.0.1` unless `--host` says otherwise. Bolt, the HTTP Query API and MCP over HTTP check one basic-auth credential, but serve has no TLS, so a non-loopback host sends the credential and every result in plaintext and prints a `WARNING` at startup. Inside a container, bind `0.0.0.0` and publish the port to the host's loopback only (see [plain Docker](#plain-docker)).
+
+## Set up each harness
+
+The harness side of each section follows that vendor's documentation as of 2026-11-07. Harness settings change between releases.
+
+### Claude Code sandbox
+
+Claude Code's sandbox (`/sandbox`, or `sandbox.enabled` in a settings file) lets commands write only to the working directory and temporary directories, and allows only listed domains, a list that starts empty. Install relate before the session: `install.sh` writes to `~/.local/bin`, outside the writable set.
+
+For datasets loaded from GitHub, with usage metrics off:
+
+```json title=".claude/settings.json"
+{
+  "env": { "DO_NOT_TRACK": "1" },
+  "sandbox": {
+    "enabled": true,
+    "network": { "allowedDomains": ["raw.githubusercontent.com"] }
+  }
+}
+```
+
+### Codex CLI and Codex cloud
+
+The Codex CLI's default `workspace-write` sandbox lets commands write to the current directory and temporary directories such as `/tmp`, with network access off. Install relate before the session. To let `--load` reach a URL, network access goes on in `~/.codex/config.toml`:
+
+```toml title="config.toml"
+[sandbox_workspace_write]
+network_access = true
+```
+
+Codex cloud runs an environment's setup with network access, and the agent phase offline unless internet access is turned on for that environment, with optional allowed domains. Put the install line and `relate telemetry off` in the environment's install script.
+
+### Cursor cloud agents
+
+Cursor cloud agents run on Ubuntu machines with internet access by default. The `install` command in `.cursor/environment.json` runs from the project root when Cursor builds the environment, and must be safe to repeat, as `install.sh` is:
+
+```json title=".cursor/environment.json"
+{
+  "install": "curl -sSfL https://relatedb.ai/install.sh | bash && ~/.local/bin/relate telemetry off"
+}
+```
+
+To narrow egress, the Cloud Agents dashboard's network modes are **Allow all network access**, **Default + allowlist** and **Allowlist only**.
+
+### E2B
+
+E2B sandboxes have outbound internet access by default. `allowInternetAccess: false` (Python `allow_internet_access=False`) turns it off at creation, and the `network` option takes `allowOut` and `denyOut` lists. Bake the install into a custom template, set `DO_NOT_TRACK=1` with the template's `setEnvs`, and start each sandbox from that template.
+
+### Vercel Sandbox
+
+Vercel Sandbox runs each sandbox in a Firecracker microVM whose default network policy is `allow-all`. The policy can change at runtime, so install relate first, then tighten it to `deny-all` or a list of domains:
+
+```js title="sandbox.mjs"
+await sandbox.update({ networkPolicy: { allow: ["raw.githubusercontent.com"] } });
+```
+
+Sandboxes are persistent by default, so a `.rl` file survives to the next session. A snapshot taken after installing skips the install next time. With the CLI, `sandbox exec --env DO_NOT_TRACK=1 <name> -- relate …` sets the variable per command.
+
+### Daytona
+
+On Daytona's tiers 1 and 2, organization-level network limits apply, and the documented always-reachable services include `github.com` and `*.githubusercontent.com`, the pinned binary's two hosts. `install.sh` also needs `relatedb.ai` and `api.github.com`. Tiers 3 and 4 have unrestricted internet access by default; `domainAllowList` (domains, wildcards allowed), `networkAllowList` (IPv4 ranges) and `networkBlockAll` replace it at creation.
+
+### Plain Docker
+
+A Debian-based image with the install's two dependencies:
+
+```dockerfile title="Dockerfile"
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl openssh-client \
+ && rm -rf /var/lib/apt/lists/*
+RUN curl -sSfL https://relatedb.ai/install.sh | bash
+ENV PATH="/root/.local/bin:${PATH}" DO_NOT_TRACK=1
+WORKDIR /work
+```
+
+Run statements against a store mounted from the host, with no network at all:
+
+```bash
+docker run --rm --network none -v "$PWD":/work <image> relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS nodes"
+```
+
+To serve Bolt from the container, bind all interfaces inside it and publish the port to the host's loopback:
+
+```bash
+docker run --rm -p 127.0.0.1:7687:7687 -v "$PWD":/work <image> relate serve --database ./graph.rl --read-only --host 0.0.0.0 --bolt 7687
+```
+
+To allow writes, remove `--read-only`.
+
+## Verify
+
+With `DO_NOT_TRACK=1` set, usage metrics report disabled:
+
+```bash verify
+DO_NOT_TRACK=1 relate telemetry status
+```
+
+```text
+disabled (DO_NOT_TRACK)
+```
+
+An in-memory store lasts one command, so a second command finds nothing:
+
+```bash verify
+relate --mode envelope "CREATE (:Note {text: 'kept?'})"
+relate --mode envelope "MATCH (n:Note) RETURN count(n) AS notes"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["notes"],"notifications":[],"rows":[{"notes":0}],"truncated":false}
+```
+
+A `.rl` file in the workspace keeps it:
+
+```bash verify
+relate --database ./work.rl --mode envelope "CREATE (:Note {text: 'kept'})"
+relate --database ./work.rl --read-only --mode envelope "MATCH (n:Note) RETURN count(n) AS notes"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["notes"],"notifications":[],"rows":[{"notes":1}],"truncated":false}
+```
+
+## If it goes wrong
+
+**`relate: command not found`.** The install directory is not on the `PATH`; `install.sh` says so with `NOTE: <dir> is not in your PATH.` Add `$HOME/.local/bin` to the `PATH`, or call `$HOME/.local/bin/relate`.
+
+**A `--load` exits 1 with `Error: request failed:` and a network detail.** The sandbox blocked the host, or it does not resolve. Allow `<dataset-host>` (`raw.githubusercontent.com` for a GitHub link), or download the file during setup and `--load` the local copy.
+
+**`--load` exits 2 with an error that begins `Error: --safe refuses a remote --load source`.** Safe mode does not load remote stores. Download the file, check its SHA-256, and load the local copy.
+
+**Results stop at 100 rows with `warning: result truncated to 100 rows (the statement returned <n>); pass --max-rows 0 for all rows`.** relate detected the harness and capped the output. Pass `--max-rows 0`, or `--max-rows <n>`, when the agent needs more.
+
+## Related
+
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): serve a store to the agent host, read-only.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and backups.
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the envelope, exit codes, and the row cap.
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what usage metrics hold and every way to turn them off.
+- [CLI flags](/docs/reference/cli/flags): `--load`, `--safe`, `--fetch-params` and `--max-rows`.

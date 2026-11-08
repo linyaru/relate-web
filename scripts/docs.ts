@@ -267,7 +267,7 @@ const SYNONYMS: { phrase: RegExp; say: string; label: string }[] = [
 ];
 
 const PRODUCT_NAME: WordRule = {
-  re: /\bRelate ?DB\b|\bthe relate database\b|\bRelate\b/g,
+  re: /\bRelate ?DB\b|\bthe relate database\b|(?<!\bNeo4j Desktop )\bRelate\b/g,
   rule: 'product-name',
   severity: 'error',
   message: (m) => `"${m}": the name is "relate", lowercase, even at the start of a sentence (STYLE.md §4.4)`,
@@ -296,7 +296,7 @@ const PROPER_NOUNS = new Set([
 
 /** Multi-word names whose later words are capitalized (STYLE.md §4.4 names "HTTP Query API"). */
 const PROPER_PHRASES = [
-  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'Gemini CLI',
+  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'Vercel Sandbox', 'Gemini CLI',
   'Neo4j Desktop', 'GitHub Actions', 'Cloudflare Pages', 'Cloudflare Workers', 'Web Analytics',
 ];
 

@@ -1,0 +1,249 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 19, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 6,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "indexes": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 2",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "vector-search": {
+      "kind": "table",
+      "text": "| name    | score  |\n|---------|--------|\n| \"Grace\" | 0.989  |\n| \"Ada\"   | 0.6184 |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "0.989"
+          ],
+          [
+            "\"Ada\"",
+            "0.6184"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "score": 0.989
+          },
+          {
+            "name": "Ada",
+            "score": 0.6184
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fulltext-search": {
+      "kind": "table",
+      "text": "| name    | score |\n|---------|-------|\n| \"Noor\"  | 2.0   |\n| \"Grace\" | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Noor\"",
+            "2.0"
+          ],
+          [
+            "\"Grace\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Noor",
+            "score": 2
+          },
+          {
+            "name": "Grace",
+            "score": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "hybrid-intersection": {
+      "kind": "table",
+      "text": "| name   | vector | fulltext |\n|--------|--------|----------|\n| \"Noor\" | 0.7151 | 1.0      |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "vector",
+          "fulltext"
+        ],
+        "numeric": [
+          false,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "\"Noor\"",
+            "0.7151",
+            "1.0"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "vector",
+          "fulltext"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "fulltext": 1,
+            "name": "Noor",
+            "vector": 0.7151
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

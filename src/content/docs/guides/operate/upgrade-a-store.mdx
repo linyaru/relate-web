@@ -1,4 +1,143 @@
 ---
 title: Upgrade a store
-status: planned
+description: "Move a relate store to a newer release: back it up, read its format version with relate info, upgrade the binary, and let the first writable open migrate it."
+order: 50
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [get-started/install#keep-relate-up-to-date, reference/storage/formats, guides/storage/backup-and-restore, reference/changelog]
 ---
+
+This guide shows you how to take a store to a newer relate release. Migration is automatic and forward-only: the first writable open by a newer binary rewrites an older store in the current format before it runs a statement, and no release converts a store back. Once migrated, the older binary refuses the store, so the backup comes first.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- No process has the store open. To follow along, create the shared example graph as `team.rl`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+## Read the store's format version
+
+`relate info` reads a store's metadata without opening it, so it doesn't migrate anything:
+
+```bash verify
+relate info --database ./team.rl
+```
+
+```text
+layout: .rl bundle
+superblock version: 1
+codec: parquet
+format version: 3
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 36864
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 1): 5
+relationships (at checkpoint LSN 1): 5
+indexes: 0
+constraints: 0
+```
+
+`format version` is the version of the Parquet snapshot, and `superblock version` that of the `.rl` file around it. `relate info --json` prints the same fields as `format_version` and `superblock_version`. A store with the JSON :term[codec]{id=codec} prints `format version: unavailable`, because its version is inside `graph.json`, which a cold read doesn't parse.
+
+Where each part's version shows:
+
+| Part | Where the version shows |
+| --- | --- |
+| Parquet snapshot | `format version` in `relate info` |
+| JSON snapshot | `value_encoding` in `graph.json` |
+| Markdown snapshot | `value_encoding` in `.cypherlite/manifest.json` |
+| `.rl` file | `superblock version` in `relate info` |
+
+[Version markers](/docs/reference/storage/formats#version-markers) lists the versions this release writes and reads for each part.
+
+A store whose versions are all readable but not all current is migrated on its next writable open. A store with a version this release can't read is refused before anything is written to it.
+
+## Back up with the release you have
+
+Make the copy before the new binary touches the store. `relate clone` reads the source without writing it and creates a new store at the destination, which must not exist yet:
+
+```bash verify
+relate clone ./team.rl ./team-backup.rl
+```
+
+The backup keeps the current format, so the release you have now can open it. Keep it until the new release has run against the store for a while ([Back up and restore a store](/docs/guides/storage/backup-and-restore)).
+
+## Upgrade the binary
+
+`relate upgrade --check` compares your version with the latest release and changes nothing. `relate upgrade` downloads the newer release, checks its signature and checksum, and replaces the binary. It runs on macOS and Linux; on Windows, download the new binary instead ([Keep relate up to date](/docs/get-started/install#keep-relate-up-to-date)).
+
+```bash
+relate upgrade --check
+relate upgrade
+```
+
+Then confirm the version that opens the store from now on. The first line names the release you installed; this run shows 0.16.1, the version this page is verified against:
+
+```bash verify
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+The [changelog](/docs/reference/changelog) says what changed between the two releases. A repository that pins a relate version in its `AGENTS.md` moves the pin in the same change.
+
+## Open the store once for writing
+
+The first writable open migrates the store, then runs the statement. This step opens `team.rl` for writing on purpose, so the migration happens now and not in the middle of other work; the statement itself only reads:
+
+```bash verify
+relate --database ./team.rl --mode envelope "MATCH (n) RETURN count(n) AS nodes"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+```
+
+relate prints nothing when it migrates: the output is the statement's, and the store is in the new format by the time it runs. A `--read-only` open never migrates; it reads an older store as it is. A crash in the middle of a migration leaves the old store as it was, and the next writable open migrates it again.
+
+## Verify
+
+Read the format version again. It is the one the new release writes:
+
+```bash verify
+relate info --database ./team.rl --json
+```
+
+```text
+{"checkpoint_lsn":1,"codec":"parquet","commit_ts":1,"constraints":[],"format_version":3,"indexes":[],"layout":"bundle","node_count":5,"rel_count":5,"superblock_version":1,"total_bytes":36864,"wal_segments":1}
+```
+
+Between two releases with the same format, the version stays the same and there is nothing to migrate.
+
+## If it goes wrong
+
+- **`Failed to open Relate: storage error: unsupported snapshot version <n>`, or `storage error: unsupported graph value encoding: <n>` for a JSON store, exit code 1.** A newer relate wrote the store, or already migrated it. For a Parquet store, `relate info` fails too, with `Failed to read store info:` before the same detail. Open the store with that newer release, or restore the backup for the older one.
+- **The older release refuses the store after the upgrade.** That is the forward-only rule. Restore the backup made before the upgrade, and open the migrated store only with the new release.
+- **`Failed to open Relate: storage locked: <path>`, exit code 5.** Another process has the store open, so the migration can't start. Stop it and open the store again ([Share one store between two processes](/docs/guides/operate/two-processes-one-store)).
+- **`relate upgrade` fails.** Install the new release with the install script or the pinned binary steps instead ([Install relate](/docs/get-started/install)).
+
+## Related
+
+- [Keep relate up to date](/docs/get-started/install#keep-relate-up-to-date): `relate upgrade` and how it checks a release.
+- [Storage formats](/docs/reference/storage/formats): directory stores, `.rl` files and the codecs.
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): copies to restore from.
+- [Changelog](/docs/reference/changelog): what each release changed, including formats.

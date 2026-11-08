@@ -1,4 +1,246 @@
 ---
 title: Search
-status: planned
+label: Search (vector and full-text)
+description: Vector and full-text index DDL, the SEARCH clause and its rules, index options and defaults, the search procedures and vector functions, and hybrid search.
+order: 30
+surfaces: [cypher]
+related: [guides/cypher/vector-search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j]
 ---
+
+relate searches two kinds of index. A vector index answers "which entities are nearest to this vector" with an approximate nearest-neighbor search over a Hierarchical Navigable Small World (HNSW) graph; a full-text index answers "which entities contain these words". The `SEARCH` clause restricts a `MATCH` to an index's top results and names their score. The cells on this page run on relate's WebAssembly (WASM) build; the `COMBINE` example runs on the CLI, because it needs a preview opt-in.
+
+## Synopsis
+
+```text
+CREATE VECTOR INDEX <name> [IF NOT EXISTS]
+  FOR (<var>:<Label>) ON (<var>.<property>)
+  [WITH [<var>.<property>, …]]
+  [OPTIONS {indexConfig: {<key>: <value>, …}}]
+
+CREATE VECTOR INDEX <name> [IF NOT EXISTS]
+  FOR ()-[<var>:<TYPE>]-() ON (<var>.<property>)
+  [WITH [<var>.<property>, …]]
+  [OPTIONS {indexConfig: {<key>: <value>, …}}]
+
+CREATE FULLTEXT INDEX <name> [IF NOT EXISTS]
+  FOR (<var>:<Label>) ON EACH [<var>.<property>, …]
+
+CREATE FULLTEXT INDEX <name> [IF NOT EXISTS]
+  FOR ()-[<var>:<TYPE>]-() ON EACH [<var>.<property>, …]
+
+DROP INDEX <name> [IF EXISTS]
+
+MATCH <pattern that binds var>
+SEARCH <var> IN (
+  VECTOR INDEX <name> FOR <query vector> [WHERE <filter>] LIMIT <k>
+) [SCORE AS <score var>]
+
+MATCH <pattern that binds var>
+SEARCH <var> IN (
+  FULLTEXT INDEX <name> FOR <query string> [WITH ANALYZER <expr>] [SKIP <n> | OFFSET <n>] LIMIT <k>
+) [SCORE AS <score var>]
+```
+
+## Index statements
+
+| Statement | Result | Notes |
+| --- | --- | --- |
+| `CREATE VECTOR INDEX` | An index over one property holding vectors | `WITH [...]` declares the properties a vector search may filter on; `SHOW INDEXES` lists them after the vector property |
+| `CREATE FULLTEXT INDEX` | An index over one or more string properties | `ON EACH [...]` lists the properties |
+| `IF NOT EXISTS` | No error when an index of that name exists | Without it: `semantic error: IndexAlreadyExists` |
+| `DROP INDEX <name>` | Removes the index | The CLI prints nothing on success; a missing name fails with ``semantic error: NoSuchIndex: `<name>` ``, and `IF EXISTS` turns that into a no-op |
+| `SHOW INDEXES` | One row per index | Columns include `name`, `type` (`VECTOR`, `FULLTEXT`, `RANGE`), `labelsOrTypes`, `properties`, `state` and `options` |
+
+A second vector index on the same label and property with the same `WITH [...]` list, the same properties in the same order, fails with `semantic error: EquivalentSchemaRuleAlreadyExists`, whatever its `OPTIONS`. One with a different `WITH [...]` list, or none where the first has one, is created beside it. A second full-text index on the same label and properties fails with the same error.
+
+## Vector index options
+
+The keys go in `OPTIONS {indexConfig: {…}}`. They contain dots, so each key is quoted in backticks or single quotes; an unquoted key is a parse error. The defaults are the values `SHOW INDEXES` reports for an index created without options.
+
+| Key | Default | Accepted values |
+| --- | --- | --- |
+| `vector.dimensions` | not set | An integer from 1 to 4096; `0` and `4097` fail with `semantic error: NumberOutOfRange` |
+| `vector.similarity_function` | `COSINE` | `'cosine'` or `'euclidean'`, in any case; other values fail with `semantic error: InvalidInputValue` |
+| `vector.hnsw.m` | `16` | An integer; `SHOW INDEXES` reports the value set |
+| `vector.hnsw.ef_construction` | `100` | An integer; `SHOW INDEXES` reports the value set |
+| `vector.default_search_expansion_factor` | `3.0` | A number; `SHOW INDEXES` reports the value set |
+| `vector.quantization.type` | `BINARY` | A string; `SHOW INDEXES` reports the value set |
+
+An unknown key fails with `semantic error: InvalidInputValue`. A property whose vector length differs from `vector.dimensions` is stored without an error and is never returned by a search. A typed vector, `vector(<list>, <dimensions>, FLOAT32)`, fails the write when the list has another length.
+
+## Rules of the search clause
+
+| Rule | Vector search | Full-text search | Error when broken |
+| --- | --- | --- | --- |
+| `LIMIT` | Required | Required | ``syntax error: parse error: expected LIMIT, got ")" (RightParen)`` |
+| `LIMIT` value | A non-negative integer; `0` returns no rows | Same | `syntax error: NumberOutOfRange: SEARCH LIMIT must be an INTEGER NOT NULL` |
+| Score | Only through `SCORE AS <var>`; higher is more similar | Only through `SCORE AS <var>`; the count of query-term occurrences | `syntax error: UndefinedVariable: variable 'score' not defined` |
+| `WHERE` inside the search | Allowed, on the index's `WITH [...]` properties only, before ranking and `LIMIT` | Not allowed | `WrongPropertyForVectorSearchFilter`; ``syntax error: InvalidUseOfCommand: WHERE cannot be used together with 'FULLTEXT INDEX'`` |
+| Filter predicates | Equality, `IN` a list, a half-bounded range or a bounded range per property, joined by `AND`; `IN` cannot be combined with another predicate on the same property | — | `syntax error: SyntaxError: InvalidSearchFilterPredicate: invalid predicate for vector search filtering. …` (for `OR`, `<>`, or `IN` with a second predicate on its property) |
+| `SKIP` or `OFFSET` | Not allowed | Allowed | `syntax error: InvalidUseOfCommand: SKIP cannot be used together with VECTOR INDEX` |
+| `WITH ANALYZER` | Not allowed | Accepted; tokenization is the same for every analyzer | `syntax error: InvalidUseOfCommand: WITH ANALYZER cannot be used together with VECTOR INDEX` |
+| Query value | A list or vector of `vector.dimensions` numbers | A string | `type error: VectorIndexDimensionalityMismatch` |
+| Search variable | The variable after `SEARCH`, declared by the `MATCH` pattern; the query cannot refer to it | Same | `syntax error: SelfReferencingSearch: the search query cannot reference the binding variable '<var>'` |
+| Index kind | A vector index | A full-text index | `WrongIndexType: <name>` |
+| Index exists | Required | Required | `IndexDoesNotExist: <name>` |
+| `MATCH` shape | One path pattern: one node, or one relationship hop, with one variable | Same | Several patterns: `syntax error: SyntaxError: SearchClauseTooComplexPattern: a SEARCH clause's MATCH statement must be a single path pattern`. More than one hop: `syntax error: SyntaxError: SearchClauseTooComplexPattern: a SEARCH clause's MATCH statement must be a single node or single-hop relationship pattern`. More than one variable: `syntax error: SyntaxError: SearchClauseMultipleBoundVariables: a SEARCH clause's MATCH statement may bind only one variable` |
+| Searches per `MATCH` | One | One | `syntax error: parse error: unexpected token "SEARCH"` |
+
+`RELATE_PREVIEW=complex-search-patterns` lifts the `MATCH` shape rule. A `WHERE` after the `SEARCH` clause, or a property map in the `MATCH` pattern, filters only the rows the search returned, so the result can hold fewer than `LIMIT` rows.
+
+## Full-text matching
+
+| Behavior | Value |
+| --- | --- |
+| Terms | Lowercase alphanumeric words; matching ignores case |
+| Stemming | None: `graphs` does not match `graph` |
+| Several words in the query | Each word is a term; a match on any term returns the entity |
+| Score | The number of query-term occurrences in the indexed properties, as a float |
+| Order of equal scores | No documented order; the examples on this page sort on a second key |
+
+## Procedures
+
+Each procedure is deprecated: `EXPLAIN` reports notification `01N01`, ``The procedure `<name>` is deprecated.``, with the remedy ``Use the `SEARCH` clause instead.``
+
+| Procedure | Yields | Notes |
+| --- | --- | --- |
+| `db.index.vector.queryNodes(<index>, <k>, <vector>)` | `node`, `score` | The top `k` nodes; no filter |
+| `db.index.vector.queryRelationships(<index>, <k>, <vector>)` | `relationship`, `score` | The top `k` relationships; no filter |
+| `db.index.fulltext.queryNodes(<index>, <query>)` | `node`, `score` | The query string is one term: `'graph database'` matches nothing where `SEARCH` matches both words |
+| `db.index.fulltext.queryRelationships(<index>, <query>)` | `relationship`, `score` | The query string is one term |
+
+## Functions
+
+| Function | Returns | Notes |
+| --- | --- | --- |
+| `vector(<list>, <dimensions>, <type>)` | A typed vector, `VECTOR<FLOAT32 NOT NULL>(3) NOT NULL` for three `FLOAT32` coordinates | `<type>` is a bare keyword: `FLOAT32`; `FLOAT` or `FLOAT64`; `INT8` or `INTEGER8`; `INT16` or `INTEGER16`; `INT32` or `INTEGER32`; `INT`, `INTEGER`, `INT64`, `INTEGER64` or `SIGNED INTEGER`; and, behind `RELATE_PREVIEW=float16-coordinate-types`, `FLOAT16` and `BFLOAT16`; a list of another length fails with `type error: vector() dimension does not match list` |
+| `vector.similarity.cosine(<a>, <b>)` | 0 to 1, higher is closer: `1.0` same direction, `0.5` orthogonal, `0.0` opposite | Lists or vectors of equal length |
+| `vector.similarity.euclidean(<a>, <b>)` | Greater than 0, up to 1, higher is closer: `1 / (1 + squared distance)` | Lists or vectors of equal length |
+| `vector_distance(<a>, <b>, <metric>)` | The raw metric, lower is closer | Typed vectors only; `<metric>` is `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `MANHATTAN`, `COSINE`, `DOT` or `HAMMING`; `DOT` is the negated dot product |
+| `vector_norm(<v>, <metric>)` | The distance from the origin | Typed vector; `EUCLIDEAN` or `MANHATTAN` |
+| `vector_dimension_count(<v>)` | The number of coordinates | Typed vector |
+
+| Input | Result |
+| --- | --- |
+| `null` for a whole argument | `null` |
+| Two lengths | `type error: InvalidArgumentValue: vectors must have same dimensions` |
+| A list passed to `vector_distance` | `type error: InvalidArgumentType: expected a VECTOR` |
+| An all-zero vector to `vector.similarity.cosine` | `type error: InvalidArgumentValue: not a valid vector` |
+
+## Hybrid search
+
+Two ways combine a vector search and a full-text search in one statement:
+
+| Form | Result | Status |
+| --- | --- | --- |
+| `MATCH … SEARCH` (vector), `WITH`, then `MATCH … SEARCH` (full-text) on the same variable | The intersection: the second search keeps only entities the first returned | Stable |
+| `SEARCH <var> IN (COMBINE (<source> WEIGHT <w>, <source> WEIGHT <w>, …) USING WRRF [WITH CONSTANT <c>] LIMIT <k>)` | One ranking fused by weighted reciprocal rank | Preview, behind `RELATE_PREVIEW=hybrid-search` |
+
+`COMBINE` takes two or more sources, each a complete index specification with its own `LIMIT`, and the same entity kind as the variable after `SEARCH`. An entity's fused score is the sum over the sources of `weight / (constant + rank + 1)`, where `rank` counts from 0 within that source and a source that did not return the entity adds nothing. `WEIGHT` defaults to 1 and `WITH CONSTANT` to 60. Equal fused scores order by entity id. Without the opt-in, `COMBINE` fails with `semantic error: SemanticError: preview feature 'hybrid-search' is not enabled: set RELATE_PREVIEW=hybrid-search`.
+
+## Examples
+
+The shared example graph, with a `focus` vector and a short `bio` on each person:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+MATCH (p:Person)
+SET p.focus = CASE p.name
+      WHEN 'Ada' THEN vector([0.9, 0.1, 0.2], 3, FLOAT32)
+      WHEN 'Grace' THEN vector([0.3, 0.9, 0.1], 3, FLOAT32)
+      ELSE vector([0.2, 0.3, 0.9], 3, FLOAT32) END,
+    p.bio = CASE p.name
+      WHEN 'Ada' THEN 'Writes the storage engine in Rust'
+      WHEN 'Grace' THEN 'Keeps the conformance tests green'
+      ELSE 'Reviews the docs and the tests' END
+```
+
+One index of each kind:
+
+```cypher run name=indexes
+CREATE VECTOR INDEX person_focus IF NOT EXISTS
+  FOR (p:Person) ON (p.focus) WITH [p.role]
+  OPTIONS {indexConfig: {`vector.dimensions`: 3, `vector.similarity_function`: 'cosine'}};
+CREATE FULLTEXT INDEX person_bio IF NOT EXISTS FOR (p:Person) ON EACH [p.bio]
+```
+
+A vector search, filtered inside the search:
+
+```cypher run name=vector-search
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR [0.1, 0.9, 0.1] WHERE p.role = 'engineer' LIMIT 2) SCORE AS score
+RETURN p.name AS name, round(score, 4) AS score
+ORDER BY score DESC
+```
+
+A full-text search for two words; Noor's bio holds both:
+
+```cypher run name=fulltext-search
+MATCH (p:Person)
+SEARCH p IN (FULLTEXT INDEX person_bio FOR 'docs tests' LIMIT 3) SCORE AS score
+RETURN p.name AS name, score
+ORDER BY score DESC, name
+```
+
+The intersection form of hybrid search: the nearest two by vector, kept only if their bio mentions the docs:
+
+```cypher run name=hybrid-intersection
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR [0.1, 0.9, 0.1] LIMIT 2) SCORE AS vs
+WITH p, vs
+MATCH (p)
+SEARCH p IN (FULLTEXT INDEX person_bio FOR 'docs' LIMIT 3) SCORE AS fs
+RETURN p.name AS name, round(vs, 4) AS vector, fs AS fulltext
+ORDER BY name
+```
+
+`COMBINE` on the CLI. This setup step writes the same graph, vectors and indexes to a new store, `search.rl`:
+
+```bash verify
+relate --database ./search.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer', focus: vector([0.9, 0.1, 0.2], 3, FLOAT32), bio: 'Writes the storage engine in Rust'}),
+       (grace:Person {name: 'Grace', role: 'engineer', focus: vector([0.3, 0.9, 0.1], 3, FLOAT32), bio: 'Keeps the conformance tests green'}),
+       (noor:Person {name: 'Noor', role: 'maintainer', focus: vector([0.2, 0.3, 0.9], 3, FLOAT32), bio: 'Reviews the docs and the tests'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+CREATE VECTOR INDEX person_focus FOR (p:Person) ON (p.focus) WITH [p.role]
+  OPTIONS {indexConfig: {'vector.dimensions': 3, 'vector.similarity_function': 'cosine'}};
+CREATE FULLTEXT INDEX person_bio FOR (p:Person) ON EACH [p.bio]"
+```
+
+The fused ranking, read-only, with the preview opt-in in the command's environment:
+
+```bash verify
+RELATE_PREVIEW=hybrid-search relate --database ./search.rl --read-only --mode table "MATCH (p:Person) SEARCH p IN (COMBINE (VECTOR INDEX person_focus FOR [0.1, 0.9, 0.1] LIMIT 3 WEIGHT 0.7, FULLTEXT INDEX person_bio FOR 'docs tests' LIMIT 3 WEIGHT 0.3) USING WRRF WITH CONSTANT 60 LIMIT 3) SCORE AS score RETURN p.name AS name, score"
+```
+
+```text
++---------+----------------------+
+| name    | score                |
++---------+----------------------+
+| "Grace" | 0.01631411951348493  |
+| "Noor"  | 0.016208355367530406 |
+| "Ada"   | 0.01111111111111111  |
++---------+----------------------+
+```
+
+Grace is first by vector and second by full-text: `0.7 / 61 + 0.3 / 62`. Noor is second by vector and first by full-text: `0.7 / 62 + 0.3 / 61`. Ada appears only in the vector list: `0.7 / 63`.
+
+## See also
+
+- [Search by vector similarity](/docs/guides/cypher/vector-search): the task, step by step.
+- [Hybrid recall](/cookbook/hybrid-recall/): reciprocal rank fusion written in plain Cypher, over 40 notes.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the procedure forms an agent may reach for, and the clause to write instead.

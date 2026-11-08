@@ -1,4 +1,115 @@
 ---
 title: Limitations
-status: planned
+description: Every limit relate has today, grouped by process model, storage, Cypher, server and platform, with the error it causes and the page that explains it.
+order: 60
+surfaces: [cli, python, node, browser, bolt, http, mcp, cypher]
+related: [concepts/where-relate-fits, reference/storage/limits-and-sizing, reference/errors, guides/operate/sizing-and-memory, guides/operate/two-processes-one-store]
 ---
+
+relate is an embedded graph database for one process on one machine: the whole graph of an open :term[store]{id=store} is held in memory, one process writes a store at a time, a statement runs against one graph, and there is no cluster. This page lists every limit that follows from that shape, and every guard rail the engine adds, as of the version in the page header. Each row names the limit, what a caller meets (the exact error, or the behavior), and the page that explains it.
+
+## Synopsis
+
+Limits come in two kinds:
+
+| Kind | What it is | How it shows up |
+| --- | --- | --- |
+| Scope | The shape of the tool: one writing process per store, the graph in memory, three fixed graphs per store, no cluster. No flag changes it. | An error such as `storage locked: <path>`, or a behavior such as data held only in memory |
+| Guard rail | A default that keeps one statement from exhausting the process's memory or stack | An error that names the mechanism, says it is a safety limit and not a database limit, and names the flag that raises it |
+
+The guard rails, with their defaults and the flags that change them, are tabled on [Limits and sizing](/docs/reference/storage/limits-and-sizing). Each error's cause and remedy are on [Errors](/docs/reference/errors), at the anchor the rows link to. In the tables, `<name>` in a message marks a variable part and `…` an elision.
+
+## Process model
+
+| Limit | What a caller meets | Explained in |
+| --- | --- | --- |
+| One process at a time opens a persistent store for writing. A second writer is refused at open, whether it is another CLI run, a client in another process, or `relate serve`. | [`storage locked: <path>`](/docs/reference/errors#cli-conflict-locked), exit code 5; not retryable until the first process exits | [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| A `.rl` file opens only while no writer holds it, `--read-only` included. A directory store can be opened :term[read-only]{id=read-only} beside its writer. | The same `storage locked: <path>`, exit code 5 | [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `--read-only=live`, which follows the writer's commits, works on directory stores only. | `semantic error: live freshness (WAL follow) is only supported for native directory databases`, exit code 1, for a `.rl` file or `:memory:` | [CLI flags](/docs/reference/cli/flags#read-only) |
+| Threads in one process can read at once. Two transactions that write the same element conflict, and the later commit fails. relate does not retry it. | [`write-write conflict`](/docs/reference/errors#cli-conflict-conflict), exit code 5; the one retryable error | [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| Conflict detection compares the elements each transaction wrote, plus the values of `unique` and `key` constraints at commit. It does not detect write skew: two transactions that each read what the other writes, and write different elements, both commit. | Both commits succeed | [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| Transactions are single-level. There are no nested transactions and no savepoints. `CALL { … } IN TRANSACTIONS` commits its own batches; it is not a savepoint. | `.begin` inside an open transaction prints `semantic error: already in a transaction` | [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| `:memory:` lives as long as the process. Nothing is written to disk, and nothing survives the exit. | The graph is gone when the process ends | [Storage formats](/docs/reference/storage/formats) |
+| There is no client/server engine. `relate serve` puts HTTP, MCP, and Bolt in front of one open store in one process; it does not let several processes share a store. | A second process that opens the served store meets `storage locked: <path>` | [Architecture](/docs/concepts/architecture) |
+
+## Storage
+
+| Limit | What a caller meets | Explained in |
+| --- | --- | --- |
+| The whole graph and its indexes are held in memory. relate has no buffer pool, no paging and no spill to disk, so the graph has to fit in the process's memory. | Without a cap, the process grows until the machine runs out of memory. With `--logical-graph-size-limit`, a write that grows the graph past the cap fails with [`capacity exceeded: used=… limit=…`](/docs/reference/errors#engine-graph-size-cap), exit code 1 | [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
+| One commit's record in the :term[WAL]{id=wal} is at most 64 MiB. A larger single transaction is refused whole. | [`This statement tried to commit a single WAL record of at least <size>. …`](/docs/reference/errors#engine-wal-payload-cap), exit code 1; nothing is written | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| A directory store holds one snapshot codec, chosen when the directory is empty. `--snapshot-format` naming a codec other than the store's own is refused. | `storage error: snapshot codec mismatch: directory is parquet, requested json`, exit code 1 | [Storage formats](/docs/reference/storage/formats) |
+| The store format migrates forward on open and has no downgrade. Once a newer relate has opened a store, an older binary rejects it. | The older binary fails at open, naming the unsupported version, before it changes anything | [Upgrade a store](/docs/guides/operate/upgrade-a-store) |
+| The `everysecond` and `snapshot` durability modes acknowledge a commit before it is synced. A crash can lose about the last second of acknowledged writes under `everysecond`, or every write since the last :term[checkpoint]{id=checkpoint} under `snapshot`. The default, `full`, syncs first. | No error; acknowledged writes are missing after a crash | [Durability modes](/docs/guides/operate/durability-modes) |
+
+## Cypher
+
+| Limit | What a caller meets | Explained in |
+| --- | --- | --- |
+| A store has three fixed :term[namespaces]{id=namespace}: `neo4j`, `system` and `system_ontologies`. A statement runs against one of them. Any other `USE` target is refused before the statement runs. | [`semantic error: DatabaseNotFound: Graph not found: <name>`](/docs/reference/errors#engine-database-not-found), exit code 6 | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| No statement reads two graphs. `graph.byName`, `graph.names` and `graph.propertiesByName` work only on composite databases, which relate does not have. | `semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph <name>`, exit code 6 ([42N72](/docs/reference/errors#engine-composite-only-function)) | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| Two different `USE` targets in one statement, across `UNION` arms, `CALL` subqueries or `NEXT`, are refused. | `semantic error: SemanticError: Multiple graphs in the same query not allowed here. This feature is only available on composite databases. Attempted to access graph <name>`, exit code 6 ([42NA5](/docs/reference/errors#engine-multiple-use-targets)) | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| Database administration is limited to `SHOW DATABASE`, `SHOW DATABASES`, `SHOW DEFAULT DATABASE`, `SHOW HOME DATABASE` and `ALTER DATABASE … SET DEFAULT LANGUAGE CYPHER 5` or `25`. | [`Unsupported administration command: <statement>`](/docs/reference/errors#engine-unsupported-administration-command), exit code 6 | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| `system_ontologies` is listed but not queryable; every statement routed to it fails, reads included. | [`This database is not queryable. Use the db.ontology.* procedures on the user database 'neo4j' instead.`](/docs/reference/errors#engine-system-ontologies-not-queryable), exit code 6 | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| Statement text is at most 4 MiB (4,194,304 bytes). Fixed. | `syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`, exit code 6 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| A statement's expressions and clauses nest at most 500 levels deep. Fixed. | `syntax error: parse error: maximum nesting depth of 500 exceeded`, exit code 6 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| A list or map built at run time nests at most 500 levels deep. Fixed. | `ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level (security limit).`, exit code 1 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| One statement gets 100,000 nested evaluation passes. Fixed. A `CALL` subquery runs once per input row and each run counts, so `CALL { … } IN TRANSACTIONS` over more than 100,000 rows fails; a larger load is split into several statements. | [`NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level (security budget).`](/docs/reference/errors#engine-nested-evaluation-budget), exit code 1 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| An explicit variable-length bound (`*1..N`, `{1,N}`) is at most `--max-traversal-depth`: 500 hops by default, 2000 at most. An unbounded `*` and `shortestPath` are not checked against it. | [`syntax error: TraversalDepthExceeded: This query allows paths up to <n> hops. …`](/docs/reference/errors#engine-traversal-depth-exceeded), exit code 6 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| One value a statement builds (a list, string or map) is at most 256 MiB by default. `--expression-memory-limit` changes it; `none` turns it off. | [`This statement tried to build a single value of <size>. …`](/docs/reference/errors#engine-expression-memory-cap), exit code 1 | [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| Preview features are off unless named in `RELATE_PREVIEW`. Their syntax can change between releases. An unknown name fails the open. | `preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>`; an unknown name prints `invalid RELATE_PREVIEW value: unknown preview feature '<name>' (known features: …)`, exit code 1 | [Cypher overview](/docs/reference/cypher/overview) |
+| Safe mode (`--safe`, off by default) refuses a new named node without a label and a `MATCH` read without `LIMIT` or a reducing aggregate. It cannot see the store's size, so it refuses an unbounded read of a small store too, and it checks a `CALL { … }` body on its own. `collect()` does not count as reducing. | [`syntax error: SafeModeViolation: …`](/docs/reference/errors#engine-safe-mode-violation), exit code 6 | [Keep an agent safe](/docs/guides/agents/agent-safety) |
+| No current openCypher Technology Compatibility Kit (TCK) pass count is published. Coverage is measured outside the engine by a spec harness that reports on each ready pull request and does not gate merges. The last published figure, 3,892 of 3,892 scenarios of a pinned TCK 2024.3 corpus, was retired on 2026-11-05. | No error | [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+
+## Server
+
+These rows apply to `relate serve`, which hosts the HTTP Query API, MCP, and Bolt on one open store.
+
+| Limit | What a caller meets | Explained in |
+| --- | --- | --- |
+| No served surface has TLS. Every surface binds to `127.0.0.1` by default. Any other `--host` exposes them in plaintext. | At startup: `serve: WARNING: --host <host> exposes the PLAINTEXT HTTP/MCP/Bolt surfaces to the network — serve has no TLS; anyone who can reach the ports can present credentials. …` | [Security](/docs/reference/security#served-surfaces) |
+| One Basic-auth credential is shared by every surface. There are no users, no roles and no role-based access control. `--auth none` turns authentication off. | A missing or wrong credential is refused (HTTP 401) | [Security](/docs/reference/security#served-surfaces) |
+| No clustering, replication, sharding, failover, or composite or remote databases. One `relate serve` process serves one store. | No error; these features do not exist | [Where relate fits](/docs/concepts/where-relate-fits) |
+| An HTTP managed transaction idle for 60 seconds expires (`--tx-idle-timeout-secs`; `0` turns expiry off). At most 128 managed transactions are open at once (`--max-open-transactions`; `0` is unlimited). | [`transaction <id> expired after <n>s idle`](/docs/reference/errors#http-transaction-expired), HTTP 404; [`transaction registry full: 128 open transactions (close one or raise --max-open-transactions)`](/docs/reference/errors#http-transaction-registry-full), HTTP 429 | [CLI flags](/docs/reference/cli/flags#serve-tx-idle-timeout-secs) |
+| At most 128 sessions at once across every surface (`--max-connections`). | A connection over the cap is accepted, then closed | [CLI flags](/docs/reference/cli/flags#serve-max-connections) |
+| A Bolt connection that sends nothing for 300 seconds is closed, and its open transaction rolled back. `relate serve` has no flag that changes it. | The connection closes; uncommitted work is lost | [CLI flags](/docs/reference/cli/flags) |
+| A Bolt result holds at most 256 MiB of retained bytes. `relate serve` has no flag that changes it. | [`query result exceeds max-result-bytes limit of <N> bytes`](/docs/reference/errors#bolt-result-too-large) | [Errors](/docs/reference/errors#bolt-result-too-large) |
+| `RELATE_PREVIEW` is read once by the server process, not per caller. With `ontology` enabled, every connected client can call the ontology procedures, including the ones that write. | No error | [Keep an agent safe](/docs/guides/agents/agent-safety) |
+
+## Platform
+
+| Limit | What a caller meets | Explained in |
+| --- | --- | --- |
+| Release binaries, named `relate-<os>-<arch>` from the first relate-named release (`cypherlite-<os>-<arch>` up to and including 0.16.1), exist for macOS on arm64 and amd64, Linux on arm64 and amd64 (glibc), and Windows on amd64. No other operating system or architecture has a binary. | No download for the platform | [Project](/docs/reference/project#platforms) |
+| `install.sh` and `relate upgrade` run on macOS and Linux only. `install.sh` installs the latest release only. | `install.sh: unsupported OS: <name>. Supported: Darwin, Linux.` | [Install relate](/docs/get-started/install) |
+| The Windows binary has no Authenticode signature. Its check is the SHA-256 in the signed `SHA256SUMS`. | No code signature for Windows to check | [Security](/docs/reference/security#code-signing-and-notarization) |
+| Release binaries are the `full` build, which includes usage metrics, `upgrade` and every served surface. The `agent` and `minimal` builds, which leave those out, are built from source only. | No download for those builds | [Privacy and telemetry](/docs/reference/privacy-and-telemetry) |
+| The WebAssembly (WASM) build opens `:memory:`, or a durable `opfs://<name>` store in a dedicated worker only; it accepts no filesystem path. It has no Parquet codec, no background checkpoint timer, and one thread. | Opening `opfs://` on the page thread throws an error saying it needs a dedicated worker | [Architecture](/docs/concepts/architecture) |
+| The WASM build has no statement timeout and no way to cancel a running statement. A panic stops the module, and the instance has to be replaced. | A long statement runs until it finishes; a panic surfaces as `WebAssembly.RuntimeError` | [Architecture](/docs/concepts/architecture) |
+| The Python client needs Python 3.9 or later. A connection belongs to the thread that opened it. | Using it from another thread raises `ProgrammingError` with `kind` `WrongThread` | [Python](/docs/get-started/python) |
+| The Node.js client needs Node.js 18 or later. | — | [Node.js](/docs/get-started/node) |
+| No client package is published yet. The package names on these pages are the names they are to be published under at launch. | The package manager finds no package | [Project](/docs/reference/project#platforms) |
+
+## Examples
+
+Each statement in these examples is refused before it runs. A `USE` target outside the three namespaces:
+
+```cypher run name=use-other-graph expect=error
+USE archive
+RETURN 1 AS x
+```
+
+An explicit path bound over the default traversal limit of 500 hops:
+
+```cypher run name=deep-path expect=error
+MATCH (a)-[*1..600]->(b)
+RETURN count(*) AS paths
+```
+
+## See also
+
+- [Where relate fits](/docs/concepts/where-relate-fits): the jobs relate suits, and when another kind of database fits better
+- [Limits and sizing](/docs/reference/storage/limits-and-sizing): every guard rail with its default, flag, and environment variable
+- [Errors](/docs/reference/errors): each error's cause, remedy, and exit code
+- [Performance](/docs/reference/performance): measured memory per node and relationship, open time, and query latency
+- [Size a store and its memory](/docs/guides/operate/sizing-and-memory): how much memory a graph needs

@@ -1,4 +1,164 @@
 ---
-title: CLI
-status: planned
+title: relate CLI
+label: CLI
+description: The relate command line on one page, with its invocation forms, every command and its usage line, the query-run flags by family, and where each detail lives.
+order: 10
+surfaces: [cli]
+related: [reference/cli/flags, reference/cli/exit-codes-and-errors, reference/cli/agent-mode, guides/cli/scripting]
 ---
+
+`relate` is one binary with two kinds of run. A query run executes Cypher statements against one :term[store]{id=store} and prints their results; a command (`relate <command>`) does one job, such as copying a store or serving it, and exits. This page lists the invocation forms, every command the binary's `relate --help` prints, the query-run flags by family and the shell dot commands, with a link to the page that holds each detail.
+
+## Synopsis
+
+```text
+relate [OPTIONS] [--database PATH] [QUERY]
+relate <COMMAND> [ARGS]
+relate query [STATEMENT] [--database PATH]
+```
+
+| Form | What runs |
+| --- | --- |
+| `relate [OPTIONS] [QUERY]` | The path-first query run. `QUERY` (or `-c`, `--command`) is one statement or a `;`-separated list. With no `QUERY`, a terminal opens the interactive shell; piped or redirected stdin prints the top-level help and exits 0. |
+| `relate query [STATEMENT]` | The same query session as a command word. With no `STATEMENT`, it reads a script from stdin, or opens the interactive shell on a terminal. |
+| `relate <COMMAND> [ARGS]` | A command: it does its job and exits. Each command takes its own flags, listed on the [flags page](/docs/reference/cli/flags#command-flags). |
+
+`--database` (short form `-d`) names the store: a directory, a single-file `.rl` store, or `:memory:`, the default. The word `query` as the first positional is the command; a directory named `query` is `--database ./query`.
+
+## Commands
+
+The twelve commands of the binary these pages are verified against, in the order `relate --help` prints them. The second column is the binary's own one-line summary.
+
+| Command | Summary from `relate --help` | Its flags | Guide |
+| --- | --- | --- | --- |
+| `query` | Run a statement session (oneshot, stdin, or shell) | [Query-run flags](/docs/reference/cli/flags#query-run-flags) | [Script the CLI](/docs/guides/cli/scripting) |
+| `clone` | Copy a database into a new store and exit | [`relate clone`](/docs/reference/cli/flags#relate-clone) | [Back up and restore](/docs/guides/storage/backup-and-restore) |
+| `info` | Print store metadata for a database without opening it | [`relate info`](/docs/reference/cli/flags#relate-info) | [Storage formats](/docs/reference/storage/formats) |
+| `pull` | Copy a Neo4j/Aura subgraph into a database | [`relate pull`](/docs/reference/cli/flags#relate-pull) | — |
+| `push` | Copy a database subgraph into Neo4j/Aura | [`relate push`](/docs/reference/cli/flags#relate-push) | — |
+| `skill` | Install, inspect, or remove the embedded agent skill bundle | [`relate skill`](/docs/reference/cli/flags#relate-skill) | [Install the agent skill](/docs/guides/agents/install-the-skill) |
+| `upgrade` | Update the relate binary (alias: update) | [`relate upgrade`](/docs/reference/cli/flags#relate-upgrade) | — |
+| `telemetry` | Manage anonymous usage metrics (on, off, status) | none | [Privacy and telemetry](/docs/reference/privacy-and-telemetry) |
+| `run` | Run an installed extension action into a store the host owns | [`relate run`](/docs/reference/cli/flags#relate-run) | — |
+| `serve` | Host the HTTP Query API and MCP surfaces on a database | [`relate serve`](/docs/reference/cli/flags#relate-serve) | [Connect over MCP](/docs/guides/agents/connect-over-mcp) |
+| `agent-context` | Print the compact agent briefing (commands, flags, exit codes) | none | [Agent mode](/docs/reference/cli/agent-mode#the-agent-context-briefing) |
+| `extension` | Scaffold, install, check, list, or remove command extensions | [`relate extension`](/docs/reference/cli/flags#relate-extension) | — |
+
+A dash means no page covers the command yet; `relate <command> --help` and `relate agent-context <command>` describe it on any machine. `relate --help` lists only the commands compiled into the binary. A command left out of a build exits 2 with `Error: the '<command>' command is not included in this build of relate`.
+
+Each command's usage line, as its `--help` prints it:
+
+{/* docs-check-ignore trust-pin */}
+```text
+relate query [STATEMENT] [--database PATH]
+relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST
+relate info --database PATH [--json]
+relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH
+relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]
+relate skill install|remove|list|check [--agent NAME] [--force]
+relate upgrade [--yes] [--check]
+relate update  [--yes] [--check]  (alias of upgrade)
+relate telemetry on|off|status
+relate run <name> [flags]
+relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+relate agent-context [COMMAND]
+relate extension init <name> [--lang sh|py|ts|rust]
+relate extension install <name> [--github REPO@TAG|@SHA] [--url URL] [--from DIR] [--version V] [--force] [--re-approve | --approve SHA]
+relate extension list [--available | --trust]
+relate extension remove <name> [--forget-pin]
+relate extension check <dir>
+```
+
+## Query-run flags by family
+
+The query-run flags apply to the path-first form and to `relate query`, before or after the statement. The [flags page](/docs/reference/cli/flags) gives each one's argument, default, and environment variable.
+
+| Family | Flags | Detail |
+| --- | --- | --- |
+| Store | `--database`, `--load`, `--read-only`, `--namespace`, `--wal-dir`, `--snapshot-format`, `--markdown-body-properties` | [Store and storage](/docs/reference/cli/flags#store-and-storage) |
+| Durability | `--durability-mode`, `--checkpoint-interval-secs` | [Store and storage](/docs/reference/cli/flags#store-and-storage) |
+| Statement input | `QUERY`, `--command`, `--param`, `--fetch-params` | [How flags are parsed](/docs/reference/cli/flags#how-flags-are-parsed) |
+| Output | `--mode`, `--format`, `--json`, `--csv`, `--jsonl`, `--markdown`, `--toon`, `--pretty`, `--noheader`, `--width` | [Output](/docs/reference/cli/flags#output) |
+| Safety | `--read-only`, `--safe`, `--no-safe`, `--load-csv-dir`, `--max-traversal-depth` | [Safety](/docs/reference/cli/flags#safety) |
+| Memory limits | `--logical-graph-size-limit`, `--expression-memory-limit`, `--concurrent-logical-workspace-limit` | [Memory limits](/docs/reference/cli/flags#memory-limits) |
+| Timeouts | `--timeout` | [Timeouts](/docs/reference/cli/flags#timeouts) |
+| Agent ergonomics | `--agent-mode`, `--no-agent-mode`, `--max-rows` | [Agent mode](/docs/reference/cli/agent-mode) |
+| Help | `--help`, `--version`, `--` | [Query-run flags](/docs/reference/cli/flags#query-run-flags) |
+
+## Shell dot commands
+
+A line that starts with a dot is a shell command, not Cypher. Dot commands work in the interactive shell and in a script piped to `relate query` (or to the path-first form), one per line, with no trailing `;`. `.help` prints the same set the table lists.
+
+| Command | Effect | Fails with |
+| --- | --- | --- |
+| `.begin` | Opens an explicit transaction: later statements see its writes, and nothing is committed until `.commit` | `semantic error: already in a transaction` when one is open |
+| `.commit` | Commits the open transaction | `semantic error: no transaction` when none is open |
+| `.rollback` | Discards the open transaction's writes | `semantic error: no transaction` when none is open |
+| `.checkpoint` | Writes a :term[checkpoint]{id=checkpoint} of a persistent store now; prints nothing | — |
+| `.info` | Prints the store's metadata as a key/value table, the fields `relate info` prints; `:memory:` prints node and relationship counts and the index and constraint catalog | — |
+| `.timer on`, `.timer off` | Prints `Timer: on` or `Timer: off`, and while on, a `Time: <n>ms (parse … / plan … / execute …)` line on stdout after each result | — (without an argument it prints `Usage: .timer on\|off`) |
+| `.quit` | Ends the session; lines after it are not read | — |
+
+Any other dot command fails with `Error: unknown command .<name>` (exit code 1). A session that ends with a transaction open, by `.quit` or at the end of a script, rolls it back, prints `Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.` on stderr, and exits 1. In a script, a failed dot command stops the script with exit code 1, like a failed statement.
+
+A transaction in a piped script, rolled back:
+
+```bash verify
+printf '.begin\nCREATE (:Note);\n.rollback\nMATCH (n:Note) RETURN count(n) AS notes;\n' | relate query --mode envelope
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["notes"],"notifications":[],"rows":[{"notes":0}],"truncated":false}
+```
+
+## Detail pages
+
+| Page | Holds |
+| --- | --- |
+| [Flags](/docs/reference/cli/flags) | Every flag of the query run and of each command, with its argument, default, scope and environment variable; every environment variable the CLI reads |
+| [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) | One anchor per :term[exit code]{id=exit-code}, the error object a failed query run prints, and how the two relate |
+| [Agent mode](/docs/reference/cli/agent-mode) | How the CLI detects an agent harness, the defaults it changes, the row cap, the envelope and `relate agent-context` |
+| [Errors](/docs/reference/errors) | Every error message, with its cause, remedy, retry advice, and exit code |
+
+On a machine without network access, `relate --help`, `relate <command> --help` and `relate agent-context [COMMAND]` print the same facts for the installed binary. `RELATE_HELP_EXAMPLES=0` drops the `Examples:` section from every help page.
+
+## Examples
+
+A one-statement query run on the default in-memory store, printed as an :term[envelope]{id=envelope}:
+
+```bash verify
+relate --mode envelope "RETURN 1 AS ok"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+```
+
+`relate query` with no statement reads a script from piped stdin, one envelope per statement:
+
+```bash verify
+printf 'RETURN 1 AS a;\nRETURN 2 AS b;\n' | relate query --mode envelope
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["a"],"notifications":[],"rows":[{"a":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["b"],"notifications":[],"rows":[{"b":2}],"truncated":false}
+```
+
+The version line names the release:
+
+```bash verify
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+## See also
+
+- [Script the CLI](/docs/guides/cli/scripting): stdin scripts, exit codes and `--timeout` in a shell script
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the envelope, the error object and the row cap from an agent's side
+- [Install relate](/docs/get-started/install): getting the binary

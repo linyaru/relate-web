@@ -1,4 +1,284 @@
 ---
 title: Connect over MCP
-status: planned
+description: Serve a relate store over MCP to Claude Code, Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI, Cline or OpenCode, every config block opening it --read-only.
+order: 40
+surfaces: [mcp, cli, agents]
+prerequisites: [get-started/install]
+related: [get-started/agent-quickstart, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk]
 ---
+
+This guide shows you how to connect an agent host to a relate store over MCP (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs.
+
+## Prerequisites
+
+- relate on your `PATH`: `relate --version` prints its version ([Install relate](/docs/get-started/install)).
+- A :term[store]{id=store} that already exists, a `.rl` file or a directory. A read-only open never creates one.
+- One of the hosts in [Add the server to your host](#add-the-server-to-your-host).
+
+## Choose a transport
+
+`relate serve --mcp` takes either the keyword `stdio` or a port number. Both serve the same tools.
+
+| | `--mcp stdio` | `--mcp <port>` |
+| --- | --- | --- |
+| Who starts it | The host, as a child process, until it closes stdin | You, as a long-running process, until SIGINT or SIGTERM |
+| Authentication | None: the host spawned the process. `--auth` with stdio is a usage error | One basic-auth credential from `--auth` or `RELATE_AUTH`; without either, a generated token printed at startup |
+| Where it listens | stdin and stdout | `127.0.0.1:<port>` by default (`--host`); plaintext HTTP, no TLS |
+| Which hosts | Every host on this page | Hosts that connect to a URL |
+
+Opened with `--read-only`, the server lists two tools, `read_cypher` and `get_schema`, and takes no writer lease. `write_cypher` is listed only when the store is writable. A directory store can be served read-only beside a process that writes it; a `.rl` file opens only while no writer holds it. [relate serve flags](/docs/reference/cli/flags#relate-serve) lists every flag.
+
+## Add the server to your host
+
+Each block starts relate on stdio against `graph.rl`, read-only. Host configuration formats change between releases. Each host's block follows that host's own documentation as of 2026-11-07.
+
+A relative store path resolves against the directory the host starts the server in, which is not the same for every host. Blocks for a host that starts servers from your project folder use `./graph.rl`; the others use `<absolute-path>/graph.rl`, which works everywhere.
+
+### Claude Code
+
+```bash
+claude mcp add relate -- relate serve --mcp stdio --database ./graph.rl --read-only
+```
+
+To allow writes, remove `--read-only`.
+
+That adds the server for you in the current project (the default `local` scope, kept in `~/.claude.json`). With `--scope project`, Claude Code writes it to `.mcp.json` at the project root instead, so it can be committed:
+
+```json title=".mcp.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "./graph.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+Claude Code asks before it uses a project-scoped server from `.mcp.json`. `claude mcp list` shows each server with its health status, and `/mcp` inside a session shows its tools.
+
+### Claude Desktop
+
+The file is `claude_desktop_config.json`: `~/Library/Application Support/Claude/` on macOS, `%APPDATA%\Claude\` on Windows, `~/.config/Claude/` on Linux. **Settings**, then **Developer**, then **Edit Config** opens it.
+
+```json title="claude_desktop_config.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+Quit and restart Claude Desktop after saving. The server's stderr, including relate's startup lines, goes to `mcp-server-relate.log` in Claude Desktop's log folder (`~/Library/Logs/Claude` on macOS).
+
+### Cursor
+
+The file is `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for every project.
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+### Codex
+
+The file is `~/.codex/config.toml`, or `.codex/config.toml` in a trusted project. The Codex CLI, the IDE extension and the ChatGPT desktop app share it.
+
+```toml title="config.toml"
+[mcp_servers.relate]
+command = "relate"
+args = ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+The CLI writes the same entry:
+
+```bash
+codex mcp add relate -- relate serve --mcp stdio --database <absolute-path>/graph.rl --read-only
+```
+
+To allow writes, remove `--read-only`. `codex mcp list` and `/mcp` show the configured servers.
+
+### Windsurf
+
+The file is `~/.codeium/windsurf/mcp_config.json`, in the same shape as Claude Desktop's.
+
+```json title="mcp_config.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+As of 2026-11-07, Windsurf's English documentation redirects to Devin Desktop's. This page does not describe Devin Desktop's MCP configuration.
+
+### Gemini CLI
+
+The file is `.gemini/settings.json` in the project, or `~/.gemini/settings.json` for every project.
+
+```json title="settings.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"]
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+`/mcp` in a session and `gemini mcp list` show each server and its tools. In a folder Gemini CLI does not trust, stdio servers show as disconnected until you trust it.
+
+### Cline
+
+The file is `cline_mcp_settings.json`. In the IDE extension, the **MCP Servers** icon in the Cline panel, then the **Configure** tab, then **Configure MCP Servers** opens it; the Cline CLI reads `~/.cline/data/settings/cline_mcp_settings.json`.
+
+```json title="cline_mcp_settings.json"
+{
+  "mcpServers": {
+    "relate": {
+      "command": "relate",
+      "args": ["serve", "--mcp", "stdio", "--database", "<absolute-path>/graph.rl", "--read-only"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `args`.
+
+`autoApprove` lists the tools Cline runs without asking; empty, it asks for every call.
+
+### OpenCode
+
+The file is `opencode.json` (or `opencode.jsonc`) in the project, or `~/.config/opencode/opencode.json` for every project. Servers go under `mcp.servers`, and a local server's `command` is one array. OpenCode starts a local server in the project folder by default.
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "relate": {
+        "type": "local",
+        "command": ["relate", "serve", "--mcp", "stdio", "--database", "./graph.rl", "--read-only"]
+      }
+    }
+  }
+}
+```
+
+To allow writes, remove `"--read-only"` from `command`. `opencode mcp list` shows each server and its connection state.
+
+## Serve over HTTP
+
+If your host connects to a URL, or several clients share one server, start relate yourself on a port.
+
+:::warning[Plaintext on the network]
+`relate serve` has no TLS. Any `--host` other than the loopback default exposes the credential and every result in plaintext, and relate prints a `WARNING` at startup. Keep `127.0.0.1`, or put a TLS-terminating proxy in front.
+:::
+
+Set the credential in the environment rather than on the command line, where the process list shows it:
+
+```bash
+RELATE_AUTH=<user>:<password> relate serve --database ./graph.rl --read-only --mcp 8000
+```
+
+To allow writes, remove `--read-only`.
+
+Every request is a `POST` with `Content-Type: application/json` and an `Authorization: Basic` header for that credential. Without `RELATE_AUTH` or `--auth`, relate generates a token for the user `relate`, prints it on stderr, and saves it beside the store as `<store>.auth-token`. The transport is stateless: there is no session header to keep.
+
+In another terminal, register the URL with your host. For Claude Code, `<credential>` is the base64 of `<user>:<password>` (`printf '%s' '<user>:<password>' | base64` prints it):
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+claude mcp add --transport http relate http://127.0.0.1:8000 --header "Authorization: Basic <credential>"
+```
+
+The server opened the store read-only, so this entry cannot write.
+
+## Verify
+
+Check the server from a shell before a host is involved. This step creates a small `graph.rl` to check against, the shared example graph of three people and two projects:
+
+```bash verify
+relate --database ./graph.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+Then send three JSON-RPC messages the way a host does, one per line: `initialize`, `tools/list`, and a write sent to `read_cypher`. The `2>/dev/null` drops relate's startup lines on stderr:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"shell","version":"0"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"CREATE (:Person {name: \"Eve\"})"}}}' \
+  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"0.16.1"}}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Read Cypher"},"description":"Execute one read-only Cypher statement. Returns the result's rows. Write and schema (DDL) statements are rejected.","inputSchema":{"properties":{"parameters":{"default":{},"description":"The statement's parameters; a `rows` array feeds `$rows`.","type":"object"},"statement":{"description":"The Cypher statement.","type":"string"}},"required":["statement"],"type":"object"},"name":"read_cypher"},{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Get Schema"},"description":"Get the schema of the graph store: node labels with their property keys and inferred types, and the relationship types between them. `sample_size` bounds how many nodes and relationships are examined per label (larger is slower but more accurate; -1 examines all).","inputSchema":{"properties":{"sample_size":{"description":"The sample size used to infer the graph schema. Larger samples are slower, but more accurate. Smaller samples are faster, but might miss information. -1 samples the whole graph.","type":"integer"}},"type":"object"},"name":"get_schema"}]}}
+{"jsonrpc":"2.0","id":3,"result":{"content":[{"text":"Only MATCH queries are allowed for read-query","type":"text"}],"isError":true}}
+```
+
+The tool list names `read_cypher` and `get_schema` and no `write_cypher`, and the write came back as a tool error with the store unchanged. In the host, the same two tools appear in its server list (`/mcp` in Claude Code, Codex and Gemini CLI).
+
+For the HTTP transport, the same `tools/list` with `curl`:
+
+```bash
+curl -s -u <user>:<password> -H 'Content-Type: application/json' -X POST http://127.0.0.1:8000 -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+## If it goes wrong
+
+**The host reports the server failed, and its log shows `Error: Failed to open Relate: storage error: database not found: <path>`.** The read-only open never creates a store, and a relative path resolved against a directory you did not expect. Put the store's absolute path in the block, or create the store first.
+
+**The host cannot start `relate` at all.** The host's `PATH` does not include the directory relate is installed in (`~/.local/bin` for `install.sh`), which is common for desktop apps. Put the binary's absolute path in `command`.
+
+**A write fails with `Only MATCH queries are allowed for read-query`, or `unknown tool 'write_cypher'`.** The store is open read-only, as configured. To let the agent write, remove `--read-only`; [Keep an agent safe](/docs/guides/agents/agent-safety) covers what to put in place first.
+
+**HTTP answers `401 Unauthorized` or `415 Unsupported Media Type`.** A 401 carries `WWW-Authenticate: Basic realm="relate"`: the request has no credential, or the wrong one. A 415 means the `POST` lacked `Content-Type: application/json`.
+
+**`relate serve` exits 2 with an error that begins `Error: serve --mcp stdio skips auth`.** `--auth` applies to the port listeners only. Drop it from a stdio block.
+
+## Related
+
+- [Connect your agent to relate](/docs/get-started/agent-quickstart): install, rehearse a change, then connect over MCP.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and backups before an agent writes.
+- [MCP errors](/docs/reference/errors#mcp-read-query-only): every MCP refusal and JSON-RPC error code.
+- [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): what to allow when the host runs inside one.
+- [CLI reference](/docs/reference/cli): `relate serve` and its flags.
+- [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk): the same read-only server, started by the SDK.

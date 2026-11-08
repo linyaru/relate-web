@@ -13,7 +13,9 @@
 //     same three checks install.sh makes: the SSHSIG signature on SHA256SUMS
 //     against the pinned key (namespace and identity `relate-release`), the
 //     signed `# relate-release-version: vX.Y.Z` header, and the binary's
-//     SHA-256 (distribution/install.sh, RELEASING.md "Signing key").
+//     SHA-256 (distribution/install.sh, RELEASING.md "Signing key"). Releases
+//     up to and including 0.16.1 carry `cypherlite` in those names instead
+//     (`releaseNames`), so the pinned blocks name what that release shipped.
 //   - The key and its fingerprint: distribution/release-signing-key.pub
 //     (`ssh-keygen -lf` prints the fingerprint).
 //   - `relate --version` and the envelope bytes of `RETURN 1 AS ok`: read from
@@ -63,6 +65,35 @@ export const SIGNING_KEY_FINGERPRINT = 'SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRC
 export const SIGNER = 'relate-release';
 /** The agents `relate skill install --agent` accepts, as the CLI lists them. */
 export const SKILL_AGENTS = ['claude-code', 'cursor', 'windsurf', 'copilot', 'antigravity', 'gemini-cli', 'cline', 'codex', 'pi', 'opencode', 'junie'];
+
+/** The last release published under the earlier name, cypherlite (public/releases.json: its assets are `cypherlite-<os>-<arch>`). */
+export const LAST_CYPHERLITE_RELEASE = '0.16.1';
+
+/** True when `a` (X.Y.Z) is at or below `b`. */
+function atOrBelow(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) < (pb[i] ?? 0);
+  }
+  return true;
+}
+
+/**
+ * The names a release at version `v` is published under. Up to and including
+ * 0.16.1 the assets, the signer identity, the signature namespace and the
+ * manifest header carried the earlier name, with the same key (the pre-rename
+ * install.sh in this repository's history; public/releases.json for the asset
+ * names). From the first relate-named release on they carry `relate`.
+ */
+export function releaseNames(v: string): { prefix: string; signer: string; key: string; header: string; legacy: boolean } {
+  const legacy = atOrBelow(v, LAST_CYPHERLITE_RELEASE);
+  const prefix = legacy ? 'cypherlite' : 'relate';
+  const signer = `${prefix}-release`;
+  // The same key; its comment field named the signer of the day (the pre-rename install.sh pinned it as `… cypherlite-release`).
+  const key = SIGNING_KEY.replace(/ relate-release$/, ` ${signer}`);
+  return { prefix, signer, key, header: `# ${prefix}-release-version: v${v}`, legacy };
+}
 
 /** A run recorded in _data/engine.json: its command and its stdout without the final newline. */
 function recordedCheck(name: 'version_check' | 'envelope_check'): { command: string; output: string } {
@@ -158,15 +189,16 @@ function packageTab(v: string): Tab {
 
 /** The Agent prompt (DOCS-PLAN.md §3.4): pinned, verified, read-only, with the expected bytes of the verify step. */
 export function agentPrompt(v: string): string {
+  const n = releaseNames(v);
   return [
     `Install relate, the embedded Cypher graph database (relatedb.ai), version ${v}, with the checks`,
     'https://relatedb.ai/install.sh makes, and install nothing if any check fails. Download',
-    'relate-<os>-<arch> for this machine (os darwin or linux, arch amd64 or arm64), SHA256SUMS and',
+    `${n.prefix}-<os>-<arch> for this machine (os darwin or linux, arch amd64 or arm64), SHA256SUMS and`,
     `SHA256SUMS.sig from ${RELEASES}/download/v${v}/. Write the line`,
-    `\`${SIGNER} ${SIGNING_KEY}\``,
+    `\`${n.signer} ${n.key}\``,
     'to a file named allowed_signers and run',
-    `\`ssh-keygen -Y verify -f allowed_signers -I ${SIGNER} -n ${SIGNER} -s SHA256SUMS.sig < SHA256SUMS\`.`,
-    `Check that the first line of SHA256SUMS is \`# relate-release-version: v${v}\`, then check the binary`,
+    `\`ssh-keygen -Y verify -f allowed_signers -I ${n.signer} -n ${n.signer} -s SHA256SUMS.sig < SHA256SUMS\`.`,
+    `Check that the first line of SHA256SUMS is \`${n.header}\`, then check the binary`,
     'with `sha256sum -c` (or `shasum -a 256 -c`) against its SHA256SUMS line. Install it as',
     `~/.local/bin/relate (chmod +x) and run \`${PATH_LINE}\`.`,
     `Verify: \`relate --version\` prints \`${VERSION_LINE}\` and \`${ENVELOPE_CHECK}\` prints`,
@@ -193,15 +225,26 @@ function agentBlocks(v: string): Block[] {
 
 /** The Pinned binary steps: an exact release, checked by hand with the checks install.sh makes. */
 export function pinnedBlocks(v: string): Block[] {
+  const n = releaseNames(v);
+  const asset = `${n.prefix}-linux-amd64`;
   return [
     {
       p:
         `These steps install relate ${v} exactly, with the same checks \`install.sh\` makes. ` +
-        'Set `ASSET` to the binary for your machine: `relate-linux-amd64` (as below), `relate-linux-arm64`, `relate-darwin-arm64` or `relate-darwin-amd64`.',
+        `Set \`ASSET\` to the binary for your machine: \`${asset}\` (as below), \`${n.prefix}-linux-arm64\`, \`${n.prefix}-darwin-arm64\` or \`${n.prefix}-darwin-amd64\`.`,
     },
+    ...(n.legacy
+      ? [
+          {
+            p:
+              `Release ${v} was published under the project's earlier name, so its asset names, its signer and its manifest header say \`cypherlite\`; ` +
+              'the signing key is the same one. From the first relate-named release on they say `relate` ([release signing](/docs/reference/security#release-signing-key)).',
+          },
+        ]
+      : []),
     bash(
       [
-        'ASSET=relate-linux-amd64',
+        `ASSET=${asset}`,
         `BASE=${RELEASES}/download/v${v}`,
         'curl -sSfLO "$BASE/$ASSET"',
         'curl -sSfLO "$BASE/SHA256SUMS"',
@@ -215,17 +258,17 @@ export function pinnedBlocks(v: string): Block[] {
     },
     bash(
       [
-        `echo '${SIGNER} ${SIGNING_KEY}' > allowed_signers`,
-        `ssh-keygen -Y verify -f allowed_signers -I ${SIGNER} -n ${SIGNER} -s SHA256SUMS.sig < SHA256SUMS`,
+        `echo '${n.signer} ${n.key}' > allowed_signers`,
+        `ssh-keygen -Y verify -f allowed_signers -I ${n.signer} -n ${n.signer} -s SHA256SUMS.sig < SHA256SUMS`,
       ].join('\n'),
     ),
-    text(`Good "${SIGNER}" signature for ${SIGNER} with ED25519 key ${SIGNING_KEY_FINGERPRINT}`),
+    text(`Good "${n.signer}" signature for ${n.signer} with ED25519 key ${SIGNING_KEY_FINGERPRINT}`),
     { p: 'Check that the signed manifest is for the release you asked for. Its first line names the release:' },
     bash('head -n 1 SHA256SUMS'),
-    text(`# relate-release-version: v${v}`),
+    text(n.header),
     { p: 'Check the binary against its line in the manifest. On a Mac without `sha256sum`, use `shasum -a 256 -c -` instead:' },
     bash('grep "  $ASSET\\$" SHA256SUMS | sha256sum -c -'),
-    text('relate-linux-amd64: OK'),
+    text(`${asset}: OK`),
     { p: 'If any check fails, delete the downloads and install nothing. When all three pass, install the binary and put `~/.local/bin` on your `PATH`:' },
     bash(['chmod +x "$ASSET"', 'mkdir -p ~/.local/bin', 'mv "$ASSET" ~/.local/bin/relate', PATH_LINE, 'relate --version'].join('\n')),
     text(VERSION_OUTPUT),

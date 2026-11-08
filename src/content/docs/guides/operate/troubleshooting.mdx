@@ -1,4 +1,189 @@
 ---
 title: Troubleshooting
-status: planned
+description: "Go from a relate error message or exit code to its fix: symptom tables that link each error to its reference entry and to the guide that resolves it."
+order: 60
+surfaces: [cli, cypher, http, bolt, mcp, agents]
+prerequisites: [get-started/install]
+related: [reference/errors, reference/cli/exit-codes-and-errors, guides/operate/crash-and-recovery, guides/operate/two-processes-one-store]
 ---
+
+This guide shows you how to get from an error to its fix. Find the message in the tables, follow the reference link for the error's cause and exit code, and follow the fix link for the steps. Every row points at a page; the [errors reference](/docs/reference/errors) holds the complete entry for each one.
+
+## Prerequisites
+
+- The error's text from stderr and the command's :term[exit code]{id=exit-code}.
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- To follow along, the shared example graph as `team.rl`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+## Read the error
+
+Run the failing command again with `--mode envelope` and print the exit code. In this example, the store's name is misspelled, `tema.rl`, so a read-only open finds nothing to open:
+
+```bash verify
+relate --database ./tema.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+echo "exit=$?"
+```
+
+The path starts with the working directory, shown as `<dir>`. The first line is stderr, the second the error object on stdout:
+
+```text
+Failed to open Relate: storage error: database not found: <dir>/tema.rl
+{"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: database not found: <dir>/tema.rl","retryable":false}}
+exit=1
+```
+
+The error object's `code` is the class and `exit_code` the exit code, `kind` narrows the class, and `retryable` says whether running the same command again can succeed. Only a write-write conflict is retryable. A message's start is enough to find its row: `<name>` marks a part that varies, and `…` marks text left out.
+
+## Find the symptom
+
+### Opening a store
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `Failed to open Relate: storage locked: <path>` | [5](/docs/reference/cli/exit-codes-and-errors#exit-5) | [`cli-conflict-locked`](/docs/reference/errors#cli-conflict-locked) | Another process holds the store. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `Error: Failed to open Relate: storage locked: <path>` when `relate serve` starts | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-conflict-locked`](/docs/reference/errors#cli-conflict-locked) | The server needs the writer lock. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `storage error: database not found: <path>` or `storage error: read-only open requires an existing database at <path>` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-storage`](/docs/reference/errors#cli-fatal-error-storage) | A read-only open never creates a store. Check the path. [`--read-only`](/docs/reference/cli/flags#read-only) |
+| `storage error: WAL checksum mismatch` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-storage`](/docs/reference/errors#cli-fatal-error-storage) | A damaged WAL; restore a backup. [Recover from a crash](/docs/guides/operate/crash-and-recovery) |
+| `storage error: unsupported snapshot version <n>` or `storage error: unsupported graph value encoding: <n>` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-storage`](/docs/reference/errors#cli-fatal-error-storage) | A newer relate wrote the store. [Upgrade a store](/docs/guides/operate/upgrade-a-store) |
+| `semantic error: live freshness (WAL follow) is only supported for native directory databases` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`--read-only`](/docs/reference/cli/flags#read-only) | Follow a directory store. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `Error: final checkpoint failed: <reason>` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-final-checkpoint-failed`](/docs/reference/errors#cli-final-checkpoint-failed) | Free disk space and check permissions. [Recover from a crash](/docs/guides/operate/crash-and-recovery) |
+| An operating-system I/O failure, such as a disk with no space left | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-io`](/docs/reference/errors#cli-fatal-error-io) | Check the path, permissions, and free space. [Choose a store layout](/docs/guides/storage/choose-a-store-layout) |
+| Recent writes missing after a crash | — | — | The store ran under a relaxed durability mode. [Choose a durability mode](/docs/guides/operate/durability-modes) |
+
+### Memory and size
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `capacity exceeded: used=… limit=…` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`engine-graph-size-cap`](/docs/reference/errors#engine-graph-size-cap), [`cli-fatal-error-capacity`](/docs/reference/errors#cli-fatal-error-capacity) | A write reached `--logical-graph-size-limit`. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
+| `This statement tried to commit a single WAL record of at least <used>. …` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`engine-wal-payload-cap`](/docs/reference/errors#engine-wal-payload-cap) | Commit in smaller transactions. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
+| `This statement tried to build a single value of <size>. …` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`engine-expression-memory-cap`](/docs/reference/errors#engine-expression-memory-cap) | Build the value in smaller pieces. [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| The process ends with no relate error while the graph grows | — | — | The operating system stopped it for memory. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
+
+### Running statements
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `syntax error: parse error: …` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`cli-validation-error-syntax`](/docs/reference/errors#cli-validation-error-syntax) | Fix the statement at the reported column. [Cypher overview](/docs/reference/cypher/overview) |
+| `semantic error: ParameterMissing: Expected parameter(s): <names>` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-parameter-missing`](/docs/reference/errors#engine-parameter-missing) | Bind each `$name` with `--param`. [Script the CLI](/docs/guides/cli/scripting) |
+| `semantic error: WriteOnReadOnlyAccessDatabase: …` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-write-on-read-only`](/docs/reference/errors#engine-write-on-read-only) | Send the write to a writable open. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `syntax error: SafeModeViolation: …` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-safe-mode-violation`](/docs/reference/errors#engine-safe-mode-violation) | Add the label or the `LIMIT`. [Keep an agent safe](/docs/guides/agents/agent-safety) |
+| `syntax error: TraversalDepthExceeded: …` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-traversal-depth-exceeded`](/docs/reference/errors#engine-traversal-depth-exceeded) | Lower the hop bound or raise `--max-traversal-depth`. [Limits and sizing](/docs/reference/storage/limits-and-sizing) |
+| `syntax error: UndefinedVariable: …`, `UnknownFunction: …`, `type error: …`, `ArithmeticError: rounding necessary` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) or [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`engine-undefined-variable`](/docs/reference/errors#engine-undefined-variable), [`engine-unknown-function`](/docs/reference/errors#engine-unknown-function), [`cli-validation-error-type`](/docs/reference/errors#cli-validation-error-type), [`engine-division-by-zero`](/docs/reference/errors#engine-division-by-zero), [`engine-rounding-necessary`](/docs/reference/errors#engine-rounding-necessary) | Fix the statement. [Cypher overview](/docs/reference/cypher/overview) |
+| `semantic error: NumberOutOfRange` and other rejected argument values | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`cli-validation-error-argument`](/docs/reference/errors#cli-validation-error-argument) | Correct the value. [Search by vector similarity](/docs/guides/cypher/vector-search) |
+| `preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-preview-feature-not-enabled`](/docs/reference/errors#engine-preview-feature-not-enabled) | Opt in to the preview feature. [Cypher overview](/docs/reference/cypher/overview) |
+| `semantic error: DatabaseNotFound: Graph not found: <name>`, `Unsupported administration command: <statement>`, a `USE` or `WITH` refused on an administration command | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-database-not-found`](/docs/reference/errors#engine-database-not-found), [`engine-unsupported-administration-command`](/docs/reference/errors#engine-unsupported-administration-command), [`engine-use-on-administration-command`](/docs/reference/errors#engine-use-on-administration-command), [`engine-with-on-system`](/docs/reference/errors#engine-with-on-system) | A store has three fixed namespaces. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| A composite-only function, several `USE` targets in one statement | — | [`engine-composite-only-function`](/docs/reference/errors#engine-composite-only-function), [`engine-multiple-use-targets`](/docs/reference/errors#engine-multiple-use-targets) | A statement runs against one graph. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) |
+| `This database is not queryable. …`, a write to `system_ontologies` | [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | [`engine-system-ontologies-not-queryable`](/docs/reference/errors#engine-system-ontologies-not-queryable), [`engine-system-ontologies-write`](/docs/reference/errors#engine-system-ontologies-write) | Query the `neo4j` namespace. [Limitations](/docs/reference/limitations) |
+| `NestedEvaluationBudgetExceeded: …` | — | [`engine-nested-evaluation-budget`](/docs/reference/errors#engine-nested-evaluation-budget) | Flatten the nested subqueries. [Limitations](/docs/reference/limitations) |
+| `write-write conflict` | [5](/docs/reference/cli/exit-codes-and-errors#exit-5) | [`cli-conflict-conflict`](/docs/reference/errors#cli-conflict-conflict) | Run the statement again in a fresh transaction. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| A uniqueness constraint violated | — | [`engine-uniqueness-violation`](/docs/reference/errors#engine-uniqueness-violation) | `MERGE` on the constrained key, or fix the duplicate. [Cypher overview](/docs/reference/cypher/overview) |
+| `Cannot change the namespace while a transaction is open.` | — | [`engine-namespace-change-in-transaction`](/docs/reference/errors#engine-namespace-change-in-transaction) | End the transaction first. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) |
+| `Error: query timed out after <duration>`, `query cancelled` | [7](/docs/reference/cli/exit-codes-and-errors#exit-7) | [`cli-timeout`](/docs/reference/errors#cli-timeout), [`engine-cancelled`](/docs/reference/errors#engine-cancelled) | Bound the work or raise the timeout. [Tune a query](/docs/guides/cypher/tune-a-query) |
+| A query execution failure while producing rows | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-execution`](/docs/reference/errors#cli-fatal-error-execution) | Read the message; it is not retryable. [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) |
+| `internal error` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-fatal-error-internal`](/docs/reference/errors#cli-fatal-error-internal) | Not the statement's fault. [Collect a report](#collect-a-report) |
+
+### Flags, environment, and input
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `Error: unknown flag: <flag>`, `Error: unexpected argument: <arg>` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-usage-error`](/docs/reference/errors#cli-usage-error) | Check the command's flags with `relate <command> --help`. [CLI flags](/docs/reference/cli/flags) |
+| `Error: invalid --param value: parameter <name>: …` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-invalid-param`](/docs/reference/errors#cli-invalid-param) | Quote JSON values. [Script the CLI](/docs/guides/cli/scripting) |
+| `Error: invalid --namespace: …`, `Error: --namespace is not valid with pull …` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-invalid-namespace`](/docs/reference/errors#cli-invalid-namespace), [`cli-pull-namespace`](/docs/reference/errors#cli-pull-namespace) | Use `neo4j`, `system` or `system_ontologies`, and none with `pull`. [CLI flags](/docs/reference/cli/flags) |
+| `Error: invalid --durability-mode: …`, `Error: invalid RELATE_DURABILITY_MODE: …` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-invalid-env-durability-mode`](/docs/reference/errors#cli-invalid-env-durability-mode) | Use `full`, `everysecond` or `snapshot`. [Choose a durability mode](/docs/guides/operate/durability-modes) |
+| `Error: invalid --logical-graph-size-limit: …`, `Error: invalid RELATE_LOGICAL_GRAPH_SIZE_LIMIT: …` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-invalid-env-logical-graph-size-limit`](/docs/reference/errors#cli-invalid-env-logical-graph-size-limit) | Write the size in bytes, `mb`, `mib`, `gb` or `gib`. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
+| `Error: invalid RELATE_MAX_ROWS: …`, `RELATE_AGENT_MODE`, `RELATE_SAFE_MODE`, `RELATE_EXPRESSION_MEMORY_LIMIT`, `RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT` or `RELATE_MAX_TRAVERSAL_DEPTH` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-invalid-env-max-rows`](/docs/reference/errors#cli-invalid-env-max-rows), [`cli-invalid-env-agent-mode`](/docs/reference/errors#cli-invalid-env-agent-mode), [`cli-invalid-env-safe-mode`](/docs/reference/errors#cli-invalid-env-safe-mode), [`cli-invalid-env-expression-memory-limit`](/docs/reference/errors#cli-invalid-env-expression-memory-limit), [`cli-invalid-env-concurrent-logical-workspace-limit`](/docs/reference/errors#cli-invalid-env-concurrent-logical-workspace-limit), [`cli-invalid-env-max-traversal-depth`](/docs/reference/errors#cli-invalid-env-max-traversal-depth) | Fix or unset the variable. [CLI flags](/docs/reference/cli/flags) |
+| `Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: …` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-invalid-env-preview`](/docs/reference/errors#cli-invalid-env-preview) | Use a feature name from the message's list. [CLI flags](/docs/reference/cli/flags) |
+| `Error: the '<command>' command is not included in this build of relate` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-command-not-included`](/docs/reference/errors#cli-command-not-included) | Install a release binary. [Install relate](/docs/get-started/install) |
+| `parquet snapshot codec is not compiled into this build …` | — | [`cli-parquet-not-compiled`](/docs/reference/errors#cli-parquet-not-compiled) | Use the JSON codec or a release binary. [Storage formats](/docs/reference/storage/formats) |
+
+### Scripts and the shell
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `Warning: exiting with an open transaction; rolling back uncommitted changes. …` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-open-transaction-at-exit`](/docs/reference/errors#cli-open-transaction-at-exit) | End the script with `.commit` or `.rollback`. [Script the CLI](/docs/guides/cli/scripting) |
+| `Error: could not read query input from stdin: <reason>` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-stdin-read-error`](/docs/reference/errors#cli-stdin-read-error) | Pipe valid UTF-8. [Script the CLI](/docs/guides/cli/scripting) |
+| `note: write statement changed nothing; the graph is unchanged` | [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | [`cli-write-changed-nothing`](/docs/reference/errors#cli-write-changed-nothing) | Not an error: the write matched nothing. [Script the CLI](/docs/guides/cli/scripting) |
+| `warning: result truncated to 100 rows …` | [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | [`cli-row-cap-warning`](/docs/reference/errors#cli-row-cap-warning) | Not an error: `--max-rows 0` prints every row. [Agent mode](/docs/reference/cli/agent-mode) |
+| `LOAD CSV file unavailable`, `LOAD CSV file exceeds byte limit` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-load-csv-unavailable`](/docs/reference/errors#cli-load-csv-unavailable), [`cli-load-csv-byte-limit`](/docs/reference/errors#cli-load-csv-byte-limit) | Pass `--load-csv-dir` and keep files under 8,388,608 bytes. [Import a CSV](/docs/guides/cypher/import-csv) |
+
+### Agents and the skill
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| `Error: skill: refusing to touch <dest>: …` | [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | [`cli-skill-refusing-to-touch`](/docs/reference/errors#cli-skill-refusing-to-touch) | The folder wasn't written by relate. [Install the agent skill](/docs/guides/agents/install-the-skill) |
+| `Error: skill: unknown agent: '<name>'` | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | [`cli-skill-unknown-agent`](/docs/reference/errors#cli-skill-unknown-agent) | Use a name from the `valid agents:` line. [Install the agent skill](/docs/guides/agents/install-the-skill) |
+| `Only MATCH queries are allowed for read-query`, `Only write queries are allowed for write-query` | — | [`mcp-read-query-only`](/docs/reference/errors#mcp-read-query-only), [`mcp-write-query-only`](/docs/reference/errors#mcp-write-query-only) | The statement went to the other MCP tool. [Connect over MCP](/docs/guides/agents/connect-over-mcp) |
+| `malformed JSON-RPC message: <detail>`, `unsupported JSON-RPC version '<version>'`, an unknown method or bad parameters, `Error: internal error` | — | [`mcp-parse-error`](/docs/reference/errors#mcp-parse-error), [`mcp-unsupported-version`](/docs/reference/errors#mcp-unsupported-version), [`mcp-method-not-found`](/docs/reference/errors#mcp-method-not-found), [`mcp-invalid-params`](/docs/reference/errors#mcp-invalid-params), [`mcp-internal-error`](/docs/reference/errors#mcp-internal-error) | The MCP host and server disagree. [Connect over MCP](/docs/guides/agents/connect-over-mcp) |
+
+### Serving over HTTP and Bolt
+
+| Symptom | Exit code | Reference | What fixes it |
+| --- | --- | --- | --- |
+| HTTP 401, `The client is unauthorized due to authentication failure.` over Bolt | — | [`http-unauthorized`](/docs/reference/errors#http-unauthorized), [`bolt-unauthorized`](/docs/reference/errors#bolt-unauthorized) | Send the server's password for the user `relate`. [Share one store between two processes](/docs/guides/operate/two-processes-one-store) |
+| `transaction <id> expired after <n>s idle`, `transaction registry full: …` | — | [`http-transaction-expired`](/docs/reference/errors#http-transaction-expired), [`http-transaction-registry-full`](/docs/reference/errors#http-transaction-registry-full) | Commit sooner, or raise the server's limits. [relate CLI](/docs/reference/cli) |
+| `query result exceeds max-result-bytes limit of <N> bytes` | — | [`bolt-result-too-large`](/docs/reference/errors#bolt-result-too-large) | Return fewer or smaller rows. [Tune a query](/docs/guides/cypher/tune-a-query) |
+| HTTP 400, 404 or 500, a malformed Bolt message | — | [`http-malformed-or-syntax`](/docs/reference/errors#http-malformed-or-syntax), [`http-not-found`](/docs/reference/errors#http-not-found), [`http-general`](/docs/reference/errors#http-general), [`http-internal`](/docs/reference/errors#http-internal), [`bolt-request-invalid`](/docs/reference/errors#bolt-request-invalid) | Read the error in the response body. [Errors](/docs/reference/errors) |
+
+## Collect a report
+
+When a row says to report, or no row fits, these four things let someone else reproduce the problem without your data:
+
+| Part | How to get it |
+| --- | --- |
+| The relate version | `relate --version`; `relate --version --json` adds the operating system and architecture |
+| The store's layout, format, and counts | `relate info --database <path> --json`, which reads metadata only: layout, format, counts, and each index and constraint with its label and property keys, never property values |
+| The error object and exit code | The failing command with `--mode envelope`, then `echo "exit=$?"` |
+| The statement and the flags | The command line as run, with any `RELATE_` environment variables that were set |
+
+The version check prints two lines:
+
+```bash verify
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+## Verify
+
+After the fix, the command that failed exits 0. With the store's name spelled right:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+exit=0
+```
+
+## If it goes wrong
+
+- **The message is in no table.** Search the [errors reference](/docs/reference/errors) for its first words; it lists every error with its cause and remedy.
+- **The exit code is 3, 4, or 8.** relate reserves those codes and doesn't produce them. Check which program in the pipeline returned it ([exit codes](/docs/reference/cli/exit-codes-and-errors)).
+- **`internal error`.** An engine invariant failed, which is not the statement's fault. [Collect a report](#collect-a-report) with the statement that caused it.
+
+## Related
+
+- [Errors](/docs/reference/errors): every error, its cause, remedy, and exit code.
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit code table and the error object's fields.
+- [Recover from a crash](/docs/guides/operate/crash-and-recovery) and [Share one store between two processes](/docs/guides/operate/two-processes-one-store): the two storage guides this page links most.

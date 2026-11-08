@@ -1,4 +1,357 @@
 ---
-title: Use relate from Python
-status: planned
+title: Embed relate in a Python app
+label: Python
+description: A first Python program on the relate-db package, which opens a store, passes parameters, runs transactions, reads result metadata, and catches errors.
+order: 40
+surfaces: [python]
+related: [get-started/node, get-started/first-graph, reference/errors, concepts/transactions-and-concurrency, reference/storage/formats, guides/integrations/langgraph]
 ---
+
+By the end of this page, you'll have a Python program that keeps a small graph of people and projects in one file. It reads the graph with parameters and reports errors by their class and code. Along the way we write inside a transaction, roll one back, and read what a result says about itself. It takes about fifteen minutes. relate runs inside your Python process, so there is no server to start, and every step writes to a store it creates.
+
+## Prerequisites
+
+- Python 3.9 or later, with `pip`.
+- A terminal and a text editor. The relate CLI is not needed: the package carries the engine.
+
+## Install the client
+
+The package is `relate-db`; the import is `import relate`. Install it into the environment your app runs in:
+
+```bash
+pip install relate-db
+```
+
+Check that Python can import it, and which version it is:
+
+```python run name=version
+import relate
+
+print(relate.__version__)
+```
+
+Notice the version: the programs on this page were checked against that release, and their recorded output comes from it.
+
+## Open a store
+
+A :term[store]{id=store} is where relate keeps a graph. `:memory:` is a store that lives in the process and forgets everything when its connection closes. A path ending in `.rl` is a single-file store, which `relate.connect()` creates when nothing is there yet.
+
+```python run name=open
+import os
+
+import relate
+
+memory = relate.connect(":memory:")
+print(memory.execute("RETURN 'hello' AS greeting").single()["greeting"])
+memory.close()
+
+conn = relate.connect("./team.rl")
+conn.close()
+print(os.path.exists("team.rl"))
+```
+
+`relate.connect()` returns a connection, and `execute()` runs one statement and returns a cursor over its rows. Notice that `team.rl` now exists. Every call is synchronous, and a connection belongs to the thread that opened it: using it from another thread raises `relate.ProgrammingError` with kind `WrongThread`.
+
+## Create the graph
+
+Our graph is three people and two projects: who works on what, since when, and who maintains `relate`. One `CREATE` statement writes all of it. The rest of this page uses the same statement, as `TEAM`, on an in-memory store, so each program runs on its own.
+
+```python run name=create
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+cur = conn.execute(TEAM)
+print("nodes created:", cur.stats["nodes_created"])
+print("relationships created:", cur.stats["relationships_created"])
+conn.close()
+```
+
+A write returns no rows, so we read its counters from `cur.stats`. Five nodes and five relationships: the whole team.
+
+## Read it back with parameters
+
+A statement names each value it needs as `$name`, and `execute()` takes the values as a dict. The statement text stays the same while the values change, and a value never becomes part of the Cypher.
+
+```python run name=params
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+TEAM_OF = """
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+for project in ["relate", "opencypher-tck"]:
+    print(project)
+    for row in conn.execute(TEAM_OF, {"project": project}):
+        print(" ", row["name"], "since", row["since"])
+conn.close()
+```
+
+Each row is a dict keyed by the names in `RETURN`. Notice that Noor isn't listed: she maintains `relate` through a `MAINTAINS` relationship, and the pattern asks for `WORKS_ON`.
+
+## Change it in a transaction
+
+A connection commits each statement on its own until you set `autocommit = False`. From then on, the first statement opens a transaction, `commit()` keeps everything since, and `rollback()` throws it away. This program adds Lin to the team and commits, then deletes every project and rolls back.
+
+```python run name=transaction
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+COUNT_PEOPLE = "MATCH (p:Person) RETURN count(p) AS n"
+COUNT_PROJECTS = "MATCH (p:Project) RETURN count(p) AS n"
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+conn.autocommit = False
+
+conn.execute(
+    "MATCH (tck:Project {name: 'opencypher-tck'}) "
+    "CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)"
+)
+conn.commit()
+print("people after commit:", conn.execute(COUNT_PEOPLE).single()["n"])
+
+conn.execute("MATCH (p:Project) DETACH DELETE p")
+print("projects inside the transaction:", conn.execute(COUNT_PROJECTS).single()["n"])
+conn.rollback()
+print("projects after rollback:", conn.execute(COUNT_PROJECTS).single()["n"])
+conn.close()
+```
+
+Inside the transaction, the delete is visible: zero projects. After `rollback()`, both are back, and Lin, who was committed, stays. Closing a connection with a transaction still open rolls it back too.
+
+## Read result metadata
+
+A cursor describes its result as well as holding it: the column names, a type code per column, and a summary of what the statement was and what it changed.
+
+```python run name=metadata
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+
+cur = conn.execute(
+    "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) "
+    "RETURN p.name AS name, w.since AS since ORDER BY since",
+    {"project": "relate"},
+)
+print(cur.columns)
+for name, type_code, *_ in cur.description:
+    print(name, type_code)
+print("query type:", cur.consume().query_type)
+
+write = conn.execute("MATCH (n:Person {name: 'Noor'}) SET n.role = 'lead'")
+summary = write.consume()
+print("query type:", summary.query_type)
+print("properties set:", summary.counters["properties_set"])
+conn.close()
+```
+
+`cur.description` follows Python's database API. The engine types each column from its first row, and the cursor maps that type to `relate.STRING`, `relate.NUMBER`, `relate.DATETIME`, or `relate.BINARY`. A node, a list, and any other type with no counterpart there report `None`. `consume()` returns the summary: `query_type` is `r` for a read and `w` for a write that returns no columns, and `counters` holds what the statement changed.
+
+To get the rows as a pandas `DataFrame`, `cur.to_df()` builds one, with a column per result column. It needs pandas, which the client's extra installs (`pip install 'relate-db[pandas]'`); without pandas, it raises `ImportError` naming that command:
+
+```python run name=dataframe
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+
+cur = conn.execute(
+    "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) "
+    "RETURN p.name AS name, w.since AS since ORDER BY since",
+    {"project": "relate"},
+)
+print(cur.to_df())
+conn.close()
+```
+
+## Catch an error
+
+Every relate database error derives from `relate.Error`, and the subclass says what kind of problem it is. A statement that uses `$name` without a value is a programming mistake, so it raises `relate.ProgrammingError`:
+
+```python run name=error
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+ROLE_OF = "MATCH (p:Person {name: $name}) RETURN p.role AS role"
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+
+try:
+    conn.execute(ROLE_OF)
+except relate.ProgrammingError as e:
+    print(type(e).__name__)
+    print(e)
+    print("gql_status:", e.gql_status)
+    print("neo4j_code:", e.neo4j_code)
+    print("retryable:", e.retryable)
+
+print(conn.execute(ROLE_OF, {"name": "Noor"}).single()["role"])
+conn.close()
+```
+
+The message says what's missing; the attributes are what code branches on:
+
+| Attribute | This error | Meaning |
+| --- | --- | --- |
+| `gql_status` | `42N02` | The GQLSTATUS code; the Node.js client reports the same code for the same error |
+| `neo4j_code` | `Neo.ClientError.Statement.ParameterMissing` | The Neo4j status code for the same error |
+| `retryable` | `False` | Whether running it again can succeed; `True` for a write-write conflict, never for a mistake in the statement |
+
+The [errors reference](/docs/reference/errors#engine-parameter-missing) lists this message with its cause and remedy. With the value bound, the same statement finds Noor's role.
+
+## Put it together
+
+`team.py` puts the steps together in one program. It opens `team.rl`, creates the graph only when the store has no people yet, and prints who works on each project. A relate error anywhere ends it with the error's code and a nonzero exit status.
+
+```python run name=program title="team.py"
+import sys
+
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+TEAM_OF = """
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+"""
+
+
+def ensure_team(conn):
+    people = conn.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"]
+    if people == 0:
+        conn.execute(TEAM)
+        print("created the team graph")
+    else:
+        print("found", people, "people")
+
+
+def report(conn, project):
+    print(project)
+    for row in conn.execute(TEAM_OF, {"project": project}):
+        print(" ", row["name"], "since", row["since"])
+
+
+def main():
+    with relate.connect("./team.rl") as conn:
+        ensure_team(conn)
+        report(conn, "relate")
+        report(conn, "opencypher-tck")
+
+
+try:
+    main()
+except relate.Error as e:
+    print(f"relate error {e.gql_status}: {e}", file=sys.stderr)
+    sys.exit(1)
+```
+
+Run it with `python team.py`. Each statement is durable in `team.rl` when `execute()` returns, and the `with` block closes the connection at the end. Run it a second time and it prints `found 3 people` instead of creating the graph again, then the same report. If another process has `team.rl` open for writing, the open fails and the program prints `relate error 42000: storage locked: <path>` and exits with status 1.
+
+To read the file with no chance of changing it, open it :term[read-only]{id=read-only}: `relate.connect("./team.rl", read_only=True)`. A write then raises `relate.OperationalError`, and a path with no store behind it is an error instead of a new store.
+
+## What you built
+
+You have a Python program that keeps a graph of people and projects in `team.rl`, one file you can copy or archive. It reads with parameters, writes inside transactions, knows a read from a write by its summary, and reports errors by class and GQLSTATUS code. Ada, Grace, and Noor are waiting in that file for the next run.
+
+## Next
+
+- [Embed relate in a Node.js app](/docs/get-started/node): the same steps, the same graph, in JavaScript.
+- [Errors](/docs/reference/errors): every error message, its cause, its remedy, and its codes.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Use relate with LangGraph](/docs/guides/integrations/langgraph): the same client behind an agent's memory tools.
+- [Your first graph in the CLI](/docs/get-started/first-graph): the same graph from the command line.
+- [Storage formats](/docs/reference/storage/formats): the three store layouts and what each writes to disk.

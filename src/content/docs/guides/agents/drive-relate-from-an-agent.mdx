@@ -1,4 +1,272 @@
 ---
 title: Drive relate from an agent
-status: planned
+description: Run relate from an agent through the CLI, with JSON output, an error object and exit codes to branch on, a row cap, parameters, and a time bound per statement.
+order: 20
+surfaces: [cli, agents]
+prerequisites: [get-started/install]
+related: [reference/cli/agent-mode, reference/cli/exit-codes-and-errors, reference/errors, guides/agents/agent-safety, guides/cli/scripting, reference/cli/flags]
 ---
+
+This guide shows you how to drive relate from an agent through the CLI: read the briefing, ask for the :term[envelope]{id=envelope}, pass values as parameters, branch on the error object and the :term[exit code]{id=exit-code}, read the :term[row cap]{id=row-cap}, pick an output mode, and put a time bound on each statement. Each `relate` command is one process that runs one statement or a `;`-separated list and exits, so an agent calls it like any other shell tool.
+
+## Prerequisites
+
+- relate on `PATH` ([Install relate](/docs/get-started/install)).
+- A shell the agent can run commands in. No server and no configuration file are involved.
+
+## Read the briefing
+
+`relate agent-context` prints the commands, query-run flags, and exit codes of the binary that is installed, so an agent works from the version it has rather than one it remembers. `relate agent-context <command>` prints one command's synopsis, flags, and examples.
+
+The briefing ends with the exit codes, the part an agent branches on:
+
+```bash verify
+relate agent-context | tail -7
+```
+
+```text
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+Before them it lists the twelve commands and every query-run flag; the [agent quickstart](/docs/get-started/agent-quickstart#read-the-briefing) shows the whole output.
+
+## Create the example graph
+
+The steps use one small graph: three people and the two projects they work on. This writes a new single-file store, `team.rl`, from a seed script:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+```
+
+```bash verify
+relate query --database ./team.rl --mode envelope < team.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+Every later command on this page opens `team.rl` with `--read-only`, which opens the store :term[read-only]{id=read-only}: relate never writes it, and a write fails with exit code 6.
+
+## Ask for the envelope
+
+`--mode envelope` prints one compact JSON object per result set, on one line:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since'
+```
+
+```text
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"rows":[{"person":"Grace","project":"opencypher-tck","since":2022},{"person":"Grace","project":"relate","since":2023},{"person":"Ada","project":"relate","since":2024}],"truncated":false}
+```
+
+| Key | Holds |
+| --- | --- |
+| `columns` | The column names in query order; present even when there are no rows |
+| `columnTypes` | One type name per column, taken from the first row; `ANY` when that value is null or there are no rows |
+| `rows` | One object per row, with keys sorted alphabetically; `columns` gives the query's order |
+| `truncated` | `true` when the row cap cut the rows, otherwise `false` |
+| `rowCap` | Present only when the row cap cut the rows: `{"kept": N, "total": M}` |
+| `notifications` | The query notifications; always present, `[]` when there are none |
+| `plan` | Present only on an `EXPLAIN` or `PROFILE` result |
+
+An empty result keeps its columns, so "no rows" is distinguishable from "no output":
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person {name: 'Zed'}) RETURN p.role AS role"
+```
+
+```text
+{"columnTypes":["ANY"],"columns":["role"],"notifications":[],"rows":[],"truncated":false}
+```
+
+A run of several statements prints one envelope per statement, one per line, so the output is JSON Lines. New keys may be added to the envelope; existing ones keep their names.
+
+## Pass values as parameters
+
+`--param N=V` binds the parameter `$N`, and repeats for each parameter. `V` is parsed as JSON, so it can be a number, `true`, a quoted string, an array, or a map; a bare word is a string. Single quotes around the statement keep the shell from expanding `$names` before relate sees it:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope --param 'names=["Ada","Noor"]' --param since=2023 'MATCH (p:Person)-[w:WORKS_ON]->(j:Project) WHERE p.name IN $names AND w.since >= $since RETURN p.name AS person, j.name AS project'
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Ada","project":"relate"}],"truncated":false}
+```
+
+`--fetch-params N=SRC` reads a JSON file, or fetches an `http` or `https` URL, and binds the whole document as `$N`. In this example the document is a map, read from a file the first command writes:
+
+```bash verify
+printf '%s\n' '{"names": ["Grace"], "since": 2022}' > filter.json
+relate --database ./team.rl --read-only --mode envelope --fetch-params filter=./filter.json 'MATCH (p:Person)-[w:WORKS_ON]->(j:Project) WHERE p.name IN $filter.names AND w.since >= $filter.since RETURN p.name AS person, j.name AS project ORDER BY project'
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"}],"truncated":false}
+```
+
+A fetch is capped at 64 MiB and 60 seconds and has no URL allowlist. [Keep an agent safe](/docs/guides/agents/agent-safety#control-network-egress) lists it with the other flags that reach the network.
+
+## Branch on the exit code and the error object
+
+A failed statement prints its message on stderr and exits with the code of its class. In `--mode envelope`, `--json`, and `--jsonl` it also prints an error object on stdout. This statement uses `$name` without binding it:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
+echo "exit=$?"
+```
+
+The first line is stderr, the second is stdout:
+
+```text
+semantic error: ParameterMissing: Expected parameter(s): name
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: ParameterMissing: Expected parameter(s): name","retryable":false}}
+exit=6
+```
+
+The object's `code` names the class and always comes with the same exit code. `retryable` is `true` for one error only, a write-write conflict, which a fresh transaction can fix:
+
+| Exit | `code` | Remedy |
+| --- | --- | --- |
+| 0 | `success` | Read the rows; an empty result is still a success |
+| 1 | `fatal_error` | Read `message`: a missing store, an I/O error, a capacity limit, a `LOAD CSV` path outside its directory. The same command fails again |
+| 2 | `usage_error` | Fix the command line: an unknown flag or a bad value. No error object is printed |
+| 5 | `conflict` | With `retryable: true` (kind `conflict`), run the statement again in a fresh transaction. With `retryable: false` (kind `locked`), another process holds the store: wait for it to exit. A directory store can also be opened `--read-only` beside its writer; a `.rl` store cannot |
+| 6 | `validation_error` | Fix the statement: syntax, a missing parameter, a type error, a safe mode refusal, or a write on a read-only store |
+| 7 | `timeout` | Bound the work with `LIMIT` or a narrower pattern, or raise `--timeout` |
+
+A syntax error adds `column` and `source`, which point at the failing token. A run of several statements that stops partway adds `statement`, `statements`, and `committed`, so the agent knows whether earlier statements already changed the store:
+
+```bash verify
+relate --mode envelope 'RETURN 1 AS a; RETRN 2; RETURN 3 AS c'
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["a"],"notifications":[],"rows":[{"a":1}],"truncated":false}
+syntax error: parse error: unexpected token "RETRN"
+  RETRN 2
+  ^
+statement 2 of 3 failed; 1 completed and committed; 1 not run
+{"error":{"code":"validation_error","column":1,"committed":1,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: unexpected token \"RETRN\"   RETRN 2   ^","retryable":false,"source":"RETRN 2","statement":2,"statements":3}}
+exit=6
+```
+
+The first statement printed its envelope and committed, the second failed, and the third never ran. The [exit codes and errors reference](/docs/reference/cli/exit-codes-and-errors) lists every field.
+
+## Read the row cap
+
+Under a detected agent harness, with stdout not a terminal, relate prints at most 100 rows per statement. A cut result says so three ways: a warning on stderr, `"truncated": true` with a `rowCap` object in the envelope, and a closing `{"rowCap": …}` line in `--mode jsonl`. The exit code stays 0. In this command `CLAUDECODE=1` stands in for a harness, and `tail` keeps the last line:
+
+```bash verify
+CLAUDECODE=1 relate --mode jsonl 'UNWIND range(1, 250) AS x RETURN x' 2>/dev/null | tail -n 1
+```
+
+```text
+{"rowCap":{"kept":100,"total":250}}
+```
+
+`--max-rows N` sets the cap everywhere, a terminal included, and `--max-rows 0` lifts it. With a cap of 2, the warning comes first on stderr, then the envelope:
+
+```bash verify
+CLAUDECODE=1 relate --mode envelope --max-rows 2 'UNWIND range(1, 250) AS x RETURN x'
+```
+
+```text
+warning: result truncated to 2 rows (the statement returned 250); pass --max-rows 0 for all rows
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rowCap":{"kept":2,"total":250},"rows":[{"x":1},{"x":2}],"truncated":true}
+```
+
+The cap limits what is printed, not what the engine computes: the engine builds the whole result first. A `LIMIT` or an aggregate in the statement bounds the work itself.
+
+## Pick an output mode
+
+Without `--mode`, the output depends on where stdout goes: the human table on a terminal, JSON Lines in a pipe, and TOON in a pipe under :term[agent mode]{id=agent-mode}. TOON is a compact table: one `rows[N]{columns}:` header line, then one line per row, with nested values as inline JSON.
+
+```bash verify
+CLAUDECODE=1 relate --database ./team.rl --read-only 'MATCH (p:Person) RETURN p.name AS name, p.role AS role ORDER BY name'
+```
+
+```text
+rows[3]{name,role}:
+  Ada,engineer
+  Grace,engineer
+  Noor,maintainer
+```
+
+An explicit `--mode` always wins, so a pipeline that parses JSON pins it:
+
+| Mode | Prints | A row-cap cut shows as |
+| --- | --- | --- |
+| `envelope` | One JSON object per result set, with column types | `"truncated": true` and `rowCap` |
+| `jsonl` | One JSON object per row | A closing `{"rowCap": …}` line |
+| `json` | One JSON array; one compact line when piped | The array wrapped as `{"data": […], "rowCap": …}` |
+| `toon` | A header line, then one line per row | A closing `rowCap:` entry |
+| `markdown` | A GitHub-flavored Markdown table | A closing `> truncated: N of M rows shown` line |
+| `csv` | CSV; a value starting with `=`, `+`, `-` or `@` gets a leading `'` | The stderr warning only |
+| `table` | The human table | The stderr warning only |
+
+Agent mode turns on the 100-row cap and the TOON default. It follows one order: `--agent-mode` or `--no-agent-mode`, then `RELATE_AGENT_MODE=1` or `0`, then harness detection. The flag and the variable print a one-line notice on stderr; detection is silent. The [agent mode reference](/docs/reference/cli/agent-mode#detection) lists the variables that count as a harness.
+
+## Bound each statement
+
+`--timeout` cancels a statement that runs longer than the duration given (`500ms`, `10s`, `2m`; a bare number is seconds) and exits 7. Without it, a statement has no time bound:
+
+```bash verify
+relate --mode envelope --timeout 100ms 'UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs'
+echo "exit=$?"
+```
+
+```text
+Error: query timed out after 100ms
+{"error":{"code":"timeout","exit_code":7,"kind":"execution","message":"query timed out after 100ms","retryable":false}}
+exit=7
+```
+
+`--read-only` keeps a reading agent from writing. [Keep an agent safe](/docs/guides/agents/agent-safety) adds safe mode, backups before a write, and the permission matrix.
+
+## Verify
+
+One read-only statement shows the whole contract: machine output on stdout, and an exit code the agent can test.
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person) RETURN count(p) AS people'
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+exit=0
+```
+
+## If it goes wrong
+
+- **`semantic error: ParameterMissing: Expected parameter(s): <name>`** (exit code 6): the statement uses `$<name>` and no `--param` or `--fetch-params` binds it. Pass `--param <name>=<value>` ([errors reference](/docs/reference/errors#engine-parameter-missing)).
+- **A syntax error whose `source` has a gap where `$<name>` was** (exit code 6): the statement was in double quotes, so the shell replaced `$<name>` with an empty string before relate saw it. With the parameter inside a map, the message starts `syntax error: parse error: unexpected token "}" (RightBrace)`. Single-quote the statement.
+- **`warning: result truncated to 100 rows (the statement returned <n>); pass --max-rows 0 for all rows`** (exit code 0): the row cap cut the output. Pass `--max-rows 0`, or bound the statement with `LIMIT` or an aggregate ([errors reference](/docs/reference/errors#cli-row-cap-warning)).
+- **`Failed to open Relate: storage locked: <path>`** on stderr, with the error object message `storage locked: <path>` (exit code 5, `retryable: false`): another process has the store open. Wait for it to exit; a directory store can also be opened `--read-only` beside its writer ([errors reference](/docs/reference/errors#cli-conflict-locked)).
+
+## Related
+
+- [Agent mode](/docs/reference/cli/agent-mode): the row cap, the TOON default, and the harness variables.
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): every exit code and every field of the error object.
+- [Errors](/docs/reference/errors): every message with its cause and its remedy.
+- [CLI flags](/docs/reference/cli/flags): `--param`, `--fetch-params`, `--max-rows`, `--timeout`, and the rest.
+- [Script the CLI](/docs/guides/cli/scripting): multi-statement scripts, transactions, and stdin.

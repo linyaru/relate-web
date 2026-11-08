@@ -1,4 +1,156 @@
 ---
 title: Security
-status: planned
+description: How relate releases are signed and checked, the signing key and its fingerprint, macOS notarization, what is not published yet, and vulnerability reports.
+order: 90
+surfaces: [cli, bolt, http, mcp, agents]
+related: [get-started/install, reference/privacy-and-telemetry, reference/project, guides/agents/agent-safety, reference/limitations]
 ---
+
+Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 key. `install.sh` and `relate upgrade` check that signature against a copy of the key pinned inside themselves, check that the manifest names the release being installed, check the binary's SHA-256, and install nothing if any check fails. The macOS binaries are also signed and notarized by Apple. No security policy, supported-versions statement, or vulnerability disclosure address is published yet, and no release carries a software bill of materials (SBOM) or SLSA provenance.
+
+## Synopsis
+
+| Item | Status |
+| --- | --- |
+| Release signing | One Ed25519 key, OpenSSH signature (SSHSIG) namespace `relate-release` from the first relate-named release (`cypherlite-release` up to and including 0.16.1), over each release's `SHA256SUMS` |
+| Key fingerprint | `SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA` |
+| Checked by | `install.sh` and `relate upgrade`, against a pinned copy of the key; never fetched from the release |
+| macOS binaries | Signed with an Apple Developer ID and notarized |
+| Windows binary | No Authenticode signature |
+| SBOM | None published |
+| SLSA provenance | None published |
+| Supported versions and security-fix policy | None published |
+| Vulnerability disclosure address | None yet; to be published at launch |
+| Hosted docs MCP server | Not deployed; its threat model is published with it |
+
+## Release signing key
+
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release
+```
+
+| Where the key is | Form |
+| --- | --- |
+| `https://relatedb.ai/install.sh` | The `SIGNING_KEY` line |
+| The `relate` binary | Compiled in; `relate upgrade` checks against it |
+| `distribution/release-signing-key.pub` in [github.com/relatedb/relate](https://github.com/relatedb/relate) | The public key file; the repository is public at launch |
+| A standalone key file at a `relatedb.ai` URL | Not published yet |
+
+All three copies are the same bytes. Its fingerprint, computed from the key:
+
+```bash verify
+echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release' > release-signing-key.pub
+ssh-keygen -lf release-signing-key.pub
+```
+
+```text
+256 SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA relate-release (ED25519)
+```
+
+The signer identity and the signature namespace are both `relate-release`, from the first relate-named release on. Releases up to and including 0.16.1 were published under the earlier name, as `cypherlite-<os>-<arch>`, signed with the same key under the identity and namespace `cypherlite-release`, with the manifest header `# cypherlite-release-version: `. A new key ships inside a release. A binary installed before a key change still trusts the old key, so its `relate upgrade` refuses releases signed with the new one; `install.sh`, which carries the new key, installs them.
+
+## What install.sh and relate upgrade check
+
+`install.sh` downloads `SHA256SUMS` and `SHA256SUMS.sig` first and makes the first two checks before it downloads the binary. It installs by writing a temporary file in `~/.local/bin` and renaming it into place, so an interrupted install leaves no partial binary.
+
+| Check | What it proves | On failure, `install.sh` prints |
+| --- | --- | --- |
+| The SSHSIG signature on `SHA256SUMS`, against the pinned key, identity and namespace `relate-release` | The manifest came from the release key | `install.sh: SHA256SUMS signature verification failed for <tag>; installing nothing` |
+| The manifest's first line, `# relate-release-version: v<version>`, equals the tag being installed: the latest release for `install.sh`, the release `relate upgrade` read from `releases.json` | A validly signed manifest of another release cannot be replayed; the line is inside the signed bytes | `install.sh: SHA256SUMS is for <version>, not the requested release <tag>; installing nothing` |
+| The binary's SHA-256 equals its line in the manifest | The binary is the one the manifest lists | `install.sh: checksum verification failed for <asset>; installing nothing` |
+
+A manifest with no version line is accepted, with a warning, only for releases up to v0.14.0, which predate the line.
+
+## Manual verification
+
+The same three checks run by hand with `curl`, `ssh-keygen`, and `sha256sum`. For a release on Linux amd64, from the first relate-named release on, with `VERSION` holding the release's version number (without the `v`), the commands and their expected output are:
+
+```bash
+ASSET=relate-linux-amd64
+BASE="https://github.com/relatedb/relate/releases/download/v$VERSION"
+curl -sSfLO "$BASE/$ASSET"
+curl -sSfLO "$BASE/SHA256SUMS"
+curl -sSfLO "$BASE/SHA256SUMS.sig"
+echo 'relate-release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release' > allowed_signers
+ssh-keygen -Y verify -f allowed_signers -I relate-release -n relate-release -s SHA256SUMS.sig < SHA256SUMS
+head -n 1 SHA256SUMS
+grep "  $ASSET\$" SHA256SUMS | sha256sum -c -
+```
+
+```text
+Good "relate-release" signature for relate-release with ED25519 key SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA
+# relate-release-version: v<version>
+relate-linux-amd64: OK
+```
+
+In the output, `<version>` is that version number. The other assets are `relate-linux-arm64`, `relate-darwin-arm64`, `relate-darwin-amd64`, and `relate-windows-amd64.exe`. On macOS, `shasum -a 256 -c -` takes the place of `sha256sum -c -`. The Pinned binary tab of [Install relate](/docs/get-started/install) gives the same steps with the install that follows them. The release URLs are launch-day targets: the repository is private until launch. The checks for a release up to and including 0.16.1 use that release's names instead: the `cypherlite-<os>-<arch>` asset, `cypherlite-release` as the identity, the namespace and the `allowed_signers` principal, and `# cypherlite-release-version: ` as the header.
+
+## Code signing and notarization
+
+| Artifact | Signature beyond `SHA256SUMS` |
+| --- | --- |
+| macOS CLI binaries | Signed with an Apple Developer ID Application identity, with the hardened runtime and a secure timestamp, then notarized by Apple. A bare binary cannot carry a stapled ticket, so Gatekeeper checks the notarization online the first time the binary runs. |
+| Linux CLI binaries | None |
+| Windows CLI binary | None; the release workflow has no Authenticode step |
+| C libraries (`relate-ffi-<target>.tar.gz`) and Python wheels | None |
+| Java jars | None on the release assets; the Maven Central publish, not enabled yet, signs with a GPG key |
+| Swift package | SwiftPM checks the release's `RelateFFI.xcframework.zip` against the checksum in the tagged `Package.swift` |
+| npm packages | To be published with npm provenance through trusted publishing; none is published yet |
+
+`SHA256SUMS` lists the five CLI binaries only. The other artifacts are not in it.
+
+## Provenance and software bill of materials
+
+No release publishes a software bill of materials (SBOM), and no release publishes a build provenance attestation in the SLSA format. The release workflow has no step that produces either.
+
+## Supported versions and security fixes
+
+No supported-versions statement and no security-fix policy is published. Releases are cut forward from the main branch, and the release process describes no way of patching an older release line. relate is pre-1.0; [Project](/docs/reference/project#versioning-and-stability) gives the versioning policy.
+
+## Reporting a vulnerability
+
+No address for reporting a vulnerability exists yet. It is to be published at launch, together with `https://relatedb.ai/.well-known/security.txt`, which the site builds once a security contact is recorded. Until then the relate repositories are private, so there is no public issue tracker either.
+
+## Served surfaces
+
+`relate serve` hosts the HTTP Query API, MCP, and Bolt on one open store. Its defaults:
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| Bind address (`--host`) | `127.0.0.1`, loopback only | Any other host exposes every surface in plaintext and prints a warning at startup |
+| TLS | None | No surface has TLS |
+| Authentication (`--auth`) | A generated token, printed at startup and kept in `<dir>.auth-token` with mode `0600` | One Basic-auth credential for every surface; `--auth none` turns authentication off; no users or roles |
+| Browser origins on HTTP (`--origin`) | Loopback origins, `https://browser.neo4j.io` and `https://console.neo4j.io` | Repeatable; `*` allows any origin |
+| Bolt-over-WebSocket origins (`--ws-allow-origin`) | Loopback, `https://browser.neo4j.io` and `https://console.neo4j.io`; loopback only with `--auth none` | Repeatable; `*` allows any origin |
+| Writes | Allowed | `--read-only` opens the store without writing; `--safe` refuses new named nodes without a label and unbounded reads |
+| Sessions (`--max-connections`) | 128, across every surface | A connection over the cap is accepted, then closed |
+
+`--mcp stdio` serves MCP on stdin and stdout for an MCP host, with no authentication challenge. A host configuration that opens a store `--read-only` keeps an agent from writing to it; the [agent safety guide](/docs/guides/agents/agent-safety) has the permission matrix across the CLI and MCP.
+
+## Engine defaults that limit reach
+
+| Behavior | Default |
+| --- | --- |
+| `LOAD CSV` from local files | Denied unless `--load-csv-dir <dir>` (or `RELATE_LOAD_CSV_DIR`) names a directory; paths that escape it, symlink escapes and special files are refused |
+| `--load <url>`, `--fetch-params <url>` | Reach only the URL given; `--load` keeps no copy after loading |
+| `relate upgrade` | Reads `https://relatedb.ai/releases.json` and downloads release assets, checked as `install.sh` checks them |
+| `relate extension install` | From the default first-party channel: checks the channel's signed index against the same release key, and the package's SHA-256. With `--github REPO@TAG` or `@SHA`: checks the pinned asset's SHA-256 and the tag's commit, with no signature. With `--url` (https only) or `--from DIR`: no signature; naming the source is the trust decision |
+| Usage metrics | On by default in the CLI only; [Privacy and telemetry](/docs/reference/privacy-and-telemetry) lists what is sent and how to turn it off |
+
+## Agent-facing files on the site
+
+| File | Integrity |
+| --- | --- |
+| `/skills/relate/` (the skill bundle) | Copied from the engine repository at a recorded commit, with the SHA-256 of every file recorded |
+| `/.well-known/agent-skills/index.json` | One `sha256:` digest per entry, over the bytes served |
+| `/docs/docs-artifacts.json` | Lists the skill and discovery files and the docs graph seed with their SHA-256; a signature with the release key, `docs-artifacts.json.sig`, is to be added at launch |
+
+The hosted docs MCP server at `https://relatedb.ai/mcp` is not deployed. Its threat model, limits and logging are to be published with it on the docs MCP server reference page.
+
+## See also
+
+- [Install relate](/docs/get-started/install): the install commands, with the Pinned binary steps
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what the CLI reports, and what never phones home
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only and safe mode for agents
+- [Project](/docs/reference/project): license, versioning, and release process
+- [Limitations](/docs/reference/limitations): what the engine and its surfaces do not do

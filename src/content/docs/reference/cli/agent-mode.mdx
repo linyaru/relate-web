@@ -1,4 +1,277 @@
 ---
 title: Agent mode
-status: planned
+description: How the relate CLI detects an agent harness, the two defaults agent mode changes, the row cap and its in-band report, the envelope, and agent-context.
+order: 40
+surfaces: [cli, agents]
+related: [reference/cli/flags, reference/cli/exit-codes-and-errors, concepts/agent-native, guides/agents/drive-relate-from-an-agent]
 ---
+
+:term[Agent mode]{id=agent-mode} is a pair of default changes the CLI makes for a query run under an agent harness: at most 100 rows printed per statement, with the cut reported, and `toon` instead of `jsonl` as the output mode when stdout is piped. It turns on when relate detects a harness and stdout is not a terminal, or when `--agent-mode` or `RELATE_AGENT_MODE=1` asks for it. An explicit `--mode` or `--max-rows` overrides either default. Agent mode never blocks a write, changes the envelope's shape, or changes an exit code, but its piped `toon` default prints no error object on stdout: a failure there shows only as the stderr message and the exit code.
+
+## Synopsis
+
+```text
+relate --agent-mode [OPTIONS] [QUERY]
+relate --no-agent-mode [OPTIONS] [QUERY]
+RELATE_AGENT_MODE=1 relate [OPTIONS] [QUERY]
+RELATE_AGENT_MODE=0 relate [OPTIONS] [QUERY]
+```
+
+| Setting | Agent mode off | Agent mode on |
+| --- | --- | --- |
+| Output mode, stdout piped or redirected, no output flag | `jsonl` | `toon` |
+| Output mode, stdout a terminal, no output flag | `table` | `table` |
+| Rows printed per statement, no `--max-rows` or `RELATE_MAX_ROWS` | unlimited | at most 100; the cut is reported on stderr and in-band |
+| An explicit `--mode` or `--max-rows` | applies | applies |
+| Error object on stdout, stdout piped, no output flag | printed (`jsonl`) | not printed: `toon` prints none; the stderr message and the exit code remain |
+| Writes, the envelope's fields, the error object's fields, exit codes | unchanged | unchanged |
+
+## What turns it on
+
+The CLI decides once per run, from the first rule that applies:
+
+| Order | Rule | Applies on a terminal | Announced on stderr |
+| --- | --- | --- | --- |
+| 1 | `--agent-mode` turns it on, `--no-agent-mode` off; of the two, the last one given wins | yes | yes, when on |
+| 2 | `RELATE_AGENT_MODE=1` turns it on, `RELATE_AGENT_MODE=0` off, with surrounding whitespace ignored; an empty value counts as unset; any other value exits 2 | yes | yes, when on |
+| 3 | Detection: on when an agent harness is detected and stdout is not a terminal | no | no |
+
+The two announcements, one line on stderr before any output:
+
+```text
+relate agent mode on: --agent-mode (--no-agent-mode to turn off)
+relate agent mode on: RELATE_AGENT_MODE=1 (--no-agent-mode to turn off)
+```
+
+Detection is silent, so a harness that runs one statement per process sees no banner. On a terminal, an explicit on-state applies the row cap, and the output mode stays `table`.
+
+### Detection
+
+An agent harness is detected when any of these environment variables is set to a non-empty value. The value itself does not matter: `AI_AGENT=0` counts, and an empty value does not.
+
+| Variables |
+| --- |
+| `AI_AGENT`, `AGENT` |
+| `CLAUDECODE`, `CLAUDE_CODE` |
+| `COPILOT_AGENT`, `COPILOT_CLI`, `COPILOT_AGENT_SESSION_ID` |
+| `CODEX_SANDBOX`, `CODEX_THREAD_ID` |
+| `CURSOR_AGENT`, `GEMINI_CLI`, `OPENCODE`, `AUGMENT_AGENT`, `GOOSE_PROVIDER`, `REPL_ID` |
+
+Three patterns also count, each matched case-insensitively:
+
+| Variable | Contains |
+| --- | --- |
+| `EDITOR` | `devin` |
+| `TERM_PROGRAM` | `kiro` |
+| `PATH` | `.pi/agent` |
+
+## Forcing it on or off
+
+Under a detected harness with stdout piped, the output mode is `toon`, with no announcement:
+
+```bash verify
+CLAUDECODE=1 relate "UNWIND [1, 2] AS x RETURN x"
+```
+
+```text
+rows[2]{x}:
+  1
+  2
+```
+
+`--no-agent-mode` beats detection, so the piped default is `jsonl` again:
+
+```bash verify
+CLAUDECODE=1 relate --no-agent-mode "UNWIND [1, 2] AS x RETURN x"
+```
+
+```text
+{"x":1}
+{"x":2}
+```
+
+An explicit `--mode` beats agent mode's default without turning agent mode off:
+
+```bash verify
+CLAUDECODE=1 relate --mode jsonl "UNWIND [1, 2] AS x RETURN x"
+```
+
+```text
+{"x":1}
+{"x":2}
+```
+
+`RELATE_AGENT_MODE=1` turns it on without a harness, and says so on stderr:
+
+```bash verify
+RELATE_AGENT_MODE=1 relate "UNWIND [1, 2] AS x RETURN x"
+```
+
+```text
+relate agent mode on: RELATE_AGENT_MODE=1 (--no-agent-mode to turn off)
+rows[2]{x}:
+  1
+  2
+```
+
+A value other than `1` or `0` is a usage error, before any statement runs:
+
+```bash verify
+RELATE_AGENT_MODE=yes relate "RETURN 1 AS x"
+echo "exit=$?"
+```
+
+```text
+Error: invalid RELATE_AGENT_MODE: 'yes' is neither 1 nor 0
+exit=2
+```
+
+## The row cap
+
+With agent mode on and no `--max-rows` or `RELATE_MAX_ROWS`, a statement prints at most 100 rows. The cap limits what is printed, not what runs: the engine computes the whole result first, so a Cypher `LIMIT` is what bounds the work. `--max-rows N` sets the cap in any run, on a terminal too, and `--max-rows 0` prints every row.
+
+A cut result still exits 0. The CLI writes one line to stderr:
+
+```text
+warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows
+```
+
+The machine modes also carry the cut in-band, after the rows or inside the envelope, so a capped result never reads as a complete one:
+
+| Mode | The in-band record |
+| --- | --- |
+| `envelope` | `"truncated":true` and `"rowCap":{"kept":100,"total":250}` |
+| `jsonl` | A last line `{"rowCap":{"kept":100,"total":250}}` |
+| `json` | The rows wrapped: `{"data":[…],"rowCap":{"kept":100,"total":250}}`; an uncut result stays a bare array |
+| `toon` | A last `rowCap:` entry, the counts as inline JSON |
+| `markdown` | A footer line `> truncated: 100 of 250 rows shown` |
+| `table`, `csv`, `cypher` | None; the stderr line is the only report |
+
+Each statement of a multi-statement run is capped and reported on its own. Under a detected harness, the `toon` header names the rows kept, and the last entry names both counts:
+
+```bash verify
+CLAUDECODE=1 relate "UNWIND range(1, 250) AS x RETURN x" 2>/dev/null | head -2
+CLAUDECODE=1 relate "UNWIND range(1, 250) AS x RETURN x" 2>/dev/null | tail -3
+```
+
+```text
+rows[100]{x}:
+  1
+  100
+rowCap:
+  {"kept":100,"total":250}
+```
+
+## The envelope
+
+`--mode envelope` prints one compact JSON object per result set, on one line, so a multi-statement run is JSON Lines of :term[envelopes]{id=envelope}. Agent mode changes nothing in it except the row cap's two fields. Keys are sorted alphabetically, at the top level and inside each row; `columns` gives the column order.
+
+```bash verify
+relate --mode envelope "RETURN 1 AS a, [1, 2] AS l, {k: 'v'} AS m, null AS z"
+```
+
+```text
+{"columnTypes":["INTEGER","LIST","MAP","ANY"],"columns":["a","l","m","z"],"notifications":[],"rows":[{"a":1,"l":[1,2],"m":{"k":"v"},"z":null}],"truncated":false}
+```
+
+| Field | Type | Present | Meaning |
+| --- | --- | --- | --- |
+| `columnTypes` | array of strings | always | One type name per column, from the first row: `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `UUID`, `BINARY` or `ANY`. A `null` first value, or no rows, gives `ANY`. |
+| `columns` | array of strings | always | The result columns in order, even when there are no rows |
+| `notifications` | array of objects | always | The statement's notifications; `[]` on a plain run |
+| `plan` | object | `EXPLAIN` and `PROFILE` only | The plan tree |
+| `rowCap` | object | when the row cap cut the rows | `{"kept":N,"total":M}`: the rows printed and the rows the statement returned |
+| `rows` | array of objects | always | One object per row, values as `--json` prints them |
+| `truncated` | boolean | always | `true` when the row cap cut the rows |
+
+An empty result keeps its columns, so no rows is told apart from no output:
+
+```bash verify
+relate --mode envelope "MATCH (p:Person) RETURN p"
+```
+
+```text
+{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"rows":[],"truncated":false}
+```
+
+A cut result has `rowCap` and `"truncated":true`. In this run `--max-rows 2` sets the cap; agent mode's default cut looks the same with `"kept":100`:
+
+```bash verify
+relate --mode envelope --max-rows 2 "UNWIND range(1, 5) AS x RETURN x"
+```
+
+```text
+warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"truncated":true}
+```
+
+A failed statement in `envelope`, `json`, `jsonl` or `speedscope` prints the error object instead, with the same keys in each; its fields are on the [exit codes page](/docs/reference/cli/exit-codes-and-errors#the-error-object). New envelope fields may be added; existing ones are never renamed.
+
+`toon` prints no error object. Under a detected harness with stdout piped, a failed statement leaves the stderr message and the exit code, and nothing on stdout:
+
+```bash verify
+CLAUDECODE=1 relate "RETURN 1/0 AS x"
+echo "exit=$?"
+```
+
+```text
+type error: / by zero
+exit=6
+```
+
+With `--mode envelope` or `--mode jsonl`, the same run prints the error object on stdout, agent mode on or off.
+
+## Notifications
+
+A plain run produces no notifications. `EXPLAIN` and `PROFILE` derive them beside the plan: an unknown label or property key, a missing index, a pattern with no join anchor. Agent mode does not change them; the output mode decides where they go. Under agent mode's piped `toon` default, they print as a `notifications:` entry after `plan:`, one inline JSON array:
+
+```bash verify
+CLAUDECODE=1 relate "EXPLAIN MATCH (p:Persn) RETURN p.name AS name" | tail -2
+```
+
+```text
+notifications:
+  [{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownLabelWarning","description":"The label `Persn` does not exist in this database.","gql_status":"01N50","remedy":"Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.","severity":"WARNING","title":"Unknown label"},{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownPropertyKeyWarning","description":"The property key `name` does not exist in this database.","gql_status":"01N52","remedy":"Check the spelling; the key exists after the first write that sets it.","severity":"WARNING","title":"Unknown property key"}]
+```
+
+Each entry has `category`, `code`, `description`, `gql_status`, `remedy`, `severity` and `title`, plus `operator_id` when it concerns one plan operator. The `envelope` mode carries the same list in `notifications`; `json` and `jsonl` print one `{"notifications":[…],"plan":{…}}` object; `table` and `markdown` print a `Notifications:` block; `csv` and `cypher` print none. The [errors reference](/docs/reference/errors#notifications) lists every notification.
+
+## The agent-context briefing
+
+`relate agent-context` prints a compact text briefing of the installed binary: its version, one line per command, the query-run flag names, and the exit code table. `relate agent-context <command>` prints one command's usage line, its flags, an example, and the exit code table. The output is plain text in every run, agent mode or not, and it comes from the same command table as `--help`, so it describes the binary that prints it.
+
+```bash verify
+relate agent-context clone
+```
+
+```text
+clone — Copy a database into a new store and exit
+Usage: relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST
+Flags:
+  --wal-dir
+  --to-snapshot-format
+  --markdown-body-properties
+Examples:
+  # Copy a database into a new store
+  relate clone ./mydata ./backup
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+An unknown command word exits 2 with `Error: agent-context: unknown command '<name>'`, followed by the list of commands it accepts. The briefing with no command word is recorded in the [agent quickstart](/docs/get-started/agent-quickstart#read-the-briefing).
+
+## What agent mode leaves alone
+
+Agent mode changes output defaults only. Writes go through as in any other run; the opt-ins that refuse statements are separate flags: `--read-only` opens the store :term[read-only]{id=read-only}, and `--safe` refuses an unbounded `MATCH` read and a new named node without a label. Neither turns on by detection. Every :term[exit code]{id=exit-code} and the error object's fields are the same with agent mode on or off. `toon`, agent mode's piped default, prints no error object on stdout; `--mode envelope` or `--mode jsonl` prints it.
+
+## See also
+
+- [CLI flags](/docs/reference/cli/flags#agent-ergonomics): `--agent-mode`, `--max-rows` and their environment variables
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit code table and the error object
+- [Agent-native by design](/docs/concepts/agent-native): the reasons behind the envelope, the row cap, and detection
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the same contract, from the agent's side

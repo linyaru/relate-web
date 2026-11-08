@@ -73,5 +73,6 @@ export const settled = <T extends Settled>(xs: T[]) => xs.filter((x) => !x.dispu
 
 /** The pages the generated CLI tables live on, for cross-links between them (a link renders as text until its page exists). */
 export const FLAGS_PAGE = '/docs/reference/cli/flags';
-export const ENV_PAGE = '/docs/reference/cli/environment-variables';
+/** <EnvVars /> sits on the flags page until a separate environment-variables page exists. */
+export const ENV_PAGE = FLAGS_PAGE;
 export const EXIT_CODES_PAGE = '/docs/reference/cli/exit-codes-and-errors';

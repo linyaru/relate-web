@@ -1,4 +1,175 @@
 ---
 title: Storage formats
-status: planned
+description: The three store layouts and the parquet, json and markdown codecs, with each one's files on disk, version markers, sizes, and which surfaces open it.
+order: 10
+surfaces: [cli, python, node]
+related: [guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, concepts/storage-and-durability, reference/storage/limits-and-sizing]
 ---
+
+A relate :term[store]{id=store} has one of three layouts, picked by the path given to `--database`: in memory, a directory, or a single `.rl` file. A durable store also has one :term[codec]{id=codec}, the encoding its checkpoints write the snapshot in: `parquet` (the default), `json` or `markdown`. Every layout and codec runs the same engine: the graph is held in memory while the store is open, and every commit goes to the store's :term[write-ahead log]{id=wal} (WAL) before it applies. The layout and codec decide only what a :term[checkpoint]{id=checkpoint} writes to disk.
+
+## Synopsis
+
+```text
+relate --database <path> [--read-only[=live]] [--snapshot-format parquet|json|markdown] [--wal-dir <dir>] [<statement>]
+relate clone [--wal-dir <dir>] [--to-snapshot-format parquet|json|markdown] <source> <dest>
+relate info --database <path> [--json]
+```
+
+| `--database` value | Layout |
+| --- | --- |
+| `:memory:` (the default) | In memory |
+| A path ending in `.rl` | Single-file store |
+| Any other path | Directory store |
+
+A missing path is created on the first writable open. A `--read-only` open of a missing path is an error and creates nothing. `.cl` files written by releases up to 0.16 open as single-file stores. These pages call the single-file layout a `.rl` file; `relate info` prints it as `layout: .rl bundle`, and the directory layout as `layout: native directory`.
+
+## Layouts
+
+| | In memory | Directory store | `.rl` file |
+| --- | --- | --- | --- |
+| On disk | Nothing | A folder: snapshot files, the WAL (`wal/`, or `.cypherlite/wal/` for `markdown`), lock files | One file holding the same tree, WAL included |
+| Durable | No: gone when the process exits | Yes | Yes |
+| Codecs | None | `parquet`, `json`, `markdown` | `parquet`, `json`, `markdown` |
+| Writers | One process | One process at a time | One process at a time |
+| `--read-only` beside a writer | Not applicable | Allowed; several readers can share the store | Refused while a writer holds the file |
+| `--read-only=live` | Refused | Allowed: follows the writer's commits | Refused |
+| `--wal-dir` | Not applicable | Allowed (default `<database>/wal`; `<database>/.cypherlite/wal` for `markdown`) | Refused |
+| `relate info` | Refused (exit code 2) | Allowed, without opening the store | Allowed, without opening the store |
+| `relate clone` as source or destination | Refused | Allowed | Allowed |
+
+A writable open of a durable store that another process holds open for writing fails with `storage locked: <path>` (exit code 5). The writer lock is held while the store is open.
+
+## Codecs
+
+The codec is chosen when a store is created, with `--snapshot-format` or the `RELATE_SNAPSHOT_FORMAT` environment variable, and recorded in the store. An existing store keeps its recorded codec, so later opens need no flag. One store holds one codec.
+
+| Codec | Snapshot files | A checkpoint writes | Readable as text | `relate info` reports |
+| --- | --- | --- | --- | --- |
+| `parquet` (default) | `manifest.json`, `nodes/<lo>-<hi>-<hash>.parquet`, `relationships/<lo>-<hi>-<hash>.parquet` | The node and relationship id ranges that changed | No (columnar binary) | Format version, node and relationship counts at the checkpoint, and index and constraint counts |
+| `json` | `manifest.json`, `graph.json` | The whole `graph.json` | Yes | Layout, codec, checkpoint, size; the rest as `unavailable` |
+| `markdown` | One note per node at `<Label>/<name>.md`, an `index.md` per label, a root `index.md` and `log.md`; engine state under `.cypherlite/` | The notes that changed; the index and log notes again | Yes | Layout, codec, checkpoint, size; the rest as `unavailable` |
+
+`graph.json` holds every node and relationship with its labels or type and properties, then the index and constraint catalog. A store holding one `KNOWS` relationship between two people starts like this:
+
+```text
+{"value_encoding":2,"nodes":[{"id":0,"labels":["Person"],"properties":{"name":"Ada"}},{"id":1,"labels":["Person"],"properties":{"name":"Grace"}}],"relationships":[{"id":0,"type":"KNOWS","start_node":0,"end_node":1,"properties":{"since":2024}}],"indexes":[],"constraints":[], …
+```
+
+A `markdown` note keeps a node's properties and outgoing relationships in YAML frontmatter, with relationships as `[[Label/name]]` links. `--markdown-body-properties` names the properties written as the note's body (default: `body`). A note edited by hand while no process has the store open is read at the next open.
+
+```text
+---
+type: Person
+name: Ada
+role: engineer
+KNOWS:
+  - "[[Person/Grace]]"
+WORKS_ON:
+  - since: 2024
+    target: "[[Project/relate]]"
+---
+```
+
+`relate clone --to-snapshot-format <codec>` copies a store into a new store in another codec; the source is not written.
+
+## Directory store files
+
+| Path | Holds |
+| --- | --- |
+| `manifest.json` | The codec and the checkpoint's log sequence number (LSN) and commit timestamp; for `parquet`, also the format version, the next node and relationship ids, the list of data files, and the index and constraint catalog |
+| `nodes/`, `relationships/` | `parquet` data files, one per id range |
+| `graph.json` | The `json` snapshot |
+| `wal/NNNNNNNN.log` | WAL segments: commits since the last checkpoint, as physical changes to nodes, relationships, labels and properties, not Cypher text |
+| `.cypherlite/schema/` | A text copy of the schema (indexes, constraints, graph type), rewritten at each checkpoint |
+| `.cypherlite.lock`, `.cypherlite.writer`, `wal/.cypherlite.lock`, `wal/.cypherlite.writer` | The writer lock |
+
+A `markdown` store keeps `manifest.json` and the WAL in its `.cypherlite/` folder (`.cypherlite/manifest.json`, `.cypherlite/wal/NNNNNNNN.log`, `.cypherlite/wal/.cypherlite.lock`, `.cypherlite/wal/.cypherlite.writer`); the `parquet` and `json` codecs keep them at the root and in `wal/`.
+
+The snapshot files hold the state at the last checkpoint; the WAL holds every commit since. Opening a store loads the snapshot, then replays the WAL. A copy of the snapshot files without the WAL folder holds the state at the last checkpoint only, and a `--read-only` open of it fails.
+
+On-disk names that start with `.cypherlite` and the magic numbers in the version markers table keep the product's former name, so stores written by earlier releases open unchanged.
+
+## Version markers
+
+Each durable part of a store carries a version marker. A store is checked against every marker before anything is written.
+
+| Part | Marker | This release writes | This release reads |
+| --- | --- | --- | --- |
+| `parquet` snapshot | `format_version` in `manifest.json` | `3`; `4` while the store holds an ontology | `1` to `4` |
+| `json` snapshot | `value_encoding` in `graph.json` | `2`; `3` while the store holds an ontology | absent, `2`, `3` |
+| `markdown` snapshot | `value_encoding` in `.cypherlite/manifest.json` | `2`; `3` while the store holds an ontology | `1` to `3`; an absent marker counts as current |
+| WAL segment | The first 8 bytes | `MDBWAL01`; `MDBWAL02` for segments written while the store holds an ontology | `MDBWAL01`, `MDBWAL02` |
+| `.rl` container | Superblock magic and version | `MDBCLB01`, version `1` | `MDBCLB01`, version `1` |
+
+A store at an older readable version is upgraded in place when it is opened writable, and older releases can't open it afterward. A store written by a newer release fails to open, with the unsupported version in the error. [Upgrade a store](/docs/guides/operate/upgrade-a-store) covers both. A `--read-only` open never migrates.
+
+## Size on disk
+
+These commands write the same 100,000 nodes into a `parquet` directory store, a `json` directory store and a `.rl` file, then clone the `.rl` file, and print each store's size as `relate info` reports it:
+
+```bash verify
+relate --database ./items --mode envelope "UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})"
+relate --database ./items-json --snapshot-format json --mode envelope "UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})"
+relate --database ./items.rl --mode envelope "UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})"
+relate clone ./items.rl ./items-clone.rl
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+```bash verify
+for store in items items-json items.rl items-clone.rl; do printf '%s: ' "$store"; relate info --database "./$store" | grep 'total bytes'; done
+```
+
+```text
+items: total bytes: 2696161
+items-json: total bytes: 9245009
+items.rl: total bytes: 19070976
+items-clone.rl: total bytes: 2723840
+```
+
+| Layout | Size characteristic |
+| --- | --- |
+| `parquet` directory store | The smallest of the durable forms: columnar, compressed data files |
+| `json` directory store | Larger than `parquet` for the same graph (about 3.4 times in the measurement, rounded) |
+| `.rl` file | Grows to the most space its snapshot and WAL have needed at once, then reuses that space; it does not shrink. A large commit leaves the file larger than its content |
+| `.rl` file after `relate clone` | About the size of the `parquet` directory store: the clone holds only the current state |
+
+[Size a store and its memory](/docs/guides/operate/sizing-and-memory) covers the memory a store needs while it is open.
+
+## Surfaces
+
+| Surface | Opens | Read-only open |
+| --- | --- | --- |
+| CLI (`relate`, `relate query`, `relate serve`) | `--database :memory:`, a directory, a `.rl` path | `--read-only`, `--read-only=live` |
+| Python client (`relate-db`) | `relate.Database(path)`, `relate.connect(path)`; `":memory:"` is the default | `read_only=True` |
+| Node.js client (`@relate/relate`) | `Database.open(path)` | `Database.open(path, { readOnly: true })` |
+
+`RELATE_SNAPSHOT_FORMAT` selects the codec of a new store, a directory or a `.rl` file, on all three.
+
+## Errors
+
+| Message | Exit code | When |
+| --- | --- | --- |
+| `storage error: snapshot codec mismatch: directory is <codec>, requested <codec>` | 1 | `--snapshot-format` names a codec other than the store's |
+| `Error: invalid --snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)` | 2 | `--snapshot-format` is not a codec name |
+| `storage locked: <path>` | 5 | A second writable open, or a `--read-only` open of a `.rl` file a writer holds ([details](/docs/reference/errors#cli-conflict-locked)) |
+| `storage error: database not found: <path>` | 1 | A `--read-only` open of a missing `.rl` path |
+| `storage error: read-only open requires an existing database at <path>` | 1 | A `--read-only` open of a missing or empty directory |
+| `storage error: read-only open requires an existing WAL at <path>` | 1 | A `--read-only` open of a directory store whose WAL folder is missing; `<path>` is the WAL folder |
+| `semantic error: live freshness (WAL follow) is only supported for native directory databases` | 1 | `--read-only=live` on a `.rl` file or `:memory:` |
+| `Error: info cannot use :memory: or an empty --database path (info reads an on-disk store)` | 2 | `relate info` on `:memory:` |
+| `storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)` | 1 | `--wal-dir` with a `.rl` path |
+
+On stderr, an error at open is prefixed `Failed to open Relate: `. The [errors reference](/docs/reference/errors#cli-fatal-error-storage) lists the storage errors with their remedies.
+
+## See also
+
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): which layout and codec fits a job, with the commands that create each.
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): `relate clone` and file copies.
+- [Storage and durability](/docs/concepts/storage-and-durability): the write path, the WAL, and checkpoints.
+- [Limits and sizing](/docs/reference/storage/limits-and-sizing): the limits on graph size, commits, and values.

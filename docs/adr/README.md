@@ -99,3 +99,4 @@ Copy `template.md`.
 | [0019](0019-skill-publication-and-artifact-manifest.md) | The skill is published byte-identical with generated indexes and a signed artifact manifest | Proposed |
 | [0020](0020-docs-graph-schema.md) | The docs graph's launch schema, seed format and structural checks | Proposed |
 | [0021](0021-verified-samples-and-release-refresh.md) | Verified language samples, and a release refresh that opens a pull request | Proposed |
+| [0022](0022-shared-example-graph-is-the-team-graph.md) | The docs' shared example graph is the team graph | Proposed |

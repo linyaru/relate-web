@@ -1,4 +1,207 @@
 ---
 title: Tune a query
-status: planned
+description: Read a query plan with EXPLAIN and PROFILE, act on the planner's notifications, and confirm that an index changed the plan, on the shared example graph.
+order: 30
+surfaces: [cypher, cli]
+prerequisites: [get-started/first-graph]
+related: [reference/errors#notif-03c91, reference/cypher/overview, guides/cypher/vector-search, concepts/architecture]
 ---
+
+This guide shows you how to read the plan relate chooses for a statement, act on the notification the planner attaches to it, and prove with a second plan that the fix worked. `EXPLAIN` plans a statement without running it; `PROFILE` runs it and adds what each step did. The example is a lookup by name on the shared graph, planned once without an index and once with one.
+
+## Prerequisites
+
+- The example graph from [your first graph](/docs/get-started/first-graph). The first step creates it in the cells and in a terminal.
+- For the terminal steps, relate on your `PATH` ([install](/docs/get-started/install)). The cells run in your browser without it.
+
+## Load the example graph
+
+The cells on this page run in page order on one in-memory :term[store]{id=store}. This cell writes the shared graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+To follow in a terminal, write the same graph to a new single-file store, `team.rl`. This command writes:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+## Read the plan with EXPLAIN
+
+Prefix the statement with `EXPLAIN`. Nothing runs: writes, procedures and `LOAD CSV` are only planned, so `EXPLAIN` is safe on any statement.
+
+```cypher run name=explain-before
+EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project
+```
+
+The cell returns no rows. Its JSON view holds the :term[envelope]{id=envelope}: `plan` is the operator tree and `notifications` is the planner's advice. In a terminal, `--mode table` prints the same plan as a table and the notifications as text:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project"
+```
+
+```text
+Query: MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project
+Plan:
++------------------+----+----------------------------------------+
+| Operator         | Id | Details                                |
++------------------+----+----------------------------------------+
+| + ProduceResults | 0  | 1 item(s)                              |
++------------------+----+----------------------------------------+
+| | + Expand       | 1  | (proj:Project)<-[:WORKS_ON]-(p:Person) |
++------------------+----+----------------------------------------+
+Notifications:
+Id 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Person without a range index on (:Person {name}) Remedy: CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)
+```
+
+Read the table from the bottom up. Each row is an operator; `| +` nests it under the row before it, and the root, `ProduceResults`, returns the rows. `Details` names what the operator works on: here `Expand` starts from every `Project` node, walks `WORKS_ON` backward, and keeps the person named Ada. Nothing narrows the start, so the work grows with the number of nodes that carry the label.
+
+## Act on the notification
+
+Each notification line reads `<severity> <GQLSTATUS> <code>: <description> Remedy: <remedy>`, with `Id <n>:` in front when it concerns one operator. In the envelope, the same entry has the keys `code`, `gql_status`, `severity`, `category`, `title`, `description` and `remedy`, plus `operator_id`. The remedy for a missing index is the statement to run, with the index name derived from the label and the property:
+
+```cypher run name=create-index
+CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)
+```
+
+The same remedy in the terminal writes the index to `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)"
+```
+
+The planner emits these performance notifications. The descriptions are quoted from runs on relate's engine; the parts that name your labels, properties, and counts vary.
+
+| GQLSTATUS | Title | Fires on | Example description | Remedy |
+| --- | --- | --- | --- | --- |
+| `03C91` | Missing index | An equality predicate on a label's property with no range index on that pair | `the equality predicate on name filters :Person without a range index on (:Person {name})` | `CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)` |
+| `03C90` | All nodes scan | A label-less node pattern while the store has a property index | `the scan matches every node; consider the property index (:Person(name))` | ``Name the label the scan intends (`MATCH (n:<Label>)`); on the index's label the scan becomes an index-backed lookup.`` |
+| `03N90` | Cartesian product | Patterns in one `MATCH` that share no variable | `the MATCH patterns share no join anchor` | `Give the patterns a join anchor: reuse a node variable across them, or add a pattern that relates their endpoints; otherwise run them as separate queries.` |
+| `03N91` | Unbounded variable-length pattern | A variable-length pattern with no upper bound | `the variable-length pattern (p:Person)-[:KNOWS*1..]->(q) has no upper bound` | ``Bound the expansion (`[:R*1..5]`) where arbitrary length is not required, or add a selective endpoint/label predicate and a `LIMIT`.`` |
+| `03C92` | Eager aggregation | An aggregation whose input is estimated at 100,000 rows or more | `the aggregation buffers an estimated 100000 input rows, at or above the 100000-row eager threshold` | ``Reduce the rows reaching the aggregation with a selective label/property predicate or a `LIMIT` before it; profile again to confirm the buffered input shrank.`` |
+| `03C93` | Estimation miss | `PROFILE` only: an operator whose estimate is 10 times its actual rows or more | `estimated rows 10x or more above the actual rows` | `Rework the operator's input so the estimate can see the filter (add the selective predicate at the scan, or reorder the join); the estimate is a planner assumption, not a runtime fact.` |
+
+In `--mode table`, the three plan warnings (`03C90`, `03N90` and `03C93`) print in the plan's `Warnings` column and a `Warnings:` line instead of the `Notifications:` block; the envelope carries all of them. A plain run without `EXPLAIN` or `PROFILE` derives no notifications. The planner also reports a label, relationship type or property key the store does not have (`01N50` to `01N52`), a `CALL` subquery without a scope clause (`01N00`) and a deprecated function or procedure (`01N01`); the [errors reference](/docs/reference/errors#notifications) lists every notification with its code and severity, at a stable anchor.
+
+## Compare the plans
+
+Plan the same statement again:
+
+```cypher run name=explain-after
+EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project
+```
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project"
+```
+
+```text
+Query: MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project
+Plan:
++-------------------+----+---------------------------------------------------------------------------------------+----------------+
+| Operator          | Id | Details                                                                               | Estimated Rows |
++-------------------+----+---------------------------------------------------------------------------------------+----------------+
+| + ProduceResults  | 0  | 1 item(s)                                                                             | -              |
++-------------------+----+---------------------------------------------------------------------------------------+----------------+
+| | + NodeIndexSeek | 1  | RANGE INDEX p:Person(name) WHERE name = 'Ada', (p:Person)-[:WORKS_ON]->(proj:Project) | 1              |
++-------------------+----+---------------------------------------------------------------------------------------+----------------+
+```
+
+`Expand` became `NodeIndexSeek`: the walk now starts from the one node the index finds, and the plan estimates one row. The `Notifications:` block is gone, and the envelope's `notifications` is an empty list.
+
+## Measure with PROFILE
+
+`PROFILE` runs the statement and returns its rows, then adds the measured columns to the plan. This command opens the store read-only:
+
+```bash
+relate --database ./team.rl --read-only --mode table "PROFILE MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project"
+```
+
+The `Time (ms)` and `Total (ms)` columns differ on every run:
+
+```text
++----------+
+| project  |
++----------+
+| "relate" |
++----------+
+Query: MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project
+Plan:
++-------------------+----+---------------------------------------------------------------------------------------------------------------------+----------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+------------+
+| Operator          | Id | Details                                                                                                             | Estimated Rows | Rows | Time (ms) | Total (ms) | Db Hits | Nodes | Degree | Memory (Bytes) | Expression Built (Bytes) | Est/Actual |
++-------------------+----+---------------------------------------------------------------------------------------------------------------------+----------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+------------+
+| + ProduceResults  | 0  | 1 item(s)                                                                                                           | -              | 1    | 0.005     | 0.060      | 0       |       |        | 45             | 0                        | -          |
++-------------------+----+---------------------------------------------------------------------------------------------------------------------+----------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+------------+
+| | + NodeIndexSeek | 1  | RANGE INDEX p:Person(name) WHERE name = 'Ada', (p:Person)-[:WORKS_ON]->(proj:Project)  [start #0, forward, index-0] | 1              | 1    | 0.055     | 0.055      | 2       | 1     | 1      | 45             | 0                        | 1.0x       |
++-------------------+----+---------------------------------------------------------------------------------------------------------------------+----------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+------------+
+```
+
+The same `PROFILE` before the index, measured on the same store:
+
+| Plan | Operator | `Rows` | `Db Hits` | `Nodes` |
+| --- | --- | --- | --- | --- |
+| Before the index | `Expand` | 1 | 5 | 2 |
+| After the index | `NodeIndexSeek` | 1 | 2 | 1 |
+
+`Est/Actual` compares the estimate with the rows the operator produced; `!` after the ratio marks an estimate 10 times too high or more, the same rule as the `03C93` notification.
+
+## Verify
+
+The tuned statement returns the same rows as before the index:
+
+```cypher run name=verify
+MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project
+```
+
+The index is listed and online:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state"
+```
+
+```text
++-----------------------+---------+---------------+------------+----------+
+| name                  | type    | labelsOrTypes | properties | state    |
++-----------------------+---------+---------------+------------+----------+
+| "relate_Person__name" | "RANGE" | ["Person"]    | ["name"]   | "ONLINE" |
++-----------------------+---------+---------------+------------+----------+
+```
+
+## If it goes wrong
+
+| Symptom | Cause | Remedy |
+| --- | --- | --- |
+| `semantic error: IndexAlreadyExists` (exit code 6) | An index with that name exists. | Add `IF NOT EXISTS` after the name, or check `SHOW INDEXES` first. |
+| The plan still shows `Expand` or `NodeByLabelScan` after the index | The index is on another label or property than the predicate, or the predicate is not an equality or range comparison on the indexed property. | Compare `SHOW INDEXES` with the `03C91` description, which names the label and property it wants. |
+| A `01N50`, `01N51` or `01N52` warning, and the statement returns no rows | A label, type or property key is misspelled. | Correct the name the description quotes. |
+| `03N90` in the envelope, but no `Notifications:` block in the terminal | Plan warnings print in the table's `Warnings` column. | Read the `Warnings:` line under the plan, or use `--mode envelope`. |
+
+## Related
+
+- [Errors](/docs/reference/errors#notifications): every notification code at a stable anchor.
+- [Cypher overview](/docs/reference/cypher/overview): what the dialect covers.
+- [Search by vector similarity](/docs/guides/cypher/vector-search): the vector and full-text indexes, which `SEARCH` uses instead of a range index.
+- [Architecture](/docs/concepts/architecture): the planner and executor a plan describes.

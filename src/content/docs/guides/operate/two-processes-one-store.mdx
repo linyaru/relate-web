@@ -1,4 +1,159 @@
 ---
 title: Share one store between two processes
-status: planned
+label: Two processes, one store
+description: "What a second process gets when it opens a relate store another holds, and the three ways to share one: read-only, live follow, or one serving process."
+order: 20
+surfaces: [cli, http, bolt, mcp]
+prerequisites: [get-started/install]
+related: [reference/errors#cli-conflict-locked, reference/cli/flags#read-only, guides/storage/choose-a-store-layout, concepts/transactions-and-concurrency]
 ---
+
+This guide shows you how to reach one store from more than one process. A :term[store]{id=store} has one writer: the first process that opens it for writing owns it until that process exits. A second writable open fails with :term[exit code]{id=exit-code} 5, and on a `.rl` store so does a read-only one. A read-only open beside the writer, a read-only open that follows the writer's commits, or one process that serves the store to the others are the three ways to share it.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- A store. To follow along, create the shared example graph as `team.rl`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+## See what the second process gets
+
+A `relate` run holds its store only while it runs: a one-shot statement opens the store, runs, checkpoints if it opened for writing, and exits. Two processes collide only when their runs overlap. This step keeps `team.rl` open in a first process for 3 seconds and opens it read-only from a second:
+
+```bash verify
+# a first process keeps team.rl open for 3 seconds
+sleep 3 | relate query --database ./team.rl > /dev/null &
+sleep 1
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+echo "exit=$?"
+wait
+```
+
+The path starts with the working directory, shown as `<dir>`. The first line is stderr, the second the error object on stdout:
+
+```text
+Failed to open Relate: storage locked: <dir>/team.rl
+{"error":{"code":"conflict","exit_code":5,"kind":"locked","message":"storage locked: <dir>/team.rl","retryable":false}}
+exit=5
+```
+
+Even a read-only open is refused: a `.rl` store can't be read beside its writer. The error has code `conflict` and kind `locked`. `retryable` is `false`: running the same command again fails the same way until the first process exits. For a directory store, the path in the message is the writer lock file inside it, `.cypherlite.writer`. In the Python client, `relate.connect()` raises `OperationalError` with the same `storage locked: <path>` message.
+
+## Pick a way to share the store
+
+| You need | Use | Works on |
+| --- | --- | --- |
+| Reads while another process writes | `--read-only`: a frozen view of the store as it was at open (freshness `snapshot`) | A directory store at any time; a `.rl` store only while no writer holds it |
+| Reads that keep up with the writer's commits | `--read-only=live` in a long-running process, such as `relate serve` | A directory store only |
+| Writes from more than one process | One `relate serve` process owns the store; the others send statements to it over HTTP, Bolt, or MCP | Any store |
+
+A `.rl` store is one file that its writer locks whole, so only the third answer shares it with a running writer. `relate clone ./team.rl ./team` copies it into a directory store, which allows the first two ([Choose a store layout](/docs/guides/storage/choose-a-store-layout)).
+
+## Read beside a writer
+
+Copy the example into a directory store, `team`:
+
+```bash verify
+relate clone ./team.rl ./team
+```
+
+A :term[read-only]{id=read-only} open never writes, checkpoints, or migrates the store, so it takes no writer lock. With a first process holding `team` open for writing, a second reads it read-only:
+
+```bash verify
+# a first process keeps the team directory open for 3 seconds
+sleep 3 | relate query --database ./team > /dev/null &
+sleep 1
+relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+echo "exit=$?"
+wait
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+exit=0
+```
+
+The read sees the store as it was when the read opened. Several read-only processes can share a directory store with its writer, and a second writable open still fails with exit code 5.
+
+## Follow the writer's commits
+
+`--read-only=live` opens a directory store read-only and keeps applying the writer's commits as they reach its WAL. A statement that is already running keeps the view it started with. The value is attached with `=`; `--read-only live` is a usage error.
+
+A one-shot run reads once and exits, so following pays off in a process that stays up. This server answers HTTP statements from `team` while another process writes to it:
+
+```bash
+relate serve --database ./team --read-only=live --http 7474
+```
+
+Without `--read-only=live`, the server opens the store for writing and needs the writer lock itself. While another process writes, it stops at startup with `Error: Failed to open Relate: storage locked: <path>` and exit code 1.
+
+The server prints a generated password for the user `relate` at startup and keeps it in `team.auth-token` beside the store. A statement sent while the writer adds a person returns the new count as soon as that commit lands, with no restart. `relate serve --read-only`, without `=live`, serves a frozen view taken at startup (freshness `snapshot`) instead.
+
+## Serve one store to several writers
+
+One process owns the store and every other process sends it statements. This server is writable on purpose: it is the one writer, and its clients' writes go through it. It holds `team.rl` until it stops:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+relate serve --database ./team.rl --http 7474
+```
+
+The generated password differs on every new store, so it's shown as `<token>`:
+
+```text
+auth: generated token for user relate: <token>
+auth: persisted at ./team.rl.auth-token (reused on restart)
+serve: HTTP Query API v2 listening on http://127.0.0.1:7474 (auth: basic)
+```
+
+Any process with the password can write through the HTTP Query API. This one adds a person:
+
+```bash
+curl -s -u "relate:<token>" -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "CREATE (:Person {name: $name, role: $role})", "parameters": {"name": "Ines", "role": "engineer"}}'
+```
+
+The same server takes `--bolt <port>` for Neo4j drivers and tools, and `--mcp <port>` or `--mcp stdio` for agent hosts ([Connect over MCP](/docs/guides/agents/connect-over-mcp)). It listens on `127.0.0.1` unless `--host` says otherwise. Statements from all clients run in the one engine, and two transactions that write the same data at once get a write-write conflict, the one retryable error ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).
+
+## Verify
+
+Once the process that held the store exits, the open that failed in [See what the second process gets](#see-what-the-second-process-gets) succeeds:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Failed to open Relate: storage locked: <path>`, exit code 5, on a `--read-only` open of a `.rl` store.** A writer holds the file, and a `.rl` store can't be read beside it. Wait for the writer to exit, read through the writer's `relate serve`, or move the store to a directory with `relate clone`.
+- **`Error: Failed to open Relate: storage locked: <path>`, exit code 1, when `relate serve` starts.** Another process holds the store for writing. For a directory store, start the server with `--read-only` or `--read-only=live` beside that writer. For a `.rl` store, stop the writer and let the server be the one writer.
+- **`Failed to open Relate: semantic error: live freshness (WAL follow) is only supported for native directory databases`, exit code 1.** `--read-only=live` was given a `.rl` store or `:memory:`. Follow a directory store instead.
+- **`semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.`, exit code 6.** A write went to a read-only open. Send writes to the process that owns the store ([write on a read-only store](/docs/reference/errors#engine-write-on-read-only)).
+- **`{"errors":[{"code":"42NFF","message":"authentication required"}]}` from the HTTP server.** The request had no password. Pass `-u "relate:<token>"` with the password from the server's startup output, or `-u "$(cat <store>.auth-token)"`, since that file holds the whole `relate:<token>` credential.
+
+## Related
+
+- [Errors: storage locked](/docs/reference/errors#cli-conflict-locked): the locked-store entry with its exit code.
+- [`--read-only`](/docs/reference/cli/flags#read-only) in the flags reference.
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): directory store or `.rl`, and what each allows.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): one writer, many readers, and write-write conflicts.

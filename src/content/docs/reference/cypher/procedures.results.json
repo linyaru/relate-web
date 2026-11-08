@@ -1,0 +1,733 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "labels": {
+      "kind": "table",
+      "text": "| relationshipType |\n|------------------|\n| \"KNOWS\"          |\n| \"MAINTAINS\"      |\n| \"WORKS_ON\"       |\n3 rows",
+      "table": {
+        "columns": [
+          "relationshipType"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"KNOWS\""
+          ],
+          [
+            "\"MAINTAINS\""
+          ],
+          [
+            "\"WORKS_ON\""
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "relationshipType"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "relationshipType": "KNOWS"
+          },
+          {
+            "relationshipType": "MAINTAINS"
+          },
+          {
+            "relationshipType": "WORKS_ON"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "node-type-properties": {
+      "kind": "table",
+      "text": "| nodeType   | propertyName | propertyTypes       | mandatory |\n|------------|--------------|---------------------|-----------|\n| \":Person\"  | \"name\"       | [\"STRING NOT NULL\"] | true      |\n| \":Person\"  | \"role\"       | [\"STRING NOT NULL\"] | true      |\n| \":Project\" | \"language\"   | [\"STRING NOT NULL\"] | true      |\n| \":Project\" | \"name\"       | [\"STRING NOT NULL\"] | true      |\n4 rows",
+      "table": {
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\":Person\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Person\"",
+            "\"role\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Project\"",
+            "\"language\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Project\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "mandatory": true,
+            "nodeType": ":Person",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Person",
+            "propertyName": "role",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Project",
+            "propertyName": "language",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Project",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "rel-type-properties": {
+      "kind": "table",
+      "text": "| relType        | propertyName | propertyTypes        | mandatory |\n|----------------|--------------|----------------------|-----------|\n| \"[:KNOWS]\"     | null         | []                   | false     |\n| \"[:MAINTAINS]\" | null         | []                   | false     |\n| \"[:WORKS_ON]\"  | \"since\"      | [\"INTEGER NOT NULL\"] | true      |\n3 rows",
+      "table": {
+        "columns": [
+          "relType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"[:KNOWS]\"",
+            "null",
+            "[]",
+            "false"
+          ],
+          [
+            "\"[:MAINTAINS]\"",
+            "null",
+            "[]",
+            "false"
+          ],
+          [
+            "\"[:WORKS_ON]\"",
+            "\"since\"",
+            "[\"INTEGER NOT NULL\"]",
+            "true"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "ANY",
+          "LIST",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "relType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "mandatory": false,
+            "propertyName": null,
+            "propertyTypes": [],
+            "relType": "[:KNOWS]"
+          },
+          {
+            "mandatory": false,
+            "propertyName": null,
+            "propertyTypes": [],
+            "relType": "[:MAINTAINS]"
+          },
+          {
+            "mandatory": true,
+            "propertyName": "since",
+            "propertyTypes": [
+              "INTEGER NOT NULL"
+            ],
+            "relType": "[:WORKS_ON]"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "visualization": {
+      "kind": "table",
+      "text": "| labels                | types                              |\n|-----------------------|------------------------------------|\n| [\"Person\", \"Project\"] | [\"KNOWS\", \"MAINTAINS\", \"WORKS_ON\"] |\n1 row",
+      "table": {
+        "columns": [
+          "labels",
+          "types"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\", \"Project\"]",
+            "[\"KNOWS\", \"MAINTAINS\", \"WORKS_ON\"]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "LIST"
+        ],
+        "columns": [
+          "labels",
+          "types"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person",
+              "Project"
+            ],
+            "types": [
+              "KNOWS",
+              "MAINTAINS",
+              "WORKS_ON"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-indexes": {
+      "kind": "table",
+      "text": "(no rows) · properties set: 3, indexes added: 2",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "vector-query": {
+      "kind": "table",
+      "text": "| name    | score  |\n|---------|--------|\n| \"Grace\" | 0.989  |\n| \"Noor\"  | 0.7151 |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "0.989"
+          ],
+          [
+            "\"Noor\"",
+            "0.7151"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "score": 0.989
+          },
+          {
+            "name": "Noor",
+            "score": 0.7151
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fulltext-query": {
+      "kind": "table",
+      "text": "| name   | score |\n|--------|-------|\n| \"Noor\" | 1.0   |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Noor\"",
+            "1.0"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Noor",
+            "score": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "search-clause": {
+      "kind": "table",
+      "text": "| name    | score  |\n|---------|--------|\n| \"Grace\" | 0.989  |\n| \"Noor\"  | 0.7151 |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "0.989"
+          ],
+          [
+            "\"Noor\"",
+            "0.7151"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "score": 0.989
+          },
+          {
+            "name": "Noor",
+            "score": 0.7151
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "components": {
+      "kind": "table",
+      "text": "| name           | versions           |\n|----------------|--------------------|\n| \"Neo4j Kernel\" | [\"2026.10-relate\"] |\n| \"Cypher\"       | [\"5\", \"25\"]        |\n| \"Relate\"       | [\"0.16.1\"]         |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "versions"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Neo4j Kernel\"",
+            "[\"2026.10-relate\"]"
+          ],
+          [
+            "\"Cypher\"",
+            "[\"5\", \"25\"]"
+          ],
+          [
+            "\"Relate\"",
+            "[\"0.16.1\"]"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "name",
+          "versions"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Neo4j Kernel",
+            "versions": [
+              "2026.10-relate"
+            ]
+          },
+          {
+            "name": "Cypher",
+            "versions": [
+              "5",
+              "25"
+            ]
+          },
+          {
+            "name": "Relate",
+            "versions": [
+              "0.16.1"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "graph-counts": {
+      "kind": "table",
+      "text": "| section        | indexes                                                                                   |\n|----------------|-------------------------------------------------------------------------------------------|\n| \"GRAPH COUNTS\" | [{labels: [\"Person\"], properties: [\"focus\"]}, {labels: [\"Person\"], properties: [\"role\"]}] |\n1 row",
+      "table": {
+        "columns": [
+          "section",
+          "indexes"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"GRAPH COUNTS\"",
+            "[{labels: [\"Person\"], properties: [\"focus\"]}, {labels: [\"Person\"], properties: [\"role\"]}]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "section",
+          "indexes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "indexes": [
+              {
+                "labels": [
+                  "Person"
+                ],
+                "properties": [
+                  "focus"
+                ]
+              },
+              {
+                "labels": [
+                  "Person"
+                ],
+                "properties": [
+                  "role"
+                ]
+              }
+            ],
+            "section": "GRAPH COUNTS"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "catalog-only": {
+      "kind": "table",
+      "text": "error: syntax error: ProcedureNotFound: db.checkpoint",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: ProcedureNotFound: db.checkpoint",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    }
+  }
+}

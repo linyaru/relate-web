@@ -27,11 +27,11 @@ flowchart LR
   Capability -->|verified by| Run[Recorded run]
 ```
 
-Each entry is one heading whose anchor is the capability's id, so `/docs/concepts/problems-relate-solves#agent-memory` names the agent memory entry wherever it is cited. Under the heading, two to four paragraphs explain the problem and how relate solves it; where the problem has a data model, a diagram shows the recommended one, with labels as circles and relationship types as arrows; and a list gives the problem, the capability, the surfaces it applies to (the same names as every page's `surfaces`), the links, and the recorded run that verifies it.
+Each entry is one heading whose anchor is the capability's id, so `/docs/concepts/problems-relate-solves#agent-memory` names the agent memory entry wherever it is cited. Under the heading, two to four paragraphs explain the problem and how relate solves it; where the problem has a data model, a diagram shows the recommended one, with :term[labels]{id=label} as circles and :term[relationship types]{id=relationship-type} as arrows; and a list gives the problem, the capability, the :term[surfaces]{id=surface} it applies to (the same names as every page's `surfaces`), the links, and the recorded run that verifies it.
 
-A cookbook cell is replayed against its recorded result on every build of the site, and a docs cell by the docs checks on every pull request. A language sample's output is recorded from a run against the Python or Node.js client, and a CLI step's output from a run of the relate binary, which the CLI check repeats. An entry whose capability no recorded run exercises yet, such as one that needs a Neo4j server, says so in its list. A capability without a guide yet cites the recipe or reference pages that cover it today.
+A cookbook cell is replayed against its recorded result on every build of the site, and a docs cell by the docs checks on every pull request. A language sample's output is recorded from a run against its client library (Python, Node.js, Rust, Java, Go, Swift or the C ABI), and a CLI step's output from a run of the relate binary, which the CLI check repeats. An entry whose capability no recorded run exercises yet, such as one that needs a Neo4j server, says so in its list. A capability without a guide yet cites the recipe or reference pages that cover it today.
 
-The same entries are data at [/docs/capabilities.json](/docs/capabilities.json): each with the intents an agent might phrase the problem as, its data model as mermaid source, and the canonical URL of everything it cites.
+The same entries are data at [/docs/capabilities.json](/docs/capabilities.json): each with the intents an agent might phrase the problem as, its data model as mermaid source, and the canonical URL of everything it cites. The docs :term[MCP]{id=mcp} server's `discover_capabilities` tool answers from the same entries.
 
 {/* capabilities:start: generated from src/content/docs/_capabilities by `node src/lib/docs/capabilities.ts --write`; edit the capability files, not this section */}
 
@@ -62,7 +62,7 @@ flowchart LR
 - **Problem:** Give an agent memory that survives restarts, which a later session can recall by meaning and by connection.
 - **Capability:** A durable store the agent's process opens itself, with uniqueness constraints and `MERGE` for one node per entity, `SUPERSEDES` chains for corrections, and vector `SEARCH` for recall.
 - **Surfaces:** `python`, `node`, `cli`, `mcp`, `agents`, `cypher`
-- **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory), [Use relate with LangGraph](/docs/guides/integrations/langgraph), [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk)
+- **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory), [Give an agent a memory](/docs/get-started/agent-memory), [Use relate with LangGraph](/docs/guides/integrations/langgraph), [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk), [Use relate with LangChain](/docs/guides/integrations/langchain)
 - **Recipes:** [Long-term memory for an agent](/cookbook/agent-memory/)
 - **Reference:** [Search](/docs/reference/cypher/search), [Storage formats](/docs/reference/storage/formats)
 - **Verified by:** cell `recall` of the recipe [Long-term memory for an agent](/cookbook/agent-memory/#cell-recall), replayed against its recorded result on every build
@@ -157,7 +157,7 @@ flowchart LR
 - **Surfaces:** `cypher`, `agents`
 - **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory)
 - **Recipes:** [Bi-temporal decisions](/cookbook/bitemporal-decisions/)
-- **Reference:** [Cypher overview](/docs/reference/cypher/overview)
+- **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Types and values (`#temporal-types`)](/docs/reference/cypher/types-and-values#temporal-types)
 - **Verified by:** cell `as-of` of the recipe [Bi-temporal decisions](/cookbook/bitemporal-decisions/#cell-as-of), replayed against its recorded result on every build
 
 ## Geospatial memory
@@ -184,8 +184,9 @@ flowchart LR
 - **Problem:** Let an agent answer what is near here, what is nearest, what is inside this map box, and where it went recently near a place.
 - **Capability:** WGS-84 points stored as properties, distances in metres with `point.distance`, map boxes with `point.withinBBox`, and a `POINT` index, in the same graph as the rest of the memory.
 - **Surfaces:** `cypher`, `agents`
+- **Guides:** [Geospatial queries](/docs/guides/cypher/geospatial)
 - **Recipes:** [Nearby places for an agent](/cookbook/nearby-places/)
-- **Reference:** [Cypher overview](/docs/reference/cypher/overview)
+- **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Functions (`#spatial-functions`)](/docs/reference/cypher/functions#spatial-functions)
 - **Verified by:** cell `within` of the recipe [Nearby places for an agent](/cookbook/nearby-places/#cell-within), replayed against its recorded result on every build
 
 ## Hybrid retrieval for RAG
@@ -211,7 +212,7 @@ flowchart LR
 - **Problem:** Retrieve the passages that answer a question by meaning and by keyword at once, then follow links to the context around them.
 - **Capability:** Vector and full-text indexes queried with the `SEARCH` clause, fused by reciprocal rank in one Cypher statement, with a graph hop from each hit to its related nodes.
 - **Surfaces:** `cypher`, `python`, `node`, `agents`
-- **Guides:** [Search by vector similarity](/docs/guides/cypher/vector-search)
+- **Guides:** [Search by vector similarity](/docs/guides/cypher/vector-search), [Full-text and hybrid search](/docs/guides/cypher/full-text-and-hybrid-search), [Migrate from a vector store](/docs/guides/migrate/from-a-vector-store), [Use relate with LlamaIndex](/docs/guides/integrations/llamaindex)
 - **Recipes:** [Hybrid recall: vector + full-text + RRF](/cookbook/hybrid-recall/), [Context graph for a codebase](/cookbook/codebase-context-graph/)
 - **Reference:** [Search](/docs/reference/cypher/search)
 - **Verified by:** cell `fuse-vector` of the recipe [Hybrid recall: vector + full-text + RRF](/cookbook/hybrid-recall/#cell-fuse-vector), replayed against its recorded result on every build
@@ -277,9 +278,9 @@ flowchart TB
 - **Problem:** Give a coding agent answers to multi-hop questions about a codebase, such as what replaced a design decision or what builds on a module.
 - **Capability:** Crates, design records and their sections as one graph, IDF-weighted full-text `SEARCH` to find where to start, and bounded quantified path patterns to follow the links.
 - **Surfaces:** `cypher`, `agents`, `mcp`
-- **Guides:** [Connect over MCP](/docs/guides/agents/connect-over-mcp)
+- **Guides:** [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Import git history with git-to-graph](/docs/guides/extensions/git-to-graph), [Import a directory tree with fs-to-graph](/docs/guides/extensions/fs-to-graph)
 - **Recipes:** [Context graph for a codebase](/cookbook/codebase-context-graph/)
-- **Reference:** [Search](/docs/reference/cypher/search)
+- **Reference:** [Search](/docs/reference/cypher/search), [Patterns (`#quantified-path-patterns`)](/docs/reference/cypher/patterns#quantified-path-patterns)
 - **Verified by:** cell `storage` of the recipe [Context graph for a codebase](/cookbook/codebase-context-graph/#cell-storage), replayed against its recorded result on every build
 
 ## Dependency analysis
@@ -305,9 +306,9 @@ flowchart LR
 - **Problem:** Find which known advisories a package can reach and through which chain, and what goes away when a dependency is dropped.
 - **Capability:** Resolved dependency graphs as nodes and relationships, quantified path patterns and `SHORTEST` for reachability and chains, and `COUNT` and `EXISTS` subqueries for blast radius.
 - **Surfaces:** `cypher`, `cli`
-- **Guides:** [Script the CLI](/docs/guides/cli/scripting)
+- **Guides:** [Script the CLI](/docs/guides/cli/scripting), [Use relate in CI](/docs/guides/agents/use-in-ci)
 - **Recipes:** [Dependency blast radius](/cookbook/dependency-blast-radius/)
-- **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors)
+- **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors), [Patterns (`#quantified-path-patterns`)](/docs/reference/cypher/patterns#quantified-path-patterns), [Composing clauses (`#subquery-expressions`)](/docs/reference/cypher/composing-clauses#subquery-expressions)
 - **Verified by:** cell `reachable` of the recipe [Dependency blast radius](/cookbook/dependency-blast-radius/#cell-reachable), replayed against its recorded result on every build
 
 ## Text-to-Cypher
@@ -319,9 +320,9 @@ relate supplies each from the engine itself. `CALL db.schema.nodeTypeProperties(
 - **Problem:** Let a model turn a question into a Cypher statement over a graph whose schema it can read, and check the statement before it runs.
 - **Capability:** The schema as data from the `db.schema` procedures and the MCP `get_schema` tool, `EXPLAIN` to plan a statement without running it, and read-only opens that refuse writes.
 - **Surfaces:** `cypher`, `mcp`, `cli`, `agents`
-- **Guides:** [Tune a query](/docs/guides/cypher/tune-a-query), [Connect over MCP](/docs/guides/agents/connect-over-mcp)
+- **Guides:** [Turn questions into Cypher with an LLM](/docs/guides/agents/text-to-cypher), [Tune a query](/docs/guides/cypher/tune-a-query), [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Use relate with the OpenAI Agents SDK](/docs/guides/integrations/openai-agents-sdk), [Use relate with Mastra](/docs/guides/integrations/mastra)
 - **Recipes:** [Context graph for a codebase](/cookbook/codebase-context-graph/)
-- **Reference:** [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Cypher overview](/docs/reference/cypher/overview), [Errors](/docs/reference/errors)
+- **Reference:** [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Cypher overview](/docs/reference/cypher/overview), [Errors](/docs/reference/errors), [Schema clauses (`#schema-procedures`)](/docs/reference/cypher/schema-clauses#schema-procedures), [Procedures (`#schema-procedures`)](/docs/reference/cypher/procedures#schema-procedures), [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile)
 - **Verified by:** cell `schema` on [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j#cell-schema), replayed against its recorded result by the docs checks on every pull request
 
 ## Graph queries over MCP
@@ -333,8 +334,8 @@ An agent host such as Claude Code, Cursor or Codex reaches outside data through 
 - **Problem:** Give a coding agent or an agent framework a graph it can query through MCP, without letting it change the data.
 - **Capability:** `relate serve --mcp stdio` on a store opened `--read-only`, which lists the `read_cypher` and `get_schema` tools and leaves out `write_cypher`.
 - **Surfaces:** `mcp`, `agents`, `cli`
-- **Guides:** [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk), [Keep an agent safe](/docs/guides/agents/agent-safety)
-- **Reference:** [CLI flags (`#relate-serve`)](/docs/reference/cli/flags#relate-serve), [Errors (`#mcp-read-query-only`)](/docs/reference/errors#mcp-read-query-only)
+- **Guides:** [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Serve a store over MCP](/docs/guides/serve/mcp), [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk), [Keep an agent safe](/docs/guides/agents/agent-safety), [Use relate with PydanticAI](/docs/guides/integrations/pydantic-ai), [Use relate with the OpenAI Agents SDK](/docs/guides/integrations/openai-agents-sdk)
+- **Reference:** [MCP server](/docs/reference/server/mcp), [relate serve](/docs/reference/cli/serve), [CLI flags (`#relate-serve`)](/docs/reference/cli/flags#relate-serve), [Errors (`#mcp-read-query-only`)](/docs/reference/errors#mcp-read-query-only)
 - **Verified by:** the Python sample `options` on [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk#register-the-server-with-the-sdk), whose output is recorded from a run against the Python client
 
 ## Embedded graph in an app
@@ -346,8 +347,8 @@ relate is an embedded graph database: the engine runs inside the application's p
 - **Problem:** Add a graph database to an application without running, securing or paying for a database server.
 - **Capability:** The engine as a library in the application's process, through the Python, Node.js, Rust, Java, Go and Swift clients, the C ABI or the WebAssembly build.
 - **Surfaces:** `python`, `node`, `browser`, `rust`, `java`, `go`, `swift`, `c`
-- **Guides:** [Embed relate in a Python app](/docs/get-started/python), [Embed relate in a Node.js app](/docs/get-started/node), [Choose a store layout](/docs/guides/storage/choose-a-store-layout)
-- **Reference:** [Storage formats](/docs/reference/storage/formats), [Limitations](/docs/reference/limitations)
+- **Guides:** [Embed relate in a Python app](/docs/get-started/python), [Embed relate in a Node.js app](/docs/get-started/node), [Embed relate in a Rust program](/docs/get-started/rust), [Embed relate in a Java app](/docs/get-started/java), [Embed relate in a Go program](/docs/get-started/go), [Embed relate in a Swift app](/docs/get-started/swift), [Run relate in the browser](/docs/get-started/browser), [Use the Python client](/docs/guides/embed/python), [Use the Node.js client](/docs/guides/embed/node), [Use the Rust crate](/docs/guides/embed/rust), [Use the C ABI](/docs/guides/embed/c), [Use the Java client](/docs/guides/embed/java), [Use the Go client](/docs/guides/embed/go), [Use the Swift package](/docs/guides/embed/swift), [Use relate from a web page](/docs/guides/embed/browser), [Choose a store layout](/docs/guides/storage/choose-a-store-layout)
+- **Reference:** [API reference](/docs/reference/api), [Python API](/docs/reference/api/python), [Node.js API](/docs/reference/api/javascript), [Rust API](/docs/reference/api/rust), [C ABI](/docs/reference/api/c), [Java API](/docs/reference/api/java), [Go API](/docs/reference/api/go), [Swift API](/docs/reference/api/swift), [WebAssembly API](/docs/reference/api/wasm), [Storage formats](/docs/reference/storage/formats), [Limitations](/docs/reference/limitations)
 - **Verified by:** the Python sample `program` on [Embed relate in a Python app](/docs/get-started/python#put-it-together), whose output is recorded from a run against the Python client
 
 ## Offline and sandboxed use
@@ -360,7 +361,7 @@ Once relate is installed and usage metrics are off, it needs no network, so most
 - **Capability:** A single binary that needs no network once installed with usage metrics off (`DO_NOT_TRACK=1`), stores that are files in the workspace, and network access visible on the command line.
 - **Surfaces:** `cli`, `docker`, `agents`
 - **Guides:** [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox), [Keep an agent safe](/docs/guides/agents/agent-safety)
-- **Reference:** [Privacy and telemetry](/docs/reference/privacy-and-telemetry), [Security](/docs/reference/security)
+- **Reference:** [Privacy and telemetry](/docs/reference/privacy-and-telemetry), [Security](/docs/reference/security), [relate telemetry](/docs/reference/cli/telemetry), [relate upgrade](/docs/reference/cli/upgrade), [relate extension](/docs/reference/cli/extension)
 - **Verified by:** the `bash verify` step 1 on [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox#verify), whose recorded output begins `disabled (DO_NOT_TRACK)`; the CLI check replays it against a relate binary
 
 ## Single-file graph
@@ -372,8 +373,8 @@ A store whose path ends in `.rl` is one file holding the same tree as a director
 - **Problem:** Keep a whole graph in one file that can be copied, attached, checked in or handed to another program.
 - **Capability:** The `.rl` store: one file holding the snapshot and the write-ahead log, created on the first open, compacted by `relate clone`, and read into memory with `--load`.
 - **Surfaces:** `cli`, `python`, `node`
-- **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Back up and restore a store](/docs/guides/storage/backup-and-restore)
-- **Reference:** [Storage formats](/docs/reference/storage/formats)
+- **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Back up and restore a store](/docs/guides/storage/backup-and-restore), [Clone and convert a store](/docs/guides/storage/clone-and-convert)
+- **Reference:** [Storage formats](/docs/reference/storage/formats), [relate clone](/docs/reference/cli/clone)
 - **Verified by:** the Python sample `open-layouts` on [Choose a store layout](/docs/guides/storage/choose-a-store-layout#open-a-store-from-python-or-nodejs), whose output is recorded from a run against the Python client
 
 ## Diffable memory
@@ -385,7 +386,7 @@ A directory store created with `--snapshot-format json` writes its checkpoint as
 - **Problem:** Keep an agent's memory in the repository, so each session's changes show up in a pull request as a diff a person can review.
 - **Capability:** A directory store whose checkpoint writes the graph as text, one `graph.json` with the `json` codec or one note per node with `markdown`, and `MERGE` writes that replay to no change.
 - **Surfaces:** `cli`, `agents`
-- **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout)
+- **Guides:** [Keep a diffable memory in the repo](/docs/guides/agents/diffable-memory), [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Open a store as an Obsidian vault](/docs/guides/storage/obsidian-vault)
 - **Recipes:** [Bi-temporal decisions](/cookbook/bitemporal-decisions/)
 - **Reference:** [Storage formats (`#codecs`)](/docs/reference/storage/formats#codecs), [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints)
 - **Verified by:** cell `retry` of the recipe [Bi-temporal decisions](/cookbook/bitemporal-decisions/#cell-retry), replayed against its recorded result on every build
@@ -399,8 +400,8 @@ Every checkpoint of a durable store writes its schema as text under `.cypherlite
 - **Problem:** Let an agent or a reviewer read a store's indexes and constraints from a file instead of opening the database, and see a schema change as a text diff.
 - **Capability:** A text copy of the schema under `.cypherlite/schema/`, with `schema.cypher` holding one `CREATE` statement per index and constraint, rewritten at every checkpoint and checked at every open.
 - **Surfaces:** `cli`, `agents`
-- **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout)
-- **Reference:** [Storage formats](/docs/reference/storage/formats), [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints)
+- **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Keep the schema as files](/docs/guides/storage/schema-as-files)
+- **Reference:** [Storage formats](/docs/reference/storage/formats), [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints), [Schema clauses](/docs/reference/cypher/schema-clauses)
 - **Verified by:** the `bash verify` step 2 on [Storage formats](/docs/reference/storage/formats#directory-store-files), whose recorded output begins `` CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`); ``; the CLI check replays it against a relate binary
 
 ## Fresh graph per test run
@@ -412,7 +413,7 @@ With no `--database`, a statement runs against an in-memory store that is gone w
 - **Problem:** Give every test or CI run its own graph, built from a fixture and thrown away afterwards, with results a script can check.
 - **Capability:** The in-memory store, the default, gone when the process exits; `--load` to read a fixture store into memory; envelope output and typed exit codes for the script that checks it.
 - **Surfaces:** `cli`, `python`, `node`
-- **Guides:** [Script the CLI](/docs/guides/cli/scripting), [Choose a store layout (`#start-in-memory`)](/docs/guides/storage/choose-a-store-layout#start-in-memory), [Embed relate in a Python app](/docs/get-started/python)
+- **Guides:** [Script the CLI](/docs/guides/cli/scripting), [Choose a store layout (`#start-in-memory`)](/docs/guides/storage/choose-a-store-layout#start-in-memory), [Embed relate in a Python app](/docs/get-started/python), [Use relate in CI](/docs/guides/agents/use-in-ci)
 - **Recipes:** [Dependency blast radius](/cookbook/dependency-blast-radius/), [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/)
 - **Reference:** [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors), [CLI flags](/docs/reference/cli/flags)
 - **Verified by:** cell `gate` of the recipe [Dependency blast radius](/cookbook/dependency-blast-radius/#cell-gate), replayed against its recorded result on every build
@@ -426,22 +427,23 @@ The [migration rehearsal recipe](/cookbook/migration-rehearsal/) fingerprints th
 - **Problem:** Check that a data migration changed only what it was meant to, before it runs on the real graph.
 - **Capability:** A fingerprint of the graph taken in Cypher before the migration, probes that compare it afterwards, and `relate clone` or `--load` to run the migration on a copy.
 - **Surfaces:** `cypher`, `cli`
-- **Guides:** [Back up and restore a store](/docs/guides/storage/backup-and-restore), [Keep an agent safe (`#back-up-before-a-write`)](/docs/guides/agents/agent-safety#back-up-before-a-write)
+- **Guides:** [Back up and restore a store](/docs/guides/storage/backup-and-restore), [Keep an agent safe (`#back-up-before-a-write`)](/docs/guides/agents/agent-safety#back-up-before-a-write), [Migrate from Neo4j](/docs/guides/migrate/from-neo4j)
 - **Recipes:** [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/)
-- **Reference:** [Cypher overview](/docs/reference/cypher/overview)
+- **Reference:** [Cypher overview](/docs/reference/cypher/overview), [relate clone](/docs/reference/cli/clone)
 - **Verified by:** cell `verdict` of the recipe [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/#cell-verdict), replayed against its recorded result on every build
 
 ## Neo4j subgraph mirror
 
 A team with data in Neo4j or Aura often wants part of it local: for an agent to query without network access, as a test fixture, or for an experiment that must not touch the shared database. Exporting to files and importing them again needs a file format and a converter in each direction.
 
-`relate pull` copies a subgraph over the Neo4j HTTP Query API into a local directory or `.rl` store. Every statement given with `--query` returns graph elements; the statements run in one process with one checkpoint at the end, and the credentials come from an env file named with `--from` or from `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`. `relate push` copies a scoped subgraph back, merging on keys from the store's constraints unless `--merge-key` names others, and `--dry-run` prints the plan without touching the remote. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists the constructs a query written for Neo4j may use that relate does not have, such as APOC, with what to write instead, and `relate serve` speaks Bolt and the HTTP Query API, so Neo4j tools can reach the local copy. Pull and push need a running Neo4j or Aura database, which the docs checks do not have, so no recorded run verifies this entry; the command reference is its source.
+`relate pull` copies a subgraph over the Neo4j HTTP Query API into a local directory or `.rl` store. Every statement given with `--query` returns graph elements; the statements run in one process with one checkpoint at the end, and the credentials come from an env file named with `--from` or from `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`. `relate push` copies a scoped subgraph back, merging on keys from the store's constraints unless `--merge-key` names others, and `--dry-run` prints the plan without touching the remote. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists the constructs a query written for Neo4j may use that relate does not have, such as APOC, with what to write instead, and `relate serve` speaks Bolt and the HTTP Query API, so Neo4j tools can reach the local copy. Pull and push need a running Neo4j or Aura database, which the docs checks do not have; the recorded run is the push plan from `--dry-run`, which reads only the local store.
 
 - **Problem:** Work on a slice of a Neo4j or Aura graph locally, offline or in a test, and copy changes back when they are ready.
 - **Capability:** `relate pull`, which copies the graph elements a query returns from Neo4j or Aura into a local store, and `relate push`, which copies a scoped subgraph back with a `--dry-run` plan.
 - **Surfaces:** `cli`, `bolt`, `http`
-- **Reference:** [CLI flags (`#relate-pull`)](/docs/reference/cli/flags#relate-pull), [CLI flags (`#relate-push`)](/docs/reference/cli/flags#relate-push), [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Where relate fits](/docs/concepts/where-relate-fits)
-- **Verified by:** no recorded run exercises this capability yet; the pages above are its sources
+- **Guides:** [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j), [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j), [Migrate from Neo4j](/docs/guides/migrate/from-neo4j)
+- **Reference:** [relate pull](/docs/reference/cli/pull), [relate push](/docs/reference/cli/push), [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Where relate fits](/docs/concepts/where-relate-fits)
+- **Verified by:** the `bash verify` step 3 on [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j#give-each-label-a-merge-key), whose recorded output begins `{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}`; the CLI check replays it against a relate binary
 
 ## Shared store across processes
 
@@ -452,8 +454,8 @@ A relate store has one writer: the first process that opens it for writing owns 
 - **Problem:** Let an agent and an application, or several readers, use the same graph without corrupting it or blocking each other.
 - **Capability:** One writer per store, enforced by a lock; `--read-only` opens beside the writer on a directory store; `--read-only=live` to follow its commits; or one `relate serve` process.
 - **Surfaces:** `cli`, `http`, `bolt`, `mcp`
-- **Guides:** [Share one store between two processes](/docs/guides/operate/two-processes-one-store), [Choose a store layout](/docs/guides/storage/choose-a-store-layout)
-- **Reference:** [Storage formats](/docs/reference/storage/formats), [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors)
+- **Guides:** [Share one store between two processes](/docs/guides/operate/two-processes-one-store), [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Open a store read-only and follow a writer](/docs/guides/storage/read-only-and-follow), [Serve the HTTP Query API](/docs/guides/serve/http-query-api), [Serve a store over Bolt](/docs/guides/serve/bolt), [Use relate with CrewAI](/docs/guides/integrations/crewai)
+- **Reference:** [Storage formats](/docs/reference/storage/formats), [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors), [relate serve](/docs/reference/cli/serve)
 - **Verified by:** the `bash verify` step 2 on [Share one store between two processes](/docs/guides/operate/two-processes-one-store#see-what-the-second-process-gets), whose recorded output begins `Failed to open Relate: storage locked: <dir>/team.rl`; the CLI check replays it against a relate binary
 
 {/* capabilities:end */}

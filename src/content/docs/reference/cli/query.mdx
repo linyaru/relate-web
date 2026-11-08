@@ -1,4 +1,243 @@
 ---
 title: relate query
-status: planned
+description: The relate query command with its three session forms, every query-run flag, output modes in brief, parameters, read-only opens, timeouts and exit codes.
+order: 50
+surfaces: [cli]
+related: [reference/cli/flags#query-run-flags, reference/cli/output-modes, reference/cli/exit-codes-and-errors, reference/cli/dot-commands, guides/cli/scripting, guides/cli/interactive-shell]
 ---
+
+`relate query` runs a statement session against one store: the statements given as an argument, a script read from stdin, or the interactive shell. It takes every query-run flag. The path-first form, `relate [OPTIONS] [QUERY]`, runs the same session with the same flags; the one difference is that it never reads a script from stdin. Without `--database`, the store is `:memory:`, which is gone when the process exits. A :term[query]{id=query}, in these docs, is a statement that reads; the command runs writes too.
+
+## Synopsis
+
+```text
+relate query [STATEMENT] [--database PATH]
+```
+
+| Part | Meaning |
+| --- | --- |
+| `STATEMENT` | One Cypher :term[statement]{id=statement}, or a list separated by `;`. Optional. `-c` and `--command` are the flag spelling of the same argument |
+| `--database PATH` | The store: a directory, a path ending in `.rl`, or `:memory:` (the default). Never a URL; a remote store is a `--load` source. Short form `-d` |
+| `OPTIONS` | Any query-run flag, before or after `STATEMENT` ([Options](#options)) |
+
+The word `query` is the command when it is the first positional argument, before or after flags; a later positional `query` is an unexpected argument (exit code 2). A directory named `query` is `--database ./query`.
+
+## Options
+
+`relate query` takes the query-run flags, the same set as the path-first form. A flag beats its environment variable, which beats the built-in default. Flags may come before or after the statement, a flag's value is the next argument (`--mode envelope`, not `--mode=envelope`), and `--read-only` is the one flag whose value is attached (`--read-only=live`). `--` ends the options: every argument after it is positional, so a statement that starts with `-` can follow it. [How flags are parsed](/docs/reference/cli/flags#how-flags-are-parsed) has every parsing rule, and [Environment variables](/docs/reference/cli/environment-variables) lists the variables.
+
+<Flags command="query" />
+
+## Session forms
+
+The form depends on whether a statement is given and on what stdin is:
+
+| Form | Chosen when | Runs |
+| --- | --- | --- |
+| Oneshot | `STATEMENT` or `-c` is given | The statement, or each statement of the `;`-separated list in order, then exits |
+| Stdin script | No statement, and stdin is a pipe, a file or `/dev/null` | Every statement on stdin until end of input, then exits. Statements end with `;` (the last one may omit it), may span lines, and `//` starts a comment. Dot commands such as `.begin` and `.commit` work one per line |
+| Interactive shell | No statement, and stdin is a terminal | A prompt with readline-style editing and the dot commands, until `.quit` or end of input |
+
+In the oneshot and stdin forms, each statement prints its own result set and commits on its own, unless a `.begin` in a script opened a :term[transaction]{id=transaction}. A failed statement stops the run: the statements before it stay committed, and the rest do not run. [Dot commands](/docs/reference/cli/dot-commands) lists the shell and script commands, and [Use the interactive shell](/docs/guides/cli/interactive-shell) covers the shell.
+
+The path-first form with no statement differs only in the stdin case: it prints the top-level help and exits 0 without reading stdin, so a redirected script never runs. A script on stdin needs the word `query`.
+
+| Input | Exit code | Message on stderr |
+| --- | --- | --- |
+| `STATEMENT` and `-c` together | 2 | `Error: --command cannot be combined with a positional query` |
+| A second positional statement | 2 | `Error: unexpected argument: <statement>`, the usage line, and a `--help` hint |
+| Empty stdin | 0 | None |
+
+These examples run in a new, empty directory. This first command writes: it creates `team.rl`, a single-file store holding three people and two projects, and prints nothing, because a `CREATE` with no `RETURN` has no rows:
+
+```bash verify
+relate query --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+A oneshot read. Stdout is a pipe here, so the output mode is `jsonl`, one JSON object per row:
+
+```bash verify
+relate query --database ./team.rl --read-only "MATCH (p:Person) RETURN p.name AS name ORDER BY name"
+```
+
+```text
+{"name":"Ada"}
+{"name":"Grace"}
+{"name":"Noor"}
+```
+
+`-c` with a `;`-separated list prints one result set per statement, here as envelopes (`--mode envelope`):
+
+```bash verify
+relate query --database ./team.rl --read-only --mode envelope -c "MATCH (p:Person) RETURN count(p) AS people; MATCH (p:Project) RETURN count(p) AS projects"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":2}],"truncated":false}
+```
+
+The same two statements as a script on stdin:
+
+```bash verify
+printf 'MATCH (p:Person) RETURN count(p) AS people;\nMATCH (p:Project) RETURN count(p) AS projects;\n' | relate query --database ./team.rl --read-only --mode envelope
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":2}],"truncated":false}
+```
+
+A script that fails at its second statement. The first statement's result prints, the stderr lines say how far the run got, and the error object names the statement:
+
+```bash verify
+printf 'MATCH (p:Person) RETURN count(p) AS people;\nRETURN 1/0 AS boom;\nRETURN 3 AS never;\n' | relate query --database ./team.rl --read-only --mode envelope
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+type error: / by zero
+statement 2 of 3 failed; 1 completed and committed; 1 not run
+{"error":{"code":"validation_error","committed":1,"exit_code":6,"kind":"type","message":"type error: / by zero","retryable":false,"statement":2,"statements":3}}
+exit=6
+```
+
+## Output modes
+
+Without an output flag, the mode depends on where stdout goes:
+
+| stdout | Default mode |
+| --- | --- |
+| A terminal | `table` |
+| A pipe or a file | `jsonl` |
+| A pipe or a file, with [agent mode](/docs/reference/cli/agent-mode) on | `toon` |
+
+`--mode` (alias `--format`) picks one of `table`, `csv`, `json`, `jsonl`, `envelope`, `markdown`, `cypher`, `toon` and `speedscope`; `--json`, `--csv`, `--jsonl`, `--markdown` and `--toon` are shortcuts. Of several output flags, the last one wins. A failed statement prints the error object on stdout in `envelope`, `json`, `jsonl` and `speedscope`; `table`, `csv`, `markdown`, `cypher` and `toon` print nothing on stdout; the stderr message and the exit code remain. [Output modes](/docs/reference/cli/output-modes) shows each mode's output.
+
+`--mode table` on the people in `team.rl`:
+
+```bash verify
+relate query --database ./team.rl --read-only --mode table "MATCH (p:Person) RETURN p.name AS name, p.role AS role ORDER BY name"
+```
+
+```text
++---------+--------------+
+| name    | role         |
++---------+--------------+
+| "Ada"   | "engineer"   |
+| "Grace" | "engineer"   |
+| "Noor"  | "maintainer" |
++---------+--------------+
+```
+
+## Parameters
+
+A statement reads a :term[parameter]{id=parameter} as `$name`. Two flags bind them, and both repeat, one parameter each:
+
+| Flag | Binds | Limits |
+| --- | --- | --- |
+| `--param N=V` | `$N` to `V`, parsed as JSON. A value that starts like JSON (a digit, `-`, `"`, `[` or `{`) and does not parse exits 2; any other bare word is a string | A name bound twice keeps the last value |
+| `--fetch-params N=SRC` | `$N` to the JSON parsed from `SRC`: a file path, or an `http` or `https` URL | 64 MiB per source and 60 seconds per fetch. No URL allowlist: the fetch has the same trust as `--param` |
+
+A statement that names a parameter no flag bound fails with `semantic error: ParameterMissing: Expected parameter(s): <name>` and exit code 6. Grace's projects, by parameter, against `team.rl`:
+
+```bash verify
+relate query --database ./team.rl --read-only --mode envelope --param name=Grace 'MATCH (p:Person {name: $name})-[w:WORKS_ON]->(r:Project) RETURN r.name AS project, w.since AS since ORDER BY since'
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["project","since"],"notifications":[],"rows":[{"project":"opencypher-tck","since":2022},{"project":"relate","since":2023}],"truncated":false}
+```
+
+Single quotes keep the shell from expanding `$name`. [Script the CLI](/docs/guides/cli/scripting#pass-parameters) shows typed values and a JSON file.
+
+## Read-only opens
+
+`--read-only` opens an existing store without writing or checkpointing it. It is off unless given, and it may appear once per run.
+
+| Spelling | Opens | Refused for |
+| --- | --- | --- |
+| `--read-only`, `--read-only=snapshot` | The store as it was at open: a frozen snapshot. On a directory store it can open beside a writer; a `.rl` file opens only while no writer holds it | — |
+| `--read-only=live` | A :term[live read-only]{id=live-read-only} open: it tails the WAL and follows the writer's commits | `.rl` files and `:memory:`: `semantic error: live freshness (WAL follow) is only supported for native directory databases`, exit code 1 |
+| `--read-only live` (a space) | Nothing: exit code 2 with `Error: --read-only takes its value attached: --read-only=live` | — |
+
+A read-only open never creates a store. A missing directory fails with `storage error: read-only open requires an existing database at <path>` and a missing `.rl` file with `storage error: database not found: <path>`, each after `Failed to open Relate: ` and with exit code 1. On `:memory:`, `--read-only` rejects writes and creates nothing. A write against a read-only open fails before it changes anything, with exit code 6:
+
+```bash verify
+relate query --database ./team.rl --read-only --mode envelope "CREATE (:Person {name: 'Zed'})"
+echo "exit=$?"
+```
+
+```text
+semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.","retryable":false}}
+exit=6
+```
+
+## Statement timeouts
+
+`--timeout DURATION` bounds each statement's wall-clock time on its own. A bare number is seconds; `ms`, `s` and `m` suffixes and fractions are accepted; `0` turns the bound off. Unset, a statement has no time bound. A statement that runs longer is cancelled and exits 7; the error object's `code` is `timeout` and `retryable` is `false`:
+
+```bash verify
+relate query --read-only --mode envelope --timeout 100ms "UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs"
+echo "exit=$?"
+```
+
+```text
+Error: query timed out after 100ms
+{"error":{"code":"timeout","exit_code":7,"kind":"execution","message":"query timed out after 100ms","retryable":false}}
+exit=7
+```
+
+A value that is not a duration exits 2 with `Error: invalid --timeout: '<value>' is not a duration (try 500ms, 10s, 2m)`.
+
+## Errors and exit codes
+
+A session exits with the code of the first statement that failed, or 0. An empty result is a success.
+
+| Exit code | Meaning in a query session |
+| --- | --- |
+| [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | Every statement ran, including one with no rows |
+| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | Runtime failure: the store did not open, a capacity limit, an I/O or internal error |
+| [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | Usage error: unknown flag, bad or missing value, extra positional; nothing ran |
+| [5](/docs/reference/cli/exit-codes-and-errors#exit-5) | Conflict: another process holds the store for writing, or a write-write conflict |
+| [6](/docs/reference/cli/exit-codes-and-errors#exit-6) | The statement was rejected: syntax, semantic or type error, or a write on a read-only open |
+| [7](/docs/reference/cli/exit-codes-and-errors#exit-7) | A statement exceeded `--timeout` |
+
+The [exit codes page](/docs/reference/cli/exit-codes-and-errors) has the error object's fields and a recorded run for each code.
+
+## Examples
+
+Who works on what, written to a CSV file with a header row:
+
+```bash verify
+relate query --database ./team.rl --read-only --csv "MATCH (p:Person)-[w:WORKS_ON]->(r:Project) RETURN p.name AS person, r.name AS project, w.since AS since ORDER BY since" > who.csv
+echo "exit=$?"
+cat who.csv
+```
+
+```text
+exit=0
+person,project,since
+Grace,opencypher-tck,2022
+Grace,relate,2023
+Ada,relate,2024
+```
+
+## See also
+
+- [CLI flags](/docs/reference/cli/flags#query-run-flags): each query-run flag with its environment variable
+- [Script the CLI](/docs/guides/cli/scripting): stdin scripts, parameters, timeouts, and exit codes in shell scripts
+- [Dot commands](/docs/reference/cli/dot-commands): `.begin`, `.commit` and the other shell and script commands
+- [Agent mode](/docs/reference/cli/agent-mode): the row cap and the `toon` default under an agent harness
+- [relate agent-context](/docs/reference/cli/agent-context): the flag names and exit codes as a compact briefing

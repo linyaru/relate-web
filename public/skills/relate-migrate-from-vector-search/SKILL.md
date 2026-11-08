@@ -21,6 +21,7 @@ Sources, as markdown:
   <https://relatedb.ai/cookbook/migration-rehearsal/index.md> (count
   probes and fingerprints before and after a change)
 - Guide: <https://relatedb.ai/docs/guides/cypher/vector-search.md>
+- Migration guide: <https://relatedb.ai/docs/guides/migrate/from-a-vector-store.md>
 - Index options, defaults and errors: <https://relatedb.ai/docs/reference/cypher/search.md>
 
 ## When this applies
@@ -144,5 +145,5 @@ ORDER BY document
 | Filter properties | Only those declared in the index's `WITH [...]`; another property fails with `WrongPropertyForVectorSearchFilter` |
 | `LIMIT` | Required inside the search |
 | A filter after `SEARCH` | Filters only the `k` rows already chosen, so fewer than `k` can come back |
-| Search algorithm | Approximate nearest neighbor over an HNSW graph |
+| Search algorithm | Exact: every search scores each indexed vector and keeps the top `LIMIT`; ties go to the lower element id |
 | Keyword search | A full-text index on the same nodes; fusing both lists is the `relate-graphrag` skill |

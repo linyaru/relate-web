@@ -388,7 +388,8 @@ export function inlineRefs(value: string, idx: CliIndex, pageCommand: string | n
     for (const args of shellInvocations(v)) invocationRefs(args, idx, out);
     return out;
   }
-  const m = /^(--?[A-Za-z][\w-]*)(?:[= ][^\s]*)?(?:\s*\/\s*--?[A-Za-z][\w-]*)?$/.exec(v);
+  // The bare end-of-options token `--` names no letters, so the pattern below misses it.
+  const m = v === '--' ? ['--', '--'] : /^(--?[A-Za-z][\w-]*)(?:[= ][^\s]*)?(?:\s*\/\s*--?[A-Za-z][\w-]*)?$/.exec(v);
   if (!m) return out;
   const name = m[1];
   const ids = (pageCommand && idx.commandFlags.get(pageCommand)?.get(name)) || idx.globalFlags.get(name) || idx.anyCommandFlag.get(name) || [];

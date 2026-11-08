@@ -5,10 +5,10 @@ description: Store embeddings as typed vectors, index them, and find the nearest
 order: 20
 surfaces: [cypher]
 prerequisites: [get-started/first-graph]
-related: [reference/cypher/search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j]
+related: [reference/cypher/search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j, guides/integrations/llamaindex, guides/migrate/from-a-vector-store]
 ---
 
-This guide shows you how to store embeddings on nodes, index them, and find the nearest nodes with the `SEARCH` clause. The cells run in page order on one :term[in-memory store]{id=in-memory-store}, in your browser and in the docs build, so each step sees what the steps before it wrote.
+This guide shows you how to store embeddings on :term[nodes]{id=node}, index them, and find the nearest nodes with the :term[`SEARCH` clause]{id=search}. The cells run in page order on one :term[in-memory store]{id=in-memory-store}, in your browser and in the docs build, so each step sees what the steps before it wrote.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
 
 ## Store the vectors
 
-Give each person a `focus` vector: how much of their work goes to the engine, the tests, and the docs. Pass the vectors as a parameter and store each one with `vector(list, dimensions, FLOAT32)`. The typed vector is also a guard: a list of the wrong length fails the statement with `type error: vector() dimension does not match list` instead of being stored.
+Give each person a `focus` vector: how much of their work goes to the engine, the tests, and the docs. Pass the vectors as a :term[parameter]{id=parameter} and store each one with `vector(list, dimensions, FLOAT32)`. The typed vector is also a guard: a list of the wrong length fails the statement with `type error: vector() dimension does not match list` instead of being stored.
 
 ```json data=focus
 {"people": [
@@ -56,7 +56,7 @@ The coordinate type is a bare keyword, such as `FLOAT32`, `FLOAT64`, `INT8` or `
 
 ## Create a vector index
 
-Create the index on the property, with the vector length and the similarity function in `OPTIONS`. `WITH [p.role]` declares a property that a search can filter on before it ranks.
+Create the index on the property, with the vector length and the similarity function in `OPTIONS`. `WITH [p.role]` declares a :term[property]{id=property} that a search can filter on before it ranks.
 
 ```cypher run name=create-index
 CREATE VECTOR INDEX person_focus IF NOT EXISTS

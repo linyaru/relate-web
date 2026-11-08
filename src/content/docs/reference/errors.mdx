@@ -76,6 +76,12 @@ Errors from `relate serve --mcp`. A tool refusal comes back as a tool result wit
 
 <Errors surface="mcp" />
 
+## Client library errors
+
+Refusals a client library raises itself, before or around the engine: the Node.js client's argument checks, the WebAssembly build's storage and loading errors, and the C ABI's own messages. The `Error` column names the surface and, where the client has one, the class.
+
+<Errors surface="client" />
+
 ## GQL status index
 
 Each GQL status code, at its own anchor (`#gql-42n00`), with the entries that report it.

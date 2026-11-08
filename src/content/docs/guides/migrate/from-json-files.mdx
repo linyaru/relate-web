@@ -1,4 +1,224 @@
 ---
 title: Migrate from JSON files
-status: planned
+label: From JSON files
+description: Move records an application keeps in JSON files into a relate store with one rerunnable script, keyed MERGE statements and a check against the files.
+order: 20
+surfaces: [cli, cypher]
+prerequisites: [get-started/install]
+related: [guides/cypher/load-json-from-a-url, reference/cli/flags#fetch-params, guides/cypher/indexes-and-constraints, reference/errors#cli-fetch-params-failed, cookbook/migration-rehearsal]
 ---
+
+This guide shows you how to move records an application keeps in JSON files into a relate :term[store]{id=store}. A script file creates a uniqueness :term[constraint]{id=constraint} per record type, writes each record with `MERGE` on its id, and turns every id reference into a :term[relationship]{id=relationship}. `--fetch-params` binds each file as a :term[parameter]{id=parameter}, so the script needs no code around it, and running it twice leaves the same graph. The steps write to `./team.rl`, and each says so.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- The JSON files, each one JSON document of at most 64 MiB, the `--fetch-params` limit per source. The first step writes two small ones, so you can follow along in an empty directory.
+- Each record type with an id field that is unique within its file. Records that point at each other by id become relationships.
+
+## Plan the mapping
+
+| In the JSON files | In relate |
+| --- | --- |
+| A file of records of one kind | A :term[label]{id=label}, such as `:Person` |
+| A record's id | A property with a uniqueness constraint: the `MERGE` key |
+| A field holding a string, number, boolean, or a list of one of those | A property of the same type |
+| A field holding an id of another record | A relationship to that record's node |
+| A list of objects that each name another record, with fields of their own | One relationship per object, with the fields as its properties |
+| A nested object | Its fields flattened into properties, or a node of its own. A map is not a property value: `type error: InvalidPropertyType` |
+| `null` or a missing field | No property: `SET p.x = null` leaves `x` off the node |
+
+## Write the example files
+
+The application keeps people and projects in two files. Projects name their maintainer and contributors by person id, and people name who they know. Together they hold the team graph the Get started pages use:
+
+```bash verify
+cat > people.json <<'JSON'
+[{"id": "p1", "name": "Ada", "role": "engineer", "knows": ["p2"]},
+ {"id": "p2", "name": "Grace", "role": "engineer", "knows": []},
+ {"id": "p3", "name": "Noor", "role": "maintainer", "knows": []}]
+JSON
+cat > projects.json <<'JSON'
+[{"id": "relate", "name": "relate", "language": "Rust", "maintainer": "p3",
+  "contributors": [{"person": "p1", "since": 2024}, {"person": "p2", "since": 2023}]},
+ {"id": "tck", "name": "opencypher-tck", "language": "Gherkin", "maintainer": null,
+  "contributors": [{"person": "p2", "since": 2022}]}]
+JSON
+```
+
+## Write the load script
+
+The script runs in order: the constraints, then the nodes, then the relationships, so every `MATCH` on an id finds a node that already exists. Each file arrives whole as a list, `$people` or `$projects`, and `UNWIND` turns it into one row per record:
+
+```bash verify
+cat > load.cypher <<'CYPHER'
+CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE;
+CREATE CONSTRAINT project_id IF NOT EXISTS FOR (p:Project) REQUIRE p.id IS UNIQUE;
+
+UNWIND $people AS row
+MERGE (p:Person {id: row.id})
+SET p.name = row.name, p.role = row.role
+RETURN count(p) AS people;
+
+UNWIND $projects AS row
+MERGE (proj:Project {id: row.id})
+SET proj.name = row.name, proj.language = row.language
+WITH proj, row
+UNWIND row.contributors AS c
+MATCH (p:Person {id: c.person})
+MERGE (p)-[w:WORKS_ON]->(proj)
+SET w.since = c.since
+RETURN count(w) AS works_on;
+
+UNWIND $projects AS row
+MATCH (proj:Project {id: row.id}), (m:Person {id: row.maintainer})
+MERGE (m)-[r:MAINTAINS]->(proj)
+RETURN count(r) AS maintains;
+
+UNWIND $people AS row
+UNWIND row.knows AS other
+MATCH (a:Person {id: row.id}), (b:Person {id: other})
+MERGE (a)-[k:KNOWS]->(b)
+RETURN count(k) AS knows;
+CYPHER
+```
+
+Three choices make the script safe to rerun:
+
+- `MERGE` on the id alone, then `SET` for the other fields. A `MERGE` on every field would create a second node when one field changes.
+- The constraint backs each key: a `CREATE` of a second node with the same id fails instead of adding a copy.
+- A `null` reference matches nothing. The `opencypher-tck` project has no maintainer, so its `MATCH` returns no row and the statement writes no `MAINTAINS` for it.
+
+## Run the load
+
+This command writes to `./team.rl`, a single-file store it creates. `relate query` reads the script from stdin, and each `--fetch-params <name>=<file>` binds one file:
+
+```bash verify
+relate query --database ./team.rl --mode table --fetch-params people=people.json --fetch-params projects=projects.json < load.cypher
+```
+
+```text
++--------+
+| people |
++--------+
+| 3      |
++--------+
++----------+
+| works_on |
++----------+
+| 3        |
++----------+
++-----------+
+| maintains |
++-----------+
+| 1         |
++-----------+
++-------+
+| knows |
++-------+
+| 1     |
++-------+
+```
+
+The two constraint statements print nothing. Each count is the number of rows its statement wrote or matched.
+
+## Run it again
+
+A second run with the same files matches every key instead of creating anything. It writes to `./team.rl` again:
+
+```bash verify
+relate query --database ./team.rl --mode table --fetch-params people=people.json --fetch-params projects=projects.json < load.cypher
+```
+
+```text
+note: write statement 1 of 6 changed nothing; the graph is unchanged
+note: write statement 2 of 6 changed nothing; the graph is unchanged
++--------+
+| people |
++--------+
+| 3      |
++--------+
++----------+
+| works_on |
++----------+
+| 3        |
++----------+
++-----------+
+| maintains |
++-----------+
+| 1         |
++-----------+
+note: write statement 5 of 6 changed nothing; the graph is unchanged
++-------+
+| knows |
++-------+
+| 1     |
++-------+
+note: write statement 6 of 6 changed nothing; the graph is unchanged
+```
+
+The notes, on stderr, name the statements that wrote nothing; the exit code stays 0. Statements 3 and 4 have no note because their `SET` writes the same values again. When a file changes, the same run updates those properties in place and adds the new records and references.
+
+## Verify
+
+Count each record type in the files and in the store, in one statement. The store opens read-only, and the files are bound as parameters again:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table --fetch-params people=people.json --fetch-params projects=projects.json 'RETURN size($people) AS people_in_files, COUNT { MATCH (p:Person) } AS people_in_store, size($projects) AS projects_in_files, COUNT { MATCH (p:Project) } AS projects_in_store'
+```
+
+```text
++-----------------+-----------------+-------------------+-------------------+
+| people_in_files | people_in_store | projects_in_files | projects_in_store |
++-----------------+-----------------+-------------------+-------------------+
+| 3               | 3               | 2                 | 2                 |
++-----------------+-----------------+-------------------+-------------------+
+```
+
+Node counts miss a reference whose id matched no record, because its `MATCH` drops the row without an error. Check every reference in the files against the relationships in the store; `false` marks one that did not arrive:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table --fetch-params projects=projects.json 'UNWIND $projects AS proj
+UNWIND proj.contributors AS c
+OPTIONAL MATCH (p:Person {id: c.person})-[w:WORKS_ON]->(:Project {id: proj.id})
+RETURN proj.id AS project, c.person AS person, w IS NOT NULL AS loaded
+ORDER BY project, person'
+```
+
+```text
++----------+--------+--------+
+| project  | person | loaded |
++----------+--------+--------+
+| "relate" | "p1"   | true   |
+| "relate" | "p2"   | true   |
+| "tck"    | "p2"   | true   |
++----------+--------+--------+
+```
+
+## If it goes wrong
+
+A field that holds an object can't be stored as one property. This run on the default in-memory store writes nothing:
+
+```bash verify
+relate --mode table --param 'row={"name": "Ada", "address": {"city": "Lyon"}}' 'CREATE (p:Person {name: $row.name}) SET p.address = $row.address'
+```
+
+```text
+type error: InvalidPropertyType
+```
+
+| Message | Exit code | Cause | Remedy |
+| --- | --- | --- | --- |
+| `type error: InvalidPropertyType` | 6 | A `SET` stores a map, a list of maps, a nested list, or a list that mixes types | Flatten the object into properties (`SET p.city = row.address.city`), or `MERGE` a node for it and link it. |
+| ``semantic error: ConstraintValidationFailed: `person_id` uniqueness`` | 6 | A `CREATE` wrote a second node with an id the store already holds | Write the record with `MERGE` on its id. |
+| A `false` in the reference check, and no error | 0 | A reference names an id that no record in the files has | Fix the reference in the source file, or load the missing record, and run the script again. |
+| `Error: --fetch-params people: reading people.json: No such file or directory (os error 2)` | 1 | The path does not exist, relative to the working directory | Check the path, or give an absolute one. The [load JSON guide](/docs/guides/cypher/load-json-from-a-url#if-it-goes-wrong) lists every `--fetch-params` failure. |
+| `Error: --fetch-params people: invalid JSON: …` | 1 | The file is not one JSON document, such as a JSON Lines file with one record per line | Wrap the records in one array. |
+
+## Related
+
+- [Load JSON from a URL or a file](/docs/guides/cypher/load-json-from-a-url): `--fetch-params` on its own, its limits, and its egress rules.
+- [Flags](/docs/reference/cli/flags#fetch-params): `--fetch-params` and `--param`, with their recorded runs.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): the uniqueness constraints that back the `MERGE` keys.
+- [Errors](/docs/reference/errors#cli-fetch-params-failed): the `--fetch-params` failures at a stable anchor.
+- [Migration rehearsal](/cookbook/migration-rehearsal/): fingerprints before and after a change, for the first change to the migrated graph.

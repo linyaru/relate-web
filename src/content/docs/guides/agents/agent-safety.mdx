@@ -4,7 +4,7 @@ description: Limit what an agent can change through relate with read-only opens,
 order: 30
 surfaces: [cli, mcp, agents]
 prerequisites: [get-started/install]
-related: [guides/agents/drive-relate-from-an-agent, guides/agents/connect-over-mcp, guides/storage/backup-and-restore, reference/cli/flags, reference/errors, reference/security, reference/limitations, guides/agents/run-in-a-sandbox, guides/integrations/vercel-ai-sdk, concepts/transactions-and-concurrency, concepts/agent-native]
+related: [guides/agents/drive-relate-from-an-agent, guides/agents/connect-over-mcp, guides/storage/backup-and-restore, reference/cli/flags, reference/errors, reference/security, reference/limitations, guides/agents/run-in-a-sandbox, guides/integrations/vercel-ai-sdk, concepts/transactions-and-concurrency, concepts/agent-native, concepts/security-and-trust]
 ---
 
 This guide shows you how to limit what an agent can do to your data through relate: open stores read-only, turn on :term[safe mode]{id=safe-mode}, back up before a write, check destructive statements, retry only what is retryable, and keep file and network access narrow. Each control is a flag or an environment variable on the command the agent runs, and the [permission matrix](#permission-matrix) shows which ones the CLI and the :term[MCP]{id=mcp} server honor.
@@ -168,11 +168,12 @@ The prefix to match on stderr is `note: write statement`; a transaction that per
 
 ## Retry only retryable errors
 
-The error object's `retryable` field is `true` for one error: a write-write conflict, where a fresh transaction can succeed. Every other error repeats when the same statement runs again:
+The error object's `retryable` is `true` for a write-write conflict (exit 5) and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared pool (exit 1, kind `resource`; reachable when statements run concurrently, as under `relate serve`). A one-shot CLI run meets only the first. Every other error repeats when the same statement runs again:
 
 | Error | Exit code | `retryable` | Remedy |
 | --- | --- | --- | --- |
 | Write-write conflict, kind `conflict` | 5 | `true` | Run the statement again in a fresh transaction |
+| `resource limit exceeded: concurrent-logical-workspace-limit limit=<bytes>`, kind `resource`, while other statements hold the pool | 1 | `true` | Run it again once other statements finish, or raise `--concurrent-logical-workspace-limit` |
 | `storage locked: <path>`, kind `locked` | 5 | `false` | Wait for the other process to exit; a directory store can also be opened `--read-only` beside its writer, a `.rl` store cannot |
 | `Error: query timed out after <duration>` | 7 | `false` | Bound the statement with `LIMIT` or a narrower pattern, or raise `--timeout` |
 | Any rejected statement: syntax, parameter, type, safe mode, read-only | 6 | `false` | Fix the statement |

@@ -182,7 +182,8 @@ test('languages: tab sets from the source, fences skipped; the picker needs a se
 test('matrix: the shipped surfaces file is complete: every feature on every surface, every source known', () => {
   const d = surfacesData();
   assert.deepEqual(validate(d), []);
-  assert.deepEqual(d.surfaces.map((s) => s.id), ['cli', 'rust', 'c', 'python', 'node', 'browser', 'java', 'go', 'swift', 'bolt', 'http', 'mcp']);
+  // The shared language order (python, node, browser, rust, c, java, go, swift), after the CLI and before the served surfaces.
+  assert.deepEqual(d.surfaces.map((s) => s.id), ['cli', 'python', 'node', 'browser', 'rust', 'c', 'java', 'go', 'swift', 'bolt', 'http', 'mcp']);
   for (const id of ['open-memory', 'open-directory', 'open-rl', 'read-only', 'transactions', 'parameters', 'result-metadata', 'notifications', 'vector-search', 'full-text', 'load-csv', 'load-url', 'agent-mode']) {
     assert.ok(d.features.some((f) => f.id === id), id);
   }

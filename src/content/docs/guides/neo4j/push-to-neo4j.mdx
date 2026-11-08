@@ -1,4 +1,204 @@
 ---
 title: Push a subgraph to Neo4j
-status: planned
+label: Push to Neo4j
+description: Copy a scoped subgraph of a relate store into Neo4j or Aura with relate push, planning with --dry-run and merging on keys so a second push changes nothing.
+order: 20
+surfaces: [cli]
+prerequisites: [get-started/install, guides/neo4j/pull-from-neo4j]
+related: [reference/cli/push, guides/neo4j/pull-from-neo4j, guides/cypher/indexes-and-constraints, reference/cypher/differences-from-neo4j, concepts/problems-relate-solves#neo4j-subgraph-mirror]
 ---
+
+This guide shows you how to copy part of a relate store into a Neo4j or Aura database with :term[`relate push`]{id=push}, the mirror of `relate pull` over the same connection. Push reads the :term[store]{id=store}, groups its nodes by :term[label]{id=label} and its relationships by :term[type]{id=relationship-type}, and sends them as batched `MERGE` statements on merge keys, so running the same push twice leaves the remote as one push did. It never deletes anything on the remote. A push needs a running Neo4j or Aura database, which the docs checks don't have: the plans on this page come from `--dry-run`, which touches no remote, and a real push's report follows the `relate push` specification.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A Neo4j or Aura database that answers the HTTP Query API, and a user that can write.
+- The connection file from [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j#write-the-connection-file); `--to` reads the same four variables. This guide writes one with placeholders, and a store holding the shared example graph:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team < team.cypher
+cat > neo4j.env <<'EOF'
+NEO4J_URI=neo4j+s://<instance-id>.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<password>
+NEO4J_DATABASE=neo4j
+EOF
+chmod 600 neo4j.env
+```
+
+`--to` also takes a Query API URI directly, with the username and password from `NEO4J_USERNAME` and `NEO4J_PASSWORD` in the environment.
+
+## Plan the push
+
+`--dry-run` prints the plan, per label and relationship type, and the statements it would send, reading only the local store. With no merge keys defined, it skips everything:
+
+```bash verify
+relate push --to neo4j.env --database ./team --dry-run
+```
+
+```text
+entity                                      total  created  updated  skipped  warn  merge key  policy  batches
+Person (unkeyed)                                3        0        0        3     0             add           0
+Project (unkeyed)                               2        0        0        2     0             add           0
+(Person)-[:KNOWS]->(Person) (unkeyed)           1        0        0        1     0             add           0
+(Person)-[:MAINTAINS]->(Project) (unkeyed)      1        0        0        1     0             add           0
+(Person)-[:WORKS_ON]->(Project) (unkeyed)       3        0        0        3     0             add           0
+dry run: 5 entities, 10 rows planned; nothing was sent
+```
+
+A label with no merge key is skipped, never guessed: without a key, a second push could not find the nodes the first one wrote. Relationships between such nodes are skipped too.
+
+## Give each label a merge key
+
+Push takes each label's merge key from the store's uniqueness and key :term[constraints]{id=constraint}, composite keys included. Create a uniqueness constraint on the property that identifies a node, `name` here, and plan again:
+
+```bash verify
+relate --database ./team --mode envelope "CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE"
+relate --database ./team --mode envelope "CREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE"
+relate push --to neo4j.env --database ./team --dry-run
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+entity                            total  created  updated  skipped  warn  merge key  policy  batches
+Person                                3        3        0        0     0  name       add           1
+Project                               2        2        0        0     0  name       add           1
+(Person)-[:KNOWS]->(Person)           1        1        0        0     0             add           1
+(Person)-[:MAINTAINS]->(Project)      1        1        0        0     0             add           1
+(Person)-[:WORKS_ON]->(Project)       3        3        0        0     0             add           1
+Person: UNWIND $rows AS row MERGE (n:`Person` {`name`: row.key.`name`}) SET n += row.props
+Project: UNWIND $rows AS row MERGE (n:`Project` {`name`: row.key.`name`}) SET n += row.props
+(Person)-[:KNOWS]->(Person): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Person` {`name`: row.end.`name`}) MERGE (a)-[r:`KNOWS`]->(b) SET r += row.props
+(Person)-[:MAINTAINS]->(Project): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Project` {`name`: row.end.`name`}) MERGE (a)-[r:`MAINTAINS`]->(b) SET r += row.props
+(Person)-[:WORKS_ON]->(Project): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Project` {`name`: row.end.`name`}) MERGE (a)-[r:`WORKS_ON`]->(b) SET r += row.props
+dry run: 5 entities, 10 rows planned; nothing was sent
+```
+
+A dry run does not read the remote, so it counts every row as `created`. Every value travels as a typed parameter, so a date, a point or a vector keeps its Cypher type on the remote. `--merge-key <Label>:<property>[,<property>]`, once per label, keys a label without a constraint or overrides its key.
+
+Relationships merge on their type's key: a `--rel-key <TYPE>:<property>` override, else the type's relationship uniqueness or key constraint. With neither, as here, push merges one relationship of a type between two nodes, `MERGE (a)-[r:T]->(b)`, and two parallel relationships of one type between the same nodes collapse into one on the remote. `--rel-mode create` sends `CREATE` instead, which a second push repeats.
+
+## Scope the push
+
+Without a scope, push sends the whole store. One of three flags narrows it:
+
+| Flag | Pushes |
+| --- | --- |
+| `--labels <L1>,<L2>` | Nodes with these labels, and the relationships whose two endpoints are both in scope |
+| `--types <T1>,<T2>` | Relationships of these types, with both their endpoints |
+| `--query <statements>` | What the statements return: nodes, relationships or paths, as `relate pull --query` takes them |
+
+A relationship whose other end is out of scope is counted as `dangling` and not sent. Push only the people:
+
+```bash verify
+relate push --to neo4j.env --database ./team --labels Person --dry-run
+```
+
+```text
+entity                       total  created  updated  skipped  warn  merge key  policy  batches
+Person                           3        3        0        0     0  name       add           1
+(Person)-[:KNOWS]->(Person)      1        1        0        0     0             add           1
+(dangling)                       4        0        0        4     0             skip          0
+Person: UNWIND $rows AS row MERGE (n:`Person` {`name`: row.key.`name`}) SET n += row.props
+(Person)-[:KNOWS]->(Person): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Person` {`name`: row.end.`name`}) MERGE (a)-[r:`KNOWS`]->(b) SET r += row.props
+dry run: 3 entities, 8 rows planned; nothing was sent
+```
+
+The four `WORKS_ON` and `MAINTAINS` relationships point at projects, which are out of scope.
+
+## Run the push
+
+Drop `--dry-run` to send the batches, 5000 rows per statement by default (`--batch-size`):
+
+```bash
+relate push --to neo4j.env --database ./team
+```
+
+Before each write, push reads the remote's current rows by their merge keys, so its report, the plan's table with real counts, says what it created, updated, and skipped and why. The last line holds the totals and a time that varies:
+
+```text
+pushed <rows> rows in <statements> statements (<bytes> bytes) in <time> ms
+```
+
+`--json` prints the report as one JSON object, with `created`, `updated` and `skipped` (by reason) per entity and the totals.
+
+Push takes the store's writer lock while it runs, a dry run included, as a writable open does, so run it while no other process writes the store. A dry run leaves the store's contents unchanged.
+
+## Choose what happens to rows that exist
+
+`--nodes-update` and `--rels-update` take a policy, for every label or type or per name (`Person=replace,Project=skip`):
+
+| Policy | A row the remote already has | Remote-only properties |
+| --- | --- | --- |
+| `add` (default) | Updated with `SET +=` | Kept |
+| `replace` | Updated with `SET =` | Removed |
+| `skip` | Left as it is; only missing rows are created | Kept |
+
+`--updated-at <property>[,<property>]` names timestamp properties: a row strictly newer on the remote is skipped and counted `remoteNewer`. The same push run twice lands the same remote state under `add` and `skip`, with relationships merged structurally (the fallback when a type has no key), and with `--updated-at` where it applies.
+
+## What push refuses
+
+Usage errors stop a push before it touches the remote:
+
+```bash verify
+relate push --to neo4j.env --database ./team --labels Person --types WORKS_ON
+```
+
+```text
+Error: push takes one of --query, --labels, or --types (none pushes the whole store)
+Usage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]
+Run 'relate push --help' for more information.
+```
+
+| Refused | Why |
+| --- | --- |
+| `--database :memory:` (exit code 2) | Push reads a store on disk |
+| Two or more of `--query`, `--labels`, `--types` (exit code 2) | One scope per push |
+| `--namespace` (exit code 2) | Push always reads the `neo4j` namespace |
+| A label with no merge key | Skipped and counted `unkeyed`, unless `--merge-key` gives one or `--unkeyed-labels create` sends `CREATE` rows that a second push repeats |
+| A byte-array property | Fails the push: a byte array can't be stored as a property, and there is no string fallback |
+| `http://` to a host other than the loopback interface | Refused before any request, as in `relate pull`, unless `--allow-plaintext` is given |
+| Deleting remote data | Never done: a node deleted locally stays on the remote |
+
+A batch that fails stops the push. The error names the label or type, the batch and its row range, and the report still prints, listing the batches that landed. Exit code 1.
+
+## Verify
+
+Push again with `--json`. Once the first push landed, the remote's pre-read finds every row, so every entity reports `"created":0` and its rows under `updated`:
+
+```bash
+relate push --to neo4j.env --database ./team --json
+```
+
+Then run a count such as `MATCH (p:Person) RETURN count(p) AS people` on both sides and compare.
+
+## If it goes wrong
+
+- **Every label shows `(unkeyed)` and nothing is sent.** The store has no uniqueness or key constraint for those labels. Create one, or pass `--merge-key <Label>:<property>`.
+- **Relationships counted `dangling`.** The scope leaves out one of their endpoints. Widen `--labels`, or push with `--types`, which brings both endpoints.
+- **`Error: storage locked: <path>`** (exit code 1). Another process holds the store open for writing. Push when it exits, or push from a copy made with `relate clone`.
+- **`Error: push failed: pre-read of <Label> failed: refusing to send Basic auth credentials in the clear: …`** (exit code 1). `NEO4J_URI` resolves to `http://` on another machine. Use the `https://` address.
+- **`Error: NEO4J_URI missing from env file`** (exit code 1). The `--to` file lacks the variable; with a URI as `--to`, the username and password must be in the environment.
+- **`Error: unknown update policy "<value>" (expected add, replace or skip)`** (exit code 2). Fix the policy name.
+
+## Related
+
+- [`relate push`](/docs/reference/cli/push): every flag, default, and exit code.
+- [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j): the connection file and the other direction.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): the constraints push takes its merge keys from.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): where the two dialects differ.
+- [Neo4j subgraph mirror](/docs/concepts/problems-relate-solves#neo4j-subgraph-mirror) in the capability catalog.

@@ -6,8 +6,8 @@
 // per entry, so an agent can grep a message.
 //
 // Props (literals): `surface` picks the table.
-//   (none)           every error entry (cli, engine, http, bolt, mcp) in one table
-//   "cli" | "engine" | "http" | "bolt" | "mcp"   that surface's errors
+//   (none)           every error entry (cli, engine, http, bolt, mcp, client) in one table
+//   "cli" | "engine" | "http" | "bolt" | "mcp" | "client"   that surface's errors (client: the refusals a client library raises itself)
 //   "gql-status"     the GQL status index: one row per status, linking its entries
 //   "python"         the Python exception classes
 //   "notifications"  the notifications EXPLAIN and PROFILE report
@@ -27,7 +27,7 @@ import { codeSpan, NONE, tableMarkdown, type Table } from '../../lib/docs/genera
 export { codeSpan, type Table };
 
 export const ERRORS_FILE = join(DOCS_DIR, '_data/errors.json');
-export const ERROR_SURFACES = ['cli', 'engine', 'http', 'bolt', 'mcp'] as const;
+export const ERROR_SURFACES = ['cli', 'engine', 'http', 'bolt', 'mcp', 'client'] as const;
 export const TABLES = [...ERROR_SURFACES, 'gql-status', 'python', 'notifications'] as const;
 export type TableName = (typeof TABLES)[number];
 
@@ -86,6 +86,7 @@ export interface ErrorsData {
   http: ErrorEntry[];
   bolt: ErrorEntry[];
   mcp: ErrorEntry[];
+  client: ErrorEntry[];
   python: { hierarchy: PythonClass[]; attributes: string[]; disputed?: boolean; readings?: Reading[] };
   notifications: Notification[];
   gql_status_index: Record<string, string[]>;

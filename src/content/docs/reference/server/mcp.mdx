@@ -1,4 +1,324 @@
 ---
 title: MCP server
-status: planned
+description: relate's own MCP server over stdio or streamable HTTP; its three tools with input schemas and results, the read-only policy, refusals, auth, and limits.
+order: 40
+surfaces: [mcp, agents, cli]
+related: [guides/agents/connect-over-mcp, guides/serve/mcp, reference/server/docs-mcp, reference/cli/serve, reference/errors#mcp-errors, guides/agents/agent-safety, concepts/problems-relate-solves#graph-queries-over-mcp, reference/cypher/notifications]
 ---
+
+`relate serve --mcp` serves one relate :term[store]{id=store} to agent hosts over :term[MCP]{id=mcp} (the Model Context Protocol), with three tools: `get_schema`, `read_cypher` and `write_cypher`. It runs on the host's stdin and stdout (`--mcp stdio`) or as a streamable HTTP listener (`--mcp <port>`), and a store opened :term[read-only]{id=read-only} lists only the first two. This server reads and writes a store of yours. [The hosted docs MCP server](/docs/reference/server/docs-mcp) is a different server: it serves the relate documentation at `https://relatedb.ai/mcp`, opens no store, is a launch-day target that is not deployed yet, and has five tools of its own, none of which shares a name with these.
+
+## Synopsis
+
+```text
+relate serve --database PATH --mcp stdio [--read-only[=FRESHNESS]] [--safe]
+relate serve --database PATH --mcp PORT [--host HOST] [--auth USER:PASSWORD] [--read-only[=FRESHNESS]] [--safe]
+```
+
+| Item | Value |
+| --- | --- |
+| Protocol | JSON-RPC 2.0, one message per line on stdio, one message per `POST` body on HTTP |
+| `serverInfo` | `name` `relate-mcp`, `version` the relate version (`0.16.1`) |
+| `protocolVersion` | The client's `protocolVersion` from `initialize`, echoed; `2024-11-05` when the client sends none |
+| Capabilities | `tools` only: no resources, prompts, or sampling |
+| Tools | `get_schema`, `read_cypher`, `write_cypher`; `write_cypher` is not listed when the store is opened `--read-only` |
+| Sessions | None. Each request stands alone; no `Mcp-Session-Id` is issued |
+| Authentication | None on stdio; HTTP Basic on the HTTP transport, from one credential shared with the other `relate serve` surfaces |
+| Writes | Allowed unless the store is opened `--read-only`; `read_cypher` refuses writes and schema changes either way |
+| Flags | `--mcp` and the other `relate serve` flags are on [relate serve](/docs/reference/cli/serve) and in [CLI flags](/docs/reference/cli/flags#serve-mcp) |
+
+## Transports
+
+`--mcp` takes the keyword `stdio` or a port number, once per run. A second `--mcp` exits 2 with `Error: serve --mcp may be given only once`.
+
+| | `--mcp stdio` | `--mcp PORT` |
+| --- | --- | --- |
+| Framing | Newline-delimited JSON-RPC on stdin and stdout | One complete JSON-RPC message per HTTP/1.1 `POST`; the request path is not read |
+| Started by | The MCP host, as a child process | An operator, as a long-running process |
+| Runs until | The host closes stdin; exit code 0 | SIGINT or SIGTERM |
+| Authentication | None. `--auth` with `--mcp stdio` and no `--http` or `--bolt` listener beside it exits 2 with an error that begins `Error: serve --mcp stdio skips auth`; with one beside it, `--auth` applies to that listener only | HTTP Basic, from `--auth`, `RELATE_AUTH` or a generated token ([Authentication](#authentication)) |
+| Binds | Nothing | `127.0.0.1:PORT`; `--host` changes the address, with no TLS on any address |
+| stdout | JSON-RPC responses only | Not used |
+| stderr | Startup and shutdown lines | Startup and shutdown lines |
+| Browser requests | Not applicable | A present `Origin` must be loopback (`localhost`, `127.0.0.1` or `[::1]`, any port, `http` or `https`); no CORS headers |
+| Other surfaces in the same process | `--http` and `--bolt` listeners can run beside it and stop when stdin closes | `--http` and `--bolt` can run beside it |
+
+## Methods
+
+| Method | Result |
+| --- | --- |
+| `initialize` | `protocolVersion`, `capabilities` (`{"tools": {}}`) and `serverInfo` |
+| `notifications/initialized`, any `notifications/*` | No response on stdio; HTTP 202 with an empty body on HTTP |
+| `ping` | `{}` |
+| `tools/list` | `tools`: each tool's `name`, `description`, `inputSchema` and `annotations` |
+| `tools/call` | `content` (one item, `type` `text`, the result serialized as JSON in `text`) and `isError` |
+| Any other method | JSON-RPC error `-32601`, message `Method not found: <method>` |
+
+The messages a host sends to open a session, against a writable in-memory store so that every tool is listed:
+
+{/* docs-check-ignore trust-read-only */}
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"shell","version":"0"}}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+  '{"jsonrpc":"2.0","id":3,"method":"ping"}' \
+  | relate serve --mcp stdio --database :memory: 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2025-06-18","serverInfo":{"name":"relate-mcp","version":"0.16.1"}}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"destructiveHint":true,"idempotentHint":false,"openWorldHint":false,"readOnlyHint":false,"title":"Write Cypher"},"description":"Execute one writing Cypher statement (CREATE, MERGE, SET, DELETE, …). `parameters` is passed as the statement's parameters; an object with a `rows` array feeds the statement's `$rows` parameter. Returns the mutation counters.","inputSchema":{"properties":{"parameters":{"default":{},"description":"The statement's parameters; a `rows` array feeds `$rows`.","type":"object"},"statement":{"description":"The Cypher statement.","type":"string"}},"required":["statement"],"type":"object"},"name":"write_cypher"},{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Read Cypher"},"description":"Execute one read-only Cypher statement. Returns the result's rows. Write and schema (DDL) statements are rejected.","inputSchema":{"properties":{"parameters":{"default":{},"description":"The statement's parameters; a `rows` array feeds `$rows`.","type":"object"},"statement":{"description":"The Cypher statement.","type":"string"}},"required":["statement"],"type":"object"},"name":"read_cypher"},{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Get Schema"},"description":"Get the schema of the graph store: node labels with their property keys and inferred types, and the relationship types between them. `sample_size` bounds how many nodes and relationships are examined per label (larger is slower but more accurate; -1 examines all).","inputSchema":{"properties":{"sample_size":{"description":"The sample size used to infer the graph schema. Larger samples are slower, but more accurate. Smaller samples are faster, but might miss information. -1 samples the whole graph.","type":"integer"}},"type":"object"},"name":"get_schema"}]}}
+{"jsonrpc":"2.0","id":3,"result":{}}
+```
+
+The notification got no response line, and `tools/list` names `write_cypher`, `read_cypher` and `get_schema`, in that order.
+
+## Tools
+
+| Tool | Listed | Annotations | Input | Result in `content[0].text` |
+| --- | --- | --- | --- | --- |
+| `get_schema` | Always | `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | `sample_size` (integer, optional) | A schema map keyed by label |
+| `read_cypher` | Always | `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | `statement` (string, required); `parameters` (object, optional, default `{}`) | The result envelope, with rows |
+| `write_cypher` | Only when the store is writable | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` | `statement` (string, required); `parameters` (object, optional, default `{}`) | The result envelope: empty rows, plus the mutation counters |
+
+Each call runs one statement. The examples in this section run against `team.rl`, the shared example graph of three people and two projects. This step writes it, with the CLI:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+### get_schema
+
+| Input | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `sample_size` | integer | `1000` | How many nodes and relationships per label are examined to infer property types and relationship types; `-1` examines all. Any other negative value is refused |
+
+The result is a JSON object keyed by node label. Each entry holds `type` (`"node"`), `count` (the exact number of nodes with the label), `properties` (each key with its inferred `type`, such as `String` or `Integer`) and, when the sample found any, `relationships`: each outgoing relationship type with its `direction`, the `labels` at the other end, and its own `properties`. Property types come from the sample, and a key seen with mixed types keeps the first type seen. Counts never depend on the sample; the relationship types do:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_schema","arguments":{}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_schema","arguments":{"sample_size":1}}}' \
+  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"{\"Person\":{\"count\":3,\"properties\":{\"name\":{\"type\":\"String\"},\"role\":{\"type\":\"String\"}},\"relationships\":{\"KNOWS\":{\"direction\":\"out\",\"labels\":[\"Person\"]},\"MAINTAINS\":{\"direction\":\"out\",\"labels\":[\"Project\"]},\"WORKS_ON\":{\"direction\":\"out\",\"labels\":[\"Project\"],\"properties\":{\"since\":{\"type\":\"Integer\"}}}},\"type\":\"node\"},\"Project\":{\"count\":2,\"properties\":{\"language\":{\"type\":\"String\"},\"name\":{\"type\":\"String\"}},\"type\":\"node\"}}","type":"text"}],"isError":false}}
+{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"{\"Person\":{\"count\":3,\"properties\":{\"name\":{\"type\":\"String\"},\"role\":{\"type\":\"String\"}},\"relationships\":{\"WORKS_ON\":{\"direction\":\"out\",\"labels\":[\"Project\"],\"properties\":{\"since\":{\"type\":\"Integer\"}}}},\"type\":\"node\"},\"Project\":{\"count\":2,\"properties\":{\"language\":{\"type\":\"String\"},\"name\":{\"type\":\"String\"}},\"type\":\"node\"}}","type":"text"}],"isError":false}}
+```
+
+With `sample_size` 1, `Person` still counts 3 nodes, and only one of its three relationship types was seen.
+
+### read_cypher
+
+| Input | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `statement` | string | required | One Cypher statement. A pure read passes, `OPTIONAL MATCH` included; a write or a schema statement is refused ([Read-only policy](#read-only-policy)) |
+| `parameters` | object | `{}` | The statement's parameters, as plain JSON values; a key named `rows` binds `$rows` like any other key. A value that is neither an object nor `null` is refused |
+
+The result is the envelope described in [Results](#results). The timings change on every run, so this example replaces them with `<ms>`:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since","parameters":{"project":"relate"}}}}' \
+  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null \
+  | sed -E 's/(_ms\\":)[0-9.e-]+/\1<ms>/g'
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"{\"columnTypes\":[\"STRING\",\"INTEGER\"],\"columns\":[\"name\",\"since\"],\"elapsed_ms\":<ms>,\"error\":null,\"execute_ms\":<ms>,\"notifications\":[{\"category\":\"PERFORMANCE\",\"code\":\"Relate.Notification.Statement.MissingIndex\",\"description\":\"the equality predicate on name filters :Project without a range index on (:Project {name})\",\"gql_status\":\"03C91\",\"operator_id\":1,\"remedy\":\"CREATE INDEX relate_Project__name FOR (n:Project) ON (n.name)\",\"severity\":\"INFORMATION\",\"title\":\"Missing index\"}],\"parse_ms\":<ms>,\"plan\":{\"profiled\":false,\"root\":{\"actual\":null,\"children\":[{\"actual\":null,\"children\":[],\"details\":\"(:Project)<-[w:WORKS_ON]-(p:Person)\",\"estimated_rows\":null,\"identifiers\":[],\"operator\":\"Expand\",\"warnings\":[{\"category\":\"PERFORMANCE\",\"code\":\"Relate.Notification.Statement.MissingIndex\",\"description\":\"the equality predicate on name filters :Project without a range index on (:Project {name})\",\"gql_status\":\"03C91\",\"remedy\":\"CREATE INDEX relate_Project__name FOR (n:Project) ON (n.name)\",\"severity\":\"INFORMATION\",\"title\":\"Missing index\"}]}],\"details\":\"2 item(s), ordered\",\"estimated_rows\":null,\"identifiers\":[],\"operator\":\"ProduceResults\",\"warnings\":[]},\"schema\":\"relate.plan/v1\",\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\"},\"plan_ms\":<ms>,\"rows\":[{\"name\":\"Grace\",\"since\":2023},{\"name\":\"Ada\",\"since\":2024}],\"stats\":{\"constraints_added\":0,\"constraints_removed\":0,\"indexes_added\":0,\"indexes_removed\":0,\"labels_added\":0,\"labels_removed\":0,\"nodes_created\":0,\"nodes_deleted\":0,\"properties_set\":0,\"relationships_created\":0,\"relationships_deleted\":0}}","type":"text"}],"isError":false}}
+```
+
+The rows are Grace since 2023 and Ada since 2024. The :term[notification]{id=notification} in the result comes from the plan, before the statement ran.
+
+### write_cypher
+
+`write_cypher` takes the same two inputs as `read_cypher` and runs a statement that writes. A statement that only reads is refused with `Only write queries are allowed for write-query`. The result is the same envelope, with empty `columns`, `columnTypes`, and `rows`, and the mutation counters under `stats`. This example writes to a throwaway in-memory store, so the server runs without `--read-only`:
+
+{/* docs-check-ignore trust-read-only */}
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write_cypher","arguments":{"statement":"CREATE (:Person {name: $name, role: $role})","parameters":{"name":"Ada","role":"engineer"}}}}' \
+  | relate serve --mcp stdio --database :memory: 2>/dev/null \
+  | sed -E 's/(_ms\\":)[0-9.e-]+/\1<ms>/g'
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"{\"columnTypes\":[],\"columns\":[],\"elapsed_ms\":<ms>,\"error\":null,\"execute_ms\":<ms>,\"notifications\":[],\"parse_ms\":<ms>,\"plan\":{\"profiled\":false,\"root\":{\"actual\":null,\"children\":[],\"details\":\"(:Person)\",\"estimated_rows\":null,\"identifiers\":[],\"operator\":\"Create\",\"warnings\":[]},\"schema\":\"relate.plan/v1\",\"statement\":\"CREATE (:Person {name: $name, role: $role})\"},\"plan_ms\":<ms>,\"rows\":[],\"stats\":{\"constraints_added\":0,\"constraints_removed\":0,\"indexes_added\":0,\"indexes_removed\":0,\"labels_added\":1,\"labels_removed\":0,\"nodes_created\":1,\"nodes_deleted\":0,\"properties_set\":2,\"relationships_created\":0,\"relationships_deleted\":0}}","type":"text"}],"isError":false}}
+```
+
+### Results
+
+The text of a successful `read_cypher` or `write_cypher` call is one JSON object, the same result metadata the CLI's `--mode envelope` and the clients carry:
+
+| Key | Value |
+| --- | --- |
+| `columns` | The column names, in order |
+| `columnTypes` | One type name per column, from the first row: `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `UUID`, `BINARY` or `ANY` |
+| `rows` | One object per row, keyed by column. A node is `{"id", "kind": "node", "labels", "properties"}`, a relationship `{"id", "kind": "relationship", "type", "start_node", "end_node", "properties"}`, a date its ISO 8601 string |
+| `stats` | The 11 mutation counters, zeros included: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed` |
+| `notifications` | The plan's notifications, each with `code`, `gql_status`, `severity`, `category`, `title`, `description`, `remedy` and, on an operator's notification, `operator_id`. Always present; `[]` when there are none |
+| `plan` | The plan of the statement as a `relate.plan/v1` document: `schema`, `statement`, `profiled` (`false`) and `root`, an operator tree of `operator`, `details`, `estimated_rows`, `identifiers`, `warnings`, `actual` and `children` |
+| `elapsed_ms` | The statement's time in the engine, in milliseconds |
+| `parse_ms`, `plan_ms`, `execute_ms` | The parse, plan and execute parts of `elapsed_ms`; their sum is never more than `elapsed_ms` |
+| `error` | `null` on a result; a failed call is a tool error instead ([Errors and refusals](#errors-and-refusals)) |
+
+A byte array, which reaches the engine only as a Bolt or Rust parameter and never through this server's parameters, is a list of integers from 0 to 255 in a result, with the column type `BINARY`.
+
+## Read-only policy
+
+Before it runs a statement, each Cypher tool plans it with `EXPLAIN` and reads the statement's query type from the plan. That plan is the `plan` in the result, and its notifications are the result's `notifications`; a `PROFILE` never runs. A statement that already starts with `EXPLAIN` or `PROFILE` fails with `syntax error: parse error: unexpected token "EXPLAIN"` (or `"PROFILE"`), because the tool plans it as `EXPLAIN <statement>`; [notifications](/docs/reference/cypher/notifications) lists what the result can carry.
+
+| Store opened | Tools listed | `read_cypher` | `write_cypher` |
+| --- | --- | --- | --- |
+| Writable (the default) | `write_cypher`, `read_cypher`, `get_schema` | Runs a read (query type `r`); refuses a write (`w`, `rw`) and a schema statement (`s`: `CREATE`/`DROP INDEX`, `CREATE`/`DROP CONSTRAINT`) | Runs a write or a schema statement; refuses a read |
+| `--read-only` | `read_cypher`, `get_schema` | The same | Not listed; a call answers `unknown tool 'write_cypher'` |
+| `--read-only=live` (a directory store) | `read_cypher`, `get_schema` | The same, against the writer's latest commits | Not listed |
+| Any, with `--safe` | As without it | Also refuses a `MATCH` read with no `LIMIT` and no reducing aggregate, as `SafeModeViolation` | Also refuses a new named node without a label |
+
+`--read-only` takes no writer lease and never creates the store; a missing store fails the open. `--read-only=live` follows a directory store that another process writes (:term[live read-only]{id=live-read-only}), and is refused for a `.rl` file and for `:memory:`. The tools of a read-only server carry `readOnlyHint: true`, and hosts that approve read-only tools without asking can use that. The [agent safety guide](/docs/guides/agents/agent-safety) has the permission matrix across the CLI and MCP.
+
+## Errors and refusals
+
+A tool that fails returns a result with `isError: true` and the message as its text; it is not a JSON-RPC error. These runs show the refusals of a read-only server:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"MATCH (p:Person {name: $name}) DETACH DELETE p","parameters":{"name":"Ada"}}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"CREATE INDEX person_name FOR (p:Person) ON (p.name)"}}}' \
+  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"write_cypher","arguments":{"statement":"CREATE (:Person {name: \"Eve\"})"}}}' \
+  '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_cypher","arguments":{"query":"MATCH (p:Person) RETURN count(p) AS people"}}}' \
+  '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"RETURN $limit AS n","parameters":"10"}}}' \
+  '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"RETURN $limit AS n"}}}' \
+  '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_schema","arguments":{"sample_size":-2}}}' \
+  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"Only MATCH queries are allowed for read-query","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"Only MATCH queries are allowed for read-query","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":3,"result":{"content":[{"text":"unknown tool 'write_cypher'","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":4,"result":{"content":[{"text":"invalid params: missing string \"statement\"","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":5,"result":{"content":[{"text":"invalid params: \"parameters\" must be an object","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":6,"result":{"content":[{"text":"Error: semantic error: ParameterMissing: Expected parameter(s): limit","type":"text"}],"isError":true}}
+{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"invalid params: sample_size must be -1 or non-negative, got -2","type":"text"}],"isError":true}}
+```
+
+| Tool error text | When |
+| --- | --- |
+| `Only MATCH queries are allowed for read-query` | `read_cypher` got a write or a schema statement ([errors reference](/docs/reference/errors#mcp-read-query-only)) |
+| `Only write queries are allowed for write-query` | `write_cypher` got a read ([errors reference](/docs/reference/errors#mcp-write-query-only)) |
+| `unknown tool '<name>'` | The tool is not listed, including `write_cypher` on a read-only server ([errors reference](/docs/reference/errors#mcp-unknown-tool)) |
+| `invalid params: missing string "statement"` | A Cypher tool's `arguments` has no string `statement` (an argument named `query` is not read) |
+| `invalid params: "parameters" must be an object` | `parameters` is a string, a list, a number or a boolean; `null` counts as no parameters |
+| `invalid params: sample_size must be -1 or non-negative, got <n>` | `get_schema` got a negative `sample_size` other than `-1` |
+| `Error: <engine message>` | The engine refused the statement: a syntax error, a missing parameter, a type error, `SafeModeViolation`; the text after `Error: ` is the engine's message, as on the [errors reference](/docs/reference/errors#engine-errors) |
+| `Error: internal error` | An engine-internal, storage, IO or lock failure; the detail stays out of the tool result ([errors reference](/docs/reference/errors#mcp-internal-error)) |
+
+A request that is not a valid call gets a JSON-RPC error. A body that cannot be decoded gets `"id": null`:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"resources/list"}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{}}' \
+  '{"jsonrpc":"2.0","id":3,"method":"ping","extra":true}' \
+  '{"jsonrpc":"1.0","id":4,"method":"ping"}' \
+  'not json' \
+  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found: resources/list"}}
+{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"Invalid params: tools/call needs a string \"name\""}}
+{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"malformed JSON-RPC message: unknown field `extra`, expected one of `jsonrpc`, `id`, `method`, `params` at line 1 column 47"}}
+{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"unsupported JSON-RPC version '1.0'"}}
+{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"malformed JSON-RPC message: expected ident at line 1 column 2"}}
+```
+
+| JSON-RPC code | Message | When |
+| --- | --- | --- |
+| `-32700` | `malformed JSON-RPC message: <detail>` | The body is not JSON, lacks `jsonrpc` or `method`, carries a member other than `jsonrpc`, `id`, `method` and `params`, or is a JSON array (batches are not accepted) |
+| `-32600` | `unsupported JSON-RPC version '<version>'` | `jsonrpc` is not `"2.0"` |
+| `-32601` | `Method not found: <method>` | Any method outside [Methods](#methods) |
+| `-32602` | `Invalid params: <detail>` | `tools/call` without a string `name` |
+
+On the HTTP transport, the server answers these before any JSON-RPC handling, with a JSON body of one key, `error`:
+
+| HTTP status | Body `error` | When |
+| --- | --- | --- |
+| 401 | `authentication required` | No credential or a wrong one, after a 1-second delay; with `WWW-Authenticate: Basic realm="relate"` |
+| 403 | `origin is not allowed` | A present `Origin` that is not loopback |
+| 405 | `streamable HTTP MCP is POST-only` | Any method but `POST`, with `Allow: POST` |
+| 415 | `the request content type is browser-"simple" — a cross-origin form cannot send a non-simple type without a preflight` | A `POST` with no `Content-Type`, `text/plain`, or a form type |
+| 400 | `unsupported HTTP version HTTP/1.0: this surface answers HTTP/1.1` | A request line that is not HTTP/1.1 |
+| 400 | `malformed request: body too large` | A body over the 16 MiB cap |
+| 202 | Empty body | A JSON-RPC notification |
+
+The 403 and 415 checks run before the credential check, and the credential check runs before the body is read.
+
+## Authentication
+
+The HTTP transport asks for HTTP Basic authentication (RFC 7617) on every request. The stdio transport asks for none, because the host that spawned the process is the only peer.
+
+| Source | Credential |
+| --- | --- |
+| `--auth USER:PASSWORD` | That user and password. A value with no colon exits 1 with `Error: --auth: expected user:password or 'none'`, and one with an empty side with `Error: --auth: expected user:password with both sides non-empty` |
+| `RELATE_AUTH` | The same forms, read when `--auth` is absent |
+| `--auth none` | No credential is checked |
+| Neither | A generated token for the user `relate`, printed on stderr at startup. For a directory or `.rl` store it is saved beside the store as `<store>.auth-token` (mode `0600`, holding `relate:<token>`) and reused on restart; `:memory:` generates a new token on every start |
+
+The credential is the one `relate serve` shares with its `--http` and `--bolt` listeners, so one token opens all three. A failed check waits 1 second before the 401 goes out. A credential given as `--auth` on the command line is visible in the process list; `RELATE_AUTH` and the generated token keep it out of the arguments. Every surface is plaintext, so a credential sent to a non-loopback `--host` crosses the network unencrypted; [Security](/docs/reference/security#served-surfaces) lists the defaults.
+
+## Limits
+
+Every row is a limit.
+
+| Limit | Value | Over the limit |
+| --- | --- | --- |
+| Statements per call | 1 | A second statement after `;` is a syntax error |
+| Messages per HTTP request | 1 | A JSON array is a `-32700` error |
+| HTTP request body | 16 MiB | HTTP 400, `malformed request: body too large` |
+| HTTP header deadline | 10 seconds for the whole header block (`--header-deadline-secs`, `0` turns it off, at most 86400) | The connection is dropped with no reply |
+| HTTP body deadline | 60 seconds for the whole body (`--body-deadline-secs`, `0` turns it off, at most 86400) | The connection is dropped with no reply |
+| Concurrent connections | 128, shared with the `--http` and `--bolt` listeners (`--max-connections`) | The connection is accepted, then closed |
+| Failed credential checks | One answer per second per connection | The 401 waits 1 second |
+| `get_schema` sample | 1000 nodes and relationships per label by default | Types a smaller sample did not see are left out |
+| Traversal depth | An explicit hop bound up to 500 (`--max-traversal-depth`, 1 to 2000) | A tool error carrying `TraversalDepthExceeded` |
+| Expression memory | One value up to 256 MiB (`--expression-memory-limit`) | A tool error |
+
+The server has no per-call timeout and no row cap: `relate serve` takes neither `--timeout` nor `--max-rows`, and a `read_cypher` result holds every row. A bounded read uses `LIMIT`, and `--safe` refuses an unbounded `MATCH` read.
+
+## Logging
+
+The server writes its startup and shutdown lines to stderr: on stdio, `serve: MCP (stdio) serving on stdin/stdout (auth: none)` and, when stdin closes, `serve: stdin closed, shutting down`; on HTTP, `serve: MCP (streamable HTTP) listening on http://<host>:<port> (auth: basic)`, plus an `auth:` line naming where the credential came from, and the generated token when there is one. On stdio, stdout carries only JSON-RPC. The runs recorded for this page wrote no line per request on either transport. An internal engine failure reaches the caller only as `Error: internal error`.
+
+## Differences from `mcp-neo4j-cypher`
+
+The tools follow the contract of Neo4j's `mcp-neo4j-cypher` server under relate's own names, as relate's MCP specification records it; the specification names no version of that server, and it was not run for this page:
+
+| relate | `mcp-neo4j-cypher` | Difference |
+| --- | --- | --- |
+| `get_schema` | `get_neo4j_schema` | None in the input or output shape |
+| `read_cypher` | `read_neo4j_cypher` | The rows arrive inside the result envelope, under `rows`, with column types, notifications, the plan, and timings beside them |
+| `write_cypher` | `write_neo4j_cypher` | The counters arrive inside the result envelope, under `stats` |
+
+The refusal texts `Only MATCH queries are allowed for read-query` and `Only write queries are allowed for write-query` are the same in both.
+
+## See also
+
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): the configuration block for each agent host, every one opening the store `--read-only`
+- [The hosted docs MCP server](/docs/reference/server/docs-mcp): the documentation server at `https://relatedb.ai/mcp`, a launch-day target
+- [relate serve](/docs/reference/cli/serve): every `serve` flag, and the HTTP Query API and Bolt listeners beside MCP
+- [MCP errors](/docs/reference/errors#mcp-errors): each refusal and JSON-RPC error with its cause and remedy
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and backups before an agent writes
+- [Graph queries over MCP](/docs/concepts/problems-relate-solves#graph-queries-over-mcp): the problem this server solves

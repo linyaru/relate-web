@@ -474,13 +474,18 @@ ORDER BY cvss DESC, advisory, version
 
 Eight findings fail the build. Add reviewed ids to `allow`, or change
 `minCvss`, and run it again. In CI, save the query as `gate.cypher`, run it
-against a database built with the load steps above, and let `jq -e` turn a
-non-empty result into exit code 1:
+read-only against a database built with the load steps above, and let
+`jq -e` turn a non-empty result into exit code 1:
 
 ```sh
-relate --json --param minCvss=7.5 --param 'allow=["GHSA-qwcr-r2fm-qrc7"]' \
-  deps.rl < gate.cypher | jq -e 'length == 0'
+relate query --database ./deps.rl --read-only --mode json --max-rows 0 \
+  --param minCvss=7.5 --param 'allow=["GHSA-qwcr-r2fm-qrc7"]' \
+  < gate.cypher > findings.json
+jq -e 'length == 0' findings.json
 ```
+
+[Use relate in CI](/docs/guides/agents/use-in-ci) builds the same gate
+around a store checked out with the code.
 
 ## Data
 

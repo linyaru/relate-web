@@ -1,4 +1,176 @@
 ---
 title: Load JSON from a URL or a file
-status: planned
+label: Load JSON
+description: Bind a JSON file or an http or https URL as one parameter with --fetch-params, UNWIND it into nodes and relationships, and know its limits and egress rules.
+order: 17
+surfaces: [cli]
+prerequisites: [get-started/install, guides/cypher/parameters]
+related: [reference/cli/flags#fetch-params, guides/cypher/parameters, guides/cypher/import-csv, guides/agents/agent-safety, reference/errors#cli-fetch-params-failed, guides/migrate/from-json-files]
 ---
+
+This guide shows you how to load a JSON document into a relate :term[store]{id=store} with `--fetch-params <name>=<source>`: the CLI reads a file or fetches an `http://` or `https://` URL, parses it as JSON, and binds the whole document as the :term[parameter]{id=parameter} `$<name>`. One statement then walks it with `UNWIND` and writes nodes and relationships. The steps write to the store, and each says so.
+
+`--fetch-params` is a flag of the CLI process, not a Cypher clause. The cells on other pages, the clients and `relate serve` have no equivalent: there, read the document in your program and pass it as an ordinary parameter ([use parameters](/docs/guides/cypher/parameters)).
+
+## Prerequisites
+
+- relate on your `PATH` ([install](/docs/get-started/install)).
+- A JSON document: one value per file or response, of up to 64 MiB. The first step writes a small one, so you can follow along in an empty directory.
+
+## Write a JSON file
+
+This file holds the people and projects of the shared example graph: two projects, three people, and who works on which project since when.
+
+```bash verify
+cat > team.json <<'JSON'
+{"projects": [{"name": "relate", "language": "Rust"},
+              {"name": "opencypher-tck", "language": "Gherkin"}],
+ "people": [{"name": "Ada", "role": "engineer", "works_on": [{"project": "relate", "since": 2024}]},
+            {"name": "Grace", "role": "engineer", "works_on": [{"project": "relate", "since": 2023},
+                                                              {"project": "opencypher-tck", "since": 2022}]},
+            {"name": "Noor", "role": "maintainer", "works_on": []}]}
+JSON
+```
+
+## Look at the document before you write
+
+Bind the file as `$team` and read it without writing anything. `--read-only` on the default in-memory store refuses every write, so this run can only look:
+
+```bash verify
+relate --read-only --mode table --fetch-params team=team.json 'UNWIND $team.people AS p RETURN p.name AS name, p.role AS role, size(p.works_on) AS projects'
+```
+
+```text
++---------+--------------+----------+
+| name    | role         | projects |
++---------+--------------+----------+
+| "Ada"   | "engineer"   | 1        |
+| "Grace" | "engineer"   | 2        |
+| "Noor"  | "maintainer" | 0        |
++---------+--------------+----------+
+```
+
+The parameter has the document's JSON types: objects become maps, arrays lists, and numbers stay numbers. Single quotes around the statement keep the shell from expanding `$team`.
+
+## Write nodes and relationships
+
+This command writes to a new single-file store, `team.rl`. The first statement creates the projects; the second creates the people and a `WORKS_ON` relationship for each entry in their `works_on` list. Both statements see the same `$team`:
+
+```bash verify
+relate --database ./team.rl --mode table --fetch-params team=team.json 'UNWIND $team.projects AS row
+MERGE (proj:Project {name: row.name})
+SET proj.language = row.language;
+UNWIND $team.people AS row
+MERGE (p:Person {name: row.name})
+SET p.role = row.role
+WITH p, row
+UNWIND row.works_on AS w
+MATCH (proj:Project {name: w.project})
+MERGE (p)-[r:WORKS_ON]->(proj)
+SET r.since = w.since
+RETURN count(r) AS works_on'
+```
+
+```text
++----------+
+| works_on |
++----------+
+| 3        |
++----------+
+```
+
+`MERGE` on each name makes the load repeatable: a second run with the same file updates the same nodes instead of adding copies. Noor has no projects, so `UNWIND` of her empty list produces no row, and she is written by the `MERGE` before it.
+
+## Fetch the document from a URL
+
+A source that starts with `http://` or `https://` is fetched instead of read. Nothing else changes.
+
+:::warning[Egress]
+A `--fetch-params` URL is a network request made by the CLI process. A sandbox has to allow the host first. A fetched document is untrusted input: a statement that writes what it holds writes whatever the server sent. The [agent safety](/docs/guides/agents/agent-safety) guide covers both.
+:::
+
+This command writes to `team.rl`:
+
+```bash
+relate --database ./team.rl --mode table \
+  --fetch-params 'team=https://<host>/<path>/team.json' \
+  'UNWIND $team.people AS row MERGE (p:Person {name: row.name}) SET p.role = row.role RETURN count(p) AS people'
+```
+
+Quote the whole `<name>=<source>` argument when the URL holds `&` or `?`, so the shell passes it as one word.
+
+## Know the limits and the egress rules
+
+| Rule | Value |
+| --- | --- |
+| Sources | A file path (relative to the working directory, or absolute), a `file://` URL, or an `http://` or `https://` URL. Any other scheme exits with code 2 |
+| Size | At most 64 MiB per source; a larger one fails with `source exceeded the 64 MiB cap` and nothing runs |
+| Time | 60 seconds per fetch |
+| Content | One JSON document: a map, list, string, number, boolean or null. JSON Lines (one document per line) fails as invalid JSON |
+| Several sources | `--fetch-params` is repeatable and combines with `--param`. Assignments resolve in command-line order, and the last one for a name wins; a source that a later assignment overrides is never read |
+| Network | No URL allowlist and no signature check: the document has the same trust as a value passed with `--param`. Plain `http://` is accepted for any host |
+| Safe mode | `--safe` does not affect `--fetch-params`: it binds a parameter, not a store. `--safe` refuses a remote `--load` source, which is a store |
+| Failure | The command exits before the statement runs, so nothing is written |
+
+Safe mode leaves the flag working, so a `--safe` run can still load a document:
+
+```bash verify
+relate --read-only --safe --mode table --fetch-params team=team.json 'UNWIND $team.projects AS p RETURN p.name AS project LIMIT 5'
+```
+
+```text
++------------------+
+| project          |
++------------------+
+| "relate"         |
+| "opencypher-tck" |
++------------------+
+```
+
+## Verify
+
+Read the loaded graph back, read-only:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table 'MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p.name AS person, proj.name AS project, w.since AS since ORDER BY since'
+```
+
+```text
++---------+------------------+-------+
+| person  | project          | since |
++---------+------------------+-------+
+| "Grace" | "opencypher-tck" | 2022  |
+| "Grace" | "relate"         | 2023  |
+| "Ada"   | "relate"         | 2024  |
++---------+------------------+-------+
+```
+
+Three `WORKS_ON` relationships, as many as the file lists, mean every entry arrived.
+
+## If it goes wrong
+
+Each of these failures exits before the statement runs and prints one line on stderr, with no error object:
+
+```bash verify
+relate --read-only --fetch-params team=missing.json 'RETURN size($team.people) AS people'
+```
+
+```text
+Error: --fetch-params team: reading missing.json: No such file or directory (os error 2)
+```
+
+| Message | Exit code | Cause | Remedy |
+| --- | --- | --- | --- |
+| `Error: --fetch-params team: reading missing.json: No such file or directory (os error 2)` | 1 | The path does not exist, relative to the working directory. | Check the path, or give an absolute one. |
+| `Error: --fetch-params team: invalid JSON: trailing characters at line 2 column 1` | 1 | The source is not one JSON document, such as a JSON Lines file. | Wrap the lines in one array, or load each line with `--param`. |
+| `Error: --fetch-params team: HTTP 404` | 1 | The server answered with an error status. | Check the URL in a browser or with `curl`. |
+| `Error: --fetch-params team: reading team.json: source exceeded the 64 MiB cap` (a file) or `Error: --fetch-params team: source exceeded the 64 MiB cap` (a URL) | 1 | The document is larger than 64 MiB. | Split it into several files and load each. |
+| `Error: invalid --fetch-params value: expected name=value` | 2 | The argument has no `=`. | Write `--fetch-params <name>=<source>` as one argument. |
+| `Error: invalid --fetch-params value: unsupported source (only http, https, and file paths): ftp://x/team.json` | 2 | A scheme other than `http`, `https` or `file`. | Download the file and pass its path. |
+
+## Related
+
+- [Flags](/docs/reference/cli/flags#fetch-params): `--fetch-params` and `--param`, with their recorded runs.
+- [Use parameters](/docs/guides/cypher/parameters): how a parameter's JSON maps to Cypher types, and the typed constructors.
+- [Import a CSV](/docs/guides/cypher/import-csv): `LOAD CSV` for tabular files.
+- [Errors](/docs/reference/errors#cli-fetch-params-failed): the `--fetch-params` failures at a stable anchor.

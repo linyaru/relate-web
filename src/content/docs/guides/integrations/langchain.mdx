@@ -1,4 +1,177 @@
 ---
-title: LangChain
-status: planned
+title: Use relate with LangChain
+label: LangChain
+description: Give a LangChain agent a recall tool that reads an agent's memory from a relate store on a read-only connection, checked before any model call.
+order: 70
+surfaces: [python, agents]
+prerequisites: [get-started/python]
+related: [guides/integrations/langgraph, guides/agents/model-agent-memory, cookbook/agent-memory, concepts/problems-relate-solves#agent-memory, reference/errors#engine-write-on-read-only, get-started/python]
 ---
+
+This guide shows you how to give a LangChain agent a tool that recalls what an agent's memory holds, from a relate :term[store]{id=store}, without letting the agent change it. Your app writes the memory; the agent gets one `recall` tool that opens the store :term[read-only]{id=read-only} on every call and follows the graph from a name to the episodes that mention it and the people who work on it. The tool runs without a model, so you can check what the agent gets before it makes a call.
+
+## Prerequisites
+
+- Python 3.10 or later, with the relate :term[client]{id=client} and LangChain: `pip install relate-db langchain`. The package is `relate-db`; the import is `import relate`. The LangChain code on this page was checked against `langchain` 1.4.9 and `langchain-core` 1.7.6, as of 2026-11-08.
+- For [Give the tool to an agent](#give-the-tool-to-an-agent) only: a chat model's integration package and credential, such as `pip install "langchain[anthropic]"` with `ANTHROPIC_API_KEY` in the environment.
+- relate on your `PATH` for [Verify](#verify) ([Install relate](/docs/get-started/install)).
+
+## How this differs from the LangGraph guide
+
+[Use relate with LangGraph](/docs/guides/integrations/langgraph) builds a `StateGraph` by hand, whose steps write and recall memory. This page hands a read-only tool to LangChain's `create_agent`, which builds the agent loop itself:
+
+| | This page | The LangGraph guide |
+| --- | --- | --- |
+| Who writes memory | Your app, on its own writable connection | The graph's `remember` tool |
+| What the agent can do | Read, through `recall` | Write and read, through `remember` and `recall` |
+| The connection | A new read-only one per call | One writable connection on a dedicated thread |
+| The agent loop | `create_agent` | A `StateGraph` with two nodes |
+
+Both store memory the same way: each turn is an `Episode` :term[node]{id=node} `IN_CONVERSATION` a `Conversation`, and an episode `MENTIONS` the `Person` and `Project` nodes of the team graph the Get started pages use. [Model agent memory](/docs/guides/agents/model-agent-memory) explains the model this one reduces.
+
+## Write the tool
+
+The program opens `./memory`, a :term[directory store]{id=directory-store}, for writing in a setup block that stands in for the app: it writes the team graph and two episodes from two stand-ups. The `recall` tool opens its own read-only connection on each call. The last lines print the tool as the model sees it and call it twice, the way the agent does, with a name that exists and one that doesn't:
+
+```python run name=recall-tool title="recall_tool.py"
+import relate
+from langchain.tools import ToolException, tool
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+REMEMBER = """
+MERGE (c:Conversation {id: $conversation})
+CREATE (e:Episode {seq: $seq, text: $text})-[:IN_CONVERSATION]->(c)
+WITH e
+UNWIND $mentions AS name
+MATCH (x {name: name})
+MERGE (e)-[:MENTIONS]->(x)
+"""
+
+STORE = "./memory"
+
+# Setup: the app that owns ./memory writes the team graph and two episodes, on a writable connection.
+with relate.connect(STORE) as owner:
+    if owner.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"] == 0:
+        owner.execute(TEAM)
+        owner.execute(REMEMBER, {"conversation": "standup-monday", "seq": 1, "text": "Ada fixed the CSV import bug in relate.", "mentions": ["Ada", "relate"]})
+        owner.execute(REMEMBER, {"conversation": "standup-tuesday", "seq": 2, "text": "Grace will review the relate release notes.", "mentions": ["Grace", "relate"]})
+
+
+@tool(parse_docstring=True)
+def recall(name: str) -> list[str]:
+    """Return what memory holds about a person or project: the episodes that mention it, oldest first, then who works on it.
+
+    Args:
+        name: The exact name of a person or project, such as "Ada" or "relate".
+    """
+    # Read-only: the engine refuses every write on this connection.
+    with relate.connect(STORE, read_only=True) as conn:
+        if conn.execute("MATCH (x {name: $name}) RETURN count(x) AS n", {"name": name}).single()["n"] == 0:
+            raise ToolException(f"Nothing in memory is named {name!r}.")
+        episodes = conn.execute(
+            """
+            MATCH (x {name: $name})<-[:MENTIONS]-(e:Episode)-[:IN_CONVERSATION]->(c:Conversation)
+            RETURN c.id AS conversation, e.text AS text
+            ORDER BY e.seq
+            """,
+            {"name": name},
+        ).fetchall()
+        people = conn.execute(
+            """
+            MATCH (x {name: $name})<-[w:WORKS_ON]-(p:Person)
+            RETURN p.name AS person, w.since AS since
+            ORDER BY since
+            """,
+            {"name": name},
+        ).fetchall()
+    return [f"[{r['conversation']}] {r['text']}" for r in episodes] + [
+        f"{r['person']} has worked on {name} since {r['since']}" for r in people
+    ]
+
+
+# A ToolException goes back to the model as the tool's answer instead of ending the run.
+recall.handle_tool_error = True
+
+# Check: what the model sees, then two calls the way an agent makes them.
+print(recall.name, recall.args)
+for line in recall.invoke({"name": "relate"}):
+    print(line)
+print(recall.invoke({"name": "relate-engine"}))
+```
+
+The first call returns both episodes about `relate`, oldest first, and then two lines that no episode stated: they come from the team graph's `WORKS_ON` relationships. The second call returns the `ToolException` message as the tool's answer. The parts that matter:
+
+- **A connection per call.** `create_agent` runs a synchronous tool on a worker thread, and a relate connection belongs to the thread that opened it. Opening inside the tool keeps the open and the statements on one thread, and each call sees every episode the app committed before it.
+- **`parse_docstring=True`** takes the `name` argument's description from the docstring's `Args:` section, so the model gets it in the tool's schema; the first line printed shows it.
+- **`handle_tool_error = True`** turns a `ToolException` into the tool's answer, so a misspelled name gets a sentence the model can act on instead of ending the run.
+- **Every value is a `$parameter`.** The model chooses only `name`; the Cypher is fixed, and the read-only connection refuses a write even if a statement tried one.
+
+## Give the tool to an agent
+
+`create_agent` takes a model name and the tools. Replace the check lines at the end of `recall_tool.py` with this; it needs the model's credential:
+
+```python
+from langchain.agents import create_agent
+
+agent = create_agent(
+    "anthropic:claude-opus-5-5",
+    tools=[recall],
+    system_prompt="Answer from memory. Call recall with the exact name of a person or project.",
+)
+result = agent.invoke({"messages": [{"role": "user", "content": "What happened on relate this week?"}]})
+print(result["messages"][-1].content)
+```
+
+The model name is `<provider>:<model>`, and the provider's package must be installed. The model can call `recall`, read the lines it returns, and answer from them.
+
+## Verify
+
+The tool's output already shows what it read. To see the links it followed, ask the store from the CLI, read-only, in the directory the program ran in:
+
+```bash
+relate --database ./memory --read-only --mode table "MATCH (e:Episode)-[:MENTIONS]->(x) RETURN e.seq AS seq, x.name AS mentions ORDER BY seq, mentions"
+```
+
+```text
++-----+----------+
+| seq | mentions |
++-----+----------+
+| 1   | "Ada"    |
+| 1   | "relate" |
+| 2   | "Grace"  |
+| 2   | "relate" |
++-----+----------+
+```
+
+Each episode links to the person and the project it names, which is the path `recall` follows from `relate` back to both episodes.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `Relate connection used from a thread other than the one that opened it: connections are thread-affine (DB-API threadsafety = 1). Create the connection on the thread that uses it.` (`relate.ProgrammingError`) | The tool used a connection opened outside it, such as one at module level, from the worker thread `create_agent` runs it on | Open the connection inside the tool, as `recall` does. |
+| `storage error: read-only open requires an existing database at <path>` (`relate.OperationalError`) | `STORE` names a directory that holds no store; a read-only open never creates one | Create the store with a writable open first, as the setup block does, or fix the path. |
+| `storage locked: <path>` (`relate.OperationalError`) | The store is a single-file `.rl` store that the app holds for writing, and a read-only open refuses it | Keep memory in a directory store, as `./memory` is, so the tool reads beside the app. |
+| `` Initializing ChatAnthropic requires the langchain-anthropic package. Please install it with `pip install langchain-anthropic` `` (`ImportError`) | `create_agent` got an `anthropic:` model name without the provider's package | Install `langchain[anthropic]`, or the package for the provider you name. |
+
+The [errors reference](/docs/reference/errors) lists the Python exception class for each engine error.
+
+## Related
+
+- [Use relate with LangGraph](/docs/guides/integrations/langgraph): tools that write memory, inside a graph you build.
+- [Model agent memory](/docs/guides/agents/model-agent-memory): the labels and relationships for what an agent remembers.
+- [Agent memory](/cookbook/agent-memory/): a fuller memory graph, with facts that supersede older ones.
+- [Agent memory, the problem](/docs/concepts/problems-relate-solves#agent-memory): what relate offers for memory that outlives a session.
+- [Embed relate in a Python app](/docs/get-started/python): the client's connections, parameters, transactions, and errors.

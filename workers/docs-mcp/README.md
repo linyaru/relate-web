@@ -178,15 +178,20 @@ never returns them, the tool description says so, and `npm run bundle` fails
 if any other page is outside the graph. `get_page` reads all three.
 
 `search_docs` drops common words from the query (`STOPWORDS` in
-`src/docs.ts`; all of them are kept when nothing else is left), lets the
+`src/rank.ts`; all of them are kept when nothing else is left), lets the
 index return its 200 best sections (`CANDIDATES`), applies the `section` and
-`surface` filters, and ranks the rest by `10 × (query words found among the
-heading's words ÷ query words) + full-text score ÷ log2(2 + section length)`,
-ties by id. The engine's full-text score counts query-term occurrences, so
-on its own it ranks long sections above the one a heading names; over the
-273 headings only one page has, the page is in the top three for 271 with
-the re-rank, against 72 with the raw score. `score` in the answer is the
-rank. Ranking 200 candidates instead of 5 measured 11.8 ms against 10.0 ms
+`surface` filters, and ranks the rest by `10 × recall × (1 + precision) +
+full-text score ÷ log2(2 + section length)`, ties by id, where recall is the
+share of the query's words found among the heading's words and precision the
+share of the heading's own words (stopwords dropped) that are query words.
+The engine's full-text score counts query-term occurrences, so on its own it
+ranks long sections above the one a heading names; precision ranks the
+heading that is the query ("Exit codes") above one that names it among other
+words ("Errors and exit codes"). Over the 604 headings with at least two
+words besides stopwords that only one page has (phase 2 docs graph), the
+page is first for 586 and in the top three for 590 with the re-rank, against
+562 and 588 with recall alone and 98 and 211 with the raw score. `score` in
+the answer is the rank. Ranking 200 candidates instead of 5 measured 11.8 ms against 10.0 ms
 per search in Node on the same WASM.
 
 **The hybrid lane** (ADR-0028). With the `AI` binding, `search_docs` embeds

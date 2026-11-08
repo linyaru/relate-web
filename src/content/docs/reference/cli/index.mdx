@@ -31,20 +31,20 @@ The twelve commands of the binary these pages are verified against, in the order
 
 | Command | Summary from `relate --help` | Its flags | Guide |
 | --- | --- | --- | --- |
-| `query` | Run a statement session (oneshot, stdin, or shell) | [Query-run flags](/docs/reference/cli/flags#query-run-flags) | [Script the CLI](/docs/guides/cli/scripting) |
-| `clone` | Copy a database into a new store and exit | [`relate clone`](/docs/reference/cli/flags#relate-clone) | [Back up and restore](/docs/guides/storage/backup-and-restore) |
-| `info` | Print store metadata for a database without opening it | [`relate info`](/docs/reference/cli/flags#relate-info) | [Storage formats](/docs/reference/storage/formats) |
-| `pull` | Copy a Neo4j/Aura subgraph into a database | [`relate pull`](/docs/reference/cli/flags#relate-pull) | — |
-| `push` | Copy a database subgraph into Neo4j/Aura | [`relate push`](/docs/reference/cli/flags#relate-push) | — |
-| `skill` | Install, inspect, or remove the embedded agent skill bundle | [`relate skill`](/docs/reference/cli/flags#relate-skill) | [Install the agent skill](/docs/guides/agents/install-the-skill) |
-| `upgrade` | Update the relate binary (alias: update) | [`relate upgrade`](/docs/reference/cli/flags#relate-upgrade) | — |
-| `telemetry` | Manage anonymous usage metrics (on, off, status) | none | [Privacy and telemetry](/docs/reference/privacy-and-telemetry) |
-| `run` | Run an installed extension action into a store the host owns | [`relate run`](/docs/reference/cli/flags#relate-run) | — |
-| `serve` | Host the HTTP Query API and MCP surfaces on a database | [`relate serve`](/docs/reference/cli/flags#relate-serve) | [Connect over MCP](/docs/guides/agents/connect-over-mcp) |
-| `agent-context` | Print the compact agent briefing (commands, flags, exit codes) | none | [Agent mode](/docs/reference/cli/agent-mode#the-agent-context-briefing) |
-| `extension` | Scaffold, install, check, list, or remove command extensions | [`relate extension`](/docs/reference/cli/flags#relate-extension) | — |
+| [`query`](/docs/reference/cli/query) | Run a statement session (oneshot, stdin, or shell) | [Query-run flags](/docs/reference/cli/flags#query-run-flags) | [Script the CLI](/docs/guides/cli/scripting) |
+| [`clone`](/docs/reference/cli/clone) | Copy a database into a new store and exit | [`relate clone`](/docs/reference/cli/flags#relate-clone) | [Back up and restore](/docs/guides/storage/backup-and-restore) |
+| [`info`](/docs/reference/cli/info) | Print store metadata for a database without opening it | [`relate info`](/docs/reference/cli/flags#relate-info) | [Storage formats](/docs/reference/storage/formats) |
+| [`pull`](/docs/reference/cli/pull) | Copy a Neo4j/Aura subgraph into a database | [`relate pull`](/docs/reference/cli/flags#relate-pull) | [Pull from Neo4j](/docs/guides/neo4j/pull-from-neo4j) |
+| [`push`](/docs/reference/cli/push) | Copy a database subgraph into Neo4j/Aura | [`relate push`](/docs/reference/cli/flags#relate-push) | [Push to Neo4j](/docs/guides/neo4j/push-to-neo4j) |
+| [`skill`](/docs/reference/cli/skill) | Install, inspect, or remove the embedded agent skill bundle | [`relate skill`](/docs/reference/cli/flags#relate-skill) | [Install the agent skill](/docs/guides/agents/install-the-skill) |
+| [`upgrade`](/docs/reference/cli/upgrade) | Update the relate binary (alias: update) | [`relate upgrade`](/docs/reference/cli/flags#relate-upgrade) | — |
+| [`telemetry`](/docs/reference/cli/telemetry) | Manage anonymous usage metrics (on, off, status) | none | [Privacy and telemetry](/docs/reference/privacy-and-telemetry) |
+| [`run`](/docs/reference/cli/run) | Run an installed extension action into a store the host owns | [`relate run`](/docs/reference/cli/flags#relate-run) | [Install and run an extension](/docs/guides/extensions/install-and-run) |
+| [`serve`](/docs/reference/cli/serve) | Host the HTTP Query API and MCP surfaces on a database | [`relate serve`](/docs/reference/cli/flags#relate-serve) | [Connect over MCP](/docs/guides/agents/connect-over-mcp) |
+| [`agent-context`](/docs/reference/cli/agent-context) | Print the compact agent briefing (commands, flags, exit codes) | none | [Agent mode](/docs/reference/cli/agent-mode#the-agent-context-briefing) |
+| [`extension`](/docs/reference/cli/extension) | Scaffold, install, check, list, or remove command extensions | [`relate extension`](/docs/reference/cli/flags#relate-extension) | [Write an extension](/docs/guides/extensions/write-an-extension) |
 
-A dash means no page covers the command yet; `relate <command> --help` and `relate agent-context <command>` describe it on any machine. `relate --help` lists only the commands compiled into the binary. A command left out of a build exits 2 with `Error: the '<command>' command is not included in this build of relate`.
+Each command's name links to its reference page. A dash in the Guide column means no guide covers the command; `relate <command> --help` and `relate agent-context <command>` describe it on any machine. `relate --help` lists only the commands compiled into the binary. A command left out of a build exits 2 with `Error: the '<command>' command is not included in this build of relate`.
 
 Each command's usage line, as its `--help` prints it:
 
@@ -87,30 +87,7 @@ The query-run flags apply to the path-first form and to `relate query`, before o
 
 ## Shell dot commands
 
-A line that starts with a dot is a shell command, not Cypher. Dot commands work in the interactive shell and in a script piped to `relate query` (or to the path-first form), one per line, with no trailing `;`. `.help` prints the same set the table lists.
-
-| Command | Effect | Fails with |
-| --- | --- | --- |
-| `.begin` | Opens an explicit transaction: later statements see its writes, and nothing is committed until `.commit` | `semantic error: already in a transaction` when one is open |
-| `.commit` | Commits the open transaction | `semantic error: no transaction` when none is open |
-| `.rollback` | Discards the open transaction's writes | `semantic error: no transaction` when none is open |
-| `.checkpoint` | Writes a :term[checkpoint]{id=checkpoint} of a persistent store now; prints nothing | — |
-| `.info` | Prints the store's metadata as a key/value table, the fields `relate info` prints; `:memory:` prints node and relationship counts and the index and constraint catalog | — |
-| `.timer on`, `.timer off` | Prints `Timer: on` or `Timer: off`, and while on, a `Time: <n>ms (parse … / plan … / execute …)` line on stdout after each result | — (without an argument it prints `Usage: .timer on\|off`) |
-| `.quit` | Ends the session; lines after it are not read | — |
-
-Any other dot command fails with `Error: unknown command .<name>` (exit code 1). A session that ends with a :term[transaction]{id=transaction} open, by `.quit` or at the end of a script, rolls it back, prints `Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.` on stderr, and exits 1. In a script, a failed dot command stops the script with exit code 1, like a failed statement.
-
-A transaction in a piped script, rolled back:
-
-```bash verify
-printf '.begin\nCREATE (:Note);\n.rollback\nMATCH (n:Note) RETURN count(n) AS notes;\n' | relate query --mode envelope
-```
-
-```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["notes"],"notifications":[],"rows":[{"notes":0}],"truncated":false}
-```
+A line that starts with a dot is a shell command, not Cypher: `.begin`, `.commit`, `.rollback`, `.checkpoint`, `.info`, `.timer`, `.help` and `.quit`. They work in the interactive shell and in a script piped to `relate query`, one per line; `.begin` opens an explicit :term[transaction]{id=transaction} and `.checkpoint` writes a :term[checkpoint]{id=checkpoint}. [Dot commands](/docs/reference/cli/dot-commands) gives each one's effect, output, failure and exit code.
 
 ## Detail pages
 
@@ -120,6 +97,9 @@ printf '.begin\nCREATE (:Note);\n.rollback\nMATCH (n:Note) RETURN count(n) AS no
 | [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) | One anchor per :term[exit code]{id=exit-code}, the error object a failed query run prints, and how the two relate |
 | [Agent mode](/docs/reference/cli/agent-mode) | How the CLI detects an agent harness, the defaults it changes, the row cap, the envelope and `relate agent-context` |
 | [Errors](/docs/reference/errors) | Every error message, with its cause, remedy, retry advice, and exit code |
+| [Environment variables](/docs/reference/cli/environment-variables) | Every environment variable the CLI reads, what it sets, and what an invalid value does |
+| [Output modes](/docs/reference/cli/output-modes) | Each `--mode` value, its shape on stdout, and how values print in it |
+| [Dot commands](/docs/reference/cli/dot-commands) | The shell dot commands, their output and their errors |
 
 On a machine without network access, `relate --help`, `relate <command> --help` and `relate agent-context [COMMAND]` print the same facts for the installed binary. `RELATE_HELP_EXAMPLES=0` drops the `Examples:` section from every help page.
 

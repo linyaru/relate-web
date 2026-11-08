@@ -5,7 +5,7 @@ description: Take a consistent copy of a relate store with relate clone, even wh
 order: 20
 surfaces: [cli]
 prerequisites: [get-started/install]
-related: [guides/storage/choose-a-store-layout, guides/operate/crash-and-recovery, guides/operate/upgrade-a-store, reference/storage/formats]
+related: [guides/storage/choose-a-store-layout, guides/operate/crash-and-recovery, guides/operate/upgrade-a-store, reference/storage/formats, reference/cli/clone]
 ---
 
 This guide shows you how to back up a relate :term[store]{id=store}, check that the backup opens, and restore from it. The backup command is `relate clone`: it opens the source read-only, never writes it, and writes the committed state into a new store. A :term[directory store]{id=directory-store} can be cloned while another process writes to it; a `.rl` file can be cloned or copied while no process has it open.

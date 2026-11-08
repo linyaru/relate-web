@@ -1,4 +1,171 @@
 ---
-title: CrewAI
-status: planned
+title: Use relate with CrewAI
+label: CrewAI
+description: Give a CrewAI agent a custom tool that reads a relate graph on a read-only connection while your app keeps writing it, checked before any model call.
+order: 80
+surfaces: [python, agents]
+prerequisites: [get-started/python]
+related: [get-started/python, guides/operate/two-processes-one-store, guides/agents/agent-safety, concepts/problems-relate-solves#shared-store-across-processes, reference/errors#engine-storage-locked, guides/integrations/langchain]
 ---
+
+This guide shows you how to give a CrewAI agent a custom tool that reads a relate graph while your app keeps writing it. The tool is a `BaseTool` subclass whose `_run` opens the :term[store]{id=store} :term[read-only]{id=read-only}, runs one fixed :term[statement]{id=statement} with the project name as a parameter, and closes the connection. Because each call opens anew, it sees every commit the app made before it. The tool runs without a model, so the whole program is checked offline; only the crew run needs a credential.
+
+## Prerequisites
+
+- Python 3.10 to 3.13 (`crewai` 1.15.37 requires a version below 3.14), with the relate :term[client]{id=client} and CrewAI in their own virtual environment: `pip install relate-db crewai`. CrewAI pins some of the libraries the other framework guides use to older releases, such as `openai` and `pydantic`, so a separate environment keeps them apart. The package is `relate-db`; the import is `import relate`. The CrewAI code on this page was checked against `crewai` 1.15.37, as of 2026-11-08.
+- For [Give the tool to a crew](#give-the-tool-to-a-crew) only: a model's provider package and credential, such as `pip install "crewai[anthropic]"` with `ANTHROPIC_API_KEY` in the environment.
+- relate on your `PATH` for [Verify](#verify) ([Install relate](/docs/get-started/install)).
+
+CrewAI 1.15.37 sends usage telemetry to CrewAI's own collector unless `CREWAI_DISABLE_TELEMETRY=true` or `OTEL_SDK_DISABLED=true` is set. The relate client sends no usage metrics ([Privacy and telemetry](/docs/reference/privacy-and-telemetry)).
+
+## Write the tool
+
+The program opens `./team`, a :term[directory store]{id=directory-store}, for writing in a setup block that stands in for the app, writes the small team graph the Get started pages use, and keeps that connection open. `TeamGraphTool` reads the store on its own read-only connections. The last block calls the tool the way a crew's agent does, then commits a new person on the app's connection and calls the tool again:
+
+```python run env=crewai name=team-tool title="team_tool.py"
+import relate
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+PEOPLE_ON = """
+MATCH (p:Person)-[r:WORKS_ON|MAINTAINS]->(:Project {name: $project})
+RETURN p.name AS name, p.role AS role, type(r) AS how, r.since AS since
+ORDER BY name
+"""
+
+
+class ProjectInput(BaseModel):
+    project: str = Field(description='The project\'s exact name, such as "relate".')
+
+
+class TeamGraphTool(BaseTool):
+    name: str = "team_graph"
+    description: str = "List the people who work on or maintain a project, with their role and since when."
+    args_schema: type[BaseModel] = ProjectInput
+    store: str = "./team"
+
+    def _run(self, project: str) -> str:
+        try:
+            # Read-only: the engine refuses every write on this connection.
+            with relate.connect(self.store, read_only=True) as conn:
+                rows = conn.execute(PEOPLE_ON, {"project": project}).fetchall()
+        except relate.Error as e:
+            return f"error {e.gql_status}: {e}"
+        if not rows:
+            return f"No one works on or maintains a project named {project!r}."
+        return "\n".join(
+            f"{r['name']} ({r['role']}) {r['how']} {project}" + (f" since {r['since']}" if r["since"] is not None else "")
+            for r in rows
+        )
+
+
+# Setup: the app that owns ./team writes the team graph, and keeps its writable connection open.
+owner = relate.connect("./team")
+if owner.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"] == 0:
+    owner.execute(TEAM)
+
+team_graph = TeamGraphTool()
+
+# Check: call the tool the way a crew's agent does, without a model.
+print(team_graph.run(project="relate"))
+
+# The app commits a new person while its connection stays open; the tool's next call sees her.
+owner.execute(
+    "MATCH (tck:Project {name: 'opencypher-tck'}) "
+    "MERGE (lin:Person {name: 'Lin', role: 'engineer'}) "
+    "MERGE (lin)-[:WORKS_ON {since: 2026}]->(tck)"
+)
+print(team_graph.run(project="opencypher-tck"))
+print(team_graph.run(project="relate-engine"))
+owner.close()
+```
+
+The first call lists who works on and maintains `relate`. The second shows Lin, whom the app committed while its own connection stayed open: a directory store takes one writer and several read-only opens beside it. The third call names a project that doesn't exist and gets a sentence back instead of an error. The parts that matter:
+
+- **`args_schema`** is the input the crew's agent fills in. The `Field` description tells the model what `project` holds, and CrewAI validates the call against it before `_run` runs.
+- **A connection per call.** A relate connection belongs to the thread that opened it, and a long-lived read-only connection sees the graph as it was when it opened. Opening inside `_run` keeps the open and the statement on the thread that runs the tool, and makes each call current.
+- **Answers are text.** `_run` returns a string, the form a CrewAI agent reads, including for an engine error, which comes back as `error <gql_status>: <message>` instead of raising.
+- **`MERGE` keeps the app's write idempotent**, so a second run of the program leaves one Lin, not two.
+
+Each layer of the guard refuses something different:
+
+| Layer | Refuses | Enforced by |
+| --- | --- | --- |
+| `relate.connect(path, read_only=True)` | Every write and checkpoint on that connection; a path with no store | The engine |
+| The fixed statement `PEOPLE_ON` | Any Cypher the model writes: the model passes only `project`, which binds as `$project` | The tool |
+
+## Give the tool to a crew
+
+Replace the check block at the end of `team_tool.py` with an agent, a task, and a crew. This part needs the model's credential:
+
+```python
+from crewai import Agent, Crew, Task
+
+analyst = Agent(
+    role="Team analyst",
+    goal="Answer questions about who works on which project",
+    backstory="You answer only from the team graph.",
+    tools=[team_graph],
+    llm="anthropic/claude-opus-5-5",
+)
+question = Task(
+    description="Who works on relate, and since when?",
+    expected_output="One line per person, with their role and the year they started.",
+    agent=analyst,
+)
+print(Crew(agents=[analyst], tasks=[question]).kickoff())
+owner.close()
+```
+
+`llm` names the provider and the model as `<provider>/<model>`. The agent can call `team_graph` with a project name and write its answer from the lines it gets back.
+
+## Verify
+
+The tool's second call already shows the app's commit. The same check from the CLI, read-only, in the directory the program ran in:
+
+```bash
+relate --database ./team --read-only --mode table "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'opencypher-tck'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
++---------+-------+
+| name    | since |
++---------+-------+
+| "Grace" | 2022  |
+| "Lin"   | 2026  |
++---------+-------+
+```
+
+Grace from the team graph and Lin from the app's later commit: the rows the tool's second call returned. Running the program again leaves the same two rows.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `error 42000: storage locked: <path>` (the tool's answer) | The store is a single-file `.rl` store that the app holds for writing, and a read-only open refuses it | Keep the data in a directory store, as `./team` is, so the tool reads beside the writer. |
+| `error 42000: storage error: read-only open requires an existing database at <path>` (the tool's answer) | `store` names a directory that holds no store; a read-only open never creates one | Create the store with a writable open first, as the setup block does, or fix the path. |
+| `Anthropic native provider not available, to install: uv add "crewai[anthropic]"` (`ImportError`, when the `Agent` is created) | `llm` names an Anthropic model and the provider's extra isn't installed | Install `crewai[anthropic]`, or the extra for the provider you name. |
+| `error 42N18: semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` (the tool's answer) | A write reached a read-only connection | Expected: the guard held. Writes belong on the app's own writable connection. |
+
+The [errors reference](/docs/reference/errors) lists the Python exception class for each engine error.
+
+## Related
+
+- [Embed relate in a Python app](/docs/get-started/python): the client's connections, parameters, transactions, and errors.
+- [Two processes, one store](/docs/guides/operate/two-processes-one-store): a writer and its readers, across processes.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, backups, and the permission matrix.
+- [Shared store across processes](/docs/concepts/problems-relate-solves#shared-store-across-processes): the problem the read-beside-a-writer pattern solves.
+- [Use relate with LangChain](/docs/guides/integrations/langchain): the same read-only pattern as a recall tool over agent memory.

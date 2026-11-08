@@ -1,4 +1,362 @@
 ---
 title: Use the Python client
-status: planned
+label: Python
+description: Open stores from Python, bind typed values, group writes in transactions, read result metadata, branch on error classes, and use a connection from threads.
+order: 10
+surfaces: [python]
+prerequisites: [get-started/python]
+related: [reference/api/python, get-started/python, reference/errors#python-exception-classes, concepts/transactions-and-concurrency, guides/operate/two-processes-one-store, guides/storage/choose-a-store-layout, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+This guide shows you how to use the relate Python :term[client]{id=client}, the `relate-db` package, in an app: which store to open and how, which Python types a value arrives as, how to group writes, what a result tells you about itself, how to branch on an error, and how to use a connection from a threaded server. The client runs the engine inside your Python process. Every program on this page uses the same team graph as the [Python tutorial](/docs/get-started/python), which covers the first program step by step.
+
+## Prerequisites
+
+- Python 3.9 or later, and the steps of [Embed relate in a Python app](/docs/get-started/python) or the equivalent experience.
+
+## Add the client
+
+The package is `relate-db`; the import is `import relate`.
+
+```bash
+pip install relate-db
+```
+
+`cursor.to_df()` needs pandas and `cursor.to_arrow()` needs pyarrow. Each is an extra: `pip install 'relate-db[pandas]'` or `pip install 'relate-db[arrow]'`.
+
+## Open a store
+
+`relate.connect(database, namespace="neo4j", read_only=False)` opens a store and returns a connection. The path decides the layout:
+
+| Call | Opens | Notes |
+| --- | --- | --- |
+| `relate.connect(":memory:")` | An in-memory store | The default; gone when the connection closes |
+| `relate.connect("./team")` | A directory store | Created when missing; another process may read it with `read_only=True` while you write |
+| `relate.connect("./team.rl")` | A :term[single-file store]{id=single-file-store} | Created when missing; opens only while no other process writes it |
+| `relate.connect(path, read_only=True)` | An existing store, read-only | Loads once and refuses writes; a missing store is an error, never created |
+| `relate.connect(path, namespace="system")` | The same store, another namespace | `neo4j` (default), `system` or `system_ontologies` |
+
+A new directory store writes its snapshot with the codec in `RELATE_SNAPSHOT_FORMAT` (`parquet` by default, `json` or `markdown`); an existing store keeps its own. The client has no codec argument. This program creates a directory store with the `json` codec, then reads it back through a read-only connection:
+
+```python run name=open
+import os
+
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+os.environ["RELATE_SNAPSHOT_FORMAT"] = "json"
+
+with relate.connect("./team") as conn:
+    conn.execute(TEAM)
+print("graph.json written:", os.path.exists("team/graph.json"))
+
+reader = relate.connect("./team", read_only=True)
+print("people:", reader.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"])
+try:
+    reader.execute("CREATE (:Person {name: 'Lin'})")
+except relate.OperationalError as e:
+    print(type(e).__name__, e.gql_status)
+reader.close()
+```
+
+The `with` block closes the connection, which checkpoints a file-backed store. A read-only connection sees the store as it was when it opened. To change namespaces later, call `conn.set_namespace(name)` between transactions, or name the target in the statement with `USE system`.
+
+## Bind parameters and read typed values
+
+`execute(statement, params)` takes a dict with string keys, and each value converts to a Cypher value. Results convert back to the most exact Python type available:
+
+| Cypher value | As a parameter | In a result |
+| --- | --- | --- |
+| `INTEGER`, `FLOAT`, `STRING`, `BOOLEAN`, `NULL` | `int` (64-bit), `float`, `str`, `bool`, `None` | The same types |
+| `DATE`, `LOCAL DATETIME`, `ZONED DATETIME`, `LOCAL TIME`, `ZONED TIME` | `datetime.date`; a naive or an aware `datetime.datetime` or `datetime.time` | The same types, or `relate.Temporal` when the value has nanoseconds or a named zone |
+| `DURATION` | `relate.Duration`, or `datetime.timedelta` | `relate.Duration`, always |
+| `POINT` | `relate.Point(srid, x, y)` | `relate.Point` |
+| `VECTOR` | A `relate.Vector` from an earlier result | `relate.Vector` |
+| `LIST`, `MAP` | `list` or `tuple`, `dict` | `list`, `dict` |
+
+A plain dict stays a map, even with `srid`, `x` and `y` keys; build a point with `relate.Point` or `point($coords)`. `relate.Vector` has no constructor: create a vector in Cypher with `vector($values, <dimensions>, FLOAT32)`. This program stores a start date, a release cycle and an office location on the `relate` project, then reads them back:
+
+```python run name=typed-values
+import datetime
+
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+conn.execute(
+    "MATCH (p:Project {name: 'relate'}) "
+    "SET p.started = $started, p.cycle = $cycle, p.office = $office",
+    {
+        "started": datetime.date(2023, 3, 1),
+        "cycle": relate.Duration(days=42),
+        "office": relate.Point(4326, 13.4, 52.5),
+    },
+)
+row = conn.execute(
+    "MATCH (p:Project {name: 'relate'}) "
+    "RETURN p.started AS started, p.cycle AS cycle, p.office AS office, "
+    "p.started + p.cycle AS next_release, "
+    "datetime('2026-11-08T09:30:00.123456789Z') AS tagged_at, "
+    "vector([1.0, 0.5, 0.25], 3, FLOAT32) AS focus"
+).single()
+for name, value in row.items():
+    print(f"{name}: {type(value).__name__} {value}")
+conn.close()
+```
+
+`tagged_at` has nanoseconds, which `datetime.datetime` cannot hold, so it arrives as `relate.Temporal`; its `.text` keeps every digit and `.to_native()` gives the microsecond `datetime`. A `relate.Duration` keeps months, days, seconds and nanoseconds apart, so `PT36H` and `P1DT12H` stay different values.
+
+## Group writes in a transaction
+
+A connection commits each statement as its own :term[transaction]{id=transaction}. Set `conn.autocommit = False` and the first statement opens a transaction; `conn.commit()` keeps it and returns its :term[bookmark]{id=bookmark}, `relate:<n>`, and `conn.rollback()` discards it. An auto-commit write's bookmark is on `cursor.consume().bookmark`.
+
+```python run name=transaction
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+print("seed bookmark:", conn.execute(TEAM).consume().bookmark)
+
+conn.autocommit = False
+conn.execute(
+    "MATCH (tck:Project {name: 'opencypher-tck'}) "
+    "CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)"
+)
+conn.execute("MATCH (noor:Person {name: 'Noor'}) SET noor.role = 'lead'")
+print("commit bookmark:", conn.commit())
+
+conn.execute("MATCH (p:Project) DETACH DELETE p")
+conn.rollback()
+print("projects:", conn.execute("MATCH (p:Project) RETURN count(p) AS n").single()["n"])
+conn.close()
+```
+
+Setting `autocommit` back to `True` commits an open transaction first. Closing a connection with a transaction open rolls it back.
+
+## Read result metadata
+
+A cursor holds every row at once. Beyond the rows, `cur.description` gives a type code per column, `cur.consume()` returns a `ResultSummary` (counters, `query_type`, `namespace`, `bookmark`, timings, `notifications`, `plan`), and `cur.graph()` collects the distinct nodes and relationships the rows carry. Each node and relationship has an :term[element id]{id=element-id}, the string `elementId()` returns, which finds it again with `WHERE elementId(n) = $id`.
+
+```python run name=metadata
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+
+graph = conn.execute("MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p, w, proj").graph()
+print("nodes:", sorted(n["name"] for n in graph.nodes))
+print("relationships:", len(graph.relationships))
+ada = graph.nodes[0]
+print(ada["name"], ada.element_id, ada.labels)
+
+found = conn.execute(
+    "MATCH (n) WHERE elementId(n) = $id RETURN n.name AS name", {"id": ada.element_id}
+).single()
+print("found by element id:", found.name)
+
+summary = conn.execute("EXPLAIN MATCH (p:Person), (q:Project) RETURN p, q").consume()
+print("query type:", summary.query_type)
+for n in summary.notifications:
+    print(n["gql_status"], n["title"])
+conn.close()
+```
+
+A plain run leaves `notifications` empty and `plan` set to `None`; `EXPLAIN` and `PROFILE` fill both. Rows are `relate.Record` dicts, so `row["name"]` and `row.name` read the same value.
+
+## Handle errors
+
+Every error the engine reports raises a subclass of `relate.Error`, following Python's database API: `ProgrammingError` for a statement mistake, `DataError` for a bad value, `IntegrityError` for a constraint violation, `OperationalError` for opening, locking, namespaces and read-only refusals. Each carries the engine's own classification as attributes:
+
+```python run name=errors
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+conn = relate.connect(":memory:")
+conn.execute(TEAM)
+
+for statement in [
+    "MATCH (p:Person) RETURN p.name +",
+    "MATCH (:Person {name: 'Ada'})-[w:WORKS_ON]->() RETURN w.since / 0",
+    "MATCH (p:Person {name: $name}) RETURN p.role AS role",
+]:
+    try:
+        conn.execute(statement)
+    except relate.Error as e:
+        print(type(e).__name__, e.gql_status, e.stage, e.retryable)
+
+try:
+    conn.execute("RETURN $n AS n", {"n": 2**63})
+except relate.DataError as e:
+    print(type(e).__name__, e)
+conn.close()
+```
+
+`gql_status` and `neo4j_code` are the codes to branch on; the [errors reference](/docs/reference/errors#python-exception-classes) lists every class and code. `retryable` is `True` only for a failure that a retry of the whole transaction can fix, such as a write-write conflict. An error the Python layer raises itself, like the out-of-range integer, has `None` in all four engine attributes.
+
+## Use a connection from one thread
+
+A connection belongs to the thread that opened it (`relate.threadsafety` is `1`). A statement from any other thread raises `relate.ProgrammingError` with `kind` `WrongThread`, and the connection stays usable on its own thread; `close()` from another thread raises the same error but leaves the connection closed for every thread, so close it on its owner. In a threaded server, give the connection one worker thread and send every call to it:
+
+```python run name=threads
+import concurrent.futures
+import threading
+
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+owner = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+conn = owner.submit(relate.connect, ":memory:").result()
+
+
+def run(statement, params=None):
+    return owner.submit(lambda: conn.execute(statement, params).fetchall()).result()
+
+
+run(TEAM)
+PROJECTS = "MATCH (:Person {name: $name})-[:WORKS_ON]->(p:Project) RETURN count(p) AS n"
+with concurrent.futures.ThreadPoolExecutor(max_workers=3) as callers:
+    counts = callers.map(lambda name: run(PROJECTS, {"name": name})[0]["n"], ["Ada", "Grace", "Noor"])
+    print("projects per person:", list(counts))
+
+
+def direct():
+    try:
+        conn.execute("RETURN 1 AS one")
+    except relate.ProgrammingError as e:
+        print("direct call:", type(e).__name__, e.kind)
+
+
+thread = threading.Thread(target=direct)
+thread.start()
+thread.join()
+owner.submit(conn.close).result()
+owner.shutdown()
+```
+
+The engine releases the GIL while a statement runs, so other threads keep working. One connection per thread also works for `:memory:` stores, each its own graph. A file-backed store takes one writing connection at a time, in this process or any other; other connections open it with `read_only=True`, which a directory store allows beside its writer.
+
+## Verify
+
+Write the graph to a `.rl` file, close it, and read it back read-only:
+
+```python run name=verify
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+with relate.connect("./team.rl") as conn:
+    conn.execute(TEAM)
+
+with relate.connect("./team.rl", read_only=True) as conn:
+    row = conn.execute(
+        "MATCH (n) OPTIONAL MATCH (n)-[r]->() RETURN count(DISTINCT n) AS nodes, count(r) AS relationships"
+    ).single()
+    print("nodes:", row.nodes, "relationships:", row.relationships)
+```
+
+Five nodes and five relationships after a reopen mean the store was written and read back through the client.
+
+## If it goes wrong
+
+| Error | Cause | Remedy |
+| --- | --- | --- |
+| `OperationalError`: `storage locked: <path>` (for a directory store, `<path>` is `<store>/.cypherlite.writer`) | Another connection or process holds the store for writing | Close the other writer, or open with `read_only=True` (a directory store allows a reader beside its writer; a `.rl` store does not) |
+| `ProgrammingError` with `kind` `WrongThread` | The connection was used from a thread other than the one that opened it | Route calls to the owning thread, as in [Use a connection from one thread](#use-a-connection-from-one-thread) |
+| `OperationalError`: `storage error: read-only open requires an existing database at <path>` | `read_only=True` on a directory path with no store (a `.rl` path says `storage error: database not found: <path>`) | Create the store with a writable open first, or fix the path |
+| `OperationalError`: `semantic error: WriteOnReadOnlyAccessDatabase: …` (`gql_status` `42N18`) | A write on a read-only connection | Open without `read_only=True` for writes |
+| `ProgrammingError`: `query parameters must be a dict mapping string keys to values, got 'list'` | `params` was not a dict | Pass `{"name": value}` and refer to it as `$name` |
+| `ImportError`: `to_df() needs pandas: pip install 'relate-db[pandas]'` | pandas is not installed | Install the extra named in the message |
+
+## Related
+
+- [Python API](/docs/reference/api/python): every class, method, value mapping, and exception.
+- [Embed relate in a Python app](/docs/get-started/python): the first program, step by step.
+- [Errors](/docs/reference/errors#python-exception-classes): the exception classes and every engine error code.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Share one store between two processes](/docs/guides/operate/two-processes-one-store): a writer and its readers on one store.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem this client solves.

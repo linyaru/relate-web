@@ -271,7 +271,7 @@ for (const [id, r] of recipes) refs[`cookbook/${id}`] = { id: `cookbook/${id}`, 
 // ---------------------------------------------------------------------------
 // Errors: every entry with its anchor and the pages that link to it
 
-const ERROR_GROUPS = ['cli', 'engine', 'http', 'bolt', 'mcp'] as const;
+const ERROR_GROUPS = ['cli', 'engine', 'http', 'bolt', 'mcp', 'client'] as const;
 const errorsUrl = `${ORIGIN}/docs/reference/errors/`;
 const errors: ErrorEntry[] = [];
 for (const group of ERROR_GROUPS) {

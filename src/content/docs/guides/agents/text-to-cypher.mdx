@@ -1,4 +1,278 @@
 ---
-title: Text to Cypher with an LLM
-status: planned
+title: Turn questions into Cypher with an LLM
+label: Text to Cypher
+description: Give a model the graph's schema from the db.schema procedures or get_schema, check each generated statement with EXPLAIN, and repair it from the notifications.
+order: 70
+surfaces: [cypher, mcp, cli, python, agents]
+prerequisites: [get-started/first-graph]
+related: [concepts/problems-relate-solves#text-to-cypher, reference/cypher/differences-from-neo4j, reference/server/docs-mcp, guides/cypher/ontology, guides/cypher/tune-a-query, reference/server/mcp, reference/errors#notifications, guides/agents/connect-over-mcp]
 ---
+
+This guide shows you how to turn a question into a Cypher :term[statement]{id=statement} with a language model and check that statement before it runs. The model gets three things it cannot guess: this graph's schema, read from the engine; the places where relate's dialect differs from the Neo4j examples it was trained on; and a check that plans the statement with `EXPLAIN`, so a wrong label or a Neo4j-only procedure comes back as a message the model can repair, not as an empty result.
+
+## Prerequisites
+
+- The example graph from [your first graph](/docs/get-started/first-graph): three people and two projects. The first step creates it in the cells, and the terminal steps write it to `team.rl`.
+- For the terminal steps, relate on your `PATH` ([Install relate](/docs/get-started/install)). The cells run in your browser without it.
+- For the program, the Python client (`pip install relate-db`) and a client for the model of your choice. No step on this page calls a model; that call is the one line you supply.
+
+## Load the example graph
+
+The cells on this page run in page order on one in-memory store. This cell writes the shared graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+The terminal steps use the same graph in a `.rl` file. This writes `team.rl`; every later command opens it `--read-only`:
+
+```bash verify
+relate query --database ./team.rl --mode envelope <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+## Read the schema from the engine
+
+Three statements give a model what it needs: each :term[label]{id=label}'s properties with their types, each :term[relationship type]{id=relationship-type}'s properties, and which labels each type connects. `db.schema.nodeTypeProperties()` infers the first by scanning the data:
+
+```cypher run name=node-schema
+CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes
+RETURN nodeType, propertyName, propertyTypes
+ORDER BY nodeType, propertyName
+```
+
+`db.schema.relTypeProperties()` does the same for relationships. A type with no properties has one row with a null `propertyName`:
+
+```cypher run name=rel-schema
+CALL db.schema.relTypeProperties() YIELD relType, propertyName, propertyTypes
+RETURN relType, propertyName, propertyTypes
+ORDER BY relType
+```
+
+Neither procedure says which way a relationship points or what it connects, and a model needs that to write a pattern. One statement lists every pattern that occurs:
+
+```cypher run name=patterns
+MATCH (a)-[r]->(b)
+RETURN DISTINCT labels(a) AS source, type(r) AS type, labels(b) AS target
+ORDER BY type
+```
+
+On a large store the pattern statement reads every relationship; keep its result with the prompt and refresh it when the schema changes. `db.schema.visualization()` returns the same labels and types as one row, for a tool that draws them.
+
+## Read the schema over MCP
+
+An agent connected to relate's own MCP server has the same facts in one call. The `get_schema` tool returns each label with its count, its properties and types, and its outgoing relationships with the labels they reach. This sends `initialize` and a `get_schema` call to a read-only stdio server on `team.rl`; `2>/dev/null` drops relate's startup lines:
+
+```bash verify
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"shell","version":"0"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_schema","arguments":{}}}' \
+  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"0.16.1"}}}
+{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"{\"Person\":{\"count\":3,\"properties\":{\"name\":{\"type\":\"String\"},\"role\":{\"type\":\"String\"}},\"relationships\":{\"KNOWS\":{\"direction\":\"out\",\"labels\":[\"Person\"]},\"MAINTAINS\":{\"direction\":\"out\",\"labels\":[\"Project\"]},\"WORKS_ON\":{\"direction\":\"out\",\"labels\":[\"Project\"],\"properties\":{\"since\":{\"type\":\"Integer\"}}}},\"type\":\"node\"},\"Project\":{\"count\":2,\"properties\":{\"language\":{\"type\":\"String\"},\"name\":{\"type\":\"String\"}},\"type\":\"node\"}}","type":"text"}],"isError":false}}
+```
+
+`get_schema` takes an optional `sample_size`, the number of nodes and relationships it examines per label; `-1` examines all of them. The [MCP server reference](/docs/reference/server/mcp) lists both tools a read-only server offers, and [Connect over MCP](/docs/guides/agents/connect-over-mcp) has the host configuration.
+
+## Add the ontology as context
+
+The inferred schema says what the data holds today, not what each label means. An :term[ontology]{id=ontology} stored with the store adds that: descriptions of the node and relationship types in words a model can use, and the properties each type must have. `CALL db.ontology.get()` returns the document as YAML or JSON, ready to paste into the prompt. The ontology procedures are a preview feature that runs only with `RELATE_PREVIEW=ontology` set; [Use an ontology](/docs/guides/cypher/ontology) covers storing and reading one.
+
+## Tell the model what differs from Neo4j
+
+Most Cypher a model has seen was written for Neo4j, and relate rejects a few of those habits: APOC and Graph Data Science procedures, `CREATE DATABASE` and `USE` with a database name, colon commands such as `:param`, index procedures, and a `SEARCH` score read without `SCORE AS`. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j#differences) lists each one with the error relate returns and the form to write instead. Put that table in the prompt, or let the checks catch the habit and hand the model the row it broke.
+
+A Neo4j-only procedure fails with a message that names it:
+
+```cypher run name=apoc expect=error
+CALL apoc.meta.schema()
+```
+
+## Check each statement with EXPLAIN
+
+`EXPLAIN` plans a statement without running it: writes, procedures and `LOAD CSV` are only planned. The plan comes back with the planner's notifications, and they are the repair signal. A statement that names a label or relationship type the store does not have still plans, and returns no rows when it runs, so without `EXPLAIN` a wrong guess looks like an empty answer. Here a model guessed `WORKS_AT` and `Company`:
+
+```cypher run name=explain-guess
+EXPLAIN MATCH (p:Person)-[:WORKS_AT]->(c:Company)
+RETURN c.name AS company, count(p) AS people
+```
+
+The cell returns no rows; its JSON view holds the envelope with the notifications. In a terminal, `--mode envelope` prints them on one line:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "EXPLAIN MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN c.name AS company, count(p) AS people" | jq -c '.notifications[] | {gql_status, description}'
+```
+
+```text
+{"gql_status":"01N50","description":"The label `Company` does not exist in this database."}
+{"gql_status":"01N51","description":"The relationship type `WORKS_AT` does not exist in this database."}
+```
+
+Each notification also carries `severity`, `title` and a `remedy`. `01N50`, `01N51` and `01N52` (an unknown :term[property]{id=property} key) are the ones a generated statement trips most; a statement that is valid for this schema plans with no notifications, or only with performance advice such as `03C91` (a missing index). The [errors reference](/docs/reference/errors#notifications) lists every notification. A syntax error or a Neo4j-only procedure fails the `EXPLAIN` itself: exit code 6, with the error object.
+
+## Run the repair loop
+
+This program puts the steps together with the Python client. It writes `team.rl`, opens it `read_only=True`, builds the schema text a prompt carries, and checks two statements as a model might return them: a first guess and its repair. Nothing in it calls a model:
+
+```python run name=loop title="text_to_cypher.py"
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+writer = relate.connect("./team.rl")
+writer.execute(TEAM)
+writer.close()
+
+
+def schema_text(conn):
+    """The labels, properties and relationship patterns, one line each."""
+    props = {}
+    for row in conn.execute(
+        "CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes "
+        "RETURN nodeType, propertyName, propertyTypes ORDER BY nodeType, propertyName"
+    ).data():
+        props.setdefault(row["nodeType"], []).append(f"{row['propertyName']}: {row['propertyTypes'][0]}")
+    lines = [f"({label} {{{', '.join(p)}}})" for label, p in props.items()]
+    for row in conn.execute(
+        "MATCH (a)-[r]->(b) RETURN DISTINCT labels(a)[0] AS source, type(r) AS type, "
+        "labels(b)[0] AS target ORDER BY type"
+    ).data():
+        lines.append(f"(:{row['source']})-[:{row['type']}]->(:{row['target']})")
+    return "\n".join(lines)
+
+
+def check(conn, statement):
+    """Plan the statement; return the problems a model can repair, or []."""
+    try:
+        summary = conn.execute("EXPLAIN " + statement).consume()
+    except relate.Error as e:
+        return [f"{e.gql_status}: {e}"]
+    return [f"{n['gql_status']}: {n['description']}" for n in summary.notifications if n["severity"] == "WARNING"]
+
+
+conn = relate.connect("./team.rl", read_only=True)
+print(schema_text(conn))
+
+first_guess = "MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN c.name AS company, count(p) AS people"
+repaired = "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY people DESC"
+
+for statement in (first_guess, repaired):
+    problems = check(conn, statement)
+    print("problems:" if problems else "no problems", *problems, sep="\n  ")
+
+print(conn.execute(repaired).data())
+conn.close()
+```
+
+The loop around it sends the question, the schema text and the Differences table to the model, checks what comes back, and sends the problems back until there are none or a retry budget runs out. `ask_model` stands for your model client:
+
+```python title="loop.py"
+def answer(conn, question, ask_model, retries=3):
+    prompt = f"Schema:\n{schema_text(conn)}\n\nQuestion: {question}\nReply with one Cypher statement."
+    statement = ask_model(prompt)
+    for _ in range(retries):
+        problems = check(conn, statement)
+        if not problems:
+            return conn.execute(statement).data()
+        statement = ask_model(f"{prompt}\n\nThis statement:\n{statement}\nhas these problems:\n" + "\n".join(problems))
+    raise RuntimeError(f"no valid statement after {retries} repairs: {problems}")
+```
+
+The store is open read-only, so a generated write fails with `WriteOnReadOnlyAccessDatabase` instead of changing the graph. To bound a statement that plans cleanly but runs long, run it from the CLI with `--timeout`.
+
+## Run the checked statement
+
+Once the check passes, run the statement against the store, read-only. A person reads the table; an agent reads the envelope and the exit code, and sends a non-zero exit back into the loop with the error object's `message`:
+
+::::agentic
+:::human[At a terminal]
+```bash
+relate --database ./team.rl --read-only "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY people DESC"
+```
+:::
+:::agent[From an agent]
+Exit code 0 means the rows in the envelope are the answer; 6 means the statement was rejected, and the error object on stdout says why; 7 means it ran past `--timeout`:
+
+```bash
+relate --database ./team.rl --read-only --mode envelope --timeout 10s "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY people DESC"
+```
+:::
+::::
+
+## Check without a store: the hosted docs server
+
+The hosted relate docs MCP server offers the same check with no relate installed. Its `validate_cypher` tool plans a statement with `EXPLAIN` on a fresh, empty engine and returns the plan, the notifications with their remedies, or the error with its line, column and, for a Neo4j habit, the matching row of the Differences table. Its store is empty, so every label is unknown there and those warnings carry `empty_store: true`; the schema check belongs on your own store. The server's `text-to-cypher` prompt packages the loop for a host whose user picks it: the intent, the schema or where to get it, the Differences table, and the steps to write, validate, and repair. [The hosted docs MCP server](/docs/reference/server/docs-mcp) documents both, with the server's limits; its URL is a launch-day target.
+
+## Verify
+
+The repaired statement returns one row per project with its head count, and planning it reports no unknown names:
+
+```cypher run name=verify
+MATCH (p:Person)-[:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project, count(p) AS people
+ORDER BY people DESC
+```
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "EXPLAIN MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY people DESC" | jq -c '.notifications'
+```
+
+```text
+[]
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| No rows, and `EXPLAIN` reports `01N50`, `01N51` or `01N52` | The statement names a label, relationship type or property key the store does not have | Send the notification back to the model with the schema text |
+| `syntax error: ProcedureNotFound: <name>`, exit code 6 | A procedure from a Neo4j library, such as APOC | The Write instead column of [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j#differences) |
+| `semantic error: DatabaseNotFound: Graph not found: <name>`, exit code 6 | A `USE` clause with a database name; a store has only the fixed namespaces | Drop the `USE` clause; [Namespaces](/docs/concepts/namespaces) explains the three names |
+| `semantic error: WriteOnReadOnlyAccessDatabase: …`, exit code 6, or `Only MATCH queries are allowed for read-query` from MCP | The model wrote a write: the CLI store is open read-only, as configured, and MCP's `read_cypher` refuses writes on any server | Keep it read-only for questions; a write goes through a separate, reviewed path |
+| `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology` | `db.ontology.get()` without the preview opt-in | Set `RELATE_PREVIEW=ontology` in the environment of the process that opens the store |
+
+## Related
+
+- [Text-to-Cypher](/docs/concepts/problems-relate-solves#text-to-cypher) in the capability catalog.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): every Neo4j habit, its error, and what to write instead.
+- [The hosted docs MCP server](/docs/reference/server/docs-mcp): `validate_cypher`, the `text-to-cypher` prompt, and the limits.
+- [MCP server](/docs/reference/server/mcp): `get_schema` and `read_cypher` on your own store.
+- [Tune a query](/docs/guides/cypher/tune-a-query): reading plans and acting on performance notifications.
+- [Errors](/docs/reference/errors#notifications): every notification with its code and remedy.

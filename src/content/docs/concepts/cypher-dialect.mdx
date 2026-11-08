@@ -4,7 +4,7 @@ label: Cypher dialect
 description: Which Cypher relate speaks, from the openCypher floor to GQL-aligned Cypher 25, how preview features opt in, and why some behavior departs from Neo4j.
 order: 40
 surfaces: [cypher, cli, python, node, browser]
-related: [reference/cypher/overview, reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations]
+related: [reference/cypher/overview, reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations, reference/cypher/cypher-versions]
 ---
 
 Which Cypher does relate speak? :term[openCypher]{id=opencypher} is the floor: the openCypher Technology Compatibility Kit (TCK) is the language contract. On top of it sits Neo4j's :term[Cypher 25]{id=cypher-25}, the version aligned with the ISO GQL standard, and it is the default. Newer syntax that Neo4j has accepted but not settled waits behind an opt-in, `RELATE_PREVIEW`. Where a feature only makes sense on a multi-user server, relate leaves it out and says so with a typed error.
@@ -75,7 +75,7 @@ ORDER BY years DESC
 
 The rest of the set includes `NEXT` to chain statements, `COUNT { }` and `COLLECT { }` subqueries, `CALL (x) { }` scope clauses, `CALL { } IN TRANSACTIONS`, dynamic labels with `$(…)`, the vector and UUID types, graph types, and the `SEARCH` clause over vector and full-text indexes. The [Cypher overview](/docs/reference/cypher/overview) lists them all.
 
-Where the proposals, Cypher 5 and Cypher 25 disagree, relate's target is Cypher 25 as Neo4j runs it. That is also why the retired TCK pin carried deviations: a few 2024.3 scenarios expect behavior that Cypher 25 changed on purpose. A statement can still ask for a version with a `CYPHER 5` or `CYPHER 25` prefix. The default is recorded per :term[namespace]{id=namespace} in the :term[store]{id=store}, and `SHOW DATABASES` reports it:
+Where the proposals, Cypher 5 and Cypher 25 disagree, relate's target is Cypher 25 as Neo4j runs it. That is also why the retired TCK pin carried deviations: a few 2024.3 scenarios expect behavior that Cypher 25 changed on purpose. A statement can still ask for a version with a `CYPHER 5` or `CYPHER 25` prefix ([Cypher versions](/docs/reference/cypher/cypher-versions) has what each prefix changes). The default is recorded per :term[namespace]{id=namespace} in the :term[store]{id=store}, and `SHOW DATABASES` reports it:
 
 ```cypher run name=version
 SHOW DATABASES YIELD name, defaultLanguage

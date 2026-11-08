@@ -5,7 +5,7 @@ description: Put the relate skill where a coding agent reads it, with relate ski
 order: 10
 surfaces: [cli, agents]
 prerequisites: [get-started/install]
-related: [get-started/agent-quickstart, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety, reference/cli, reference/errors]
+related: [get-started/agent-quickstart, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety, reference/cli, reference/errors, reference/cli/skill]
 ---
 
 This guide shows you how to install the relate agent skill in one of three ways: with the relate CLI's installer, with the skills CLI from the website, or as a manual copy checked against published checksums. The :term[skill]{id=skill} is a `SKILL.md` cheat sheet and a set of reference files that a coding agent reads before it uses relate: the CLI and its flags, output modes, :term[exit codes]{id=exit-code}, Cypher, the clients, and the agent rules. All three install the same `SKILL.md`; the relate CLI and a manual copy also install the 15 reference files.
@@ -26,21 +26,7 @@ This guide shows you how to install the relate agent skill in one of three ways:
 
 ## Install with the relate CLI
 
-`relate skill install` copies the skill into the skills directory of every agent it detects in your home directory. An agent counts as detected when its configuration directory exists:
-
-| Agent | `--agent` name | Detected when this exists | The skill goes to |
-| --- | --- | --- | --- |
-| Claude Code | `claude-code` | `~/.claude` | `~/.claude/skills/relate` |
-| Cursor | `cursor` | `~/.cursor` | `~/.cursor/skills/relate` |
-| Windsurf | `windsurf` | `~/.codeium/windsurf` | `~/.codeium/windsurf/skills/relate` |
-| Copilot | `copilot` | `~/.copilot` | `~/.copilot/skills/relate` |
-| Antigravity | `antigravity` | `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/relate` |
-| Gemini CLI | `gemini-cli` | `~/.gemini` | `~/.gemini/skills/relate` |
-| Cline | `cline` | `~/.cline` | `~/.agents/skills/relate` |
-| Codex | `codex` | `~/.codex` | `~/.codex/skills/relate` |
-| Pi | `pi` | `~/.pi/agent` | `~/.pi/agent/skills/relate` |
-| OpenCode | `opencode` | `$XDG_CONFIG_HOME/opencode`, or `~/.config/opencode` when that variable is unset or empty | `$XDG_CONFIG_HOME/opencode/skills/relate`, or `~/.config/opencode/skills/relate` |
-| Junie | `junie` | `~/.junie` | `~/.junie/skills/relate` |
+`relate skill install` copies the skill into the skills directory of every agent it detects in your home directory; an agent counts as detected when its configuration directory exists. [relate skill](/docs/reference/cli/skill#agents-and-paths) lists the eleven agents, each one's `--agent` name, how it is detected, and where the skill goes.
 
 To install for every detected agent at once:
 

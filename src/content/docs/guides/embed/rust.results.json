@@ -1,0 +1,69 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "open": {
+      "kind": "text",
+      "text": "in memory: 5 nodes, 5 relationships\nteam.rl: 3 people\nwrite refused: true",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "3c24346ee15766e1299c718b2c6174361f09601c3b194b5812edd7ed7f49d9fa"
+    },
+    "params": {
+      "kind": "text",
+      "text": "relate\n  Grace since 2023\n  Ada since 2024\nopencypher-tck\n  Grace since 2022",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "1fdc16c79f4503a3e504c19940a76576e226ef5c4ca3ef7171e49f378efc1913"
+    },
+    "transaction": {
+      "kind": "text",
+      "text": "commit bookmark: relate:2\npeople after commit: 4\nprojects inside the transaction: 0\nprojects after rollback: 2\nempty commit: None",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "fd651277160c0f0935bee81f943aef10f9a6e3d0632c87b1fed0a3cf7803815a"
+    },
+    "metadata": {
+      "kind": "text",
+      "text": "bookmark: Some(\"relate:1\")\ncolumns: [\"name\", \"since\"]\ncolumn types: [\"STRING\", \"INTEGER\"]\nquery type: r\nnamespace: Neo4j\nbookmark: None\nquery type: w\nproperties set: 1",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "0317e3965056502e65e1f419fee177c7c524bef94b8ac5918ab9b5defa374237"
+    },
+    "plan": {
+      "kind": "text",
+      "text": "03N90 INFORMATION Cartesian product: the MATCH patterns share no join anchor\nProduceResults [1 item(s)] rows=2\n  Expand [(:Project)<-[:WORKS_ON]-(p:Person)] rows=2\nrows returned: 2",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "afb82ee6fc8796acc0f4d4aa2662c4943859736f086d65a4030dacce94e08a07"
+    },
+    "errors": {
+      "kind": "text",
+      "text": "semantic error: ParameterMissing: Expected parameter(s): name\n  code=Neo.ClientError.Statement.ParameterMissing gql_status=42N02 stage=Compile retryable=false\nstorage locked: ./team.rl\n  code=Neo.DatabaseError.General.UnknownError gql_status=42000 stage=Internal retryable=false\nNoor is a maintainer",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "85b0b842bc3b0fb9c05c08251a37a9bab506685e3b3d0e35e696db7dd715e383"
+    },
+    "options": {
+      "kind": "text",
+      "text": "snapshot written: true\nmanifest.json: true\nwal/: true\nread-only: true, projects: 2",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "119f977b98a539395f76a750578d8818b58ff4232847f3fc7a0a120fbdb3f0f2"
+    }
+  }
+}

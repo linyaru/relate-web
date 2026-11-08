@@ -111,3 +111,4 @@ Copy `template.md`.
 | [0031](0031-phase-2-constructs.md) | Phase 2 constructs: the agentic and deeplink directives, a sixth JSX component for the matrix, and a language picker on the tab memory | Proposed |
 | [0032](0032-task-skills-library.md) | Task skills are authored here, listed beside the CLI bundle, installed by name, and re-reviewed when a cited recipe changes | Proposed |
 | [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Proposed |
+| [0034](0034-verify-steps-start-loopback-servers.md) | A verify step may start and stop its own loopback server | Proposed |

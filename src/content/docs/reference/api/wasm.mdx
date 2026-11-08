@@ -1,4 +1,222 @@
 ---
 title: WebAssembly API
-status: planned
+label: WebAssembly (browser)
+description: Every export of relate's WebAssembly package, the RelateDb class, envelope and value shapes, OPFS stores, errors, traps, and what the build leaves out.
+order: 35
+surfaces: [browser]
+related: [guides/embed/browser, get-started/browser, reference/errors, reference/limitations, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+The `@relate/relate-wasm` package is relate compiled to WebAssembly (WASM) for the browser: an ES module, `relate.js`, that loads the engine from `relate_bg.wasm` and exports one class, `RelateDb`. A `RelateDb` is one :term[store]{id=store}, in memory or in the Origin Private File System (OPFS), with one connection. Each :term[statement]{id=statement} returns its result as the :term[envelope]{id=envelope}, JSON text. This page describes the build this site ships in `public/wasm/`, the engine behind its cells, the cookbook and the playground; its `relate.d.ts` is the source of the signatures.
+
+## Synopsis
+
+```js
+import init, { RelateDb, renderResult } from '@relate/relate-wasm';
+import { isWasmTrap } from '@relate/relate-wasm/trap.js';
+
+await init();                                     // loads relate_bg.wasm
+const db = new RelateDb();                        // in memory, writable
+const ro = new RelateDb(true);                    // in memory, read-only, always empty
+const durable = await RelateDb.open('opfs://team'); // OPFS, dedicated worker only
+
+const text = db.execute('RETURN $n AS n', JSON.stringify({ n: 1 }));
+const envelope = JSON.parse(text);                // {columns, columnTypes, rows, stats, …, error}
+const texts = db.executeScript('CREATE (:A); MATCH (a:A) RETURN count(a) AS n', null);
+const recording = JSON.parse(renderResult(texts)); // {kind, text, table, graph, stats}
+db.reset();
+db.free();
+```
+
+## Package files
+
+| File | Holds |
+| --- | --- |
+| `relate.js` | The ES module: `init`, `initSync`, `RelateDb`, `renderResult`, `__start` |
+| `relate_bg.wasm` | The engine; `init()` with no argument fetches it from `new URL('relate_bg.wasm', import.meta.url)` |
+| `relate.d.ts`, `relate_bg.wasm.d.ts` | TypeScript declarations for `relate.js` and the engine's exports |
+| `snippets/relate-wasm-<hash>/js/opfs.js` | The OPFS helper; `relate.js` imports it by that relative path |
+| `opfs.js` | The same OPFS helper, at the top level ([The OPFS helper](#the-opfs-helper)) |
+| `trap.js` | `isWasmTrap(err)` ([Traps](#traps)) |
+| `trap.d.ts`, `opfs.d.ts` | TypeScript declarations for `trap.js` and `opfs.js` |
+| `package.json` | The manifest: name, version, `exports` map, `types` |
+| `README.md` | The package's readme |
+
+`relate.js` and `snippets/` resolve their imports relative to `relate.js`, so the files sit together, unchanged, in one directory. The package's `exports` map names `.` (`relate.js`, types `relate.d.ts`), `./trap.js` (types `trap.d.ts`), `./opfs.js` (types `opfs.d.ts`) and `./relate_bg.wasm`. The site's own copy in `public/wasm/` holds the files a page loads, without `trap.d.ts`, `opfs.d.ts`, `package.json` and `README.md`.
+
+## Module exports
+
+| Export | Signature | Behavior |
+| --- | --- | --- |
+| `default` (`init`) | `init(options?: { module_or_path: InitInput \| Promise<InitInput> }): Promise<InitOutput>` | Loads and instantiates the engine. `InitInput` is a `RequestInfo`, `URL`, `Response`, `BufferSource` or `WebAssembly.Module`; with no argument, the URL beside `relate.js`. Passing `InitInput` directly instead of the object still works and logs a deprecation warning. A response whose type is not `application/wasm` logs a warning and falls back to `WebAssembly.instantiate` |
+| `initSync` | `initSync(options: { module: BufferSource \| WebAssembly.Module }): InitOutput` | Instantiates from bytes or a compiled module, synchronously. Passing the module directly still works and logs a deprecation warning |
+| `RelateDb` | class | One store and one connection ([RelateDb](#relatedb)) |
+| `renderResult` | `renderResult(envelopes: string[]): string` | Renders a script's envelopes as a recording ([Recordings](#recordings)) |
+| `__start` | `__start(): void` | The engine's start function; `init()` and `initSync()` run it |
+| `InitInput`, `InitOutput`, `SyncInitInput` | types | The loader's argument and result types; `InitOutput` holds the instance's exports, including `memory` |
+
+Every export except `default`, `initSync` and the types needs a finished `init()` or `initSync()`.
+
+## RelateDb
+
+| Member | Signature | Returns | Behavior |
+| --- | --- | --- | --- |
+| constructor | `new RelateDb(read_only?: boolean \| null)` | `RelateDb` | An in-memory store. `read_only` `true` opens it :term[read-only]{id=read-only}, refusing every write; such a store starts empty and stays empty, since nothing can be written to it or loaded into it. Omitted, `null` or `false`, the store is writable. Works on the page thread and in a worker. Throws when the open fails |
+| `open` | `RelateDb.open(uri: string, read_only?: boolean \| null)` | `Promise<RelateDb>` | An OPFS store, `opfs://<name>`, created when it does not exist ([OPFS stores](#opfs-stores)). Dedicated worker only. `read_only` `true` refuses every write. Rejects with the messages in [Errors](#errors) |
+| `execute` | `execute(query: string, params_json?: string \| null)` | `string` | Runs one statement and returns its envelope as JSON text. A second statement in `query` is a syntax error. Never throws for an error in the statement; the envelope's `error` holds it |
+| `executeScript` | `executeScript(script: string, params_json?: string \| null)` | `string[]` | Runs a script of statements separated by `;` and returns one envelope per statement run, in order. A `;` inside a string, a backquoted identifier or a comment does not split. Stops after the first envelope whose `error` is set; the statements before it stay committed. Every statement gets the same parameters. A blank or comment-only script returns `[]` |
+| `reset` | `reset(): void` | `undefined` | In memory: drops the store and opens a new empty one. OPFS: wipes the store and reopens it empty, so a reload finds it empty. Throws `database is read-only` on a read-only handle |
+| `free` | `free(): void` | `undefined` | Releases the handle and, for OPFS, its file handles. A later call on it throws `null pointer passed to rust` |
+| `[Symbol.dispose]` | `[Symbol.dispose](): void` | `undefined` | The same as `free()`, for `using` declarations |
+
+### Parameters
+
+| `params_json` | Result |
+| --- | --- |
+| `null`, omitted, or blank | No :term[parameters]{id=parameter} |
+| A JSON object, as text | Each key is a parameter; a nested object is a map, even with a `__type` key |
+| JSON that does not parse | An error envelope: `invalid params JSON: <detail>` |
+| JSON that is not an object | An error envelope: `params must be a JSON object` |
+| A missing parameter the statement uses | An error envelope: `semantic error: ParameterMissing: Expected parameter(s): <names>` |
+
+Parameters carry JSON values only. Typed values (dates, points, durations) are built in the statement: `date($d)`, `point($p)`.
+
+### Transactions
+
+The build has no transaction API. Every statement commits on its own when `execute()` returns, and `BEGIN` is a syntax error. Within one statement, all of its writes apply or none do.
+
+## OPFS stores
+
+| Property | Value |
+| --- | --- |
+| URI | `opfs://<name>` |
+| Name | 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`; one path segment |
+| Where it can open | A dedicated worker; the page thread, a shared worker and a service worker are refused |
+| Files | `relate/<name>/catalog` and `relate/<name>/slot-00` to `slot-63`, in the origin's OPFS root |
+| Durability | Each statement is durable when it returns; a terminated worker or a reload keeps every acknowledged write |
+| Concurrency | One open handle per store, read-only or not; a second open from any worker of the origin rejects with `storage locked: opfs://<name>` until the first is freed or its worker ends |
+| Snapshot codec | JSON; the WASM build has no Parquet codec |
+| Background work | None: no checkpoint timer, no threads |
+| Browsers checked | Chrome 157 (this site's run of the shipped build); no other browser has been checked |
+
+## The envelope
+
+`execute()` returns, and `executeScript()` returns per statement, one JSON object as text. A successful statement:
+
+| Key | Type | Value |
+| --- | --- | --- |
+| `columns` | `string[]` | Column names, in `RETURN` order |
+| `columnTypes` | `string[]` | The engine's type name for each column: `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `LIST`, `MAP`, `NODE`, `RELATIONSHIP`, `PATH`, `DATE`, `TIME`, `DATETIME`, `DURATION`, `POINT`, `VECTOR`, `BINARY`, `ANY` and the other type names ([Value shapes](#value-shapes)) |
+| `rows` | `object[]` | One object per row, keyed by column name; `[]` for a statement with no rows |
+| `stats` | object | Eleven counters: `constraints_added`, `constraints_removed`, `indexes_added`, `indexes_removed`, `labels_added`, `labels_removed`, `nodes_created`, `nodes_deleted`, `properties_set`, `relationships_created`, `relationships_deleted` |
+| `notifications` | `object[]` | Each with `code`, `gql_status`, `severity`, `category`, `title`, `description`, `remedy`, and `operator_id` on operator-scoped kinds; filled on `EXPLAIN` and `PROFILE`, `[]` on a plain run |
+| `plan` | object or `null` | On `EXPLAIN` and `PROFILE`: `{schema: "relate.plan/v1", statement, profiled, root}`, each operator with `operator`, `details`, `identifiers`, `estimated_rows`, `actual` (filled under `PROFILE`), `warnings` and `children`; `null` otherwise |
+| `elapsed_ms`, `parse_ms`, `plan_ms`, `execute_ms` | number | Timings in milliseconds; different on every run |
+| `error` | `null` | `null` on success |
+
+A failed statement has only four keys: `columns` (`[]`), `rows` (`[]`), `stats` (`{}`) and `error`, a string. An engine error starts with its kind (`syntax error`, `semantic error`, `type error`) and, for a typed engine error, its name. The parameter-decoding errors (`invalid params JSON: <detail>`, `params must be a JSON object`) and `LOAD CSV file unavailable` carry no kind.
+
+```json
+{"columns":[],"error":"semantic error: ParameterMissing: Expected parameter(s): name","rows":[],"stats":{}}
+```
+
+### Value shapes
+
+| Cypher type | In `rows` |
+| --- | --- |
+| `INTEGER` | A JSON number with every digit; `JSON.parse` rounds one beyond `Number.MAX_SAFE_INTEGER` (9007199254740991) |
+| `FLOAT`, `STRING`, `BOOLEAN`, `NULL` | The JSON value |
+| `LIST`, `MAP` | A JSON array, a JSON object |
+| `NODE` | `{"id": <n>, "kind": "node", "labels": […], "properties": {…}}` |
+| `RELATIONSHIP` | `{"id": <n>, "kind": "relationship", "type": "<TYPE>", "start_node": <n>, "end_node": <n>, "properties": {…}}` |
+| `PATH` | An array: node, relationship, node, … in path order |
+| `DATE`, `DURATION` | An ISO 8601 string: `"2026-01-02"`, `"P1D"` |
+| `DATETIME` (zoned) | An ISO 8601 string with its offset, and its zone when it has one: `"2026-01-02T03:04:05Z"`, `"2026-01-02T03:04:05+01:00[Europe/Paris]"` |
+| `LOCAL DATETIME` | An ISO 8601 string without an offset: `"2026-01-02T03:04:05"`; its `columnTypes` entry is `DATETIME` |
+| `TIME` (zoned), `LOCAL TIME` | An ISO 8601 string: `"03:04:05Z"`, `"03:04:05"`; both have the `columnTypes` entry `TIME` |
+| `POINT` (cartesian) | `{"crs": "cartesian", "srid": 7203, "x": 1.0, "y": 2.0}`; in 3D, `"crs": "cartesian-3d"`, `"srid": 9157` and a `"z"` key |
+| `POINT` (geographic) | `{"crs": "wgs-84", "srid": 4326, "longitude": 1.0, "latitude": 2.0}`; in 3D, `"crs": "wgs-84-3d"`, `"srid": 4979` and a `"height"` key |
+| `VECTOR` | `{"dim": <n>, "type": "<coordinate type>", "values": […]}`, such as `{"dim": 2, "type": "FLOAT32", "values": [1.0, 2.0]}` |
+| `BINARY` (byte array) | A list of integers from 0 to 255. A byte array enters only through Bolt or a Rust parameter, never through this build's parameters, and cannot be stored as a property |
+
+The JSON text writes a float with its decimal point (`1.0`); `JSON.parse` reads it as the number `1`.
+
+## Recordings
+
+`renderResult(envelopes)` takes the JSON texts `executeScript()` returned and returns JSON text, the form this site's cells record:
+
+| Key | Value |
+| --- | --- |
+| `kind` | `"gram"` when a row holds a node, relationship or path; `"table"` otherwise |
+| `text` | The last statement's result as text, followed by the counters summed over the script |
+| `table` | `{columns, rows, numeric, summary}` for a table with rows, each cell a Cypher literal; `null` for gram or no rows |
+| `graph` | `{nodes, rels}` for gram, each node and relationship once in the order met; `null` for a table |
+| `stats` | The eleven counters, summed over the script |
+
+An empty array renders as `(no rows)`. An entry that is not envelope JSON throws.
+
+## Errors
+
+Thrown errors are `Error` objects; statement errors arrive in the envelope instead.
+
+| Call | Message | When |
+| --- | --- | --- |
+| `init` | `failed to fetch Wasm: <status> <statusText> fetching '<url>'` | `relate_bg.wasm` answered with a non-2xx status, such as `404 Not Found` when the file was not copied beside `relate.js` |
+| `RelateDb.open` | `storage error: OPFS needs a dedicated worker` | Called outside a dedicated worker |
+| `RelateDb.open` | `OPFS name must be 1-64 characters from [A-Za-z0-9_-]` | The name is empty, too long, or has another character (`opfs://team.rl`, `opfs://a/b`) |
+| `RelateDb.open` | `OPFS open requires an opfs://name URI; use new RelateDb() for :memory:` | The URI is a path, a `file://` URL or `:memory:` |
+| `RelateDb.open` | `storage locked: opfs://<name>` | Another handle holds the store |
+| `RelateDb.open` | `storage error: OPFS is not available in this browser` | The worker has no `navigator.storage.getDirectory` |
+| `reset` | `database is read-only` | The handle was opened read-only |
+| any method | `null pointer passed to rust` | The handle was freed |
+| `renderResult` | The JSON parser's message, such as `expected ident at line 1 column 2` | An entry is not JSON |
+| `renderResult` | ``envelope <i>: no `columns` array`` | Entry `<i>`, counted from 0, is JSON without a `columns` array, such as `{}` |
+| `execute`, `executeScript` | (envelope) `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` | A write on a read-only handle |
+| `execute`, `executeScript` | (envelope) `LOAD CSV file unavailable` | `LOAD CSV` from a file |
+
+The [errors reference](/docs/reference/errors) lists the engine's statement errors, which are the same on every surface.
+
+### Traps
+
+A crash inside the engine (a Rust panic, stack exhaustion, an out-of-bounds access) traps the WebAssembly instance: the call throws, and the instance cannot be used again. `isWasmTrap(err)` in `trap.js` returns `true` when `err` is a `WebAssembly.RuntimeError` or its message matches `unreachable`, `memory access out of bounds`, `call stack exhausted` or `maximum call stack size`, ignoring case, and `false` for any other error, after which the instance is still usable. After a trap, a new instance means a new worker or a page reload. An OPFS store reopens with every write it acknowledged.
+
+## The OPFS helper
+
+`opfs.js` is the code `RelateDb.open()` calls to reach OPFS; `relate.js` imports its copy in `snippets/`. It is internal to the engine.
+
+| Export | Behavior |
+| --- | --- |
+| `OPFS_SLOT_COUNT` | `64`, the number of slot files per store |
+| `prepareOpfs(name)` | Creates `relate/<name>/` and takes a synchronous access handle on `catalog` and each slot file; throws `storage locked: opfs://<name>` (`name` `RelateLocked`) when a handle is already taken |
+| `slotSize`, `slotTruncate`, `slotFlush`, `slotClose`, `slotRead`, `slotWrite` | Synchronous file operations on a handle taken by `prepareOpfs` |
+
+## Not in this build
+
+| Absent | In its place |
+| --- | --- |
+| A version export | `CALL dbms.components() YIELD name, versions WHERE name = 'Relate' RETURN versions[0]` returns the engine version (`0.16.1`) |
+| Opening a `.rl` file, a directory store, or a URL | `new RelateDb()` in memory, or `RelateDb.open('opfs://<name>')` |
+| A statement deadline or timeout | None; a page that runs the engine in a worker ends a statement with `worker.terminate()` |
+| Explicit transactions | Each statement commits on its own |
+| `LOAD CSV` from a file | None; parameters carry the rows |
+| Arrow output, change data capture, the `apoc` procedures | None: `CALL db.cdc.current()` and `CALL apoc.version()` are `ProcedureNotFound` |
+| Bolt, the HTTP Query API, MCP | The CLI's `relate serve` |
+| Agent mode, row caps, output modes | CLI settings |
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), and one value a statement builds is bounded by the expression memory cap. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+The capability matrix, narrowed to this surface:
+
+<Matrix columns={["browser"]} />
+
+## See also
+
+- [Use relate from a web page](/docs/guides/embed/browser): bundling, workers, OPFS, and traps in an app.
+- [Run relate in the browser](/docs/get-started/browser): a page that keeps a graph in OPFS, step by step.
+- [Errors](/docs/reference/errors): every engine error, with its cause and remedy.
+- [Limitations](/docs/reference/limitations): what the engine does not do on any surface.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the browser build solves.

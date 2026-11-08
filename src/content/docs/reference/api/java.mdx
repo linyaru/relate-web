@@ -1,4 +1,273 @@
 ---
 title: Java API
-status: planned
+label: Java
+description: The com.relate classes and their methods, the Cypher and Java value mapping in both directions, the exception classes and codes, and native loading.
+order: 70
+surfaces: [java]
+related: [guides/embed/java, get-started/java, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+The Java :term[client]{id=client} is the artifact `com.relate:relate`, package `com.relate`, for Java 17 or later. It calls the relate C library, `librelate_ffi`, through JNA (Java Native Access), and its jar carries that library; the library's C application binary interface (C ABI) is version 2. Its two dependencies are JNA and Jackson databind. Every call is synchronous, and every failure is an unchecked exception. This page describes the client as built from source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+
+## Synopsis
+
+```java
+package com.relate;
+
+public class Database implements AutoCloseable {
+    public static Database open(String uri);
+    public static Database openReadOnly(String uri);
+    public Connection connect();
+    public synchronized Connection connect(String namespace);
+    public synchronized void checkpoint();
+    public synchronized void close();
+
+    public static class Connection implements AutoCloseable {
+        public Result query(String cypher);
+        public synchronized Result query(String cypher, Map<String, ?> params);
+        public synchronized void setNamespace(String namespace);
+        public synchronized void begin();
+        public synchronized String commit();
+        public synchronized void rollback();
+        public synchronized void close();
+    }
+
+    public static class Result {
+        public List<String> columns();
+        public List<List<Object>> rows();
+        public String getQueryType();
+        public String getNamespace();
+        public String getBookmark();
+        public List<Notification> getNotifications();
+        public PlanDocument getPlan();
+    }
+}
+```
+
+## Public types
+
+| Type | Kind | Holds |
+| --- | --- | --- |
+| `Database` | class, `AutoCloseable` | An open store |
+| `Database.Connection` | static nested class, `AutoCloseable` | One session on a store |
+| `Database.Result` | static nested class | One statement's columns, rows, and metadata |
+| `Node` | record | `elementId`, `id`, `labels`, `properties` |
+| `Relationship` | record | `elementId`, `id`, `startElementId`, `startId`, `endElementId`, `endId`, `type`, `properties` |
+| `Path` | record | `elements`: node, relationship, …, node |
+| `Point` | record | `srid`, `x`, `y`, `z` (`null` on a 2D point) |
+| `DurationValue` | record | `months`, `days`, `seconds`, `nanos` |
+| `VectorValue` | record | `dtype`, `coordinates` |
+| `Notification` | final class | One planner notification |
+| `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | classes with public fields | The structured plan |
+| `RelateException` | `RuntimeException` | The base of every client exception |
+| `TransientException`, `ClientException`, `DatabaseException` | subclasses of `RelateException` | The engine's classification of a failure |
+| `RelateException.Stage` | enum | `COMPILE`, `RUNTIME`, `INTERNAL` |
+
+## Database
+
+| Method | Returns | Behavior |
+| --- | --- | --- |
+| `open(String uri)` | `Database` | Opens `:memory:`, a directory store or a `.rl` store for writing; creates a missing store |
+| `openReadOnly(String uri)` | `Database` | Loads an existing store once; refuses writes and checkpoints; a missing store is an error |
+| `connect()` | `Connection` | A connection in the `neo4j` namespace |
+| `connect(String namespace)` | `Connection` | A connection in `neo4j`, `system` or `system_ontologies`, matched case-insensitively; `null` selects `neo4j` |
+| `checkpoint()` | `void` | Writes a :term[checkpoint]{id=checkpoint}, folding the write-ahead log into a fresh snapshot of committed state; refused on a read-only database |
+| `close()` | `void` | Closes the store; idempotent; required before the same file store opens again in this Java virtual machine (JVM) |
+
+A failed `open` or `openReadOnly` throws `DatabaseException` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, GQLSTATUS `42000` and stage `INTERNAL`, whether the store is locked by another writer or missing. An unknown namespace throws `ClientException`: `semantic error: DatabaseNotFound: Graph not found: <name>`.
+
+## Connection
+
+`Database.Connection`, a static nested class, has these methods:
+
+
+| Method | Returns | Behavior |
+| --- | --- | --- |
+| `query(String cypher)` | `Result` | Runs one statement with no parameters; auto-commits outside an explicit transaction |
+| `query(String cypher, Map<String, ?> params)` | `Result` | Runs one statement with named parameters; a `null` map binds none |
+| `setNamespace(String namespace)` | `void` | Changes the session namespace; refused inside a transaction |
+| `begin()` | `void` | Opens an explicit transaction; transactions do not nest |
+| `commit()` | `String` | Commits; returns the :term[bookmark]{id=bookmark} `"relate:<n>"`, or `null` when the transaction wrote nothing |
+| `rollback()` | `void` | Discards the explicit transaction |
+| `close()` | `void` | Disconnects; idempotent |
+
+Every method is `synchronized`: a connection serves one call at a time, and concurrent callers wait. A connection's own refusals, each a `ClientException` with code `Neo.ClientError.Statement.SemanticError` and GQLSTATUS `42000`:
+
+| Call | Message |
+| --- | --- |
+| `begin()` inside a transaction | `semantic error: already in a transaction` |
+| `commit()` or `rollback()` with no transaction | `semantic error: no transaction` |
+| `setNamespace(…)` inside a transaction | `semantic error: TransactionError: Cannot change the namespace while a transaction is open.` |
+
+A failed `commit()` ends the transaction. A call on a closed connection or database throws `RelateException` with message `connection is closed` or `database is closed` and a `null` code.
+
+## Result
+
+`Database.Result`, a static nested class, holds every row, copied out of the engine before `query` returns.
+
+| Method | Returns |
+| --- | --- |
+| `columns()` | The column names, in `RETURN` order |
+| `rows()` | One `List<Object>` per row, cells in column order, typed as in [Values](#values) |
+| `getQueryType()` | `"r"` (read), `"w"` (write with no columns), `"rw"` (write with columns) or `"s"` (schema); `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `getNamespace()` | `"neo4j"`, `"system"` or `"system_ontologies"`: the statement's `USE` target, else the session namespace |
+| `getBookmark()` | An auto-commit write's bookmark, `relate:<n>`; `null` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `getNotifications()` | The statement's notifications; filled by `EXPLAIN` and `PROFILE`, empty on a plain run |
+| `getPlan()` | The `relate.plan/v1` plan document under `EXPLAIN` or `PROFILE`; `null` on a plain run |
+
+A `Result` carries no mutation counters, column types, or timings. A bookmark's `<n>` grows across every connection of the store and orders as a number: as strings, `"relate:10"` sorts before `"relate:9"`.
+
+## Values
+
+Each result cell is decoded into one Java type per Cypher kind:
+
+| Cypher kind | Java type |
+| --- | --- |
+| `NULL` | `null` |
+| `BOOLEAN` | `Boolean` |
+| `INTEGER` | `Long`, any 64-bit value |
+| `FLOAT` | `Double`, NaN and infinities included |
+| `STRING` | `String`, interior NUL characters kept |
+| `LIST` | `List<Object>` |
+| `MAP` | `Map<String, Object>`, in engine order |
+| node | `Node` |
+| relationship | `Relationship` |
+| path | `Path`, its elements alternating `Node` and `Relationship` |
+| `POINT` | `Point`; `srid` 7203 or 4326 in 2D, 9157 or 4979 in 3D |
+| `DATE`, `LOCAL TIME`, `LOCAL DATETIME` | `LocalDate`, `LocalTime`, `LocalDateTime` |
+| `ZONED TIME` | `OffsetTime`; a time keeps an offset, never a zone id |
+| `ZONED DATETIME` | `ZonedDateTime` when the value has a zone id, `OffsetDateTime` when it has only an offset |
+| `DURATION` | `DurationValue`; `duration('P1Y2M')` has `months` 14 |
+| `VECTOR` | `VectorValue`; `coordinates` holds `Long` for the `INTEGER*` types and `Double` for the `FLOAT*` types |
+| byte array | `List<Long>`, each 0 to 255 |
+
+An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`, so it round-trips through a parameter. The `long` ids are the deprecated numeric ids `id()` returns. A map key holding a NUL character, or a value kind the client does not know, throws `RelateException` instead of returning a value.
+
+## Parameters
+
+`query(cypher, params)` binds each map entry as one Cypher value, with no JSON in between:
+
+| Java type | Binds as |
+| --- | --- |
+| `null` | `NULL` |
+| `Boolean` | `BOOLEAN` |
+| `Byte`, `Short`, `Integer`, `Long` | `INTEGER` |
+| `Float`, `Double` | `FLOAT` |
+| `String` | `STRING` |
+| `LocalDate`, `LocalTime`, `LocalDateTime` | `DATE`, `LOCAL TIME`, `LOCAL DATETIME` |
+| `OffsetTime` | `ZONED TIME` |
+| `OffsetDateTime`, `ZonedDateTime` | `ZONED DATETIME`; a `ZonedDateTime` keeps its zone id, one zoned at a `ZoneOffset` crosses as the offset form |
+| `DurationValue` | `DURATION` |
+| `java.time.Duration` | `DURATION` with zero months and days |
+| `Point` | `POINT` |
+| `VectorValue` | `VECTOR`; `dtype` is one of `INTEGER8`, `INTEGER16`, `INTEGER32`, `INTEGER`, `FLOAT16`, `BFLOAT16`, `FLOAT32`, `FLOAT`; coordinates must be `Long` for the `INTEGER*` dtypes and `Double` for the `FLOAT*` dtypes |
+| `List` | `LIST`, in order |
+| `Map` | `MAP`, nested to any depth; keys must be `String` |
+
+Any other type throws `IllegalArgumentException` before the statement runs, such as `cannot bind parameter "x": unsupported Java type java.lang.Object`. So do a vector coordinate of the wrong box type, as in `cannot bind vector parameter with dtype INTEGER8: coordinate 0 is java.lang.Integer, expected Long`, and a map key that is not a `String`, as in `cannot bind nested map parameter "m": key 1 is java.lang.Integer, expected String`. A value the engine refuses, such as an impossible date or an unknown zone, throws `RelateException` with stage `INTERNAL`. A statement that refers to a parameter the map lacks fails with `semantic error: ParameterMissing: Expected parameter(s): <names>`.
+
+## Errors
+
+| Class | Thrown when | `isRetryable()` |
+| --- | --- | --- |
+| `TransientException` | The engine marks the failure retryable: a write-write :term[conflict]{id=conflict}, `Neo.TransientError.Transaction.Outdated`, message `write-write conflict`, or the retryable workspace cap | `true` |
+| `ClientException` | The code starts `Neo.ClientError.`: syntax, types, a missing parameter, an unknown namespace, a write on a read-only store | `false` |
+| `DatabaseException` | The code starts `Neo.DatabaseError.`: engine failures, a failed open, and the C boundary's `INTERNAL` stage | `false` |
+| `RelateException` | Any other code, and the client's own failures: native loading, a closed handle, a malformed C ABI payload | `false` |
+
+Every class has these getters:
+
+| Getter | Returns |
+| --- | --- |
+| `getMessage()` | The engine's message |
+| `getCode()` | The Neo4j status code, such as `Neo.ClientError.Statement.ArithmeticError`; `null` on a client-side failure |
+| `getGqlStatus()` | The five-character GQLSTATUS, such as `22G03`; `null` on a client-side failure |
+| `getStage()` | `COMPILE` (parse or plan), `RUNTIME` (execution) or `INTERNAL` (the C boundary: a poisoned handle, a caught panic, an undecodable argument); `null` on a client-side failure |
+| `isRetryable()` | `true` exactly when running the same work again can succeed |
+
+A conflict surfaces on an auto-commit statement or on `commit()`. After an `INTERNAL` failure the handle may be poisoned; `close()` still works on it. A write on a read-only database throws `ClientException` with code `Neo.ClientError.Statement.SemanticError` and GQLSTATUS `42N18`. The [errors reference](/docs/reference/errors) lists the engine's messages.
+
+## Notifications and plans
+
+`Notification` has the getters `getCode()`, `getGqlStatus()`, `getSeverity()` (`INFORMATION` or `WARNING`), `getCategory()` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `getTitle()`, `getDescription()`, `getRemedy()` and `getOperatorId()`, a `Long` that is `null` on a statement-scoped notification. The list follows plan pre-order, then statement-scoped entries.
+
+The plan classes have public fields:
+
+| Class | Fields |
+| --- | --- |
+| `PlanDocument` | `schema` (`relate.plan/v1`), `profiled`, `statement`, `root` |
+| `PlanNode` | `operator`, `details`, `identifiers`, `estimatedRows`, `actual`, `children`, `warnings` (the operator's notifications) |
+| `PlanActual` | `rows`, `timeMs`, `dbHits`, `memoryBytes`, `hops`, `neighborWalks`, `nodeReads`, `start`; `null` on an `EXPLAIN` plan |
+| `PlanStart` | `element`, `backward`, `reason` |
+
+## Native library
+
+The first use of `Database` in a JVM resolves the library once, in this order:
+
+| Step | Source |
+| --- | --- |
+| 1 | `RELATE_LIB`, when set and not empty: a path to a library, for development |
+| 2 | The jar's resource `native/<key>/<library>` for the running platform, extracted to the cache and loaded by absolute path |
+| 3 | Neither: the first call throws `RelateException` beginning `relate: no bundled native library for platform <key>` |
+
+The system library path, `java.library.path` and `jna.library.path` are never searched. The platforms:
+
+| `os.name`, `os.arch` | Key | Library | Classifier |
+| --- | --- | --- | --- |
+| `Mac OS X`, `aarch64` | `darwin-arm64` | `librelate_ffi.dylib` | `osx-aarch_64` |
+| `Mac OS X`, `x86_64` | `darwin-x64` | `librelate_ffi.dylib` | `osx-x86_64` |
+| `Linux`, `aarch64` | `linux-arm64` | `librelate_ffi.so` | `linux-aarch_64` |
+| `Linux`, `amd64` | `linux-x64` | `librelate_ffi.so` | `linux-x86_64` |
+| `Windows*`, `amd64` | `win32-x64` | `relate_ffi.dll` | `windows-x86_64` |
+
+`arm64` and `x86_64` are accepted spellings of the same architectures. Any other platform throws `RelateException` beginning `relate: unsupported platform os.name=`. The plain jar carries all five libraries; each classifier jar carries one.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `-Drelate.native.cache=<dir>` | macOS `~/Library/Caches/relate/native`; Linux `$XDG_CACHE_HOME/relate/native` or `~/.cache/relate/native`; Windows `%LOCALAPPDATA%\relate\native` | The cache root; the library lands in `<root>/<version>/<key>-<first 16 hex digits of its SHA-256>/` |
+| `RELATE_LIB` | unset | A library path that replaces the jar's |
+| `--enable-native-access=ALL-UNNAMED` | off | On Java 24 or later, silences the JVM's restricted-method warning when JNA loads |
+
+The extraction writes a temporary file and renames it into place, so concurrent JVMs never load a partial file. Old versions' directories stay until removed. A library of another C ABI version throws `RelateException` beginning `incompatible librelate_ffi at <path>`. Every jar also carries the skill file `.agents/skills/relate/SKILL.md`.
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), one value a statement builds is bounded by the expression memory cap, and a file-backed store has one writing open across every process. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+<Matrix columns={["java"]} />
+
+## Example
+
+This program writes two `Person` nodes and a `KNOWS` relationship to an in-memory store and prints the Java type of each returned value:
+
+```java run name=values
+import com.relate.Database;
+
+public class Values {
+    public static void main(String[] args) {
+        try (Database db = Database.open(":memory:");
+             Database.Connection conn = db.connect()) {
+            var result = conn.query("""
+                CREATE (ada:Person {name: 'Ada'})-[k:KNOWS {since: 2024}]->(grace:Person {name: 'Grace'})
+                RETURN ada, k, 9007199254740993 AS big, 1.5 AS ratio, date('2024-05-06') AS day,
+                       datetime('2024-05-06T09:30:00[Europe/Berlin]') AS meeting, duration('P1Y2M') AS term,
+                       point({x: 1, y: 2}) AS spot, vector([1, 2, 3], 3, INT8) AS counts""");
+            for (int i = 0; i < result.columns().size(); i++) {
+                Object value = result.rows().get(0).get(i);
+                System.out.println(result.columns().get(i) + ": " + value.getClass().getSimpleName() + " " + value);
+            }
+        }
+    }
+}
+```
+
+## See also
+
+- [Use the Java client](/docs/guides/embed/java): dependencies, open modes, parameters, transactions and errors, task by task.
+- [Embed relate in a Java app](/docs/get-started/java): the first program, step by step.
+- [API reference](/docs/reference/api): every surface and the capability matrix.
+- [C ABI](/docs/reference/api/c): the library this client calls.
+- [Errors](/docs/reference/errors): every engine message with its codes.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the clients solve.

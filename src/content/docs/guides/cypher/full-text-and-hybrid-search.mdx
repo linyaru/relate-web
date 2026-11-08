@@ -1,4 +1,183 @@
 ---
 title: Full-text and hybrid search
-status: planned
+description: Create a full-text index, search it by words with the SEARCH clause, read its score and terms, and fuse it with a vector search by reciprocal rank.
+order: 25
+surfaces: [cypher]
+prerequisites: [get-started/first-graph]
+related: [reference/cypher/search, guides/cypher/vector-search, cookbook/hybrid-recall, concepts/problems-relate-solves#hybrid-retrieval-for-rag, reference/cypher/differences-from-neo4j]
 ---
+
+This guide shows you how to find nodes by the words in their text with a :term[full-text index]{id=full-text-index} and the :term[SEARCH clause]{id=search}, how the index splits text into terms and scores a match, and how to fuse a full-text search with a vector search into one ranking. The cells run in page order on one in-memory :term[store]{id=store}, in your browser and in the docs build.
+
+## Prerequisites
+
+- A first look at Cypher, such as [your first graph](/docs/get-started/first-graph).
+- For the hybrid step, embeddings from the model of your choice. This guide uses three-dimensional vectors so the numbers stay readable; [search by vector similarity](/docs/guides/cypher/vector-search) covers the vector half on its own.
+
+## Load the notes
+
+This cell writes the two example projects and six short notes about them. Each note has a `text`, an `embedding` vector, and an `ABOUT` relationship to its project.
+
+```cypher run name=seed
+CREATE (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (:Note {id: 'n1', text: 'The WAL replays on open and trims a torn tail.', embedding: vector([0.9, 0.1, 0.1], 3, FLOAT32)})-[:ABOUT]->(relate),
+       (:Note {id: 'n2', text: 'A checkpoint writes the graph to a snapshot.', embedding: vector([0.8, 0.2, 0.2], 3, FLOAT32)})-[:ABOUT]->(relate),
+       (:Note {id: 'n3', text: 'The scenarios run on every pull request.', embedding: vector([0.1, 0.9, 0.1], 3, FLOAT32)})-[:ABOUT]->(tck),
+       (:Note {id: 'n4', text: 'Release notes list every fixed scenario.', embedding: vector([0.2, 0.5, 0.7], 3, FLOAT32)})-[:ABOUT]->(relate),
+       (:Note {id: 'n5', text: 'The docs build replays every cell.', embedding: vector([0.1, 0.4, 0.9], 3, FLOAT32)})-[:ABOUT]->(relate),
+       (:Note {id: 'n6', text: 'Recovery tests cut the WAL at every byte.', embedding: vector([0.6, 0.7, 0.1], 3, FLOAT32)})-[:ABOUT]->(tck)
+```
+
+## Create a full-text index
+
+Name the index, the label, and the string properties it covers after `ON EACH`:
+
+```cypher run name=create-fulltext
+CREATE FULLTEXT INDEX note_text IF NOT EXISTS
+FOR (n:Note) ON EACH [n.text]
+```
+
+`ON EACH [n.title, n.text]` indexes several properties, and `FOR ()-[r:<TYPE>]-()` indexes relationships instead of nodes. Without `IF NOT EXISTS`, a second index of the same name fails with `semantic error: IndexAlreadyExists`. The [search reference](/docs/reference/cypher/search#index-statements) has every form.
+
+## Search by words
+
+`SEARCH` restricts the `MATCH` to the index's top results. `LIMIT` is required, and `SCORE AS` names the score:
+
+```json data=words
+{"q": "wal tests"}
+```
+
+```cypher run name=search params=words
+MATCH (n:Note)
+SEARCH n IN (FULLTEXT INDEX note_text FOR $q LIMIT 5) SCORE AS score
+RETURN n.id AS id, n.text AS text, score
+ORDER BY score DESC, id
+```
+
+Each word of the query is a term, and a note holding any of the terms matches. `n6` holds both `wal` and `tests`, `n1` only `wal`. The query can be a parameter, as in this cell, or a string literal; any other type fails with `type error: InvalidValueType: fulltext SEARCH requires a STRING query`.
+
+## Read the score
+
+The score is the number of times the query's terms occur in the indexed properties, as a float: `n6` scores `2.0` for one `wal` and one `tests`. It is not normalized, so it ranks results within one search and means nothing next to a vector score. Equal scores have no documented order, so sort on a second key, as the cell does with `id`.
+
+## Know how text becomes terms
+
+The index lowercases text and splits it into words of letters and digits. A query goes through the same split, and nothing else happens to either. This cell runs one search per query string and lists the notes each one finds:
+
+```cypher run name=terms
+UNWIND ['wal', 'replay', 'replays', 'test', 'the', 'pull-request', '"torn tail"', 'tor*'] AS q
+CALL (q) {
+  MATCH (n:Note)
+  SEARCH n IN (FULLTEXT INDEX note_text FOR q LIMIT 10) SCORE AS score
+  RETURN collect(n.id) AS ids
+}
+RETURN q AS query, ids
+```
+
+| Query | What the result shows |
+| --- | --- |
+| `wal` | Case is ignored: it matches `WAL` in the text |
+| `replay`, `test` | No stemming: `replay` does not match `replays`, nor `test` `tests` |
+| `the` | No stop words: common words are terms like any other |
+| `pull-request` | Punctuation splits words: the query is the two terms `pull` and `request` |
+| `"torn tail"` | No phrase search: quotes are dropped, and the two words match separately |
+| `tor*` | No wildcards: the query is the term `tor`, which no note holds |
+
+Accented letters are letters, and nothing folds them: `cafe` does not match `café`. A word like `AND` in a query is one more term, not an operator. To match word variants, store a normalized copy of the text in a second indexed property and search that.
+
+## Page through and narrow the results
+
+`SKIP` (or `OFFSET`) inside the search skips that many results before `LIMIT`:
+
+```cypher run name=page
+MATCH (n:Note)
+SEARCH n IN (FULLTEXT INDEX note_text FOR 'every' SKIP 2 LIMIT 2) SCORE AS score
+RETURN n.id AS id, score
+```
+
+A full-text search takes no `WHERE` inside its parentheses. A filter or a pattern after the `SEARCH` clause keeps only the rows the search already returned, so ask the search for more than you need and limit afterwards. This cell keeps the notes about `relate`:
+
+```cypher run name=narrow
+MATCH (n:Note)
+SEARCH n IN (FULLTEXT INDEX note_text FOR 'every' LIMIT 6) SCORE AS score
+MATCH (n)-[:ABOUT]->(:Project {name: 'relate'})
+RETURN n.id AS id, n.text AS text, score
+ORDER BY score DESC, id
+LIMIT 2
+```
+
+## Fuse with a vector search
+
+A full-text search finds the exact words and misses paraphrases; a vector search finds what is near in meaning and misses exact names. Reciprocal rank fusion (RRF) merges the two ranked lists without comparing their scores: a note earns `1 / (60 + rank)` from each list it appears in, and the shares add up. First, a vector index on the embeddings:
+
+```cypher run name=create-vector
+CREATE VECTOR INDEX note_embedding IF NOT EXISTS
+FOR (n:Note) ON (n.embedding)
+OPTIONS {indexConfig: {`vector.dimensions`: 3, `vector.similarity_function`: 'cosine'}}
+```
+
+The question is `wal tests` again, with its embedding. `CALL () { … UNION ALL … }` runs both searches in one statement; each branch numbers its results by position, and the outer query adds up the shares and walks from each note to its project:
+
+```json data=question
+{"q": "wal tests", "v": [0.5, 0.8, 0.1], "k": 3}
+```
+
+```cypher run name=fuse params=question
+CALL () {
+  MATCH (n:Note)
+  SEARCH n IN (VECTOR INDEX note_embedding FOR $v LIMIT $k) SCORE AS score
+  WITH n ORDER BY score DESC, n.id
+  WITH collect(n) AS ns
+  UNWIND range(0, size(ns) - 1) AS i
+  RETURN ns[i] AS n, 'vector' AS list, i + 1 AS rank
+  UNION ALL
+  MATCH (n:Note)
+  SEARCH n IN (FULLTEXT INDEX note_text FOR $q LIMIT $k) SCORE AS score
+  WITH n ORDER BY score DESC, n.id
+  WITH collect(n) AS ns
+  UNWIND range(0, size(ns) - 1) AS i
+  RETURN ns[i] AS n, 'fulltext' AS list, i + 1 AS rank
+}
+WITH n, sum(1.0 / (60 + rank)) AS rrf,
+     min(CASE list WHEN 'vector' THEN rank END) AS vector_rank,
+     min(CASE list WHEN 'fulltext' THEN rank END) AS fulltext_rank
+ORDER BY rrf DESC, n.id LIMIT $k
+MATCH (n)-[:ABOUT]->(p:Project)
+RETURN n.id AS id, vector_rank, fulltext_rank, round(rrf, 4) AS rrf, p.name AS project
+```
+
+`n6` leads both lists. `n1` holds the word `wal` but is not among the nearest vectors, and `n3` is near in meaning but holds neither word; the fusion keeps both, tied, with `n.id` breaking the tie. The constant 60 keeps one list's first place from outweighing the other list.
+
+[Hybrid recall](/cookbook/hybrid-recall/) builds the same fusion over 40 notes, with a time filter inside the vector search. Two other forms combine the indexes: the intersection, which runs the second search only over what the first returned, and `COMBINE … USING WRRF`, a preview that fuses inside `SEARCH` itself; the [search reference](/docs/reference/cypher/search#hybrid-search) has both.
+
+## Verify
+
+`SHOW INDEXES` lists both indexes, the properties they cover, and their state:
+
+```cypher run name=verify
+SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state
+WHERE type IN ['FULLTEXT', 'VECTOR']
+RETURN name, type, labelsOrTypes, properties, state
+ORDER BY name
+```
+
+Two `ONLINE` indexes and three fused rows mean both searches serve the statement.
+
+## If it goes wrong
+
+| Message or symptom | Cause | Remedy |
+| --- | --- | --- |
+| `syntax error: InvalidUseOfCommand: WHERE cannot be used together with 'FULLTEXT INDEX'` | A `WHERE` inside the full-text search's parentheses. | Move the filter after the `SEARCH` clause and raise its `LIMIT`. |
+| ``syntax error: parse error: expected LIMIT, got ")" (RightParen)`` | The search has no `LIMIT`. | Add `LIMIT <k>` inside the parentheses. |
+| `syntax error: UndefinedVariable: variable 'score' not defined` | The query reads `score` without `SCORE AS`. | Add `SCORE AS score` after the closing parenthesis. |
+| `IndexDoesNotExist: <name>` or `WrongIndexType: <name>` | The index name is misspelled, or names a vector index after `FULLTEXT INDEX`. | Check the name and type in `SHOW INDEXES`. |
+| No rows for a word the text holds in another form | The index has no stemming and no accent folding. | Search for the form the text holds, or index a normalized copy. |
+| `db.index.fulltext.queryNodes` finds nothing for two words | The procedure takes its query as one term, and is deprecated (notification `01N01`). | Use the `SEARCH` clause. |
+
+## Related
+
+- [Search](/docs/reference/cypher/search): index statements, every `SEARCH` rule, the full-text matching table, and hybrid search.
+- [Search by vector similarity](/docs/guides/cypher/vector-search): the vector half, with filters inside the search.
+- [Hybrid recall](/cookbook/hybrid-recall/): reciprocal rank fusion over 40 notes, then a hop to each note's topic.
+- [Problems relate solves](/docs/concepts/problems-relate-solves#hybrid-retrieval-for-rag): hybrid retrieval for retrieval-augmented generation, and its data model.

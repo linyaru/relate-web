@@ -1,4 +1,65 @@
 ---
 title: API reference
-status: planned
+label: API
+description: Every relate surface, from the CLI and the language clients to the served protocols, with the capability matrix and each surface's reference page.
+order: 10
+surfaces: [cli, rust, c, python, node, browser, java, go, swift, bolt, http, mcp]
+related: [get-started/install, reference/project, reference/cli, reference/errors, concepts/architecture, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+relate is one engine with several front doors, and each front door is a :term[surface]{id=surface}. The Rust crate is the engine. The C library, `librelate_ffi`, exposes it through a C application binary interface (C ABI), which the Node.js, Java, Go and Swift :term[clients]{id=client} call; the Python client and the WebAssembly (WASM) browser build carry the engine themselves. The `relate` CLI links the engine too, and `relate serve` hosts :term[Bolt]{id=bolt}, the HTTP Query API and :term[MCP]{id=mcp} over one :term[store]{id=store}. Every surface runs the same engine, so a statement means the same thing on each; the surfaces differ in what they expose around it, which the matrix on this page records.
+
+## Synopsis
+
+| Surface | Package or command | An in-memory store |
+| --- | --- | --- |
+| CLI | `relate` | `--database :memory:`, the default |
+| Python | `relate-db` | `relate.connect(":memory:")` |
+| Node.js | `@relate/relate` | `Database.open(":memory:")` |
+| Browser | `@relate/relate-wasm` | `new RelateDb()` |
+| Rust | the `relate` crate | `Database::open(":memory:")` |
+| C | `librelate_ffi`, `relate.h` | `relate_database_open(":memory:", …)` |
+| Java | `com.relate:relate` | `Database.open(":memory:")` |
+| Go | `github.com/relatedb/relate/clients/go` | `relate.Open(":memory:")` |
+| Swift | `Relate` | `Database.inMemory()` |
+| Bolt, HTTP, MCP | `relate serve` | `relate serve --database :memory: --http <port>`; at least one of `--http`, `--bolt` or `--mcp` is required |
+
+Package names are launch-day targets; [Project](/docs/reference/project#platforms) lists the platforms each one ships for.
+
+## Capability matrix
+
+<Matrix />
+
+Each row is a feature and each column a surface; every row has a stable anchor, `#matrix-<feature>`, such as `#matrix-read-only`. A cell holds one of four values, then a note:
+
+| Value | Meaning |
+| --- | --- |
+| `yes` | The surface has the feature; the note names the call, flag, or field |
+| `no` | The surface lacks it; the note says why, or what it offers instead |
+| `partial` | The surface has part of it; the note names the part |
+| `unknown` | Nobody has checked the cell; the matrix never guesses |
+
+A cell is checked against a run of the surface or its upstream reference, and the note says what the surface does, not how the cell was checked. The C, Java, Go and Swift clients load the same C library as the Node.js client, so a statement-level cell such as vector search is checked once through that library; the Bolt and MCP cells of statement-level features are checked on the store all three served surfaces share. The reference page of each language client shows its own column alone.
+
+## Surfaces
+
+- CLI: [relate CLI](/docs/reference/cli) for every command and flag; [Script the CLI](/docs/guides/cli/scripting) for using it from shell scripts.
+- Python: [Python API](/docs/reference/api/python); [Use the Python client](/docs/guides/embed/python).
+- Node.js: [Node.js API](/docs/reference/api/javascript); [Use the Node.js client](/docs/guides/embed/node).
+- Browser: [WebAssembly API](/docs/reference/api/wasm); [Use relate from a web page](/docs/guides/embed/browser).
+- Rust: [Rust API](/docs/reference/api/rust); [Use the Rust crate](/docs/guides/embed/rust).
+- C: [C ABI](/docs/reference/api/c); [Use the C ABI](/docs/guides/embed/c).
+- Java: [Java API](/docs/reference/api/java); [Use the Java client](/docs/guides/embed/java).
+- Go: [Go API](/docs/reference/api/go); [Use the Go client](/docs/guides/embed/go).
+- Swift: [Swift API](/docs/reference/api/swift); [Use the Swift package](/docs/guides/embed/swift).
+- Bolt: [Bolt server](/docs/reference/server/bolt); [Serve a store over Bolt](/docs/guides/serve/bolt).
+- HTTP: [HTTP Query API](/docs/reference/server/http); [Serve the HTTP Query API](/docs/guides/serve/http-query-api).
+- MCP: [MCP server](/docs/reference/server/mcp); [Serve a store over MCP](/docs/guides/serve/mcp).
+
+## See also
+
+- [Install relate](/docs/get-started/install): the CLI and a package for each language.
+- [Project](/docs/reference/project): releases, platforms and where each package is published.
+- [Errors](/docs/reference/errors): the error codes every surface shares.
+- [Architecture](/docs/concepts/architecture): how the engine and its surfaces fit together.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the language clients solve.

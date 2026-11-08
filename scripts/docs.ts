@@ -321,14 +321,14 @@ const PROPER_NOUNS = new Set([
   'Cypher', 'Python', 'Rust', 'Java', 'Go', 'Swift', 'Bolt', 'Docker', 'Linux', 'Windows', 'Mac', 'Unix',
   'Ubuntu', 'Debian', 'Alpine', 'Homebrew', 'Maven', 'Gradle', 'Neo4j', 'Node', 'Claude', 'Codex',
   'Cursor', 'Gemini', 'Copilot', 'Windsurf', 'Cline', 'Vercel', 'Cloudflare', 'Obsidian', 'Markdown',
-  'Kuzu', 'Jupyter', 'Pydantic', 'Ollama', 'Anthropic', 'Mermaid', 'Pagefind', 'Apple', 'Intel', 'English',
+  'Kuzu', 'Jupyter', 'Pydantic', 'Ollama', 'Mastra', 'Anthropic', 'Mermaid', 'Pagefind', 'Apple', 'Intel', 'English',
   'Spring', 'Kafka', 'Spark', 'Snowflake', 'Postgres', 'Aura',
 ]);
 
 /** Multi-word names whose later words are capitalized (STYLE.md §4.4 names "HTTP Query API"). */
 const PROPER_PHRASES = [
-  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'Vercel Sandbox', 'Gemini CLI',
-  'Neo4j Desktop', 'GitHub Actions', 'Cloudflare Pages', 'Cloudflare Workers', 'Web Analytics',
+  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'OpenAI Agents SDK', 'Vercel Sandbox', 'Gemini CLI',
+  'Neo4j Desktop', 'Neo4j Browser', 'GitHub Actions', 'Cloudflare Pages', 'Cloudflare Workers', 'Web Analytics',
 ];
 
 // ---------------------------------------------------------------------------

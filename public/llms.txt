@@ -75,7 +75,7 @@ Every store has three fixed namespaces — `neo4j` (user data), `system` (no gra
 ## Vector search
 
 - `vector([0.1, 0.2, 0.3], 3, FLOAT32)` — first-class vector values (FLOAT32, INT8/16/32)
-- `CREATE VECTOR INDEX name FOR (a:Label) ON (a.embedding) OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}` — HNSW top-k
+- `CREATE VECTOR INDEX name FOR (a:Label) ON (a.embedding) OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}` — exact top-k (every indexed vector is scored)
 - `CALL db.index.vector.queryNodes('name', k, $queryVector) YIELD node, score` — kNN search; brute-force cosine similarity without an index
 - `MATCH (a) SEARCH a IN (VECTOR INDEX name FOR $q WHERE a.topic = 'graph' LIMIT 10)` — the Cypher 25 `SEARCH` clause: engine-side top-k with pre-rank property filtering (filter props must be declared in the index's `WITH [...]`)
 - `CREATE FULLTEXT INDEX …` + `SEARCH … IN (FULLTEXT INDEX … FOR 'terms')` — keyword search over text properties

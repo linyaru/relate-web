@@ -1,4 +1,176 @@
 ---
 title: Choose an output format
-status: planned
+label: Output formats
+description: Pick the relate CLI output mode for the job, from JSON Lines for jq and CSV for spreadsheets to Markdown for notes, TOON for agents and speedscope for profiles.
+order: 10
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/cli/output-modes, reference/cli/flags#output, reference/cli/agent-mode, guides/cli/scripting, guides/cypher/tune-a-query]
 ---
+
+This guide shows you how to pick the `relate` output mode that fits the job, one step per job: rows for `jq`, results for a program, a spreadsheet, a notes file, an agent, and a query profile. The table names the mode for each, :term[TOON]{id=toon} for an agent among them. Pass the mode on every command whose output something else reads. Without one, relate prints a table on a terminal and JSON Lines into a pipe, so the same command prints differently in each place.
+
+| Job | Mode | Flag |
+| --- | --- | --- |
+| Read results at a terminal | `table` | none on a terminal, or `--mode table` |
+| Filter or reshape rows with `jq` | `jsonl` | `--jsonl` |
+| Parse results in a program, with types and an empty-result signal | `envelope` | `--mode envelope` |
+| Open the rows in a spreadsheet | `csv` | `--csv` |
+| Paste a table into notes or a pull request | `markdown` | `--markdown` |
+| Hand rows to an agent in few characters | `toon` | `--toon` |
+| Look at where a statement spends its time | `speedscope` | `--mode speedscope` with `PROFILE` |
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- `jq`, for the JSON steps.
+- An empty working directory. The first step writes the team graph shared across the docs to `team.rl` there.
+
+## Build the example store
+
+Write the seed to a file and run it into a new store. This step writes `team.rl`; every later step opens it `--read-only`:
+
+```bash verify
+cat > seed.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < seed.cypher
+```
+
+## Pipe rows to jq
+
+Use `--jsonl` for a stream of rows: one JSON object per line, which `jq` reads one at a time. This keeps the engineers' names:
+
+```bash verify
+relate --database ./team.rl --read-only --jsonl "MATCH (p:Person) RETURN p.name AS name, p.role AS role ORDER BY name" | jq -r 'select(.role == "engineer") | .name'
+```
+
+```text
+Ada
+Grace
+```
+
+`jsonl` is also the default when stdout is a pipe, but pass it anyway: under a detected agent harness the piped default is `toon`, which `jq` can't read.
+
+## Parse results in a program
+
+Use `--mode envelope` when a program reads the output. Each result set is one JSON object, the :term[envelope]{id=envelope}, with the column order in `columns`, a type per column in `columnTypes`, the rows, and `truncated`, which says whether a row cap cut them:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY project" | jq -c '{columns, columnTypes, truncated, rows: (.rows | length)}'
+```
+
+```text
+{"columns":["project","people"],"columnTypes":["STRING","INTEGER"],"truncated":false,"rows":2}
+```
+
+A read with no rows still prints an envelope with its `columns`, where `jsonl` prints nothing at all. A failed statement prints an :term[error object]{id=error-object} on stdout in place of the envelope, so a program can tell no rows, no output, and a failure apart.
+
+## Export CSV for a spreadsheet
+
+Use `--csv` and redirect to a file. The first line is the header:
+
+```bash verify
+relate --database ./team.rl --read-only --csv "MATCH (p:Person) OPTIONAL MATCH (p)-[:WORKS_ON]->(proj:Project) RETURN p.name AS name, p.role AS role, count(proj) AS projects ORDER BY name" > people.csv
+cat people.csv
+```
+
+```text
+name,role,projects
+Ada,engineer,1
+Grace,engineer,2
+Noor,maintainer,0
+```
+
+To leave the header out, for appending to an existing file, add `--noheader`. A field that starts with `=`, `+`, `-` or `@` gets a `'` in front, so a spreadsheet shows it as text instead of running it as a formula; a negative number prints as `'-5`.
+
+## Paste a Markdown table into notes
+
+Use `--markdown` for a table that renders in a Markdown file, an issue or a pull request:
+
+```bash verify
+relate --database ./team.rl --read-only --markdown "MATCH (proj:Project)<-[:WORKS_ON]-(p:Person) RETURN proj.name AS project, collect(p.name) AS people ORDER BY project"
+```
+
+```text
+| project          | people           |
+|------------------|------------------|
+| "opencypher-tck" | ["Grace"]        |
+| "relate"         | ["Grace", "Ada"] |
+```
+
+Strings keep their quotes, and a `|` inside a value is escaped, so a value can't add a column. Append to a notes file with `>> notes.md`.
+
+## Give an agent TOON
+
+Use `--toon` for rows an agent reads. The header names the row count and the columns once, then each row is one line of values:
+
+```bash verify
+relate --database ./team.rl --read-only --toon "MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p.name AS person, proj.name AS project, w.since AS since ORDER BY since"
+```
+
+```text
+rows[3]{person,project,since}:
+  Grace,opencypher-tck,2022
+  Grace,relate,2023
+  Ada,relate,2024
+```
+
+Under :term[agent mode]{id=agent-mode}, `toon` is already the default when stdout is piped. It prints no error object: a failure shows only as the stderr message and the exit code. If the agent branches on failures in its output, pass `--mode envelope` instead.
+
+## Profile a statement in speedscope
+
+Use `--mode speedscope` with a `PROFILE` statement and save the output to a file. It holds the statement's :term[plan]{id=plan}, one frame per operator, with the time each one took:
+
+```bash verify
+relate --database ./team.rl --read-only --mode speedscope "PROFILE MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN p.name AS person, proj.name AS project" > profile.json
+jq -r '.shared.frames[].name' profile.json
+```
+
+```text
+ProduceResults 0
+Expand 1
+```
+
+Open `profile.json` in the speedscope viewer at [speedscope.app](https://www.speedscope.app). The times change from run to run; the frames and their nesting don't. To read the plan as a table instead, run the `PROFILE` statement with `--mode table`. [Tune a query](/docs/guides/cypher/tune-a-query) covers reading plans.
+
+## Verify
+
+Check that each file holds what its consumer expects: a CSV header for the spreadsheet, and an evented profile for speedscope:
+
+```bash verify
+head -n 1 people.csv
+jq -r '.profiles[0].type, .profiles[0].unit' profile.json
+```
+
+```text
+name,role,projects
+evented
+nanoseconds
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| `jq` reports a parse error on piped output | Agent mode is on (a detected agent harness, `--agent-mode` or `RELATE_AGENT_MODE=1`), so the piped default is `toon` | Pass `--jsonl` or `--mode envelope` explicitly |
+| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)`, exit code 1 | The statement has no `PROFILE` prefix. The statement still ran: its writes are committed | Start the statement with `PROFILE` |
+| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)`, exit code 1 | The plan's top operator recorded no metrics; as of 0.16.1, a `count()` over an `Expand`, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`, does this. The statement still ran: its writes are committed | Profile the statement without its aggregation, or read the plan with `--mode table` |
+| A spreadsheet column shows `'-5` | The CSV formula guard prefixes a field that starts with `-` | Strip the leading `'` on import, or export with `--jsonl` |
+| `Error: invalid mode '<name>' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)`, exit code 2 | A mode name relate doesn't have | Use one of the nine names the message lists |
+
+## Related
+
+- [Output modes](/docs/reference/cli/output-modes): every mode's exact output, its defaults, `--pretty` and `--noheader`
+- [CLI flags](/docs/reference/cli/flags#output): the output flags and `--width`
+- [Agent mode](/docs/reference/cli/agent-mode): the piped `toon` default and the row cap
+- [Script the CLI](/docs/guides/cli/scripting): exit codes and the envelope in shell scripts

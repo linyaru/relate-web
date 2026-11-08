@@ -23,7 +23,7 @@ The starting point depends on the transaction:
 | Transaction | Reads see |
 | --- | --- |
 | Autocommit, the default: one statement is one commit | The graph as of the last commit before the statement started |
-| Explicit: `begin` … `commit` on a client, `.begin` … `.commit` in the CLI shell or a piped script ([shell dot commands](/docs/reference/cli#shell-dot-commands)) | The graph as of the last commit before `begin`, plus the transaction's own writes, until it ends |
+| Explicit: `begin` … `commit` on a client, `.begin` … `.commit` in the CLI shell or a piped script ([shell dot commands](/docs/reference/cli/dot-commands#begin-commit-and-rollback)) | The graph as of the last commit before `begin`, plus the transaction's own writes, until it ends |
 
 An explicit transaction keeps its writes in a private overlay and appends them to the log once, at commit. A dropped connection, or a `.quit` with a transaction open, rolls it back. Transactions don't nest: a second `begin` fails with `already in a transaction`. After a statement fails inside one, every later statement and the commit fail with `transaction failed; rollback required` until it rolls back.
 
@@ -95,7 +95,7 @@ a.commit();
 console.log(`After the retry: ${roleOf(b)}`);
 ```
 
-The engine never retries on its own. The client decides whether to run the transaction again, give up, or compensate, and the `retryable` flag tells it which errors can succeed on a second try. On the CLI a write-write conflict is the only retryable error; a syntax error, a locked store or a constraint violation is not. The CLI reports the conflict as `code` `conflict` with exit code 5 and `"retryable": true`, and the Python and Node.js clients put the same flag on the exception.
+The engine never retries on its own. The client decides whether to run the transaction again, give up, or compensate, and the `retryable` flag tells it which errors can succeed on a second try. `retryable` is `true` for a write-write conflict (exit 5) and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared pool (exit 1, kind `resource`; reachable when statements run concurrently, as under `relate serve`). A one-shot CLI run meets only the first. A syntax error, a locked store or a constraint violation is not retryable. The CLI reports the conflict as `code` `conflict` with exit code 5 and `"retryable": true`, and the Python and Node.js clients put the same flag on the exception.
 
 Conflict detection compares the nodes and relationships each transaction wrote. Two transactions that write different elements both commit, even when each read what the other wrote, so the engine does not detect write skew. Uniqueness and key constraints are the exception: commit also rejects the later of two transactions that introduce the same constrained value, with the same retryable conflict, and on the retry the statement reports the precise constraint violation.
 

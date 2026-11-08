@@ -1,4 +1,209 @@
 ---
 title: Serve the HTTP Query API
-status: planned
+label: HTTP Query API
+description: Run relate serve --http and send Cypher as JSON over HTTP in the shape of Neo4j's Query API v2, with parameters, transactions and status codes.
+order: 30
+surfaces: [http, cli]
+prerequisites: [get-started/install]
+related: [reference/server/http, reference/cli/serve, guides/serve/auth-and-tls, guides/serve/bolt, reference/errors#http-unauthorized, guides/operate/two-processes-one-store, concepts/problems-relate-solves#shared-store-across-processes]
 ---
+
+This guide shows you how to serve a relate store over the :term[HTTP Query API]{id=http-query-api} with `relate serve --http <port>`. A client sends one `POST` holding a Cypher :term[statement]{id=statement} as JSON to `/db/<namespace>/query/v2` and gets one JSON answer back. The request and the answer follow Neo4j's Query API v2, so any HTTP client works, `curl` included, with no driver.
+
+## Prerequisites
+
+- relate on your `PATH`: `relate --version` prints its version ([Install relate](/docs/get-started/install)).
+- `curl`, or any HTTP client.
+- A store to serve. The first step creates `graph.rl`.
+
+## Create a store to serve
+
+This command writes a new `graph.rl` holding the shared example graph: three people, two projects, and who works on what.
+
+```bash verify
+relate --database ./graph.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+## Start the server
+
+Give `--http` a port; it has no default. The server binds `127.0.0.1` and runs until SIGINT or SIGTERM:
+
+```bash
+relate serve --http 7474 --database ./graph.rl --read-only
+```
+
+To allow writes, remove `--read-only`.
+
+On stderr, relate prints that the store is open read-only, then `auth: generated token for user relate: <token>`, `auth: persisted at ./graph.rl.auth-token (reused on restart)`, and `serve: HTTP Query API v2 listening on http://127.0.0.1:7474 (auth: basic)`. Every request to a statement route needs that credential as HTTP Basic authentication. The token file holds one line, `relate:<token>`, which is the form `curl -u` takes. [Authentication and TLS](/docs/guides/serve/auth-and-tls) covers setting your own credential.
+
+`GET /` is the one route that needs no credential. It returns the discovery document: the statement endpoint under `query`, the transaction endpoint under `transaction`, the relate version under `neo4j_version`, `neo4j_edition` `community`, and `bolt_direct` when the same process also serves Bolt. [Verify](#verify) shows a whole one.
+
+## Run a statement
+
+`POST` a JSON body with `Content-Type: application/json` to `/db/neo4j/query/v2`. `neo4j` is the default namespace; `system` and `system_ontologies` are the other two.
+
+```bash
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person {name: \"Ada\"}) RETURN p"}' \
+  http://127.0.0.1:7474/db/neo4j/query/v2
+```
+
+```text
+{"data":{"fields":["p"],"values":[[{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}]]},"bookmarks":[]}
+```
+
+`data.fields` names the columns and `data.values` holds one array per row, in column order. A :term[node]{id=node} is an object with its `elementId`, `labels` and `properties`; a :term[relationship]{id=relationship} adds `startNodeElementId`, `endNodeElementId` and `type`; a :term[path]{id=path} is an array that alternates nodes and relationships. Temporal values are ISO 8601 strings.
+
+| Request field | Required | Meaning |
+| --- | --- | --- |
+| `statement` | Required | One Cypher statement |
+| `parameters` | Optional | An object holding a value for each `$name` in the statement |
+| `includeCounters` | Optional, default `false` | Adds `counters` to an answer that changed nothing |
+
+| Answer field | When it is present |
+| --- | --- |
+| `data` | Always: `fields` and `values` |
+| `counters` | After a statement that changed the graph, or with `includeCounters`: the 11 mutation counters, such as `nodes_created` and `properties_set` |
+| `bookmarks` | Always, and always `[]`: there is no bookmark manager, because every commit is visible to the next request |
+| `notifications` | Only for an `EXPLAIN` or `PROFILE` statement that raised one |
+| `queryPlan`, `profiledQueryPlan` | Only for an `EXPLAIN` or a `PROFILE` statement |
+
+Unlike the CLI's envelope, the answer carries no column types and no timings: the Query API v2 shape has no place for them.
+
+## Pass parameters
+
+Put the values in `parameters` and refer to them as `$name`:
+
+```bash
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, p.role AS role ORDER BY name", "parameters": {"project": "relate"}}' \
+  http://127.0.0.1:7474/db/neo4j/query/v2
+```
+
+```text
+{"data":{"fields":["name","role"],"values":[["Ada","engineer"],["Grace","engineer"]]},"bookmarks":[]}
+```
+
+Under `application/json`, a parameter is plain JSON: a string, a number, a boolean, a list, or a map. A date arrives as its string, so build the typed value in Cypher: `RETURN date($day) AS day` with `{"day": "2026-11-07"}`. The other request type, `application/vnd.neo4j.query.v1.2`, also takes the typed form Neo4j's official clients send, such as `{"$type": "Integer", "_value": "41"}`. A statement that names a parameter the request leaves out fails with `400` and code `42N02`; it is never bound as `null`.
+
+To get typed values back, ask for them with `Accept: application/vnd.neo4j.query`. Each value then arrives as `{"$type": …, "_value": …}`, such as `{"$type":"Date","_value":"2026-11-07"}`, with integers as strings inside `_value`.
+
+## Write in a transaction
+
+Each request to `/db/neo4j/query/v2` runs as its own transaction and commits when it succeeds. To group several statements, use the transaction routes. A read-only server serves them too, but a write staged in a transaction there fails at the commit with `400` and code `42N18`, and the store is unchanged. This command opens `graph.rl` for writing:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+relate serve --http 7474 --database ./graph.rl
+```
+
+Begin a transaction with a `POST` to `…/query/v2/tx`. The body's statement is optional, and the answer is `201` with a `transaction` block:
+
+```bash
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "CREATE (:Person {name: \"Tess\", role: \"engineer\"})"}' \
+  http://127.0.0.1:7474/db/neo4j/query/v2/tx
+```
+
+```text
+{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:43:15.374Z","id":"tx-0"}}
+```
+
+The `id` and the `expires` time differ on every run. Use the `id` in the routes that follow:
+
+| Method and path | Does | Answers |
+| --- | --- | --- |
+| `POST /db/<namespace>/query/v2/tx` | Begins a transaction, running the body's statement if it has one | `201`, with `transaction.id` and `transaction.expires` |
+| `POST /db/<namespace>/query/v2/tx/<id>` | Runs a statement in the transaction; an empty body `{}` only keeps it alive | `200`, with the `transaction` block |
+| `POST /db/<namespace>/query/v2/tx/<id>/commit` | Runs the body's statement if it has one, then commits | `200`, with no `transaction` block |
+| `DELETE /db/<namespace>/query/v2/tx/<id>` | Rolls back | `202` |
+
+Inside the transaction, its own writes are visible; to other requests they are not, until the commit. A transaction idle for 60 seconds expires and rolls back (`--tx-idle-timeout-secs`), and at most 128 can be open at once (`--max-open-transactions`). With `"accessMode": "READ"` in the body of a transaction request, a write fails with `writing is not allowed in a READ transaction` and the transaction stays open.
+
+## Read the status codes
+
+A failed request answers with a status code and an `errors` array holding one `code` and `message`:
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| `400` | `42N06` | A body that is not JSON or lacks `statement`, or a Cypher syntax error |
+| `400` | `42N02` | A parameter the statement names is missing from `parameters` |
+| `400` | `22G03` | A type error, such as `type error: / by zero` |
+| `400` | `42N18` | A write on a server started `--read-only` |
+| `400` | `42000` | Any other statement error |
+| `401` | `42NFF` | No credential, or the wrong one |
+| `404` | `42N00` | An unknown namespace or route |
+| `404` | `42000` | An unknown transaction id |
+| `404` | `42N90` | A transaction that expired while idle |
+| `405` | `42000` | The wrong method for the route |
+| `415` | `42000` | A `POST` without a JSON content type |
+| `429` | `42N91` | A new transaction while 128 are open |
+
+The [HTTP errors](/docs/reference/errors#http-unauthorized) list every code with its message.
+
+## Use it from Neo4j tools
+
+The request and answer shapes are those of Neo4j's Query API v2 statement and transaction endpoints. A client built for that API talks to relate unchanged, within the Cypher relate supports ([differences from Neo4j](/docs/reference/cypher/differences-from-neo4j)). relate adds one thing, gzip compression for an answer of 1 KiB or more when the request sends `Accept-Encoding: gzip`. It leaves out batching, a bookmark manager, and JSON Lines answers.
+
+A browser page may call the server only from an allowed origin. By default those are the loopback origins and the hosted Neo4j Browser and Neo4j Console, `https://browser.neo4j.io` and `https://console.neo4j.io`. `--origin <url>` replaces that list and repeats for each origin.
+
+## Verify
+
+This step starts the server read-only on port 8842, reads the discovery document, runs a statement with a parameter, tries a write, and sends a request without a credential. Then it stops the server:
+
+```bash verify
+relate serve --http 8842 --database ./graph.rl --read-only 2> serve.log &
+server=$!
+until curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done
+curl -s -w '\n' http://127.0.0.1:8842/
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name ORDER BY name", "parameters": {"project": "relate"}}' \
+  -w '\n%{http_code}\n' http://127.0.0.1:8842/db/neo4j/query/v2
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "CREATE (:Person {name: $name})", "parameters": {"name": "Eve"}}' \
+  -w '\n%{http_code}\n' http://127.0.0.1:8842/db/neo4j/query/v2
+curl -s -H 'Content-Type: application/json' -d '{"statement": "RETURN 1 AS ok"}' \
+  -w '\n%{http_code}\n' http://127.0.0.1:8842/db/neo4j/query/v2
+kill $server
+wait $server
+```
+
+```text
+{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]}}
+{"data":{"fields":["name"],"values":[["Ada"],["Grace"]]},"bookmarks":[]}
+200
+{"errors":[{"code":"42N18","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance."}]}
+400
+{"errors":[{"code":"42NFF","message":"authentication required"}]}
+401
+```
+
+The read returned Ada and Grace with `200`, the write was refused with `400` and the store is unchanged, and the request without a credential got `401`.
+
+## If it goes wrong
+
+**`401` with code `42NFF` and `authentication required`.** The request has no credential or the wrong one. Send `-u "$(cat <store>.auth-token)"`, or the `user:password` from `--auth` or `RELATE_AUTH`.
+
+**`415` with a message that begins `the request content type is browser-"simple"`.** The `POST` has no JSON content type; `curl -d` sends `application/x-www-form-urlencoded` unless told otherwise. Add `-H 'Content-Type: application/json'`.
+
+**`400` with code `42N18` and `WriteOnReadOnlyAccessDatabase`.** The server opened the store `--read-only`. Restart it without `--read-only` to accept writes.
+
+**`404` with code `42N00` and `semantic error: DatabaseNotFound: Graph not found: <name>`.** The path names a namespace other than `neo4j`, `system` or `system_ontologies`.
+
+## Related
+
+- [HTTP server reference](/docs/reference/server/http): every route, header, and status code.
+- [`relate serve`](/docs/reference/cli/serve): every flag, such as the transaction limits.
+- [Authentication and TLS](/docs/guides/serve/auth-and-tls): credentials and TLS in front of the server.
+- [Serve over Bolt](/docs/guides/serve/bolt): the same store for Neo4j drivers.
+- [Share one store between two processes](/docs/guides/operate/two-processes-one-store): when one server should own the store.
+- [Shared store across processes](/docs/concepts/problems-relate-solves#shared-store-across-processes): the problem this page solves.

@@ -1,4 +1,373 @@
 ---
 title: Output modes
-status: planned
+description: The nine relate CLI output modes with the exact bytes each prints for one query, the default for a terminal, a pipe and agent mode, --pretty and --noheader.
+order: 35
+surfaces: [cli]
+related: [guides/cli/output-formats, reference/cli/flags#output, reference/cli/agent-mode, reference/cli/exit-codes-and-errors, guides/cli/scripting]
 ---
+
+An output mode decides how a query run prints each result set. The `relate` CLI has nine: `table`, `csv`, `json`, `jsonl`, `envelope`, `markdown`, `cypher`, `toon` and `speedscope`. Without an output flag, the mode is `table` when stdout is a terminal and `jsonl` when stdout is a pipe or a file, or `toon` when stdout is piped and agent mode is on. An explicit output flag always wins. The mode changes how results print, never what a :term[statement]{id=statement} does. Its exit code is the same in every mode except `speedscope`, which exits 1 after a statement that has no `PROFILE` metrics; that statement still ran, and its writes committed.
+
+## Synopsis
+
+```text
+relate [OPTIONS] --mode <mode> [--database PATH] [QUERY]
+relate query --mode <mode> [STATEMENT] [--database PATH]
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--mode MODE` | Selects one of the nine modes; an unknown name exits 2 |
+| `--format MODE` | Alias of `--mode` |
+| `--json`, `--csv`, `--jsonl`, `--markdown`, `--toon` | Shortcuts for `--mode json`, `csv`, `jsonl`, `markdown` and `toon`; the single-dash forms `-json`, `-csv`, `-jsonl` and `-markdown` are accepted |
+| `--pretty` | Indents `json` output even when stdout is not a terminal; the other modes ignore it |
+| `--noheader` | Drops the header row of `table` and `csv`; the other modes keep their headers |
+| `--width N` | Wraps `table` output to `N` display columns, `20` or more |
+
+Of several output flags, the last one given wins: `relate --mode csv --json …` prints JSON. The flag's value is the next argument; `--mode=csv` is an unknown flag. An unknown mode name exits 2:
+
+```bash verify
+relate --mode yaml "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Error: invalid mode 'yaml' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)
+exit=2
+```
+
+## Defaults
+
+The CLI picks the mode once per run, from where stdout goes and whether agent mode is on:
+
+| stdout | Agent mode off | Agent mode on |
+| --- | --- | --- |
+| A terminal | `table` | `table` |
+| A pipe or a file | `jsonl` | `toon` |
+| Any, with an output flag | the flag's mode | the flag's mode |
+
+Agent mode is on under a detected agent harness with stdout not a terminal, or with `--agent-mode` or `RELATE_AGENT_MODE=1`; the [agent mode page](/docs/reference/cli/agent-mode#what-turns-it-on) has the rules. The interactive shell runs on a terminal, so its default is `table`. A script piped to `relate query` follows the same table: its output is `jsonl` unless something else applies.
+
+## The nine modes
+
+| Mode | Shortcut | Prints | Error object on stdout | Row cap reported in-band |
+| --- | --- | --- | --- | --- |
+| `table` | none | A boxed text table; strings in double quotes | no | no |
+| `csv` | `--csv` | CSV with RFC 4180 quoting and LF line endings, with a header row | no | no |
+| `json` | `--json` | One JSON array per result set; indented on a terminal, one line when piped; an object `{"data":[…],"rowCap":…}` when the row cap cut it | yes | yes |
+| `jsonl` | `--jsonl` | One JSON object per row | yes | yes |
+| `envelope` | none | One JSON object per result set: columns, types, rows, and flags | yes | yes |
+| `markdown` | `--markdown` | A GitHub-flavored table | no | yes |
+| `cypher` | none | One `CREATE` statement per row, values as Cypher literals | no | no |
+| `toon` | `--toon` | One `rows[N]{cols}:` header line, then one line per row | no | yes |
+| `speedscope` | none | A `PROFILE` plan as one speedscope profile document | yes, for a failed statement; the `PROFILE` refusal is stderr only | no |
+
+A mode with no error object prints a failure only on stderr, with the exit code; the [error object](#errors) section covers the rest. The in-band row cap report for each mode is on the [agent mode page](/docs/reference/cli/agent-mode#the-row-cap). An `EXPLAIN` or `PROFILE` result prints a plan object in `json`, `jsonl`, `envelope` and `toon`, in place of the shapes this table lists; [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile#the-plan-in-each-output-mode) shows each.
+
+## One query in every mode
+
+The examples on this page read the team graph shared across the docs: three people, two projects, and who works on what. This step writes it to `team.rl`:
+
+```bash verify
+cat > seed.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < seed.cypher
+```
+
+Each example runs the same read, opened `--read-only`: who works on `relate`, and since when.
+
+### `table`
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
++---------+-------+
+| name    | since |
++---------+-------+
+| "Grace" | 2023  |
+| "Ada"   | 2024  |
++---------+-------+
+```
+
+### `csv`
+
+```bash verify
+relate --database ./team.rl --read-only --csv "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+name,since
+Grace,2023
+Ada,2024
+```
+
+### `json`
+
+```bash verify
+relate --database ./team.rl --read-only --json "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+[{"name":"Grace","since":2023},{"name":"Ada","since":2024}]
+```
+
+Keys inside each row object are sorted alphabetically, in `json`, `jsonl` and `envelope` alike. The column order is the statement's; `envelope` carries it in `columns`.
+
+### `jsonl`
+
+```bash verify
+relate --database ./team.rl --read-only --jsonl "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+{"name":"Grace","since":2023}
+{"name":"Ada","since":2024}
+```
+
+### `envelope`
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["name","since"],"notifications":[],"rows":[{"name":"Grace","since":2023},{"name":"Ada","since":2024}],"truncated":false}
+```
+
+### `markdown`
+
+```bash verify
+relate --database ./team.rl --read-only --markdown "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+| name    | since |
+|---------|-------|
+| "Grace" | 2023  |
+| "Ada"   | 2024  |
+```
+
+### `cypher`
+
+```bash verify
+relate --database ./team.rl --read-only --mode cypher "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+CREATE ({name: 'Grace', since: 2023})
+CREATE ({name: 'Ada', since: 2024})
+```
+
+`cypher` formats values, not graph elements: a node, relationship or path column has no Cypher literal form and is left out, with a `// column <name> (<TYPE>) omitted: no Cypher literal form` comment line. It is not a way to copy a store; [back up and restore](/docs/guides/storage/backup-and-restore) covers that.
+
+### `toon`
+
+```bash verify
+relate --database ./team.rl --read-only --toon "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+rows[2]{name,since}:
+  Grace,2023
+  Ada,2024
+```
+
+The :term[TOON]{id=toon} header names the row count and the columns once; each row is two spaces, then the values separated by commas.
+
+### `speedscope`
+
+`speedscope` needs a `PROFILE` statement, because the per-operator times of the plan are what it exports. The output is one JSON document in the speedscope file format: a frame per plan operator, named `<operator> <id>`, and an open and a close event per operator, in nanoseconds. The times change from run to run, so this example prints only the names:
+
+```bash verify
+relate --database ./team.rl --read-only --mode speedscope "PROFILE MATCH (p:Person) RETURN p.name AS name" | grep -o '"name":"[^"]*"'
+```
+
+```text
+"name":"relate PROFILE"
+"name":"ProduceResults 0"
+"name":"NodeByLabelScan 1"
+```
+
+A statement without `PROFILE` still runs, and its writes commit, but `speedscope` prints nothing on stdout and exits 1, with this message on stderr and no error object:
+
+```bash verify
+relate --database ./team.rl --read-only --mode speedscope "MATCH (p:Person) RETURN p.name AS name"
+echo "exit=$?"
+```
+
+```text
+speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)
+exit=1
+```
+
+A write is the case that matters: the refusal comes after the statement committed, so running it again writes twice. This example writes one `Run` node to a new directory store, `./sp`, then counts it read-only:
+
+```bash verify
+relate --database ./sp --mode speedscope "CREATE (:Run)"
+echo "exit=$?"
+relate --database ./sp --read-only --mode jsonl "MATCH (r:Run) RETURN count(r) AS runs"
+```
+
+```text
+speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)
+exit=1
+{"runs":1}
+```
+
+## How values print
+
+The same row in each mode, with a string holding a comma and a pipe, a `null`, a list, a map, a float, a boolean and a date:
+
+| Mode | Prints |
+| --- | --- |
+| `table` | `"a,b\|c"`, `<null>`, `[1, 2]`, `{k: 1}`, `1.5`, `true`, `2026-11-07` |
+| `csv` | `"a,b\|c",,"[1, 2]",{k: 1},1.5,true,2026-11-07`: `null` is an empty field |
+| `json`, `jsonl`, `envelope` | `"a,b\|c"`, `null`, `[1,2]`, `{"k":1}`, `1.5`, `true`, `"2026-11-07"`: temporal values are strings |
+| `markdown` | As `table`, with each pipe character escaped by a backslash |
+| `cypher` | `{s: 'a,b\|c', n: null, l: [1, 2], m: {k: 1}, f: 1.5, b: true, d: date('2026-11-07')}` |
+| `toon` | `"a,b\|c",null,[1,2],{"k":1},1.5,true,2026-11-07`: nested values are inline JSON, and a string is quoted, as a JSON string, when it is empty, holds a comma, a double quote, a backslash, or a control or invisible format character, has leading or trailing whitespace, or reads as a number (`NaN` and `Infinity` included), `true`, `false` or `null` |
+
+A node prints as `(:Person {name: "Ada", role: "engineer"})` in `table`, `csv` and `markdown`, and as an object in the JSON modes and `toon`:
+
+```bash verify
+relate --database ./team.rl --read-only --mode jsonl "MATCH (p:Person {name: 'Ada'}) RETURN p"
+```
+
+```text
+{"p":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}}
+```
+
+`id` is the node's internal id within this store. A relationship prints with `"kind":"relationship"`.
+
+## Output safety
+
+Text modes escape what could change a terminal or a spreadsheet. There is no flag to turn this off.
+
+| Mode | What is escaped |
+| --- | --- |
+| `table`, `markdown` | Control characters and invisible format characters, such as a bidi override, in every cell and header: a newline prints as `\n`, a tab as `\t`, others as `\u{<hex>}` in uppercase hex with no padding, such as `\u{7}` and `\u{202E}`; `markdown` also escapes `\|` |
+| `csv` | Control characters other than a newline or carriage return, then a field starting with `=`, `+`, `-` or `@` gets a `'` prefix, so `-5` prints as `'-5`; a field with a comma, quote or newline is quoted |
+| `cypher` | Control and invisible format characters inside string literals, as `\n`, `\t` and `\uXXXX`, such as `\u0007` |
+| `json`, `jsonl`, `envelope`, `toon` | JSON escaping only; values are unchanged |
+
+```bash verify
+relate --csv "RETURN -5 AS n, '=1+1' AS formula"
+```
+
+```text
+n,formula
+'-5,'=1+1
+```
+
+A program that reads `csv` output handles the `'` prefix on a negative number; `jsonl` or `envelope` keeps numbers as numbers.
+
+## Empty results, writes, and several statements
+
+Each statement prints its own result set, in the order the statements run:
+
+| Mode | Two statements, `RETURN 1 AS a; RETURN 2 AS b` | A read with no rows | A write with no `RETURN` |
+| --- | --- | --- | --- |
+| `table` | Two tables | The header only | Nothing |
+| `csv` | `a`, `1`, `b`, `2` on four lines | The header line | One empty line |
+| `json` | Two arrays, one per line | `[]` | `[]` |
+| `jsonl` | One line per row | Nothing | Nothing |
+| `envelope` | Two envelopes, one per line | An envelope with `columns` and `"rows":[]` | An envelope with `"columns":[]` |
+| `markdown` | Two tables | The header and separator lines | Nothing |
+| `cypher` | One `CREATE` per row | Nothing | Nothing |
+| `toon` | Two `rows[1]{…}:` blocks | `rows[0]{name}:` | Nothing |
+
+`jsonl` prints nothing for a read with no rows, the same as for a write. `envelope` tells the two apart:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person {name: 'Zed'}) RETURN p.name AS name"
+```
+
+```text
+{"columnTypes":["ANY"],"columns":["name"],"notifications":[],"rows":[],"truncated":false}
+```
+
+## The envelope
+
+`--mode envelope` prints one compact :term[envelope]{id=envelope} per result set, on one line, with its keys sorted alphabetically:
+
+| Key | Present | Holds |
+| --- | --- | --- |
+| `columnTypes` | always | One type name per column, from the first row; `ANY` for a `null` first value or no rows |
+| `columns` | always | The column names in the statement's order, even with no rows |
+| `notifications` | always | The statement's notifications; `[]` on a plain run |
+| `plan` | `EXPLAIN` and `PROFILE` only | The plan tree |
+| `rowCap` | when the :term[row cap]{id=row-cap} cut the rows | `{"kept":N,"total":M}` |
+| `rows` | always | One object per row, as `json` prints it |
+| `truncated` | always | `true` when the row cap cut the rows |
+
+The [agent mode page](/docs/reference/cli/agent-mode#the-envelope) lists every `columnTypes` name. New keys may be added; existing ones are never renamed.
+
+## Errors
+
+A failed statement prints its message on stderr and exits with the exit code of its class, in every mode. In `json`, `jsonl`, `envelope` and `speedscope`, it also prints an :term[error object]{id=error-object} on stdout, after any rows already printed. `table`, `csv`, `markdown`, `cypher` and `toon` print no error object:
+
+```bash verify
+relate --mode jsonl "RETRN 1"
+echo "exit=$?"
+```
+
+```text
+syntax error: parse error: unexpected token "RETRN"
+  RETRN 1
+  ^
+{"error":{"code":"validation_error","column":1,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: unexpected token \"RETRN\"   RETRN 1   ^","retryable":false,"source":"RETRN 1"}}
+exit=6
+```
+
+The first three lines are stderr; the error object is stdout. Its fields and every exit code are on the [exit codes and errors page](/docs/reference/cli/exit-codes-and-errors#the-error-object).
+
+## Header and width options
+
+`--noheader` drops the header row of `table` and `csv`:
+
+```bash verify
+relate --database ./team.rl --read-only --csv --noheader "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since"
+```
+
+```text
+Grace,2023
+Ada,2024
+```
+
+`markdown` and `toon` keep their header with `--noheader`, because the table or the row count needs it.
+
+`--pretty` indents `json` when stdout is not a terminal, two spaces per level:
+
+```bash verify
+relate --json --pretty "RETURN 'Ada' AS name, 2024 AS since"
+```
+
+```text
+[
+  {
+    "name": "Ada",
+    "since": 2024
+  }
+]
+```
+
+`--width N` wraps `table` output to `N` display columns: the widest columns shrink and their cells continue on the next line. Without it, the width is the terminal's, else an exported `COLUMNS`, else the table's natural width. A value under `20` exits 2 with `Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default`.
+
+## See also
+
+- [Choose an output format](/docs/guides/cli/output-formats): which mode fits which job
+- [CLI flags](/docs/reference/cli/flags#output): the output flags with their defaults
+- [Agent mode](/docs/reference/cli/agent-mode): the `toon` default, the row cap and the envelope's types
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the error object and the exit codes

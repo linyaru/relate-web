@@ -84,7 +84,7 @@ WORKS_ON:
 | `.cypherlite/schema/` | A text copy of the schema (indexes, constraints, graph type), rewritten at each checkpoint |
 | `.cypherlite.lock`, `.cypherlite.writer`, `wal/.cypherlite.lock`, `wal/.cypherlite.writer` | The writer lock |
 
-A `markdown` store keeps `manifest.json` and the WAL in its `.cypherlite/` folder (`.cypherlite/manifest.json`, `.cypherlite/wal/NNNNNNNN.log`, `.cypherlite/wal/.cypherlite.lock`, `.cypherlite/wal/.cypherlite.writer`); the `parquet` and `json` codecs keep them at the root and in `wal/`.
+A `markdown` store keeps `manifest.json` and the WAL in its `.cypherlite/` folder (`.cypherlite/manifest.json`, `.cypherlite/wal/NNNNNNNN.log`, `.cypherlite/wal/.cypherlite.lock`, `.cypherlite/wal/.cypherlite.writer`) and the root lock files `.cypherlite.lock` and `.cypherlite.writer` beside its notes; the `parquet` and `json` codecs keep them at the root and in `wal/`.
 
 The snapshot files hold the state at the last checkpoint; the WAL holds every commit since. Opening a store loads the snapshot, then replays the WAL. A copy of the snapshot files without the WAL folder holds the state at the last checkpoint only, and a `--read-only` open of it fails.
 
@@ -203,3 +203,5 @@ On stderr, an error at open is prefixed `Failed to open Relate: `. The [errors r
 - [Back up and restore a store](/docs/guides/storage/backup-and-restore): `relate clone` and file copies.
 - [Storage and durability](/docs/concepts/storage-and-durability): the write path, the WAL, and checkpoints.
 - [Limits and sizing](/docs/reference/storage/limits-and-sizing): the limits on graph size, commits, and values.
+- [Keep the schema as files](/docs/guides/storage/schema-as-files): reading, reviewing and applying `.cypherlite/schema/`.
+- [Open a store as an Obsidian vault](/docs/guides/storage/obsidian-vault): the `markdown` codec in use.

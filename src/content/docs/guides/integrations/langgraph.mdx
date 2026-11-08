@@ -4,8 +4,8 @@ label: LangGraph
 description: Give a LangGraph graph long-term memory in a relate store from Python, with one node that writes each episode and one that recalls it.
 order: 20
 surfaces: [python, agents]
-prerequisites: [get-started/install]
-related: [get-started/python, guides/agents/model-agent-memory, cookbook/agent-memory, reference/errors]
+prerequisites: [get-started/python]
+related: [get-started/python, guides/agents/model-agent-memory, cookbook/agent-memory, reference/errors, guides/integrations/langchain]
 ---
 
 This guide shows you how to give a LangGraph graph long-term memory in a relate :term[store]{id=store}, from Python. LangGraph's checkpointer keeps each conversation's state; relate keeps what should outlive the conversation, as a graph of episodes linked to the people and projects they mention. Two LangChain tools wrap the relate client, and two nodes call them: one writes an episode, the other recalls what memory holds. relate is reached through those tools, not as LangGraph's `BaseStore` or as its checkpointer. A `BaseStore` gets items by namespace and key, while the tools let recall follow the graph's relationships.

@@ -4,7 +4,7 @@ description: Run relate from shell scripts with statements from files and stdin,
 order: 30
 surfaces: [cli]
 prerequisites: [get-started/first-graph]
-related: [reference/cli/flags, reference/cli/exit-codes-and-errors, reference/errors, reference/cli/agent-mode, get-started/first-graph]
+related: [reference/cli/flags, reference/cli/exit-codes-and-errors, reference/errors, reference/cli/agent-mode, get-started/first-graph, guides/cli/output-formats, reference/cli/output-modes]
 ---
 
 This guide shows you how to run relate from shell scripts: statements from a file or stdin, output a program can parse, parameters, a time bound per statement, all-or-nothing scripts, and exit codes to branch on. Each command opens the :term[store]{id=store}, runs, and exits, so a script is a sequence of ordinary commands.
@@ -156,7 +156,7 @@ The `case` at the end of this section branches on these codes:
 | `6` | `validation_error` | The statement was rejected: syntax, semantic, argument or type error, including a write on a read-only store |
 | `7` | `timeout` | A statement exceeded `--timeout` |
 
-Only a write-write conflict has `"retryable":true`, so running the same statement again can succeed. A locked store also exits 5, with `"retryable":false` until the other process exits. [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) lists every code, including `1` and `2`, and the error object's fields.
+`retryable` is `true` for a write-write conflict (exit 5) and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared pool (exit 1, kind `resource`; reachable when statements run concurrently, as under `relate serve`). A one-shot CLI run meets only the first. Running the same statement again can succeed after either. A locked store also exits 5, with `"retryable":false` until the other process exits. [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) lists every code, including `1` and `2`, and the error object's fields.
 
 Capture the code with `|| status=$?`, which also keeps `set -e` from stopping the script, then branch on it:
 
@@ -178,7 +178,7 @@ rejected: syntax error: parse error: unexpected token "RETRUN"
 
 ## Apply scripts in a loop
 
-A script stops at its first failing statement and exits with that statement's code. Statements before it are already committed, unless the script opens a transaction with `.begin` and ends it with `.commit`: then a failure rolls back everything since `.begin`. The [shell dot commands](/docs/reference/cli#shell-dot-commands) lists `.begin`, `.commit`, `.rollback` and the others a script can use.
+A script stops at its first failing statement and exits with that statement's code. Statements before it are already committed, unless the script opens a transaction with `.begin` and ends it with `.commit`: then a failure rolls back everything since `.begin`. The [shell dot commands](/docs/reference/cli/dot-commands) lists `.begin`, `.commit`, `.rollback` and the others a script can use.
 
 This example applies a directory of migration scripts in order. Each one is a transaction, and the second has a typo:
 

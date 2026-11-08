@@ -1,4 +1,223 @@
 ---
 title: Dot commands
-status: planned
+description: The eight dot commands of the relate interactive shell and piped scripts, each with its effect, what it prints, how it fails and its exit code.
+order: 45
+surfaces: [cli]
+related: [guides/cli/interactive-shell, reference/cli, guides/cli/scripting, concepts/transactions-and-concurrency, reference/storage/wal-and-checkpoints]
 ---
+
+A dot command is a line that starts with `.` and that the `relate` CLI handles itself instead of running as Cypher. There are eight: `.help`, `.quit` (also `.exit`), `.begin`, `.commit`, `.rollback`, `.checkpoint`, `.info` and `.timer`. They work the same in the interactive shell and in a script piped to `relate query`. A dot command ends at the end of its line and needs no `;`. Any other word starting with `.` fails with `Error: unknown command <name>`.
+
+## Synopsis
+
+```text
+cypher> .<command> [argument]
+printf '.<command>\n' | relate query [--database PATH]
+```
+
+| Rule | Behavior |
+| --- | --- |
+| Where | The interactive shell, a script on stdin to `relate query`, and a one-shot statement list (`-c` or the positional argument) |
+| Ending | The end of the line; a trailing `;` is accepted. A dot command can follow a statement on the same line: `RETURN 1 AS x; .help` |
+| Case | Lowercase only: `.HELP` is an unknown command. The bare words `exit` and `EXIT` also end the session |
+| Arguments | Only `.timer` reads one; the other commands ignore anything after the command word |
+| Output | Results go to stdout in the session's output mode; errors go to stderr |
+| Exit code in a script | A failed dot command stops the script with :term[exit code]{id=exit-code} 1, like a failed :term[statement]{id=statement}; in the interactive shell the session continues |
+
+## Every command
+
+| Command | Effect | Prints on success | Fails with |
+| --- | --- | --- | --- |
+| `.help` | Lists the commands | Five summary lines | — |
+| `.quit`, `.exit` | Ends the session; lines after it are not read | Nothing | — |
+| `.begin` | Opens an explicit transaction | Nothing | `semantic error: already in a transaction` |
+| `.commit` | Commits the open transaction | Nothing | `semantic error: no transaction` |
+| `.rollback` | Discards the open transaction's writes | Nothing | `semantic error: no transaction` |
+| `.checkpoint` | Writes a checkpoint of a persistent store now | Nothing | The store's write error, on a read-only store |
+| `.info` | Prints the store's metadata, live counts, and catalog | A key/value block and two result sets | — |
+| `.timer on`, `.timer off` | Turns per-statement timing on or off | `Timer: on` or `Timer: off` | `Usage: .timer on\|off`, printed on stdout with exit code 0 |
+
+## `.help`
+
+`.help` prints the summary of what the session accepts:
+
+```bash verify
+printf '.help\n' | relate query
+```
+
+```text
+  Cypher statement ending with ;
+  .begin / .commit / .rollback / .checkpoint
+  .info
+  .timer on|off
+  .quit
+```
+
+## `.quit` and `.exit`
+
+`.quit` and `.exit` end the session with exit code 0. In a script, the lines after it are never read:
+
+```bash verify
+printf ".quit\nCREATE (:Note {text: 'never runs'});\n" | relate query --mode envelope
+echo "exit=$?"
+```
+
+```text
+exit=0
+```
+
+On a persistent :term[store]{id=store} opened for writing, the session takes a final checkpoint before it exits. If that fails, it prints `Error: final checkpoint failed: <reason>` and exits 1. End of input, or Ctrl-D on an empty line in the interactive shell, ends the session the same way.
+
+A session that ends with a transaction open discards that transaction's writes and prints a warning on stderr. The exit code depends on the session:
+
+| Session | Exit code with a transaction open |
+| --- | --- |
+| A piped script or a one-shot statement list | 1, or the higher code of a statement that already failed |
+| The interactive shell | 0 |
+
+```bash verify
+printf '.begin\nCREATE (:Note);\n.quit\n' | relate query
+echo "exit=$?"
+```
+
+```text
+Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.
+exit=1
+```
+
+## `.begin`, `.commit`, and `.rollback`
+
+Without `.begin`, each statement that writes commits on its own when it succeeds. `.begin` opens an explicit :term[transaction]{id=transaction}: the statements after it see its writes, and nothing is committed until `.commit`. `.rollback` discards everything since `.begin`. All three print nothing on success. This example writes two `Note` nodes to a new directory store, `./notes`; later examples on this page read it `--read-only`.
+
+```bash verify
+printf ".begin\nCREATE (:Note {text: 'kept'});\nCREATE (:Note {text: 'also kept'});\n.commit\n" | relate query --database ./notes
+relate --database ./notes --read-only --mode jsonl "MATCH (n:Note) RETURN count(n) AS notes"
+```
+
+```text
+{"notes":2}
+```
+
+Transactions do not nest, and `.commit` or `.rollback` needs an open one:
+
+| Situation | Message on stderr | Exit code in a script |
+| --- | --- | --- |
+| `.begin` while a transaction is open | `semantic error: already in a transaction` | 1 |
+| `.commit` or `.rollback` with none open | `semantic error: no transaction` | 1 |
+| A statement fails inside the transaction | The statement's own error | The statement's exit code; the script stops and the transaction is rolled back |
+
+```bash verify
+printf '.commit\n' | relate query
+echo "exit=$?"
+```
+
+```text
+semantic error: no transaction
+exit=1
+```
+
+In the interactive shell a failed statement does not end the session. It rolls back its own partial writes and leaves the transaction failed: every later statement and `.commit` print `semantic error: transaction failed; rollback required` until `.rollback`. The [transactions concept page](/docs/concepts/transactions-and-concurrency) explains what a transaction sees and when it commits.
+
+## `.checkpoint`
+
+`.checkpoint` writes a :term[checkpoint]{id=checkpoint} now: the snapshot is rewritten to the current state and the WAL segments it covers are recycled. It prints nothing. On `:memory:` it succeeds without writing anything. A store opened `--read-only` refuses it with exit code 1:
+
+```bash verify
+printf '.checkpoint\n' | relate query --database ./notes --read-only
+echo "exit=$?"
+```
+
+```text
+semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.
+exit=1
+```
+
+A persistent store also checkpoints on a timer (`--checkpoint-interval-secs`, default `300`) and when a session ends. The [WAL and checkpoints page](/docs/reference/storage/wal-and-checkpoints) covers what a checkpoint writes.
+
+## `.info`
+
+`.info` prints a read-only report on the open store, in three parts:
+
+| Part | Holds | Source |
+| --- | --- | --- |
+| Store metadata | The store path as given, layout, the superblock version for a `.rl` store, codec, format version, checkpoint LSN, commit timestamp, total bytes, and WAL segments past the checkpoint | Read from disk, the same fields `relate info` prints; on `:memory:`, the line `store: :memory: (store metadata not applicable)` |
+| Live counts | `nodes:` and `relationships:` | The open session, so writes not yet checkpointed count |
+| Catalog | `indexes:` and `constraints:`, each followed by the `SHOW INDEXES` or `SHOW CONSTRAINTS` result | The open session, printed in the session's output mode |
+
+On `:memory:` with `--mode csv`, each catalog result is its header line:
+
+```bash verify
+printf '.info\n' | relate query --mode csv
+```
+
+```text
+store:                        :memory: (store metadata not applicable)
+nodes:                        0
+relationships:                0
+indexes:
+id,name,state,populationPercent,type,entityType,labelsOrTypes,properties,indexProvider,owningConstraint,lastRead,readCount
+constraints:
+id,name,type,entityType,labelsOrTypes,properties,ownedIndex,propertyType,enforcedLabel
+```
+
+On a directory store, the metadata lines come first. Sizes and timestamps differ from store to store, so this example keeps five lines:
+
+```bash verify
+printf '.info\n' | relate query --database ./notes --read-only --mode csv | grep -E '^(layout|codec|checkpoint LSN|nodes|relationships):'
+```
+
+```text
+layout:                       native directory
+codec:                        parquet
+checkpoint LSN:               1
+nodes:                        2
+relationships:                0
+```
+
+A store that has never been checkpointed reports a `snapshot:` line reading `none yet (no checkpoint since creation)` in place of the codec and checkpoint fields. A `json` codec store reports `unavailable` as its format version, with a `note:` line saying the format version lives in its `graph.json`; its live counts and catalog print as usual.
+
+## `.timer`
+
+`.timer on` turns on per-statement timing, and `.timer off` turns it off; it is off when a session starts. Each prints its new state. While it is on, every statement that succeeds prints one line on stdout after its result: `Time: <total>ms (parse <ms> / plan <ms> / execute <ms>)`. The times change from run to run. Any argument other than `on` or `off`, in lowercase, prints the usage line and leaves the state unchanged:
+
+```bash verify
+printf '.timer on\n.timer off\n.timer ON\n' | relate query
+echo "exit=$?"
+```
+
+```text
+Timer: on
+Timer: off
+Usage: .timer on|off
+exit=0
+```
+
+## Commands that do not exist
+
+Many shells have more dot commands. relate has only the eight on this page, and every other word fails with `Error: unknown command <name>`, exit code 1 in a script. The jobs those commands do elsewhere are done this way:
+
+| Job | In relate |
+| --- | --- |
+| Output format, headers, width (`.mode`, `.headers`, `.width`) | The `--mode`, `--noheader` and `--width` flags, set when the session starts ([output modes](/docs/reference/cli/output-modes)) |
+| Writing results to a file (`.output`, `.once`) | Shell redirection: `relate query --database <path> --read-only --mode csv < <script> > <file>` |
+| Schema and counts (`.schema`, `.indexes`, `.labels`) | `.info`, or Cypher: `SHOW INDEXES`, `SHOW CONSTRAINTS`, `CALL db.labels()` |
+| Running a script file (`.read`) | Piped stdin: `relate query --database <path> --read-only < <script>`; without `--read-only`, the script can write |
+| Switching stores (`.open`) | One store per process, named once with `--database` |
+| Plans (`.explain`) | The `EXPLAIN` and `PROFILE` prefixes on a statement |
+
+```bash verify
+printf '.mode csv\n' | relate query
+echo "exit=$?"
+```
+
+```text
+Error: unknown command .mode
+exit=1
+```
+
+## See also
+
+- [Use the interactive shell](/docs/guides/cli/interactive-shell): multi-line statements, history, and leaving the shell
+- [Script the CLI](/docs/guides/cli/scripting): `.begin` and `.commit` around a migration script
+- [relate CLI](/docs/reference/cli#shell-dot-commands): the invocation forms and the dot commands in brief
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what an explicit transaction sees

@@ -1,4 +1,253 @@
 ---
 title: Use the interactive shell
-status: planned
+label: Interactive shell
+description: Explore a relate store in the interactive shell, with multi-line statements, line editing and history, parameters, dot commands, and transactions.
+order: 20
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/cli/dot-commands, reference/cli/output-modes, reference/cli/flags, guides/cli/scripting, get-started/first-graph]
 ---
+
+This guide shows you how to work in the `relate` interactive shell: start it on a store, run statements that span several lines, edit and recall what you typed, bind parameters, use the dot commands, group writes in a transaction, and leave. The shell opens when `relate` runs on a terminal with no statement to run. It reads one :term[statement]{id=statement} at a time, runs it when it sees the closing `;`, and prints the result as a table.
+
+The transcripts on this page come from a terminal session with relate 0.16.1 and are not replayed by the docs checks. Each is followed by the same statements as a piped script, which the checks replay; a script and the shell share the statement splitter and the dot commands.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- A terminal. With stdin redirected or piped, `relate` with no statement prints its help instead of opening the shell.
+- An empty working directory. The first step writes the team graph shared across the docs to `team.rl` there.
+
+## Build the example store
+
+Write the seed to a file and run it into a new store. This step writes `team.rl`:
+
+```bash verify
+cat > seed.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < seed.cypher
+```
+
+## Start the shell
+
+Open the store :term[read-only]{id=read-only} for exploring, so nothing you type can change it:
+
+```bash
+relate --database ./team.rl --read-only
+```
+
+The shell prints a banner and the `cypher>` prompt:
+
+```text
+Relate 0.16.1. End statements with ;  (.quit to exit)
+cypher>
+```
+
+`relate` with no `--database` opens the shell on an in-memory :term[store]{id=store}, which is gone when the shell exits. `relate query --database <path>` opens the same shell. Flags given at the start apply to the whole session: `--mode` changes the output, `--timeout` bounds each statement, and `--read-only` refuses every write.
+
+## Run a statement over several lines
+
+Type the statement over as many lines as you like and end it with `;`. Until the `;`, the prompt changes to `   ...>` and the shell keeps reading:
+
+```text
+cypher> MATCH (p:Person)-[w:WORKS_ON]->(proj:Project)
+   ...> WHERE w.since >= 2023
+   ...> RETURN p.name AS person, proj.name AS project
+   ...> ORDER BY person;
++---------+----------+
+| person  | project  |
++---------+----------+
+| "Ada"   | "relate" |
+| "Grace" | "relate" |
++---------+----------+
+```
+
+Only a `;` at the end of the statement submits it. A blank line doesn't, and a `;` inside a string or a comment doesn't end the statement. The same lines as a piped script print the same table:
+
+```bash verify
+printf 'MATCH (p:Person)-[w:WORKS_ON]->(proj:Project)\nWHERE w.since >= 2023\nRETURN p.name AS person, proj.name AS project\nORDER BY person;\n' | relate query --database ./team.rl --read-only --mode table
+```
+
+```text
++---------+----------+
+| person  | project  |
++---------+----------+
+| "Ada"   | "relate" |
+| "Grace" | "relate" |
++---------+----------+
+```
+
+A statement that fails prints its error and returns to `cypher>`. Unlike a script, the shell keeps going after a failure.
+
+## Edit and recall input
+
+On a terminal, the prompt is a line editor:
+
+| Key | Effect |
+| --- | --- |
+| Left, Right, Home, End | Move within the current line |
+| Emacs-style editing keys | Edit the current line |
+| Up, Down | Walk back and forward through what you submitted in this session |
+| Ctrl-C | Drop the statement you are typing and return to `cypher>` |
+| Ctrl-D | Leave the shell (on an empty line) |
+
+A statement you submitted over several lines comes back as one history entry. History lasts for the session only: the shell writes no history file, and there is no tab completion. Ctrl-C at the `   ...>` prompt discards every line typed so far:
+
+```text
+cypher> MATCH (n)
+   ...>
+cypher>
+```
+
+## Bind parameters for the session
+
+Pass `--param name=value` when you start the shell, once per :term[parameter]{id=parameter}. Every statement in the session can use `$name`; the shell has no command to set one later:
+
+```bash
+relate --database ./team.rl --read-only --param name=Grace
+```
+
+```text
+cypher> MATCH (p:Person {name: $name})-[w:WORKS_ON]->(proj:Project)
+   ...> RETURN proj.name AS project, w.since AS since
+   ...> ORDER BY since;
++------------------+-------+
+| project          | since |
++------------------+-------+
+| "opencypher-tck" | 2022  |
+| "relate"         | 2023  |
++------------------+-------+
+```
+
+The same statement, piped with the same flag:
+
+```bash verify
+printf 'MATCH (p:Person {name: $name})-[w:WORKS_ON]->(proj:Project)\nRETURN proj.name AS project, w.since AS since\nORDER BY since;\n' | relate query --database ./team.rl --read-only --param name=Grace --mode table
+```
+
+```text
++------------------+-------+
+| project          | since |
++------------------+-------+
+| "opencypher-tck" | 2022  |
+| "relate"         | 2023  |
++------------------+-------+
+```
+
+[Script the CLI](/docs/guides/cli/scripting#pass-parameters) covers value types and quoting.
+
+## Use dot commands
+
+A line that starts with `.` is a shell command, not Cypher. It runs when you press Enter and needs no `;`:
+
+| Command | Effect |
+| --- | --- |
+| `.help` | Lists what the shell accepts |
+| `.begin`, `.commit`, `.rollback` | Open, commit, or discard an explicit transaction |
+| `.checkpoint` | Writes a checkpoint of a persistent store now |
+| `.info` | Prints the store's metadata, node and relationship counts, and its indexes and constraints |
+| `.timer on`, `.timer off` | Prints each statement's run time after its result |
+| `.quit`, `.exit` | Leaves the shell |
+
+Any other dot command prints `Error: unknown command <name>`. Output format, headers and width are flags given at the start, not dot commands. The [dot commands reference](/docs/reference/cli/dot-commands) has each command's output and errors.
+
+## Group writes in a transaction
+
+This section writes to `team.rl`, so start the shell without `--read-only`. Removing `--read-only` is what allows writes:
+
+```bash
+relate --database ./team.rl
+```
+
+Outside a transaction, each statement that writes commits as soon as it succeeds. To make several statements one unit, open a :term[transaction]{id=transaction} with `.begin`, check the result inside it, then `.commit`. This one adds Ines to the `relate` project:
+
+```text
+cypher> .begin
+cypher> MATCH (proj:Project {name: 'relate'})
+   ...> MERGE (i:Person {name: 'Ines', role: 'engineer'})
+   ...> MERGE (i)-[:WORKS_ON {since: 2026}]->(proj);
+cypher> MATCH (:Person)-[:WORKS_ON]->(:Project {name: 'relate'}) RETURN count(*) AS people;
++--------+
+| people |
++--------+
+| 3      |
++--------+
+cypher> .commit
+```
+
+The write prints nothing. Statements inside the transaction see its writes, so the count is 3 before `.commit`. `.rollback` in place of `.commit` discards them. If a statement fails inside the transaction, every later statement prints `semantic error: transaction failed; rollback required` until you run `.rollback`.
+
+The same transaction as a piped script. `MERGE` makes it safe to run after the session, because a second run finds Ines already there:
+
+```bash verify
+cat > ines.cypher <<'EOF'
+.begin
+MATCH (proj:Project {name: 'relate'})
+MERGE (i:Person {name: 'Ines', role: 'engineer'})
+MERGE (i)-[:WORKS_ON {since: 2026}]->(proj);
+.commit
+EOF
+relate query --database ./team.rl --mode envelope < ines.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+## Leave the shell
+
+Type `.quit` or `.exit`, or press Ctrl-D on an empty line. At the `   ...>` prompt, Ctrl-D first runs the lines entered so far, then leaves. On a line with text, Ctrl-D edits the line and does not leave. The shell exits 0, even after a statement failed in the session.
+
+On a store opened for writing, the shell writes a checkpoint as it exits. A transaction still open at exit is rolled back, and the shell says so on stderr before it exits:
+
+```text
+cypher> .begin
+cypher> .quit
+Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.
+```
+
+## Verify
+
+Read the store back, read-only. Ines works on `relate` after the transaction committed:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (p:Person)-[:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name ORDER BY name"
+```
+
+```text
++---------+
+| name    |
++---------+
+| "Ada"   |
+| "Grace" |
+| "Ines"  |
++---------+
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| The `relate` help text instead of a prompt | stdin is piped or redirected, so there is no terminal to read from | Run `relate` from a terminal, or pipe the script to `relate query` |
+| The `   ...>` prompt keeps coming back | The statement has no closing `;`, or an open quote or comment is swallowing it | Type `;` and Enter, or press Ctrl-C to start over |
+| `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` | The shell was started with `--read-only` | Leave and start it again without `--read-only` to write |
+| `semantic error: transaction failed; rollback required` | A statement failed inside a `.begin` transaction | Run `.rollback`, then the transaction again |
+| `Failed to open Relate: storage locked: <path>`, exit code 5 | Another process holds the store for writing | Wait for it to exit, or open with `--read-only` (a directory store can be read beside its writer; a `.rl` store only while no writer holds it) |
+| `warning: line editor unavailable (<reason>); falling back to plain stdin` | The terminal doesn't support the line editor | The shell still works; arrow keys and history are off for the session |
+
+## Related
+
+- [Dot commands](/docs/reference/cli/dot-commands): every dot command with its output and errors
+- [Output modes](/docs/reference/cli/output-modes): the `--mode` values a session can start with
+- [CLI flags](/docs/reference/cli/flags): `--param`, `--read-only`, `--timeout` and the rest
+- [Script the CLI](/docs/guides/cli/scripting): the same statements and dot commands from a file

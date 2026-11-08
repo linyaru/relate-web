@@ -1,4 +1,235 @@
 ---
 title: relate extension
-status: planned
+description: The relate extension command, which scaffolds, checks, installs, lists and removes extension packages, with flags, output, trust tiers and exit codes.
+order: 150
+surfaces: [cli, extensions]
+related: [reference/cli/run, guides/extensions/install-and-run, guides/extensions/write-an-extension, reference/cli/flags#relate-extension, reference/security, concepts/problems-relate-solves#offline-and-sandboxed-use]
 ---
+
+`relate extension` manages :term[extensions]{id=extension}: packages that add an action to the CLI, run as [`relate run <name>`](/docs/reference/cli/run). It has five actions. `init` scaffolds a new package, `check` tests a package directory without installing it, `install` puts a package on the machine from one of four sources, `list` prints what is installed, and `remove` uninstalls one. Only `install` and `list --available` use the network; the other actions read and write local files, and none of them opens a :term[store]{id=store}.
+
+## Synopsis
+
+```text
+relate extension init <name> [--lang sh|py|ts|rust]
+relate extension install <name> [--github REPO@TAG|@SHA] [--url URL] [--from DIR] [--version V] [--force] [--re-approve | --approve SHA]
+relate extension list [--available | --trust]
+relate extension remove <name> [--forget-pin]
+relate extension check <dir>
+```
+
+| Action | Does | Network |
+| --- | --- | --- |
+| `init <name>` | Creates the package directory `./<name>/` | None |
+| `check <dir>` | Runs a package directory through the stages a mount needs | None |
+| `install <name>` | Verifies a package and installs it under the extensions directory | Except with `--from` |
+| `list` | Prints the installed packages; `--trust` prints the recorded GitHub pins | None |
+| `list --available` | Prints the first-party channel's catalog | Required |
+| `remove <name>` | Deletes an installed package | None |
+
+## Options
+
+<Flags command="extension" />
+
+Each flag belongs to one action, named in its row; a flag given to another action is a usage error. Of the `install` sources, `--github`, `--url` and `--from` name where the package comes from, and two of them together are a usage error; with none, the source is the first-party channel.
+
+## Where packages live
+
+| Path | Holds |
+| --- | --- |
+| `$XDG_CONFIG_HOME/relate/extensions/<name>/` | One installed package: `extension.json`, its executable, and the provenance marker `.relate-provenance.json` |
+| `$XDG_CONFIG_HOME/relate/extensions-trust.json` | The recorded GitHub pins, one per extension name |
+
+When `XDG_CONFIG_HOME` is unset, empty or a relative path, `~/.config` takes its place. This directory is the only place relate looks for extensions: never the working directory, so a cloned repository cannot add an action to the CLI.
+
+The manifest, `extension.json`, declares the package: `kind` (`command`), `name` (the action's name after `relate run`), `version`, `protocol` (the Model Context Protocol revision it speaks, `2025-06-18`), the `flags` table, `commit` (`per-batch` or `whole-import`) and `executable`, a path inside the package directory, and the optional `positional`, `requires-fresh-store` and `hidden`. The [`relate run` reference](/docs/reference/cli/run#the-action-and-its-flags) covers the flags table, and [Write an extension](/docs/guides/extensions/write-an-extension) the rest.
+
+## `init`
+
+`relate extension init <name>` creates `./<name>/` with three items (four for `--lang rust`) and prints them, with the two commands that install and run the package:
+
+| File | Content |
+| --- | --- |
+| `extension.json` | A manifest with version `0.1.0`, the protocol revision this binary serves, one sample flag `--name` (default `there`), and `commit: per-batch` |
+| The executable | `<name>.sh`, `<name>.py` (the default) or `<name>.ts`; for `--lang rust`, a Cargo project (`Cargo.toml`, `src/main.rs`) whose built binary, copied into the package directory, is the executable the manifest names |
+| `README.md` | The package's quickstart |
+
+The `sh`, `py` and `ts` executables hold a generated protocol client inline, so they depend on no client library; the Rust project depends on the `relate-wire` crate instead. Each has a `walk()` function to edit. The sample writes one `:Scaffold` node and reports a greeting built from `--name`. An existing directory of that name is refused (exit code 1); a name with a path separator, a reserved command word as the name, or an unknown `--lang` is a usage error (exit code 2).
+
+## `check`
+
+`relate extension check <dir>` runs the package through six stages, in the order a mount uses them, printing one line per stage and stopping at the first failure:
+
+| Stage | Passes when | Exit code on failure |
+| --- | --- | --- |
+| `manifest` | `extension.json` decodes, its executable stays inside the directory, its name is not a reserved command word, and its protocol is the one this binary serves | 2 |
+| `executable` | The file exists, is a regular file, and is executable | 2 |
+| `spawn` | The executable starts and takes its flag defaults on stdin | 1 |
+| `initialize` | Its first request is `initialize`, for the protocol this binary serves | 1 |
+| `notifications/initialized` | It confirms the handshake | 1 |
+| `tools/list` | Any tool it calls is one of the five the mount serves | 1 |
+
+A package that passes every stage gets a seventh line about its GitHub pin (`pin: approved`, `pin: drifted`, `pin: not from a GitHub source (<tier>)` or `pin: unknown`), which never changes the exit code. `check` opens no store, installs nothing and fetches nothing, but the `spawn` stage starts the package's executable, so any code the package runs when it starts runs with the user's permissions; it is not a sandbox. Each stage waits at most ten seconds. It exits 0 when the package would mount.
+
+## `install`
+
+`relate extension install <name>` takes the package from one source. The source is the trust decision, and the marker records it as the package's tier:
+
+| Tier | Source flag | What is checked before anything lands |
+| --- | --- | --- |
+| `first-party` | None | The channel index, `extensions.json`, verifies against the release signing key `relate upgrade` uses, and the package's SHA-256 matches its signed row; `--version V` picks a listed version, default the newest |
+| `github-pin` | `--github OWNER/REPO@TAG` or `@<commit>` | The tag's commit and the asset's SHA-256 are recorded on the first install; a later install whose tag moved or whose asset changed is refused before any download unless `--re-approve` or `--approve <commit>` accepts it |
+| `third-party` | `--url URL` | Nothing beyond the transport: `https` only, or plain `http` to the loopback interface; any other URL is refused before any fetch |
+| `local` | `--from DIR` | Nothing beyond the package rules: the directory is the trust act, and its executable must resolve inside it |
+
+Every tier then runs the same package rules (the manifest decodes, the executable stays inside the package, the protocol matches, the name collides with no command and no installed extension) in a staging directory beside the destination, writes the marker, and renames the package into place. A failed install leaves nothing behind. On success it prints one line naming the tier, the name, the version and the source, such as `installed local extension team-import 0.1.0 from ./team-import`.
+
+| Case | Behavior |
+| --- | --- |
+| The name is installed from the same tier | Reinstalled |
+| The name is installed from another tier | Refused, naming the installed tier and source; the refusal names `relate extension remove <name>` |
+| The manifest's name differs from `<name>` | Refused |
+| A target directory without a marker | Refused unless `--force` |
+
+The [extension install guide](/docs/guides/extensions/install-and-run) walks through each tier, and the [security reference](/docs/reference/security) covers the signing key.
+
+## `list`
+
+| Form | Prints, one line per entry | Network |
+| --- | --- | --- |
+| `list` | `<name> <version> <tier> <source>`; a package placed by hand, without a marker, prints `<name> <version> unmarked`; nothing when none is installed | None |
+| `list --trust` | The recorded GitHub pins: name, repository, tag, commit and asset SHA-256 | None |
+| `list --available` | The channel's catalog: name, newest version, protocol, and whether it is installed; a package marked hidden is left out | Required; offline, it fails naming the index URL |
+
+`--available` and `--trust` together are a usage error.
+
+## `remove`
+
+`relate extension remove <name>` deletes the package directory and prints `removed extension <name> (<path>)`. It requires the provenance marker: a directory without one, such as a package copied by hand, is refused with a message naming the path, and `remove` has no `--force`. A GitHub pin outlives the package, so a reinstall is still compared with it; `--forget-pin` clears the pin too.
+
+## Environment
+
+<EnvVars usedBy="extension" />
+
+## Errors and exit codes
+
+Every action ends with one of three :term[exit codes]{id=exit-code}.
+
+| Exit code | When |
+| --- | --- |
+| 0 | The action completed; for `check`, the package would mount |
+| 1 | A runtime failure: an existing `init` directory, a source that cannot be read or fetched, a failed verification, a tier or name conflict, a missing marker on `remove`, a name that is not installed, a `check` stage that fails when the package runs |
+| 2 | A usage error, or a `check` failure in the manifest or the executable. A usage error is followed by the five usage lines and `Run 'relate extension --help' for more information.` |
+
+| Message on stderr | Exit code |
+| --- | --- |
+| `Error: extension requires an action (init, install, list, remove or check)` | 2 |
+| `Error: extension init: <dir>/<name> already exists (init writes a new package directory)` | 1 |
+| `Error: extension init: '<name>' is not a valid package name (a single directory name, no path separators)` | 2 |
+| `Error: extension init: unknown --lang value '<value>' (expected sh, py, ts or rust)` | 2 |
+| `Error: extension name '<name>' collides with the reserved command word '<word>'` | 2 |
+| `Error: extension install: --url accepts only https URLs (or plain http to the loopback interface); '<url>' is neither` | 2 |
+| `Error: extension install: --github '<value>' needs a pin: owner/repo@tag or owner/repo@<full-commit-sha> (an untagged repository is a moving target)` | 2 |
+| `Error: extension install: --url and --from are mutually exclusive (they both name the install source)` | 2 |
+| `Error: extension install: --github is mutually exclusive with --url and --from (each names the install source)` | 2 |
+| `Error: extension install: --re-approve and --approve <commit-sha> only apply to --github installs` | 2 |
+| `Error: extension install --approve requires a full 40-hex commit sha` | 2 |
+| `Error: extension install: the package's manifest names '<manifest name>' but the install was for '<name>'` | 1 |
+| `Error: extension install: extension '<name>' is installed <tier> (source: <source>); refusing a third-party install over it — remove it first: relate extension remove <name>` | 1 |
+| `Error: extension remove: no installed extension '<name>' (relate extension list prints the installed set)` | 1 |
+| `Error: extension remove: refusing to remove <path>: no .relate-provenance.json marker present (the directory was not installed by relate; remove it manually)` | 1 |
+| `Error: extension list: --trust and --available ask different questions (recorded pins vs the channel catalog)` | 2 |
+
+When the channel index cannot be read, the message names its URL. This run had `RELATE_EXTENSIONS_JSON_URL=http://127.0.0.1:8874/extensions.json` with nothing listening; the text after `io:` comes from the operating system, and this recording is from macOS:
+
+```text
+Error: extension list: could not read the extension channel index from http://127.0.0.1:8874/extensions.json: GET http://127.0.0.1:8874/extensions.json: io: Connection refused (os error 61)
+```
+
+## Examples
+
+The examples run in a fresh directory, written `<dir>`, with a fresh home, written `<home>`, and no `XDG_CONFIG_HOME`. Nothing is installed yet, so `list` prints nothing and exits 0:
+
+```bash verify
+relate extension list
+echo "exit=$?"
+```
+
+```text
+exit=0
+```
+
+`init` scaffolds a package with a shell executable:
+
+```bash verify
+relate extension init team-import --lang sh
+```
+
+```text
+created sh extension 'team-import' in <dir>/team-import
+  extension.json  the manifest (mount name, MCP revision, flag table)
+  team-import.sh  the executable: generated glue plus your walk()
+  README.md       the quickstart for this package
+
+next:
+  relate extension install team-import --from <dir>/team-import
+  relate run team-import -d ./store
+```
+
+`check` runs it through the six stages without installing it. The `initialize` line names the binary's version:
+
+```bash verify
+relate extension check team-import
+```
+
+```text
+manifest: ok (team-import 0.1.0, protocol 2025-06-18)
+executable: ok (team-import.sh)
+spawn: ok
+initialize: ok (MCP 2025-06-18, server relate 0.16.1)
+notifications/initialized: ok
+tools/list: ok (the shared tool table: 5 tools; the extension calls 'write_cypher')
+pin: not from a GitHub source (unmarked)
+```
+
+`install --from` installs it as a local package, and `list` shows the tier and the source:
+
+```bash verify
+relate extension install team-import --from ./team-import
+relate extension list
+```
+
+```text
+installed local extension team-import 0.1.0 from ./team-import
+team-import 0.1.0 local ./team-import
+```
+
+A plain `http` URL to another host is refused before any fetch:
+
+```bash verify
+relate extension install other-import --url http://example.com/other-import.tar.gz
+echo "exit=$?"
+```
+
+```text
+Error: extension install: --url accepts only https URLs (or plain http to the loopback interface); 'http://example.com/other-import.tar.gz' is neither
+exit=2
+```
+
+`remove` deletes the installed package:
+
+```bash verify
+relate extension remove team-import
+```
+
+```text
+removed extension team-import (<home>/.config/relate/extensions/team-import)
+```
+
+## See also
+
+- [`relate run`](/docs/reference/cli/run): running an installed extension into a store
+- [Install and run an extension](/docs/guides/extensions/install-and-run): the tiers in practice
+- [Write an extension](/docs/guides/extensions/write-an-extension): from `init` to a working import
+- [Security](/docs/reference/security): the release signing key the first-party channel shares with `relate upgrade`
+- [Problems relate solves: offline and sandboxed use](/docs/concepts/problems-relate-solves#offline-and-sandboxed-use): the commands that reach the network

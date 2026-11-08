@@ -1,4 +1,212 @@
 ---
 title: Migrate from a vector store
-status: planned
+label: From a vector store
+description: Move retrieval from a vector store such as Chroma, LanceDB or pgvector into relate, keeping the embeddings and turning metadata into graph structure.
+order: 10
+surfaces: [cypher, cli]
+prerequisites: [guides/cypher/vector-search]
+related: [guides/cypher/vector-search, reference/cypher/search, cookbook/hybrid-recall, concepts/problems-relate-solves#hybrid-retrieval-for-rag, guides/migrate/from-json-files, cookbook/migration-rehearsal]
 ---
+
+This guide shows you how to move retrieval from a vector store, such as Chroma, LanceDB or pgvector, into relate. Each record of an id, a text, some metadata, and an embedding becomes a :term[node]{id=node}: the embedding a typed vector :term[property]{id=property} under a :term[vector index]{id=vector-index}, the metadata properties and :term[relationships]{id=relationship}. The top-k query becomes a `SEARCH` clause with the same filter, and nothing is re-embedded. The cells run in page order on one in-memory store, in your browser and in the docs build, on a five-record export; the sources themselves are described here, not run.
+
+## Prerequisites
+
+- An export of the records as JSON, each with its id, text, metadata and embedding. Every vector store has its own export route; this guide starts from the JSON.
+- The embedding model's dimension count and the distance metric the source ranks by.
+- [Search by vector similarity](/docs/guides/cypher/vector-search) for the `SEARCH` clause itself.
+
+## Map the records
+
+| In a vector store | In relate |
+| --- | --- |
+| A collection or table | A :term[label]{id=label} (`:Chunk`) with a vector index on it |
+| A record id | A property with a uniqueness constraint, so the import can `MERGE` and a rerun adds nothing |
+| The document text | A string property, with a full-text index for keyword search |
+| The embedding | A typed vector property: `vector(<list>, <dimensions>, FLOAT32)` |
+| Scalar metadata used in filters | Properties declared in the vector index's `WITH [...]` list |
+| Metadata that names another record, such as a parent document | A relationship to that record's node |
+| The distance metric | `vector.similarity_function`: `'cosine'` or `'euclidean'` |
+
+## Create the schema
+
+Create the keys and the indexes before the first row arrives. `vector.dimensions` is the model's dimension count; this export uses 4 so the numbers stay readable. `WITH [c.source, c.year]` declares the two metadata fields a search can filter on:
+
+```cypher run name=schema
+CREATE CONSTRAINT chunk_id IF NOT EXISTS FOR (c:Chunk) REQUIRE c.id IS UNIQUE;
+CREATE CONSTRAINT document_id IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE;
+CREATE VECTOR INDEX chunk_embedding IF NOT EXISTS
+  FOR (c:Chunk) ON (c.embedding) WITH [c.source, c.year]
+  OPTIONS {indexConfig: {`vector.dimensions`: 4, `vector.similarity_function`: 'cosine'}};
+CREATE FULLTEXT INDEX chunk_text IF NOT EXISTS FOR (c:Chunk) ON EACH [c.text]
+```
+
+A source that ranks by inner product (dot product) over vectors of length 1 ranks them as `'cosine'` does. Over vectors of other lengths the two orders can differ, because the inner product also weighs each vector's length.
+
+## Import the records
+
+The export arrives as one parameter. This cell writes a `Chunk` per record and a `Document` per distinct `doc` value, linked by `PART_OF`. `MERGE` on the id makes a rerun a no-op, and `vector(r.embedding, 4, FLOAT32)` fails the whole statement on an embedding of another length:
+
+```json data=export
+{"rows": [
+  {"id": "c1", "doc": "onboarding", "source": "wiki", "year": 2025, "text": "New engineers pair with a maintainer for their first week.", "embedding": [0.9, 0.1, 0.1, 0.0]},
+  {"id": "c2", "doc": "onboarding", "source": "wiki", "year": 2026, "text": "The first week ends with a small fix merged to main.", "embedding": [0.8, 0.2, 0.0, 0.1]},
+  {"id": "c3", "doc": "incident-7", "source": "tickets", "year": 2026, "text": "Builds slowed after the test suite doubled in size.", "embedding": [0.2, 0.9, 0.1, 0.0]},
+  {"id": "c4", "doc": "incident-7", "source": "tickets", "year": 2026, "text": "Splitting the suite across four runners brought build times back down.", "embedding": [0.1, 0.8, 0.3, 0.1]},
+  {"id": "c5", "doc": "style-guide", "source": "wiki", "year": 2024, "text": "Headings use sentence case and no trailing punctuation.", "embedding": [0.0, 0.1, 0.2, 0.9]}
+]}
+```
+
+```cypher run name=import params=export
+UNWIND $rows AS r
+MERGE (c:Chunk {id: r.id})
+  ON CREATE SET c.text = r.text, c.source = r.source, c.year = r.year,
+                c.embedding = vector(r.embedding, 4, FLOAT32)
+MERGE (d:Document {id: r.doc})
+MERGE (c)-[:PART_OF]->(d)
+RETURN count(c) AS imported
+```
+
+On the CLI, the same two steps write to a `.rl` file. `relate query` with no statement reads a script from stdin, so the schema statements above, saved as `schema.cypher`, run first. Then `--fetch-params` binds the export file as the parameter. Both commands write to `./chunks.rl`:
+
+```bash
+relate query --database ./chunks.rl < schema.cypher
+relate --database ./chunks.rl --fetch-params export=./export.json 'UNWIND $export.rows AS r MERGE (c:Chunk {id: r.id}) ON CREATE SET c.text = r.text, c.source = r.source, c.year = r.year, c.embedding = vector(r.embedding, 4, FLOAT32) MERGE (d:Document {id: r.doc}) MERGE (c)-[:PART_OF]->(d) RETURN count(c) AS imported'
+```
+
+A read opens the store with `--read-only`, and the indexes are there:
+
+```bash
+relate --database ./chunks.rl --read-only --mode table "SHOW INDEXES YIELD name, type RETURN name, type ORDER BY name"
+```
+
+[Migrate from JSON files](/docs/guides/migrate/from-json-files) covers loading files with keyed `MERGE` statements and a check against the files.
+
+## Rewrite the recall query
+
+A top-k search with a metadata filter becomes `SEARCH` with the filter inside the parentheses, where it runs before `LIMIT`. `SCORE AS` names the similarity, and higher is closer:
+
+```json data=question
+{"question": [0.85, 0.15, 0.05, 0.05], "k": 2, "sources": ["wiki"], "since": 2025}
+```
+
+```cypher run name=recall params=question
+MATCH (c:Chunk)
+SEARCH c IN (VECTOR INDEX chunk_embedding FOR $question
+             WHERE c.source IN $sources AND c.year >= $since LIMIT $k) SCORE AS score
+RETURN c.id AS id, round(score, 4) AS score, c.text AS text
+ORDER BY score DESC, id
+```
+
+## Follow the graph from each hit
+
+The search binds `c` like any `MATCH`, so the same statement walks from each hit: here, to its document and the document's other chunks, the context a passage on its own lacks:
+
+```cypher run name=expand
+MATCH (c:Chunk)
+SEARCH c IN (VECTOR INDEX chunk_embedding FOR [0.15, 0.85, 0.2, 0.05] LIMIT 1) SCORE AS score
+MATCH (c)-[:PART_OF]->(d:Document)
+RETURN c.id AS hit, d.id AS document,
+       COLLECT { MATCH (d)<-[:PART_OF]-(s:Chunk) WHERE s <> c RETURN s.text ORDER BY s.id } AS context
+```
+
+The same nodes answer keyword search through the full-text index, so exact words and codes that an embedding blurs still match:
+
+```cypher run name=keywords
+MATCH (c:Chunk)
+SEARCH c IN (FULLTEXT INDEX chunk_text FOR 'suite runners' LIMIT 3) SCORE AS score
+RETURN c.id AS id, score
+ORDER BY score DESC, id
+```
+
+[Hybrid recall](/cookbook/hybrid-recall/) fuses the two ranked lists by reciprocal rank in one statement and hops from each note to its topic.
+
+## Know what changes
+
+The ranking keeps its order; the numbers, the filter grammar and a few features do not carry over:
+
+| Topic | In relate |
+| --- | --- |
+| Score direction | `SCORE AS` is a similarity: higher is closer. A store that ranks by distance sorts ascending; the recall query sorts `DESC` |
+| Cosine scale | 0 to 1: `1.0` same direction, `0.5` orthogonal, `0.0` opposite. A threshold tuned on another store's numbers needs converting; a raw cosine `t` becomes `(1 + t) / 2` |
+| Similarity functions | `'cosine'` and `'euclidean'` only; any other `vector.similarity_function` fails with `semantic error: InvalidInputValue` |
+| Dimensions | 1 to 4096 per index; `4097` fails with `semantic error: NumberOutOfRange` |
+| Filters | Equality, `IN` a list, or a range per property, joined by `AND`, on the properties in `WITH [...]` only. `OR` and `<>` fail with `InvalidSearchFilterPredicate`; another property fails with `WrongPropertyForVectorSearchFilter` |
+| Paging | `LIMIT` is required, and a vector search takes no `SKIP` or `OFFSET`: `syntax error: InvalidUseOfCommand: SKIP cannot be used together with VECTOR INDEX` |
+| Embeddings | relate stores the vectors the application computes; it has no embedding function |
+| Search | Exact nearest neighbors: every search scores each indexed vector and keeps the top `LIMIT`. Ties go to the lower element id. The `vector.hnsw.*` options are accepted and `SHOW INDEXES` reports them, but they don't change the search |
+| Memory | The whole graph, vectors and indexes included, is held in memory ([sizing](/docs/guides/operate/sizing-and-memory)) |
+| Writers | One process writes a store at a time ([limitations](/docs/reference/limitations#process-model)) |
+
+The [search reference](/docs/reference/cypher/search) has every rule with its error.
+
+## Verify
+
+Compare what arrived with what the source held. The source's counts per metadata value go in as a parameter, and every row should say `true`:
+
+```json data=source
+{"bySource": {"wiki": 3, "tickets": 2}}
+```
+
+```cypher run name=counts params=source
+UNWIND keys($bySource) AS source
+RETURN source, $bySource[source] AS expected,
+       COUNT { MATCH (c:Chunk) WHERE c.source = source } AS actual,
+       $bySource[source] = COUNT { MATCH (c:Chunk) WHERE c.source = source } AS ok
+ORDER BY source
+```
+
+A search skips, without an error, a property whose length differs from `vector.dimensions`, so counts stay right while recall loses the node. A type predicate finds every such node, and any embedding stored as a plain list rather than a typed vector. No rows means none:
+
+```cypher run name=types
+MATCH (c:Chunk)
+WHERE NOT c.embedding IS :: VECTOR<FLOAT32>(4)
+RETURN c.id AS id, valueType(c.embedding) AS stored
+```
+
+Every chunk searched with its own embedding comes back first, with a score of 1.0, unless two chunks' embeddings point the same way (under `'cosine'`) or are equal (under `'euclidean'`). Then the tie goes to the lower element id. A chunk missing from its own result is one the index does not hold:
+
+```cypher run name=self-recall
+MATCH (x:Chunk)
+CALL (x) {
+  MATCH (c:Chunk)
+  SEARCH c IN (VECTOR INDEX chunk_embedding FOR x.embedding LIMIT 1) SCORE AS s
+  RETURN c.id AS top, s
+}
+RETURN x.id AS id, top, round(s, 4) AS score, top = x.id AS ok
+ORDER BY id
+```
+
+The strongest check replays questions whose answers the old store gave, with the same vectors and `k`, and compares the ids. relate's search is exact, so the ids match except where two scores tie, which relate orders by element id, or where the old store's index was approximate. An id missing from the top of the list is a missing node.
+
+## If it goes wrong
+
+An embedding of the wrong length fails the import, and nothing from that statement is written:
+
+```json data=short
+{"rows": [{"id": "c6", "doc": "onboarding", "source": "wiki", "year": 2026, "text": "Pairing rotates every month.", "embedding": [0.7, 0.2, 0.1]}]}
+```
+
+```cypher run name=wrong-length params=short expect=error
+UNWIND $rows AS r
+MERGE (c:Chunk {id: r.id})
+  ON CREATE SET c.text = r.text, c.embedding = vector(r.embedding, 4, FLOAT32)
+RETURN count(c) AS imported
+```
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `type error: vector() dimension does not match list` | An exported embedding's length is not the `vector()` call's dimensions | Re-export that record, or check that every record came from the same model. |
+| `type error: VectorIndexDimensionalityMismatch` | The question vector's length is not the index's `vector.dimensions` | Embed the question with the model that embedded the records. |
+| `syntax error: SyntaxError: InvalidSearchFilterPredicate: invalid predicate for vector search filtering. …` | The filter inside the search uses `OR` or `<>` | Split an `OR` into one search per branch and combine the rows, or filter after the search. |
+| `WrongPropertyForVectorSearchFilter` | The filter names a property missing from the index's `WITH [...]` list | Drop the index and create it again with the property in `WITH [...]`, or filter after the search. |
+| A record never comes back, and nothing fails | Its embedding, a typed vector or a plain list, has a length other than the index's `vector.dimensions` | Run the type predicate in [Verify](#verify), then store the vectors with `vector(<list>, <dimensions>, FLOAT32)`. |
+
+## Related
+
+- [Search](/docs/reference/cypher/search): index options and defaults, every `SEARCH` rule, and the vector functions.
+- [Search by vector similarity](/docs/guides/cypher/vector-search): typed vectors, filters inside the search, and the score scales.
+- [Hybrid recall](/cookbook/hybrid-recall/): vector and full-text search fused in one statement.
+- [Hybrid retrieval for RAG](/docs/concepts/problems-relate-solves#hybrid-retrieval-for-rag) in the capability catalog.
+- The `relate-migrate-from-vector-search` task skill, which gives an agent this mapping and the verification probes as reference text, at `https://relatedb.ai/skills/relate-migrate-from-vector-search/SKILL.md` ([install a task skill](/docs/guides/agents/install-the-skill#install-a-task-skill)).
+- [Migration rehearsal](/cookbook/migration-rehearsal/): fingerprints before and after a change, for the first schema change on the new store.

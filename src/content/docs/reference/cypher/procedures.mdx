@@ -1,4 +1,229 @@
 ---
 title: Procedures
-status: planned
+description: Every procedure relate can CALL, with its signature and YIELD columns, the ontology preview procedures, and the catalog entries listed but not callable.
+order: 120
+surfaces: [cypher, cli]
+related: [reference/cypher/functions, reference/cypher/search, guides/cypher/ontology, reference/cypher/explain-and-profile, concepts/problems-relate-solves#text-to-cypher]
 ---
+
+A procedure is a built-in routine that `CALL` runs; it returns rows with named columns that `YIELD` picks. relate has 21 callable procedures that `SHOW PROCEDURES` lists, four ontology procedures behind a preview opt-in, and two callable procedures it does not list. `SHOW PROCEDURES` returns 88 rows by default; the other 67 are catalog entries kept for tools that read Neo4j's catalog, and a `CALL` to one fails with `syntax error: ProcedureNotFound: <name>`. The cells run on relate's WebAssembly (WASM) build, and the `bash verify` blocks on the CLI.
+
+## Synopsis
+
+```text
+CALL <name>([<argument>, …]) [YIELD <column> [AS <alias>], … [WHERE <predicate>]] [<more clauses>]
+CALL <name>([<argument>, …])                -- standalone: every column, as rows
+CALL <name>([<argument>, …]) YIELD *        -- standalone only: every column
+SHOW PROCEDURES [YIELD <column>, …] [WHERE <predicate>] [RETURN …]
+```
+
+| Rule | Detail |
+| --- | --- |
+| Optional arguments | A parameter written `name = <default>` in the signature may be left out |
+| `YIELD *` | Standalone `CALL` only; in a longer statement it fails with `syntax error: UnexpectedSyntax: YIELD * is not allowed in in-query CALL`, and the columns are named instead |
+| Wrong arity | `syntax error: InvalidNumberOfArguments: <name> expected <n>, got <m>` |
+| Unknown or catalog-only name | `syntax error: ProcedureNotFound: <name>` |
+| Deprecated procedures | Of the callable procedures, the four index query procedures; under `EXPLAIN` a call raises notification `01N01` with ``Use the `SEARCH` clause instead.`` ([notifications](/docs/reference/cypher/notifications)). `SHOW PROCEDURES` also marks five catalog-only entries deprecated: `cdc.current`, `cdc.earliest`, `cdc.query`, `dbms.cluster.recreateDatabase` and `dbms.cluster.routing.getRoutingTable` |
+| `SHOW PROCEDURES` columns | `name`, `description`, `mode`, `worksOnSystem`, `signature`, `argumentDescription`, `returnDescription`, `admin`, `option`, `isDeprecated`, `deprecatedBy` |
+| Extensions | An extension adds no procedure: it is a `relate run` command that reaches the store over MCP stdio ([write an extension](/docs/guides/extensions/write-an-extension)) |
+
+## Schema procedures
+
+These procedures read the store's :term[labels]{id=label}, :term[relationship types]{id=relationship-type} and :term[property]{id=property} keys from the data as it is now.
+
+| Signature | `YIELD` columns | Notes |
+| --- | --- | --- |
+| `db.labels() :: (label :: STRING)` | `label` | The labels some node carries |
+| `db.relationshipTypes() :: (relationshipType :: STRING)` | `relationshipType` | The types some relationship has |
+| `db.propertyKeys() :: (propertyKey :: STRING)` | `propertyKey` | The keys some node or relationship has |
+| `db.schema.nodeTypeProperties() :: (nodeType :: STRING, nodeLabels :: LIST<STRING>, propertyName :: STRING, propertyTypes :: LIST<STRING>, mandatory :: BOOLEAN)` | `nodeType`, `nodeLabels`, `propertyName`, `propertyTypes`, `mandatory` | One row per label set and property. `nodeType` is the sorted label set, `:A:B`; `propertyTypes` are `valueType()` names; `mandatory` is `true` when every node of the label set has the key. A label set with no properties gives one row with `propertyName` `null` |
+| `db.schema.relTypeProperties() :: (relType :: STRING, propertyName :: STRING, propertyTypes :: LIST<STRING>, mandatory :: BOOLEAN)` | `relType`, `propertyName`, `propertyTypes`, `mandatory` | `relType` is written `[:TYPE]`; same rules as `nodeTypeProperties` |
+| `db.schema.visualization(options = true :: BOOLEAN\|MAP) :: (nodes :: LIST<NODE>, relationships :: LIST<RELATIONSHIP>)` | `nodes`, `relationships` | One row: a virtual node per label, with `name`, `indexes` and `constraints`, and a virtual relationship per start label, type and end label, with `name`. `false` leaves out combinations that no relationship in the data has; `null` gives no row. An empty store gives no row |
+| `db.createLabel(newLabel :: STRING)` | — | Returns no rows; `db.labels()` lists the label only once a node carries it |
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```cypher run name=labels
+CALL db.relationshipTypes() YIELD relationshipType
+RETURN relationshipType ORDER BY relationshipType
+```
+
+```cypher run name=node-type-properties
+CALL db.schema.nodeTypeProperties()
+YIELD nodeType, propertyName, propertyTypes, mandatory
+RETURN nodeType, propertyName, propertyTypes, mandatory ORDER BY nodeType, propertyName
+```
+
+```cypher run name=rel-type-properties
+CALL db.schema.relTypeProperties()
+YIELD relType, propertyName, propertyTypes, mandatory
+RETURN relType, propertyName, propertyTypes, mandatory ORDER BY relType
+```
+
+```cypher run name=visualization
+CALL db.schema.visualization() YIELD nodes, relationships
+RETURN [n IN nodes | n.name] AS labels, [r IN relationships | r.name] AS types
+```
+
+## Index procedures
+
+The query procedures search a :term[vector index]{id=vector-index} or a full-text index, created with `CREATE VECTOR INDEX` or `CREATE FULLTEXT INDEX` ([search](/docs/reference/cypher/search)). The `SEARCH` clause replaces them, and all four are deprecated.
+
+| Signature | `YIELD` columns | Notes |
+| --- | --- | --- |
+| `db.index.vector.queryNodes(indexName :: STRING, numberOfNearestNeighbours :: INTEGER, query :: LIST<FLOAT>) :: (node :: NODE, score :: FLOAT)` | `node`, `score` | The nearest nodes, highest score first; the score is the index's similarity, from 0 to 1 |
+| `db.index.vector.queryRelationships(indexName :: STRING, numberOfNearestNeighbours :: INTEGER, query :: LIST<FLOAT>) :: (relationship :: RELATIONSHIP, score :: FLOAT)` | `relationship`, `score` | The same over a relationship vector index |
+| `db.index.fulltext.queryNodes(indexName :: STRING, query :: STRING) :: (node :: NODE, score :: FLOAT)` | `node`, `score` | Matching nodes, highest score first |
+| `db.index.fulltext.queryRelationships(indexName :: STRING, query :: STRING) :: (relationship :: RELATIONSHIP, score :: FLOAT)` | `relationship`, `score` | The same over a relationship full-text index |
+| `db.awaitIndexes(timeOutSeconds = 300 :: INTEGER)` | — | Returns at once with no rows; `SHOW INDEXES` reports every index `ONLINE` |
+
+```cypher run name=create-indexes
+CREATE VECTOR INDEX person_focus FOR (p:Person) ON (p.focus)
+  OPTIONS {indexConfig: {`vector.dimensions`: 3}};
+CREATE FULLTEXT INDEX person_role FOR (p:Person) ON EACH [p.role];
+MATCH (p:Person)
+SET p.focus = CASE p.name
+  WHEN 'Ada' THEN vector([0.9, 0.1, 0.2], 3, FLOAT32)
+  WHEN 'Grace' THEN vector([0.3, 0.9, 0.1], 3, FLOAT32)
+  ELSE vector([0.2, 0.3, 0.9], 3, FLOAT32) END
+```
+
+```cypher run name=vector-query
+CALL db.index.vector.queryNodes('person_focus', 2, [0.1, 0.9, 0.1]) YIELD node, score
+RETURN node.name AS name, round(score, 4) AS score
+```
+
+```cypher run name=fulltext-query
+CALL db.index.fulltext.queryNodes('person_role', 'maintainer') YIELD node, score
+RETURN node.name AS name, score
+```
+
+The same vector search as a `SEARCH` clause:
+
+```cypher run name=search-clause
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR [0.1, 0.9, 0.1] LIMIT 2) SCORE AS score
+RETURN p.name AS name, round(score, 4) AS score
+```
+
+## Database and server information
+
+| Signature | `YIELD` columns | Notes |
+| --- | --- | --- |
+| `db.info() :: (id :: STRING, name :: STRING, creationDate :: STRING)` | `id`, `name`, `creationDate` | `neo4j`, `neo4j`, `null` |
+| `dbms.info() :: (id :: STRING, name :: STRING, creationDate :: STRING)` | `id`, `name`, `creationDate` | `relate`, `system`, `1970-01-01T00:00:00Z` |
+| `dbms.components() :: (name :: STRING, versions :: LIST<STRING>, edition :: STRING)` | `name`, `versions`, `edition` | Three rows: `Neo4j Kernel`, `Cypher` (`["5", "25"]`) and `Relate`, whose `versions` holds the relate version |
+| `db.ping() :: (success :: BOOLEAN)` | `success` | `true` |
+| `dbms.showCurrentUser() :: (username :: STRING, roles :: LIST<STRING>, flags :: LIST<STRING>)` | `username`, `roles`, `flags` | `relate`, `["admin"]`, `[]`; relate has no users |
+| `dbms.listConfig() :: (name :: STRING, description :: STRING, value :: STRING, dynamic :: BOOLEAN, defaultValue :: STRING, startupValue :: STRING, explicitlySet :: BOOLEAN, validValues :: STRING)` | Those eight | Nine fixed settings for Neo4j tools, such as `browser.post_connect_cmd` and `server.metrics.prefix` (`relate`) |
+| `dbms.clientConfig()` | The `dbms.listConfig` columns | Not listed by `SHOW PROCEDURES`; the browser settings, for Neo4j tools that call it |
+| `dbms.licenseAgreementDetails()` | `status`, `daysLeftOnTrial`, `totalTrialDays` | Not listed by `SHOW PROCEDURES`; `yes`, `null`, `null` |
+| `db.stats.retrieve(section :: STRING) :: (section :: STRING, data :: MAP)` | `section`, `data` | Serves only `'GRAPH COUNTS'`, whose `data` holds `constraints` and `indexes`. Any other section fails with `type error: InvalidArgumentValue: db.stats.retrieve cannot serve section '<section>'` |
+
+```cypher run name=components
+CALL dbms.components() YIELD name, versions RETURN name, versions
+```
+
+```cypher run name=graph-counts
+CALL db.stats.retrieve('GRAPH COUNTS') YIELD section, data
+RETURN section, data.indexes AS indexes
+```
+
+## Transaction metadata
+
+| Signature | `YIELD` columns | Notes |
+| --- | --- | --- |
+| `tx.setMetaData(metadata :: MAP)` | — | Accepts a map and returns no rows |
+| `tx.getMetaData() :: (metadata :: MAP)` | `metadata` | Returns `{source: "cip230"}`; a map set with `tx.setMetaData` is not returned |
+
+## Ontology procedures
+
+The ontology procedures are a :term[preview feature]{id=preview-feature}; set `RELATE_PREVIEW=ontology` in the environment of the process that opens the store to call them. They keep one Ontology Graph Spec 1.1.0 document per store, for the `neo4j` namespace. Without the opt-in, `SHOW PROCEDURES` leaves them out and a call fails with `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology`. The WASM build has no process environment, so the cells on this page cannot call them. [Model an ontology](/docs/guides/cypher/ontology) is the task guide.
+
+| Signature | Mode | `YIELD` columns | Notes |
+| --- | --- | --- | --- |
+| `db.ontology.set(ontology :: STRING)` | `WRITE` | — | Validates the JSON or YAML document and stores it, replacing any earlier one. Auto-commit only, and the statement may write nothing else |
+| `db.ontology.get(format = "yaml" :: STRING) :: (ontology :: STRING)` | `READ` | `ontology` | The stored document as YAML, or as the stored text with `'json'`; `null` when none is stored |
+| `db.ontology.apply()` | `WRITE` | — | Sets the current graph type from the stored document, as `ALTER CURRENT GRAPH TYPE SET` does; fails when the data violates it |
+| `db.ontology.drop()` | `WRITE` | — | Removes the stored document; succeeds when none is stored. Auto-commit only |
+
+The calls on the CLI, in order. This setup step writes the shared example graph to a new single-file store, `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+`db.ontology.set` writes a document that requires a `name` on every `Person`:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl "CALL db.ontology.set('{\"schema\": \"https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json\", \"version\": \"1\", \"id\": \"team\", \"nodes\": {\"Person\": {\"label\": \"Person\", \"properties\": {\"name\": {\"type\": \"STRING\", \"must_exist\": true}}}}}')"
+```
+
+`db.ontology.get`, read-only:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl "CALL db.ontology.get() YIELD ontology RETURN ontology"
+```
+
+```text
+{"ontology":"---\nschema: \"https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json\"\nversion: \"1\"\nid: team\nnodes:\n  Person:\n    label: Person\n    properties:\n      name:\n        type: STRING\n        must_exist: true"}
+```
+
+`db.ontology.apply` writes the graph type, which `SHOW CURRENT GRAPH TYPE` then prints:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl "CALL db.ontology.apply()"
+```
+
+```bash verify
+relate --database ./team.rl --read-only --mode jsonl "SHOW CURRENT GRAPH TYPE"
+```
+
+```text
+{"specification":"{\n  (:`Person` => {`name` :: STRING NOT NULL})\n}"}
+```
+
+## Catalog-only entries
+
+`SHOW PROCEDURES` lists these 67 names so that tools built for Neo4j find the rows they expect. None of them runs: each `CALL` fails with `syntax error: ProcedureNotFound: <name>`.
+
+| Group | Names |
+| --- | --- |
+| Change data capture | `cdc.current`, `cdc.earliest`, `cdc.query`, `db.cdc.current`, `db.cdc.earliest`, `db.cdc.query`, `db.cdc.translateId` |
+| Indexes and tokens | `db.awaitIndex`, `db.index.fulltext.awaitEventuallyConsistentIndexRefresh`, `db.index.fulltext.listAvailableAnalyzers`, `db.prepareForReplanning`, `db.resampleIndex`, `db.resampleOutdatedIndexes`, `db.create.setNodeVectorProperty`, `db.create.setRelationshipVectorProperty`, `db.createProperty`, `db.createRelationshipType` |
+| Database operations | `db.checkpoint`, `db.clearQueryCaches`, `db.listLocks`, `db.stats.clear`, `db.stats.collect`, `db.stats.retrieveAllAnonymized`, `db.stats.status`, `db.stats.stop` |
+| Configuration and connections | `dbms.checkConfigValue`, `dbms.setConfigValue`, `dbms.killConnection`, `dbms.killConnections`, `dbms.listActiveLocks`, `dbms.listCapabilities`, `dbms.listConnections`, `dbms.listPools`, `dbms.queryJmx`, `dbms.reloadProcedures`, `dbms.scheduler.failedJobs`, `dbms.scheduler.groups`, `dbms.scheduler.jobs`, `dbms.security.clearAuthCache`, `dbms.security.reloadTLS` |
+| Clustering and routing | `dbms.cluster.checkConnectivity`, `dbms.cluster.cordonServer`, `dbms.cluster.deallocateDatabaseFromServer`, `dbms.cluster.deallocateDatabaseFromServers`, `dbms.cluster.deallocateNumberOfDatabases`, `dbms.cluster.protocols`, `dbms.cluster.reallocateDatabase`, `dbms.cluster.reallocateNumberOfDatabases`, `dbms.cluster.recreateDatabase`, `dbms.cluster.routing.getRoutingTable`, `dbms.cluster.secondaryReplicationDisable`, `dbms.cluster.setAutomaticallyEnableFreeServers`, `dbms.cluster.statusCheck`, `dbms.promoteReplicaDatabase`, `dbms.recreateDatabase`, `dbms.routing.getRoutingTable`, `dbms.setDefaultAllocationNumbers`, `dbms.setDefaultDatabase`, `dbms.showTopologyGraphConfig`, `dbms.unquarantineDatabase` |
+| Fleet management | `fleetManagement.debugLogging`, `fleetManagement.disable`, `fleetManagement.inspectToken`, `fleetManagement.registerToken`, `fleetManagement.reportedData`, `fleetManagement.restart`, `fleetManagement.status` |
+
+```cypher run name=catalog-only expect=error
+CALL db.checkpoint()
+```
+
+## See also
+
+- [Functions](/docs/reference/cypher/functions): the built-in functions, which an expression calls without `CALL`.
+- [Search](/docs/reference/cypher/search): the `SEARCH` clause that replaces the index query procedures.
+- [Model an ontology](/docs/guides/cypher/ontology): the ontology procedures in a task.
+- [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile): the `ProcedureCall` operator a `CALL` plans to.
+- [Text-to-Cypher](/docs/concepts/problems-relate-solves#text-to-cypher): the schema procedures as the graph's schema for a model.

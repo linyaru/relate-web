@@ -1,4 +1,175 @@
 ---
 title: relate skill
-status: planned
+description: The relate skill command, which installs, lists, checks and removes the agent skill bundle embedded in the binary, with agents, paths and exit codes.
+order: 130
+surfaces: [cli, agents]
+related: [guides/agents/install-the-skill, reference/cli/upgrade, reference/cli/flags#relate-skill, reference/cli/agent-mode, reference/cli/exit-codes-and-errors]
 ---
+
+`relate skill` manages the copies of relate's agent :term[skill]{id=skill} in the home directories of coding agents. The :term[skill bundle]{id=skill-bundle} (`SKILL.md` and 15 reference files) is embedded in the binary, so every action works offline. The command has four actions: `install` writes the bundle into each detected agent's skills directory, `list` prints each agent's install state, `check` compares installed copies with the binary's bundle, and `remove` deletes copies relate wrote. It never opens a store.
+
+## Synopsis
+
+{/* docs-check-ignore trust-pin */}
+```text
+relate skill install|remove|list|check [--agent NAME] [--force]
+```
+
+| Action | Does | Prints on stdout | Exit code on success |
+| --- | --- | --- | --- |
+| `install` | Writes the bundle into `<skills dir>/relate` for each target agent | `installed relate skill into <path>`, one line per agent | 0 |
+| `list` | Reads each target agent's `<skills dir>/relate` and classifies it | `<agent>: <state> (<path>)`, one line per agent | 0 |
+| `check` | Compares each installed copy with the binary's bundle, file by file | `<agent>: up to date (<path>)` or `<agent>: drifted (<path>)` with one line per differing file; agents without a copy get their `list` line | 0 when every copy matches, 1 when any has drifted |
+| `remove` | Deletes `<skills dir>/relate` for each target agent | `removed relate skill from <path>`, one line per agent | 0 |
+
+Without `--agent`, an action targets every detected agent. `list` and `check` write nothing.
+
+## Options
+
+<Flags command="skill" />
+
+| Rule | Behavior |
+| --- | --- |
+| `--agent` names | Matched case-insensitively against the names in the agent table; given twice, the last one applies |
+| `--agent` and detection | A named agent is a target whether or not its directory exists; `install --agent <name>` creates the skills directory |
+| `--force` | Accepted by `install` and `remove` only; with `list` or `check` it is a usage error (exit code 2) |
+
+## Agents and paths
+
+An agent is detected when the directory in the "Detected when this exists" column exists. The skill goes to `relate` under the agent's skills directory. The names are the ones the binary prints in its `valid agents:` line, in its order.
+
+| `--agent` | Agent | Detected when this exists | The skill goes to |
+| --- | --- | --- | --- |
+| `claude-code` | Claude Code | `~/.claude` | `~/.claude/skills/relate` |
+| `cursor` | Cursor | `~/.cursor` | `~/.cursor/skills/relate` |
+| `windsurf` | Windsurf | `~/.codeium/windsurf` | `~/.codeium/windsurf/skills/relate` |
+| `copilot` | Copilot | `~/.copilot` | `~/.copilot/skills/relate` |
+| `antigravity` | Antigravity | `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/relate` |
+| `gemini-cli` | Gemini CLI | `~/.gemini` | `~/.gemini/skills/relate` |
+| `cline` | Cline | `~/.cline` | `~/.agents/skills/relate` |
+| `codex` | Codex | `~/.codex` | `~/.codex/skills/relate` |
+| `pi` | Pi | `~/.pi/agent` | `~/.pi/agent/skills/relate` |
+| `opencode` | OpenCode | `$XDG_CONFIG_HOME/opencode` | `$XDG_CONFIG_HOME/opencode/skills/relate` |
+| `junie` | Junie | `~/.junie` | `~/.junie/skills/relate` |
+
+`~` is `$HOME`. When `XDG_CONFIG_HOME` is unset or empty, OpenCode's paths use `$HOME/.config` in its place. A skills directory inside a project, such as `.claude/skills/`, is outside every action's reach.
+
+## Install states
+
+`list` and `check` print one of four states for each agent's `<skills dir>/relate`. The state decides what `install` and `remove` may do without `--force`.
+
+| State | What is at the path | `install` | `remove` |
+| --- | --- | --- | --- |
+| `not installed` | Nothing | Writes the bundle | Succeeds; nothing to delete |
+| `installed` | A directory with relate's `.relate-installed` marker file | Replaces the bundle | Deletes the directory |
+| `installed (legacy bundle)` | A directory without the marker whose `SKILL.md` frontmatter has `name: relate` and a `version:` line: an older or hand-copied bundle | Replaces it and adds the marker | Refused |
+| `foreign (not managed by relate)` | Anything else, including a symbolic link | Refused | Refused |
+
+A refusal names the path and exits with :term[exit code]{id=exit-code} 1. `--force` replaces or deletes the directory whatever its state.
+
+## What install writes
+
+| Item | Content |
+| --- | --- |
+| `SKILL.md` | The bundle's cheat sheet, with the binary's version written into its `version:` frontmatter line |
+| `references/` | The 15 reference files, unchanged |
+| `.relate-installed` | The marker that makes the directory relate's own |
+
+The bundle is written into a staging directory beside the destination and then renamed into place, so a reader never sees a half-written bundle; the previous copy is replaced whole, and a reference file the new bundle no longer has does not linger. With several targets, `install` and `remove` check every target's state before changing any, so a refusal on one agent leaves the others untouched.
+
+`check` compares the bytes `install` would write. Each difference is one indented line: `missing: <file>`, `differs: <file>` or `extra: <file>`, with paths relative to the skill directory.
+
+After [`relate upgrade`](/docs/reference/cli/upgrade) replaces the binary, it runs `relate skill install` from the new binary for the detected agents. When any of them holds a relate copy, this happens without a prompt; when none does, it asks first on a terminal, installs without asking under `--yes`, and otherwise prints `run: relate skill install` and installs nothing. A foreign directory is never touched.
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | The action completed; for `check`, every installed copy matches |
+| 1 | `check` found drift; no agent detected and no `--agent`; a refused path; a file system error |
+| 2 | A usage error: no action, an unknown action or flag, `--force` with `list` or `check`, or an unknown `--agent` name |
+
+| Message on stderr | Exit code | Cause |
+| --- | --- | --- |
+| `Error: skill: no supported agents detected` | 1 | No `--agent`, and none of the directories in the agent table exists; a second line lists the valid names |
+| `Error: skill: unknown agent: '<name>'` | 2 | `--agent` names no agent in the table; a second line lists the valid names |
+| `Error: skill: refusing to touch <path>: no .relate-installed marker present (directory was not created by relate); pass --force to override` | 1 | `install` met a foreign directory, or `remove` met a foreign or legacy one |
+| `Error: skill requires an action (install, remove, list or check)` | 2 | `relate skill` with no action |
+| `Error: unexpected argument to skill: <argument>` | 2 | An unknown action or flag, or `--force` with `list` or `check` |
+
+The second line of the two agent errors is the same:
+
+```text
+valid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie
+```
+
+The [errors reference](/docs/reference/errors#cli-skill-refusing-to-touch) has the remedies.
+
+## Examples
+
+The examples run with a fresh home directory, written `<home>`. With no agent directory in it, every action that has no `--agent` stops:
+
+```bash verify
+relate skill list
+echo "exit=$?"
+```
+
+```text
+Error: skill: no supported agents detected
+valid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie
+exit=1
+```
+
+`--agent` installs for one agent, and creates its directory:
+
+```bash verify
+relate skill install --agent claude-code
+```
+
+```text
+installed relate skill into <home>/.claude/skills/relate
+```
+
+With a Codex directory present too, `list` reports both detected agents:
+
+```bash verify
+mkdir -p "$HOME/.codex"
+relate skill list
+```
+
+```text
+claude-code: installed (<home>/.claude/skills/relate)
+codex: not installed (<home>/.codex/skills/relate)
+```
+
+After a local edit to `SKILL.md`, `check` reports the drift and exits 1:
+
+```bash verify
+printf 'local note\n' >> "$HOME/.claude/skills/relate/SKILL.md"
+relate skill check
+echo "exit=$?"
+```
+
+```text
+claude-code: drifted (<home>/.claude/skills/relate)
+  differs: SKILL.md
+codex: not installed (<home>/.codex/skills/relate)
+exit=1
+```
+
+`remove` deletes the copy that carries the marker:
+
+```bash verify
+relate skill remove --agent claude-code
+```
+
+```text
+removed relate skill from <home>/.claude/skills/relate
+```
+
+## See also
+
+- [Install the agent skill](/docs/guides/agents/install-the-skill): the CLI installer, the skills CLI, and a checked manual copy
+- [`relate upgrade`](/docs/reference/cli/upgrade): the binary update that refreshes installed copies
+- [Agent mode](/docs/reference/cli/agent-mode): how the CLI behaves under a detected :term[agent harness]{id=agent-harness}
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit codes every command shares

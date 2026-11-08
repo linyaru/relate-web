@@ -91,10 +91,10 @@ ORDER BY id
 
 The strongest check replays questions whose answers the old system gave:
 the same query vectors, the same `k`, and the ids each returned. An answer
-whose ids differ is either a missing node (the probes above find it) or an
-approximate search choosing differently near a tie. relate's vector index
-is approximate (HNSW), so a swap at the boundary of `k` between two close
-scores can happen; an id missing from the top of the list is not that.
+whose ids differ is either a missing node (the probes above find it) or a
+tie: relate's search is exact, so ids differ only where two scores tie
+(relate orders ties by element id) or where the old system's index was
+approximate. An id missing from the top of the list is not that.
 
 ## A fingerprint before a change
 

@@ -462,7 +462,7 @@ export interface CliCheckSite {
 
 /** The entries of errors.json (every surface list). */
 function errorEntries(errors: Record<string, unknown>): Record<string, unknown>[] {
-  return ['cli', 'engine', 'http', 'bolt', 'mcp'].flatMap((k) => (Array.isArray(errors[k]) ? (errors[k] as Record<string, unknown>[]) : []));
+  return ['cli', 'engine', 'http', 'bolt', 'mcp', 'client'].flatMap((k) => (Array.isArray(errors[k]) ? (errors[k] as Record<string, unknown>[]) : []));
 }
 
 /** Every disputed fact left in a data file, by readable path. */

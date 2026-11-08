@@ -1,4 +1,270 @@
 ---
 title: Notifications
-status: planned
+description: Every notification relate's planner emits under EXPLAIN and PROFILE, with its GQLSTATUS, code, severity, exact text, when it fires and its remedy.
+order: 140
+surfaces: [cypher, cli, bolt, http, mcp]
+related: [reference/cypher/explain-and-profile, guides/cypher/tune-a-query, reference/errors#notifications, reference/cypher/differences-from-neo4j]
 ---
+
+A :term[notification]{id=notification} is advice the planner attaches to a statement's result: a missing index, a pattern that multiplies rows, a name the store does not know, a deprecated form. On the CLI, the clients and the WASM build, relate derives notifications only for a statement prefixed with `EXPLAIN` or `PROFILE`; a plain run returns an empty list. The [MCP](/docs/reference/server/mcp) `read_cypher` and `write_cypher` tools return the plan-time notifications of every statement without a prefix (never `03C93`), and refuse an `EXPLAIN` or `PROFILE` prefix with a syntax error: the server plans every statement as `EXPLAIN <statement>`. A notification never fails the statement. This page lists all 27 kinds the engine defines. It quotes the text of the 24 triggered on the CLI and marks the three that could not be triggered.
+
+## Synopsis
+
+```text
+EXPLAIN <statement>    -- the plan and its notifications, nothing runs
+PROFILE <statement>    -- the rows, the measured plan and its notifications
+```
+
+Each notification has these fields, under these keys in the :term[envelope]{id=envelope}, in `--mode json`, `--mode jsonl` and `--mode toon`, and in the clients' result:
+
+| Key | Holds |
+| --- | --- |
+| `code` | A stable code: `Relate.Notification.*` for relate's own kinds, `Neo.ClientNotification.*` for the rest |
+| `gql_status` | The five-character GQLSTATUS; the third character is `C` for relate's own kinds |
+| `severity` | `WARNING` or `INFORMATION` |
+| `category` | `PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT` |
+| `title` | The kind's title |
+| `description` | This occurrence: the label, pattern, property, or index it concerns |
+| `remedy` | What to change; for a missing index, the `CREATE INDEX` statement itself |
+| `operator_id` | The `Id` of the :term[plan]{id=plan} operator it concerns; present only on notifications about one operator |
+
+| Rule | Detail |
+| --- | --- |
+| Text form | `--mode table` and `--mode markdown` print a `Notifications:` block, one line each: `[Id <n>: ]<severity> <gql_status> <code>: <description> Remedy: <remedy>` |
+| Plan warnings | `03N90`, `03C90` and `03C93` print in the plan table's `Warnings` column in `--mode table`, not in the block; every other mode lists them with the rest |
+| Order | Notifications about one operator first, in plan order, then the rest |
+| Duplicates | Two identical notifications of a name-based kind collapse into one; deprecations and pattern warnings keep one per occurrence |
+| Neo4j-shaped form | :term[Bolt]{id=bolt} and the :term[HTTP Query API]{id=http-query-api} send `code`, `title`, `description`, `severity` and `category`, with the remedy appended to `description` as ` (remedy: <remedy>)` |
+
+## Performance
+
+| GQLSTATUS | Title | Code | Severity | Fires on | Description | Remedy |
+| --- | --- | --- | --- | --- | --- | --- |
+| `03N90` | Cartesian product | `Neo.ClientNotification.Statement.CartesianProduct` | `INFORMATION` | Patterns in one `MATCH` that share no variable | `the MATCH patterns share no join anchor` | `Give the patterns a join anchor: reuse a node variable across them, or add a pattern that relates their endpoints; otherwise run them as separate queries.` |
+| `03N91` | Unbounded variable-length pattern | `Neo.ClientNotification.Statement.UnboundedVariableLengthPattern` | `INFORMATION` | A variable-length relationship with no upper bound, `[*]` or `[*1..]` | `the variable-length pattern <pattern> has no upper bound` | ``Bound the expansion (`[:R*1..5]`) where arbitrary length is not required, or add a selective endpoint/label predicate and a `LIMIT`.`` |
+| `03C90` | All nodes scan | `Relate.Notification.Statement.AllNodesScan` | `INFORMATION` | A node pattern with no label while the store has a property index | `the scan matches every node; consider the property index (:<Label>(<property>))` | ``Name the label the scan intends (`MATCH (n:<Label>)`); on the index's label the scan becomes an index-backed lookup.`` |
+| `03C91` | Missing index | `Relate.Notification.Statement.MissingIndex` | `INFORMATION` | An equality on a label's property with no range index on the pair | `the equality predicate on <property> filters :<Label> without a range index on (:<Label> {<property>})` | `CREATE INDEX relate_<Label>__<property> FOR (n:<Label>) ON (n.<property>)` |
+| `03C92` | Eager aggregation | `Relate.Notification.Statement.EagerAggregation` | `INFORMATION` | An aggregation whose input is estimated at 100,000 rows or more | `the aggregation buffers an estimated <n> input rows, at or above the 100000-row eager threshold` | ``Reduce the rows reaching the aggregation with a selective label/property predicate or a `LIMIT` before it; profile again to confirm the buffered input shrank.`` |
+| `03C93` | Estimation miss | `Relate.Notification.Statement.EstimationMiss` | `INFORMATION` | `PROFILE` only: an operator whose estimate is 10 times its actual rows or more | `estimated rows 10x or more above the actual rows` | `Rework the operator's input so the estimate can see the filter (add the selective predicate at the scan, or reorder the join); the estimate is a planner assumption, not a runtime fact.` |
+| `03N95` | Queries using dynamic properties will use neither index seeks nor index scans for those properties | `Neo.ClientNotification.Statement.DynamicProperty` | `INFORMATION` | A property read with a computed key, `n[key]`, on a label that has an index | `Using a dynamic property makes it impossible to use an index lookup for this query (indexed label is: (:<Label>))` | `Use a static property so index lookups stay possible.` |
+| `03N92` | Exhaustive shortest path | `Neo.ClientNotification.Statement.ExhaustiveShortestPath` | `INFORMATION` | A `shortestPath` whose `WHERE` tests the path's length or quantifies over its relationships | `The query runs with exhaustive shortest path due to an existential predicate; separate the predicate from the MATCH with WITH where possible.` | ``Separate the existential predicate from the `MATCH` with `WITH` where possible.`` |
+
+## Unrecognized names
+
+| GQLSTATUS | Title | Code | Severity | Fires on | Description | Remedy |
+| --- | --- | --- | --- | --- | --- | --- |
+| `01N50` | Unknown label | `Neo.ClientNotification.Statement.UnknownLabelWarning` | `WARNING` | A label the store has never had | ``The label `<label>` does not exist in this database.`` | `Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.` |
+| `01N51` | Unknown relationship type | `Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning` | `WARNING` | A relationship type the store has never had | ``The relationship type `<type>` does not exist in this database.`` | `Check the spelling; the type exists after the first write that creates it.` |
+| `01N52` | Unknown property key | `Neo.ClientNotification.Statement.UnknownPropertyKeyWarning` | `WARNING` | A property key the store has never had | ``The property key `<key>` does not exist in this database.`` | `Check the spelling; the key exists after the first write that sets it.` |
+| `01N61` | Unsatisfiable relationship type expression | `Neo.ClientNotification.Statement.UnsatisfiableRelationshipTypeExpression` | `WARNING` | A relationship type expression no single type matches, `[r:A&B]` | `The relationship type expression cannot be satisfied because relationships have exactly one type.` | `Request one type or a disjunction of types; a relationship has exactly one type.` |
+| `01N63` | Repeated relationship pattern variable | `Neo.ClientNotification.Statement.RepeatedRelationshipVariable` | `WARNING` | One relationship variable in two positions of a `MATCH` | ``The relationship variable `<var>` is repeated in the same MATCH, which leads to no results.`` | `Use a distinct variable per relationship position; a relationship cannot be traversed twice in one pattern.` |
+| `03N60` | Subquery variable shadowing | `Neo.ClientNotification.Statement.SubqueryVariableShadowing` | `INFORMATION` | A variable declared inside `CALL { … }` with the name of an outer variable | ``The variable `<var>` in the subquery uses the same name as a variable in the outer scope; import the outer one with `CALL (<var>) { … }` or rename the inner one.`` | ``Import the outer variable with `CALL (name) { … }`, or rename the inner one.`` |
+| `03N63` | Identifier shadowing variable | `Neo.ClientNotification.Statement.IdentifierShadowingVariable` | `INFORMATION` | A `SEARCH` index name that is also a variable in scope | ``The identifier `<name>` in the index specification clause has the same name as a variable in scope.`` | `Rename the index or the variable; the index name is taken literally.` |
+
+## Deprecations
+
+| GQLSTATUS | Title | Code | Severity | Fires on | Description | Remedy |
+| --- | --- | --- | --- | --- | --- | --- |
+| `01N01` | Deprecated function | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | A call to a deprecated function, `id()` | ``The function `<name>()` is deprecated.`` | ``Use `<replacement>` instead.``, for example ``Use `elementId` instead.`` |
+| `01N01` | Deprecated procedure | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | A `CALL` to a deprecated procedure, the four `db.index.*` query procedures | ``The procedure `<name>` is deprecated.`` | ``Use the `SEARCH` clause instead.`` |
+| `01N00` | CALL subquery without scope | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | `CALL { … }` without a scope clause | ``The `CALL { … }` subquery has no variable scope clause.`` | ``Add the scope clause the body imports: `CALL (n) { … }`, or `CALL () { … }` when it imports nothing.`` |
+| `01N00` | Merge self-reference | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | A `MERGE` whose properties read the entity it merges | ``Merging an entity (`<var>`) and referencing that entity in a property definition in the same MERGE is deprecated.`` | `Compute the property into a separate variable before the MERGE, or set it with ON CREATE SET after the merge.` |
+| `01N01` | Deprecated ambiguous subclause reference | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | An `ORDER BY` or `WHERE` after a projection that reads a variable the projection's own alias rebinds | ``The subclause expression contains an ambiguous reference to variable `<var>`; reference the projection item by an alias or use the GROUP BY clause.`` | ``Reference the projection item by an alias, or use the `GROUP BY` clause.`` |
+| `01N01` | Deprecated complex subclause reference | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | An `ORDER BY` or `WHERE` after an aggregating projection whose expression contains a non-variable projection item expression: `ORDER BY n.name + 'x'` after `WITH n.name AS name, count(*) AS c` | ``The subclause expression contains a reference to the complex projection item expression `<expression>`; reference it by an alias.`` | `Reference the projection item expression by an alias.` |
+| `01N00` | Create self-reference | `Neo.ClientNotification.Statement.FeatureDeprecationWarning` | `WARNING` | A `CREATE` whose properties read an entity created in the same clause. Not triggered when this page was verified: the parser rejects the statement first with `syntax error: SyntaxError: Entity, 'a', cannot be created and referenced in the same clause` | ``Creating an entity (`<var>`) and referencing that entity in a property definition in the same CREATE is deprecated.`` (from the engine source) | ``Create the entity in a separate `CREATE` clause before referencing it, or set the property afterwards.`` |
+
+## Schema
+
+These fire under `EXPLAIN` for a schema statement that would have no effect.
+
+| GQLSTATUS | Title | Code | Severity | Fires on | Description | Remedy |
+| --- | --- | --- | --- | --- | --- | --- |
+| `00NA0` | Index or constraint already exists | `Neo.ClientNotification.Schema.IndexOrConstraintAlreadyExists` | `INFORMATION` | `CREATE … IF NOT EXISTS` for an index or constraint that exists | `note: successful completion - index or constraint already exists. The command '<statement>' has no effect. The index or constraint specified by '<schema>' already exists.` | `Drop the existing index or constraint first, or use a different name or schema.` |
+| `00NA1` | Index or constraint does not exist | `Neo.ClientNotification.Schema.IndexOrConstraintDoesNotExist` | `INFORMATION` | `DROP … IF EXISTS` for a name that does not exist | ``note: successful completion - index or constraint does not exist. The command '<statement>' has no effect. The specified index or constraint `<name>` does not exist.`` | ``Check the name; `IF EXISTS` makes a missing index or constraint a no-op.`` |
+| `00NA2` | Vector index dimensions not specified | `Neo.ClientNotification.Schema.VectorIndexDimensionsNotSpecified` | `INFORMATION` | `CREATE VECTOR INDEX` without `vector.dimensions` | The text in the `00NA2` example under [Schema examples](#schema-examples) | ``Set `vector.dimensions` in `OPTIONS { indexConfig: { … } }` when creating the index.`` |
+
+## Hints
+
+The engine defines two hint notifications. Neither was triggered when this page was verified. Whether a hint is accepted depends on the statement, not on whether the store has the label:
+
+| Hint | Result |
+| --- | --- |
+| `USING INDEX` on a label and property that the pattern and its `WHERE` use | Accepted with no hint notification; a pair no index serves still gives `03C91` |
+| `USING JOIN ON` | Accepted with no notification |
+| `USING INDEX` on a label not in the pattern, or on a property with no predicate in the `WHERE` | Fails with `syntax error: InvalidPatternCharacter: unfulfillable hints: the hint(s) USING INDEX <hint> cannot be fulfilled` |
+
+| GQLSTATUS | Title | Code | Severity | Fires on | Description (from the engine source) | Remedy |
+| --- | --- | --- | --- | --- | --- | --- |
+| `01N31` | The request (directly or indirectly) referred to an index that does not exist. | `Neo.ClientNotification.Schema.HintedIndexNotFound` | `WARNING` | Defined for a `USING INDEX` hint no node index serves; not emitted when this page was verified | `warn: hinted index does not exist. Unable to create a plan with 'INDEX :<Label>(<properties>)' because the index does not exist.` | `Create the index, or drop the hint.` |
+| `01N30` | The database was unable to plan a hinted join. | `Neo.ClientNotification.Statement.JoinHintUnfulfillableWarning` | `WARNING` | Defined for a `USING JOIN ON` hint the planner cannot use; not emitted when this page was verified | ``warn: join hint unfulfillable. Unable to create a plan with 'JOIN ON <variables>'. Try to change the join key(s) or restructure your query.`` | `Try a different join key or restructure the query.` |
+
+## Examples
+
+The CLI examples print each notification in `--mode markdown`, which lists every kind after the rows and prints no plan table. This setup step writes the shared example graph and a range index on `Person.name` to a new store, `team.rl`, and 100,000 `Item` nodes to a second store, `items.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+CREATE INDEX person_name FOR (p:Person) ON (p.name)"
+relate --database ./items.rl "UNWIND range(1, 100000) AS i CREATE (:Item {n: i})"
+```
+
+### Performance examples
+
+One statement per notification, in table order, each against a read-only open:
+
+```bash verify
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person), (proj:Project) RETURN p.name, proj.name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person)-[:KNOWS*]->(q:Person) RETURN q.name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (n) RETURN count(n) AS nodes"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person {role: 'engineer'}) RETURN p.name"
+relate --database ./items.rl --read-only --mode markdown "EXPLAIN MATCH (i:Item) RETURN count(i) AS items"
+relate --database ./items.rl --read-only --mode markdown "PROFILE MATCH (i:Item) WHERE i.n = 5 RETURN i.n AS n"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN WITH 'name' AS key MATCH (p:Person) WHERE p[key] = 'Ada' RETURN p.role"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH p = shortestPath((a:Person {name: 'Ada'})-[*..5]-(b:Person {name: 'Noor'})) WHERE length(p) > 1 RETURN p"
+```
+
+```text
+Notifications:
+Id 1: INFORMATION 03N90 Neo.ClientNotification.Statement.CartesianProduct: the MATCH patterns share no join anchor Remedy: Give the patterns a join anchor: reuse a node variable across them, or add a pattern that relates their endpoints; otherwise run them as separate queries.
+Notifications:
+Id 1: INFORMATION 03N91 Neo.ClientNotification.Statement.UnboundedVariableLengthPattern: the variable-length pattern (p:Person)-[:KNOWS*1..]->(q:Person) has no upper bound Remedy: Bound the expansion (`[:R*1..5]`) where arbitrary length is not required, or add a selective endpoint/label predicate and a `LIMIT`.
+Notifications:
+Id 1: INFORMATION 03C90 Relate.Notification.Statement.AllNodesScan: the scan matches every node; consider the property index (:Person(name)) Remedy: Name the label the scan intends (`MATCH (n:<Label>)`); on the index's label the scan becomes an index-backed lookup.
+Notifications:
+Id 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on role filters :Person without a range index on (:Person {role}) Remedy: CREATE INDEX relate_Person__role FOR (n:Person) ON (n.role)
+Notifications:
+Id 0: INFORMATION 03C92 Relate.Notification.Statement.EagerAggregation: the aggregation buffers an estimated 100000 input rows, at or above the 100000-row eager threshold Remedy: Reduce the rows reaching the aggregation with a selective label/property predicate or a `LIMIT` before it; profile again to confirm the buffered input shrank.
+| n |
+|---|
+| 5 |
+Notifications:
+Id 1: INFORMATION 03C93 Relate.Notification.Statement.EstimationMiss: estimated rows 10x or more above the actual rows Remedy: Rework the operator's input so the estimate can see the filter (add the selective predicate at the scan, or reorder the join); the estimate is a planner assumption, not a runtime fact.
+Id 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on n filters :Item without a range index on (:Item {n}) Remedy: CREATE INDEX relate_Item__n FOR (n:Item) ON (n.n)
+Notifications:
+INFORMATION 03N95 Neo.ClientNotification.Statement.DynamicProperty: Using a dynamic property makes it impossible to use an index lookup for this query (indexed label is: (:Person)) Remedy: Use a static property so index lookups stay possible.
+Notifications:
+INFORMATION 03N92 Neo.ClientNotification.Statement.ExhaustiveShortestPath: The query runs with exhaustive shortest path due to an existential predicate; separate the predicate from the MATCH with WITH where possible. Remedy: Separate the existential predicate from the `MATCH` with `WITH` where possible.
+```
+
+### Unrecognized name examples
+
+```bash verify
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (n:Persn) RETURN n"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (:Person)-[:WORKS_AT]->(p) RETURN p"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) WHERE p.email IS NOT NULL RETURN p.name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (:Person)-[r:KNOWS&WORKS_ON]->() RETURN r"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (a:Person)-[r]->(b)-[r]->(c) RETURN a"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) CALL () { MATCH (p:Project) RETURN p.name AS project } RETURN project"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) WITH p, 1 AS person_bio MATCH (p:Person) SEARCH p IN (FULLTEXT INDEX person_bio FOR 'docs' LIMIT 1) RETURN p.name"
+```
+
+```text
+Notifications:
+WARNING 01N50 Neo.ClientNotification.Statement.UnknownLabelWarning: The label `Persn` does not exist in this database. Remedy: Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.
+Notifications:
+WARNING 01N51 Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning: The relationship type `WORKS_AT` does not exist in this database. Remedy: Check the spelling; the type exists after the first write that creates it.
+Notifications:
+WARNING 01N52 Neo.ClientNotification.Statement.UnknownPropertyKeyWarning: The property key `email` does not exist in this database. Remedy: Check the spelling; the key exists after the first write that sets it.
+Notifications:
+WARNING 01N61 Neo.ClientNotification.Statement.UnsatisfiableRelationshipTypeExpression: The relationship type expression cannot be satisfied because relationships have exactly one type. Remedy: Request one type or a disjunction of types; a relationship has exactly one type.
+Notifications:
+WARNING 01N63 Neo.ClientNotification.Statement.RepeatedRelationshipVariable: The relationship variable `r` is repeated in the same MATCH, which leads to no results. Remedy: Use a distinct variable per relationship position; a relationship cannot be traversed twice in one pattern.
+Notifications:
+INFORMATION 03N60 Neo.ClientNotification.Statement.SubqueryVariableShadowing: The variable `p` in the subquery uses the same name as a variable in the outer scope; import the outer one with `CALL (p) { … }` or rename the inner one. Remedy: Import the outer variable with `CALL (name) { … }`, or rename the inner one.
+Notifications:
+INFORMATION 03N63 Neo.ClientNotification.Statement.IdentifierShadowingVariable: The identifier `person_bio` in the index specification clause has the same name as a variable in scope. Remedy: Rename the index or the variable; the index name is taken literally.
+```
+
+### Deprecation examples
+
+```bash verify
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) RETURN id(p) AS id"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN CALL db.index.vector.queryNodes('person_focus', 2, [0.1, 0.9, 0.1]) YIELD node RETURN node.name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) CALL { WITH p RETURN p.name AS name } RETURN name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MERGE (p:Person {name: 'Ida', nick: p.name})"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (p:Person) RETURN p.name AS p ORDER BY p.name"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN MATCH (n:Person) WITH n.name AS name, count(*) AS c ORDER BY n.name + 'x' RETURN name"
+```
+
+```text
+Notifications:
+WARNING 01N01 Neo.ClientNotification.Statement.FeatureDeprecationWarning: The function `id()` is deprecated. Remedy: Use `elementId` instead.
+Notifications:
+WARNING 01N01 Neo.ClientNotification.Statement.FeatureDeprecationWarning: The procedure `db.index.vector.queryNodes` is deprecated. Remedy: Use the `SEARCH` clause instead.
+Notifications:
+WARNING 01N00 Neo.ClientNotification.Statement.FeatureDeprecationWarning: The `CALL { … }` subquery has no variable scope clause. Remedy: Add the scope clause the body imports: `CALL (n) { … }`, or `CALL () { … }` when it imports nothing.
+Notifications:
+WARNING 01N00 Neo.ClientNotification.Statement.FeatureDeprecationWarning: Merging an entity (`p`) and referencing that entity in a property definition in the same MERGE is deprecated. Remedy: Compute the property into a separate variable before the MERGE, or set it with ON CREATE SET after the merge.
+Notifications:
+WARNING 01N01 Neo.ClientNotification.Statement.FeatureDeprecationWarning: The subclause expression contains an ambiguous reference to variable `p`; reference the projection item by an alias or use the GROUP BY clause. Remedy: Reference the projection item by an alias, or use the `GROUP BY` clause.
+Notifications:
+WARNING 01N01 Neo.ClientNotification.Statement.FeatureDeprecationWarning: The subclause expression contains a reference to the complex projection item expression `n.name`; reference it by an alias. Remedy: Reference the projection item expression by an alias.
+```
+
+### Schema examples
+
+```bash verify
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name)"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN DROP INDEX person_email IF EXISTS"
+relate --database ./team.rl --read-only --mode markdown "EXPLAIN CREATE VECTOR INDEX person_focus FOR (p:Person) ON (p.focus)"
+```
+
+```text
+Notifications:
+INFORMATION 00NA0 Neo.ClientNotification.Schema.IndexOrConstraintAlreadyExists: note: successful completion - index or constraint already exists. The command 'CREATE RANGE INDEX person_name IF NOT EXISTS FOR (e:Person) ON (e.name)' has no effect. The index or constraint specified by 'RANGE INDEX person_name FOR (e:Person) ON (e.name)' already exists. Remedy: Drop the existing index or constraint first, or use a different name or schema.
+Notifications:
+INFORMATION 00NA1 Neo.ClientNotification.Schema.IndexOrConstraintDoesNotExist: note: successful completion - index or constraint does not exist. The command 'DROP INDEX person_email IF EXISTS' has no effect. The specified index or constraint `person_email` does not exist. Remedy: Check the name; `IF EXISTS` makes a missing index or constraint a no-op.
+Notifications:
+INFORMATION 00NA2 Neo.ClientNotification.Schema.VectorIndexDimensionsNotSpecified: note: successful completion - vector index dimensions not specified. When creating a vector index, `vector.dimensions` should be specified. Omitting it is allowed, but specifying dimensions ensures that only vectors of that size are indexed and makes dimension mismatches fail clearly at query time. For example, set `OPTIONS { indexConfig: { `vector.dimensions`: 1536 } }` when creating the index. Remedy: Set `vector.dimensions` in `OPTIONS { indexConfig: { … } }` when creating the index.
+```
+
+### In a cell
+
+The cells run on the shared example graph in the browser. An `EXPLAIN` cell's result shows no rows; its JSON view holds each notification with the envelope keys:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```cypher run name=missing-index
+EXPLAIN MATCH (p:Person {name: 'Ada'}) RETURN p.role AS role
+```
+
+The recorded JSON view holds `03C91` for the `name` equality, with `operator_id` 1 and the remedy `CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)`.
+
+```cypher run name=unknown-label
+EXPLAIN MATCH (p:Persn) RETURN p.name AS name
+```
+
+The recorded JSON view holds `01N50` for the label `Persn`, with no `operator_id`.
+
+In the browser, a plain run of the first statement returns its rows and no notifications:
+
+```cypher run name=plain-run
+MATCH (p:Person {name: 'Ada'}) RETURN p.role AS role
+```
+
+## See also
+
+- [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile): the plan the notifications sit beside, and the `Warnings` column.
+- [Tune a query](/docs/guides/cypher/tune-a-query): acting on a missing-index notification and confirming the new plan.
+- [Errors](/docs/reference/errors#notifications): every notification code at a stable anchor beside the errors.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the deprecated forms and what to write instead.

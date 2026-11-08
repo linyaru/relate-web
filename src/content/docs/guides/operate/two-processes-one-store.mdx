@@ -5,7 +5,7 @@ description: "What a second process gets when it opens a relate store another ho
 order: 20
 surfaces: [cli, http, bolt, mcp]
 prerequisites: [get-started/install]
-related: [reference/errors#cli-conflict-locked, reference/cli/flags#read-only, guides/storage/choose-a-store-layout, concepts/transactions-and-concurrency]
+related: [reference/errors#cli-conflict-locked, reference/cli/flags#read-only, guides/storage/choose-a-store-layout, concepts/transactions-and-concurrency, guides/storage/read-only-and-follow, guides/integrations/crewai]
 ---
 
 This guide shows you how to reach one store from more than one process. A :term[store]{id=store} has one writer: the first process that opens it for writing owns it until that process exits. A second writable open fails with :term[exit code]{id=exit-code} 5, and on a `.rl` store so does a read-only one. A read-only open beside the writer, a read-only open that follows the writer's commits, or one process that serves the store to the others are the three ways to share it.
@@ -129,7 +129,7 @@ curl -s -u "relate:<token>" -X POST http://127.0.0.1:7474/db/neo4j/query/v2 \
   -d '{"statement": "CREATE (:Person {name: $name, role: $role})", "parameters": {"name": "Ines", "role": "engineer"}}'
 ```
 
-The same server takes `--bolt <port>` for Neo4j drivers and tools, and `--mcp <port>` or `--mcp stdio` for agent hosts ([Connect over MCP](/docs/guides/agents/connect-over-mcp)). It listens on `127.0.0.1` unless `--host` says otherwise. Statements from all clients run in the one engine, and two :term[transactions]{id=transaction} that write the same data at once get a write-write conflict, the one retryable error ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).
+The same server takes `--bolt <port>` for Neo4j drivers and tools, and `--mcp <port>` or `--mcp stdio` for agent hosts ([Connect over MCP](/docs/guides/agents/connect-over-mcp)). It listens on `127.0.0.1` unless `--host` says otherwise. Statements from all clients run in the one engine, and two :term[transactions]{id=transaction} that write the same data at once get a write-write conflict, which is retryable ([Transactions and concurrency](/docs/concepts/transactions-and-concurrency)).
 
 ## Verify
 

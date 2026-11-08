@@ -4,7 +4,7 @@ label: Flags
 description: Every relate CLI flag with its argument, default, scope and environment variable at a stable anchor, plus how flags parse and the environment the CLI reads.
 order: 20
 surfaces: [cli]
-related: [reference/cli, reference/cli/agent-mode, reference/cli/exit-codes-and-errors, guides/operate/durability-modes, guides/cli/scripting]
+related: [reference/cli, reference/cli/agent-mode, reference/cli/exit-codes-and-errors, guides/operate/durability-modes, guides/cli/scripting, reference/cli/output-modes, reference/cli/environment-variables]
 ---
 
 Each flag of the `relate` CLI has a row on this page at a stable anchor, `https://relatedb.ai/docs/reference/cli/flags#<flag>` (`#read-only`, `#max-rows`); a command's own flag carries the command's name (`#serve-mcp`, `#clone-wal-dir`). A row gives the flag's other spellings, its argument, its default, where it applies, and the environment variable that sets its default. The tables are generated from the data file the CLI facts are recorded in, so the page and its markdown twin list the same flags.
@@ -51,7 +51,7 @@ exit=2
 
 ## Output
 
-Without an output flag, the mode depends on where stdout goes:
+[Output modes](/docs/reference/cli/output-modes) shows each mode's shape on stdout. Without an output flag, the mode depends on where stdout goes:
 
 | stdout | Default mode |
 | --- | --- |
@@ -140,7 +140,7 @@ exit=2
 
 ## Query-run flags
 
-The flags of the path-first form and of `relate query`.
+The flags of the path-first form and of `relate query`. The [`relate query` reference](/docs/reference/cli/query) has the session forms and their errors.
 
 <Flags command="query" />
 
@@ -150,29 +150,43 @@ Each command's own flags. `relate query` takes the query-run flags; `relate tele
 
 ### `relate clone`
 
+The [`relate clone` reference](/docs/reference/cli/clone) has the layouts each pairing writes and its errors.
+
 <Flags command="clone" />
 
 ### `relate info`
+
+The [`relate info` reference](/docs/reference/cli/info) has the fields it prints and its errors.
 
 <Flags command="info" />
 
 ### `relate pull`
 
+The [`relate pull` reference](/docs/reference/cli/pull) has the credentials, the query rules and the errors.
+
 <Flags command="pull" />
 
 ### `relate push`
+
+The [`relate push` reference](/docs/reference/cli/push) has the selectors, the merge keys, the dry-run plan and the errors.
 
 <Flags command="push" />
 
 ### `relate skill`
 
+The [`relate skill` reference](/docs/reference/cli/skill) has the agent directories and the errors.
+
 <Flags command="skill" />
 
 ### `relate upgrade`
 
+The [`relate upgrade` reference](/docs/reference/cli/upgrade) has what it checks and replaces, and its errors.
+
 <Flags command="upgrade" />
 
 ### `relate run`
+
+The [`relate run` reference](/docs/reference/cli/run) has how an action runs and its errors.
 
 An installed extension's own flags come from its manifest; `relate run --help` lists the installed actions.
 
@@ -180,15 +194,19 @@ An installed extension's own flags come from its manifest; `relate run --help` l
 
 ### `relate serve`
 
+The [`relate serve` reference](/docs/reference/cli/serve) has the listeners, the startup lines and the errors.
+
 <Flags command="serve" />
 
 ### `relate extension`
+
+The [`relate extension` reference](/docs/reference/cli/extension) has each subcommand, the provenance marker and the errors.
 
 <Flags command="extension" />
 
 ## Environment variables
 
-Every environment variable the CLI reads, with the flag or command it serves. A flag beats its variable. The [CLI errors](/docs/reference/errors#cli-errors) list the message an invalid value prints and its exit code.
+Every environment variable the CLI reads, with the flag or command it serves. A flag beats its variable. [Environment variables](/docs/reference/cli/environment-variables) adds the variables this table does not list and what an invalid value does. The [CLI errors](/docs/reference/errors#cli-errors) list the message an invalid value prints and its exit code.
 
 <EnvVars />
 

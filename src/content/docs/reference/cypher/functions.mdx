@@ -1,4 +1,431 @@
 ---
 title: Functions
-status: planned
+description: Every built-in Cypher function relate ships, by category, with its signature, what it returns and a note on edge cases, each checked against the engine.
+order: 110
+surfaces: [cypher]
+related: [reference/cypher/expressions, reference/cypher/types-and-values, reference/cypher/procedures, reference/cypher/search, concepts/problems-relate-solves#geospatial-memory]
 ---
+
+relate ships 194 function signatures under 176 names, the rows `SHOW FUNCTIONS` returns, plus six more behind preview opt-ins. This page lists each one by category with its signature as `SHOW FUNCTIONS` prints it, what it returns, and a note on the edge cases. A row that differs from its catalog signature says so. Rows that name several functions (the trigonometric, hyperbolic, clock and `*.truncate` rows), the `format(value :: …, pattern :: STRING)` row, and the `[, pattern :: STRING]` form of the GQL temporal names each condense several catalog signatures into one. The cells run on relate's WebAssembly (WASM) build, which runs the same engine as the CLI and the clients.
+
+| Category | Functions |
+| --- | --- |
+| [Graph element functions](#graph-element-functions) | `elementId`, `id`, `labels`, `type`, `keys`, `properties`, `startNode`, `endNode`, `nodes`, `relationships`, `length`, `path_length`, `db.nameFromElementId` |
+| [Scalar functions](#scalar-functions) | `coalesce`, `nullIf`, `valueType`, `size`, `cardinality`, `char_length`, `character_length`, `head`, `last`, `linenumber`, `file` |
+| [Conversion functions](#conversion-functions) | `toString`, `toStringOrNull`, `toInteger`, `toIntegerOrNull`, `toFloat`, `toFloatOrNull`, `toBoolean`, `toBooleanOrNull`, `toStringList`, `toIntegerList`, `toFloatList`, `toBooleanList` |
+| [String functions](#string-functions) | `toUpper`, `upper`, `toLower`, `lower`, `trim`, `ltrim`, `rtrim`, `btrim`, `normalize`, `replace`, `substring`, `left`, `right`, `split`, `reverse`, `string.join`, `string.regexReplace`, `string.indexOf` |
+| [List functions](#list-functions) | `tail`, `reverse`, `range`, `reduce`, `coll.flatten`, `coll.sort`, `coll.indexOf`, `coll.insert`, `coll.remove`, `coll.max`, `coll.min`, `coll.distinct` |
+| [Math functions](#math-functions) | `abs`, `ceil`, `ceiling`, `floor`, `round`, `sign`, `rand`, `isNaN`, `sqrt`, `exp`, `log`, `ln`, `log10`, `e`, `pi`, and the trigonometric functions |
+| [Temporal functions](#temporal-functions) | `date`, `time`, `localtime`, `datetime`, `localdatetime`, their GQL names, `duration`, `duration.*`, `*.truncate`, `*.realtime`, `*.statement`, `*.transaction`, `datetime.fromepoch*`, `format`, `timestamp` |
+| [Spatial functions](#spatial-functions) | `point`, `point.distance`, `point.withinBBox` |
+| [Vector functions](#vector-functions) | `vector`, `vector.similarity.cosine`, `vector.similarity.euclidean`, `vector_distance`, `vector_norm`, `vector_dimension_count` |
+| [UUID functions](#uuid-functions) | `uuid`, `randomUUID`, `uuid.mostSignificantBits`, `uuid.leastSignificantBits` |
+| [Aggregating functions](#aggregating-functions) | `count`, `sum`, `avg`, `min`, `max`, `collect`, `stDev`, `stDevP`, `percentileCont`, `percentileDisc`, and their GQL names |
+| [Predicate functions](#predicate-functions) | `all`, `any`, `none`, `single`, `allReduce`, `exists`, `isEmpty`, `property_exists` |
+| [Path functions](#path-functions) | `shortestPath`, `allShortestPaths` |
+| [Graph reference functions](#graph-reference-functions) | `graph.names`, `graph.byName`, `graph.byElementId`, `graph.propertiesByName` |
+| [Preview functions](#preview-functions) | `coll.zip`, `coll.hasAnyOf`, `coll.hasAllOf`, `coll.hasNoneOf`, `stddev_samp`, `stddev_pop` |
+
+## Synopsis
+
+```text
+<name>(<argument>, …)
+<namespace>.<name>(<argument>, …)
+SHOW FUNCTIONS [YIELD <column>, …] [WHERE <predicate>] [RETURN …]
+```
+
+| Rule | Detail |
+| --- | --- |
+| Names | Case-insensitive: `TOUPPER('a')` and `toUpper('a')` are the same call |
+| `null` arguments | A scalar function given `null` returns `null`, unless its row says otherwise |
+| Unknown name | `syntax error: UnknownFunction: unknown function <name>()` |
+| Wrong arity | `syntax error: InvalidNumberOfArguments: <name>() …`, for example ``coalesce() requires at least one argument, got 0`` |
+| `SHOW FUNCTIONS` columns | `name`, `category`, `description`, `signature`, `isBuiltIn`, `argumentDescription`, `returnDescription`, `aggregating`, `isDeprecated`, `deprecatedBy` |
+| Deprecated functions | Under `EXPLAIN`, a call raises notification `01N01` with the replacement ([notifications](/docs/reference/cypher/notifications)) |
+
+```cypher run name=catalog
+SHOW FUNCTIONS YIELD name, category, signature
+WHERE name STARTS WITH 'vector'
+RETURN name, category, signature ORDER BY name
+```
+
+## Graph element functions
+
+These functions read a :term[node]{id=node}, a :term[relationship]{id=relationship} or a :term[path]{id=path}: its labels or type, its :term[properties]{id=property}, its end nodes and its :term[element id]{id=element-id}.
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `elementId(input :: NODE \| RELATIONSHIP) :: STRING` | The element id | `4:relate:n<k>` for a node, `5:relate:r<k>` for a relationship |
+| `id(input :: NODE \| RELATIONSHIP) :: INTEGER` | The integer id | Deprecated; the catalog names `elementId` as the replacement |
+| `db.nameFromElementId(elementId :: STRING) :: STRING` | The namespace of an element id | `neo4j` for the data namespace |
+| `labels(input :: NODE) :: LIST<STRING>` | The node's labels | — |
+| `type(input :: RELATIONSHIP) :: STRING` | The relationship type | — |
+| `keys(input :: NODE \| RELATIONSHIP \| MAP) :: LIST<STRING>` | The property names, or a map's keys | In sorted order |
+| `properties(input :: NODE \| RELATIONSHIP \| MAP) :: MAP` | Every property as a map | A map argument returns the map |
+| `startNode(input :: RELATIONSHIP) :: NODE` | The start node | — |
+| `endNode(input :: RELATIONSHIP) :: NODE` | The end node | — |
+| `nodes(input :: PATH) :: LIST<NODE>` | The path's nodes, in order | — |
+| `relationships(input :: PATH) :: LIST<RELATIONSHIP>` | The path's relationships, in order | — |
+| `length(input :: PATH) :: INTEGER` | The number of relationships in the path | — |
+| `path_length(input :: PATH) :: INTEGER` | The number of relationships in the path | GQL name of `length` |
+
+The cells from here on run on the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```cypher run name=graph-elements
+MATCH p = (a:Person {name: 'Ada'})-[r:WORKS_ON]->(proj)
+RETURN labels(a) AS labels, type(r) AS type, keys(a) AS keys, properties(r) AS props,
+       endNode(r).name AS ends_at, length(p) AS hops, size(nodes(p)) AS path_nodes,
+       db.nameFromElementId(elementId(a)) AS namespace
+```
+
+## Scalar functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `coalesce(input :: ANY ...) :: ANY` | The first argument that is not `null` | At least one argument |
+| `nullIf(v1 :: ANY, v2 :: ANY) :: ANY` | `null` when the two are equal, else `v1` | — |
+| `valueType(input :: ANY) :: STRING` | The type name with its nullability | `valueType(1)` is `INTEGER NOT NULL` ([types](/docs/reference/cypher/types-and-values#value-types)) |
+| `size(input :: STRING \| VECTOR \| LIST<ANY>) :: INTEGER` | Characters in a string, elements in a list, dimensions of a vector | — |
+| `cardinality(input :: MAP \| LIST<ANY> \| PATH) :: INTEGER` | Keys in a map, elements in a list, nodes plus relationships in a path | A one-hop path gives `3` |
+| `char_length(input :: STRING) :: INTEGER` | Characters in a string | GQL name |
+| `character_length(input :: STRING) :: INTEGER` | Characters in a string | GQL name |
+| `head(list :: LIST<ANY>) :: ANY` | The first element | `null` for an empty list |
+| `last(list :: LIST<ANY>) :: ANY` | The last element | `null` for an empty list |
+| `linenumber() :: INTEGER` | The line `LOAD CSV` is reading | Listed by `SHOW FUNCTIONS`; a call fails with `syntax error: UnknownFunction: unknown function linenumber()`, inside `LOAD CSV` too |
+| `file() :: STRING` | The file `LOAD CSV` is reading | Listed by `SHOW FUNCTIONS`; a call fails with `syntax error: UnknownFunction: unknown function file()`, inside `LOAD CSV` too |
+
+```cypher run name=scalar
+RETURN coalesce(null, 'fallback') AS first, nullIf(1, 1) AS same, valueType(1.5) AS type,
+       size('café') AS chars, cardinality({a: 1, b: 2}) AS keys, head([]) AS empty_head
+```
+
+## Conversion functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `toString(input :: ANY) :: STRING` | The value as a string | Maps, lists and graph values render in display form (`{a: 1}`). A list literal fails at compile time with `syntax error: InvalidArgumentValue: toString()`; a list in a variable or property converts |
+| `toStringOrNull(input :: ANY) :: STRING` | As `toString`, or `null` instead of an error | — |
+| `toInteger(input :: BOOLEAN \| STRING \| INTEGER \| FLOAT) :: INTEGER` | The value as an integer | A float truncates toward zero; a string parses decimal, hexadecimal (`'0x1F'`), octal and `_` forms. A `BOOLEAN` argument fails with `type error: InvalidArgumentValue: toInteger()`, although the catalog lists it. A string outside the range fails with `NumberOutOfRange` |
+| `toIntegerOrNull(input :: ANY) :: INTEGER` | As `toInteger`, or `null` | — |
+| `toFloat(input :: STRING \| INTEGER \| FLOAT) :: FLOAT` | The value as a float | `'NaN'` and `'Infinity'` parse; other spellings are `null` |
+| `toFloatOrNull(input :: ANY) :: FLOAT` | As `toFloat`, or `null` | — |
+| `toBoolean(input :: BOOLEAN \| STRING \| INTEGER) :: BOOLEAN` | The value as a boolean | Strings `'true'` and `'false'` in any case; other strings give `null`. An integer is `false` only for `0` |
+| `toBooleanOrNull(input :: ANY) :: BOOLEAN` | As `toBoolean`, or `null` | — |
+| `toStringList(input :: LIST<ANY>) :: LIST<STRING>` | Each element as a string | A `null` element becomes `'null'` |
+| `toIntegerList(input :: VECTOR \| LIST<ANY>) :: LIST<INTEGER>` | Each element as an integer | An element that does not convert becomes `null`; never fails for an element |
+| `toFloatList(input :: VECTOR \| LIST<ANY>) :: LIST<FLOAT>` | Each element as a float | Same rule; also takes a vector |
+| `toBooleanList(input :: LIST<ANY>) :: LIST<BOOLEAN>` | Each element as a boolean | Same rule |
+
+```cypher run name=conversion
+RETURN toString({a: 1}) AS display, toInteger(-3.9) AS truncated, toInteger('0x1F') AS hex,
+       toIntegerOrNull('x') AS bad_int, toBoolean('TRUE') AS bool, toBoolean('yes') AS not_bool,
+       toIntegerList(['1', 'x']) AS ints, toFloatList(vector([1, 2], 2, INT8)) AS from_vector
+```
+
+## String functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `toUpper(input :: STRING) :: STRING` | Uppercase | `upper` is the GQL name |
+| `upper(input :: STRING) :: STRING` | Uppercase | — |
+| `toLower(input :: STRING) :: STRING` | Lowercase | `lower` is the GQL name |
+| `lower(input :: STRING) :: STRING` | Lowercase | — |
+| `trim(input :: STRING) :: STRING` | Leading and trailing whitespace removed | — |
+| `trim([[LEADING \| TRAILING \| BOTH] [trimCharacterString :: STRING] FROM] input :: STRING) :: STRING` | The given characters removed from one or both ends | `trim(LEADING 'x' FROM 'xxaxx')` is `'axx'` |
+| `ltrim(input :: STRING) :: STRING` | Leading whitespace removed | — |
+| `ltrim(input :: STRING, trimCharacterString :: STRING) :: STRING` | Leading characters removed | — |
+| `rtrim(input :: STRING) :: STRING` | Trailing whitespace removed | — |
+| `rtrim(input :: STRING, trimCharacterString :: STRING) :: STRING` | Trailing characters removed | — |
+| `btrim(input :: STRING) :: STRING` | Whitespace removed from both ends | — |
+| `btrim(input :: STRING, trimCharacterString :: STRING) :: STRING` | Characters removed from both ends | — |
+| `normalize(input :: STRING) :: STRING` | The string in Unicode normal form NFC | — |
+| `normalize(input :: STRING, normalForm = NFC :: [NFC, NFD, NFKC, NFKD]) :: STRING` | The string in the given form | The form is a bare keyword |
+| `replace(original :: STRING, search :: STRING, replace :: STRING) :: STRING` | Every occurrence replaced | An empty `search` inserts between every character |
+| `replace(original :: STRING, search :: STRING, replace :: STRING, limit :: INTEGER) :: STRING` | At most `limit` occurrences replaced, from the left | `replace('banana', 'a', 'o', 2)` is `'bonona'` |
+| `substring(original :: STRING, start :: INTEGER) :: STRING` | The rest from a zero-based `start` | A `start` past the end gives `''` |
+| `substring(original :: STRING, start :: INTEGER, length :: INTEGER) :: STRING` | `length` characters from `start` | A float literal fails with `InvalidArgumentType` |
+| `left(original :: STRING, length :: INTEGER) :: STRING` | The first `length` characters | The whole string when it is shorter |
+| `right(original :: STRING, length :: INTEGER) :: STRING` | The last `length` characters | — |
+| `split(original :: STRING, splitDelimiters :: STRING \| LIST<STRING>) :: LIST<STRING>` | The parts between delimiters | A list splits on any of its delimiters; `split('', ',')` is `['']` |
+| `reverse(input :: STRING \| LIST<ANY>) :: STRING \| LIST<ANY>` | The characters or elements in reverse order | — |
+| `string.join(input :: LIST<STRING>, delimiter :: STRING) :: STRING` | The elements joined by the delimiter | `null` elements are skipped |
+| `string.regexReplace(original :: STRING, regex :: STRING, replacement :: STRING) :: STRING` | Every regular expression match replaced | — |
+| `string.indexOf(input :: STRING, value :: STRING) :: INTEGER` | The zero-based index of the first occurrence | `-1` when absent |
+
+```cypher run name=strings
+RETURN toUpper('relate') AS upper, trim(BOTH 'x' FROM 'xxadaxx') AS trimmed,
+       replace('banana', 'a', 'o', 2) AS limited, substring('opencypher', 4, 6) AS sub,
+       split('a,b;c', [',', ';']) AS parts, string.join(['Ada', 'Grace'], ' & ') AS joined,
+       string.regexReplace('v0.16.1', '[0-9]+', 'N') AS masked, string.indexOf('relate', 'l') AS at
+```
+
+## List functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `tail(input :: LIST<ANY>) :: LIST<ANY>` | Every element but the first | `[]` for an empty list |
+| `reverse(input :: STRING \| LIST<ANY>) :: STRING \| LIST<ANY>` | The elements in reverse order | — |
+| `range(start :: INTEGER, end :: INTEGER) :: LIST<INTEGER>` | `start` to `end`, both included | `range(1, 0)` is `[]` |
+| `range(start :: INTEGER, end :: INTEGER, step :: INTEGER) :: LIST<INTEGER>` | Every `step`-th integer | A negative step counts down; a zero step fails with `NumberOutOfRange: range() step cannot be 0` |
+| `reduce(accumulator :: VARIABLE = initial :: ANY, variable :: VARIABLE IN list :: LIST<ANY> \| expression :: ANY) :: ANY` | The list folded into one value | Syntax in [expressions](/docs/reference/cypher/expressions#reduce-and-allreduce) |
+| `coll.flatten(list :: LIST<ANY>) :: LIST<ANY>` | Nested lists flattened one level | `coll.flatten([1, [2, [3]]])` is `[1, 2, [3]]` |
+| `coll.flatten(list :: LIST<ANY>, depth :: INTEGER) :: LIST<ANY>` | Nested lists flattened `depth` levels | — |
+| `coll.sort(list :: LIST<ANY>) :: LIST<ANY>` | The elements in ascending order | — |
+| `coll.indexOf(list :: LIST<ANY>, value :: ANY) :: INTEGER` | The zero-based index of the first match | `-1` when absent |
+| `coll.insert(list :: LIST<ANY>, index :: INTEGER, value :: ANY) :: LIST<ANY>` | The list with `value` at `index` | — |
+| `coll.remove(list :: LIST<ANY>, index :: INTEGER) :: LIST<ANY>` | The list without the element at `index` | — |
+| `coll.max(list :: LIST<ANY>) :: ANY` | The largest element | — |
+| `coll.min(list :: LIST<ANY>) :: ANY` | The smallest element | — |
+| `coll.distinct(list :: LIST<ANY>) :: LIST<ANY>` | The list without duplicates, first occurrences kept | — |
+
+`size`, `head` and `last` are under [scalar functions](#scalar-functions).
+
+```cypher run name=lists
+RETURN tail([1, 2, 3]) AS tail, range(0, 10, 3) AS stepped, range(5, 1, -2) AS down,
+       coll.flatten([1, [2, [3]]], 2) AS flat, coll.sort([3, 1, 2]) AS sorted,
+       coll.insert([1, 3], 1, 2) AS inserted, coll.distinct([1, 1, 2]) AS distinct
+```
+
+## Math functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `abs(input :: INTEGER \| FLOAT) :: INTEGER \| FLOAT` | The absolute value, of the input's type | — |
+| `ceil(input :: FLOAT) :: FLOAT` | The smallest whole number not less than the input | `ceil(4.2)` is `5.0` |
+| `ceiling(input :: FLOAT) :: FLOAT` | Same as `ceil` | GQL name |
+| `floor(input :: FLOAT) :: FLOAT` | The largest whole number not greater than the input | — |
+| `round(value :: FLOAT) :: FLOAT` | The nearest whole number | A half rounds up toward positive infinity: `round(2.5)` is `3.0`, `round(-2.5)` is `-2.0` |
+| `round(value :: FLOAT, precision :: INTEGER \| FLOAT) :: FLOAT` | Rounded to `precision` decimal places, half up | `round(3.14159, 2)` is `3.14` |
+| `round(value :: FLOAT, precision :: INTEGER \| FLOAT, mode :: STRING) :: FLOAT` | Rounded with a mode | Modes: `'UP'`, `'DOWN'`, `'CEILING'`, `'FLOOR'`, `'HALF_UP'`, `'HALF_DOWN'`, `'HALF_EVEN'` |
+| `sign(input :: INTEGER \| FLOAT) :: INTEGER` | `-1`, `0` or `1` | — |
+| `rand() :: FLOAT` | A random float from 0 included to 1 excluded | A new value per call |
+| `isNaN(input :: INTEGER \| FLOAT) :: BOOLEAN` | Whether the value is `NaN` | — |
+| `sqrt(input :: FLOAT) :: FLOAT` | The square root | `sqrt(-1)` is `NaN` |
+| `exp(input :: FLOAT) :: FLOAT` | e raised to the input | — |
+| `log(input :: FLOAT) :: FLOAT` | The natural logarithm | `log(0)` is `-Infinity` |
+| `ln(input :: FLOAT) :: FLOAT` | The natural logarithm | GQL name |
+| `log10(input :: FLOAT) :: FLOAT` | The base-10 logarithm | — |
+| `e() :: FLOAT` | Euler's number | — |
+| `pi() :: FLOAT` | π | — |
+| `sin`, `cos`, `tan`, `cot` `(input :: FLOAT) :: FLOAT` | Sine, cosine, tangent, cotangent of radians | — |
+| `asin`, `acos`, `atan` `(input :: FLOAT) :: FLOAT` | The inverse functions, in radians | — |
+| `atan2(y :: FLOAT, x :: FLOAT) :: FLOAT` | The angle of the point (x, y), in radians | — |
+| `sinh`, `cosh`, `tanh`, `coth` `(input :: FLOAT) :: FLOAT` | The hyperbolic functions | `asinh`, `acosh` and `atanh` are not functions in relate |
+| `haversin(input :: FLOAT) :: FLOAT` | Half the versine | — |
+| `degrees(input :: FLOAT) :: FLOAT` | Radians to degrees | — |
+| `radians(input :: FLOAT) :: FLOAT` | Degrees to radians | — |
+
+An integer argument where the signature says `FLOAT` is widened: `sqrt(16)` is `4.0`.
+
+```cypher run name=math
+RETURN abs(-5) AS abs, ceil(4.2) AS ceil, round(-2.5) AS half_up, round(2.5, 0, 'HALF_EVEN') AS half_even,
+       sign(-3) AS sign, sqrt(16) AS root, log10(1000) AS log10, degrees(pi()) AS degrees,
+       rand() >= 0 AND rand() < 1 AS rand_in_range
+```
+
+## Temporal functions
+
+Each instant constructor takes an optional argument: a string, a map, another temporal value to convert, or nothing for the current instant. The `pattern` argument parses the string with a format pattern.
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `date(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: DATE` | A `DATE` | `date('2026-11-08')`, `date('2026-W45-7')`, `date({year: 2026, month: 11, day: 8})`, `date('2026-11-08', 'yyyy-MM-dd')` |
+| `localtime(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: LOCAL TIME` | A `LOCAL TIME` | — |
+| `time(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: ZONED TIME` | A `ZONED TIME` | — |
+| `localdatetime(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: LOCAL DATETIME` | A `LOCAL DATETIME` | — |
+| `datetime(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: ZONED DATETIME` | A `ZONED DATETIME` | A named zone in brackets (`[Europe/Paris]`) or `timezone:` in a map is kept |
+| `local_time(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY[, pattern :: STRING]) :: LOCAL TIME` | A `LOCAL TIME` | GQL name of `localtime` |
+| `zoned_time(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY[, pattern :: STRING]) :: ZONED TIME` | A `ZONED TIME` | GQL name of `time` |
+| `local_datetime(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY[, pattern :: STRING]) :: LOCAL DATETIME` | A `LOCAL DATETIME` | GQL name of `localdatetime` |
+| `zoned_datetime(input = DEFAULT_TEMPORAL_ARGUMENT :: ANY[, pattern :: STRING]) :: ZONED DATETIME` | A `ZONED DATETIME` | GQL name of `datetime` |
+| `date.realtime`, `date.statement`, `date.transaction` `(timezone = DEFAULT_TEMPORAL_ARGUMENT :: ANY) :: DATE` | The current date on the real-time, statement, or transaction clock | — |
+| `time.realtime`, `time.statement`, `time.transaction` `(timezone = DEFAULT_TEMPORAL_ARGUMENT :: ANY) :: ZONED TIME` | The current time on that clock | — |
+| `localtime.realtime`, `localtime.statement`, `localtime.transaction` `(timezone = DEFAULT_TEMPORAL_ARGUMENT :: ANY) :: LOCAL TIME` | The current local time on that clock | — |
+| `datetime.realtime`, `datetime.statement`, `datetime.transaction` `(timezone = DEFAULT_TEMPORAL_ARGUMENT :: ANY) :: ZONED DATETIME` | The current instant on that clock | `datetime.statement() = datetime.transaction()` in a single statement |
+| `localdatetime.realtime`, `localdatetime.statement`, `localdatetime.transaction` `(timezone = DEFAULT_TEMPORAL_ARGUMENT :: ANY) :: LOCAL DATETIME` | The current local date and time on that clock | — |
+| `date.truncate(unit :: STRING, input = DEFAULT_TEMPORAL_ARGUMENT :: ANY, fields = null :: MAP) :: DATE` | The input truncated to `unit` | `date.truncate('month', date('2026-11-08'))` is `2026-11-01`. `datetime.truncate`, `localdatetime.truncate`, `time.truncate` and `localtime.truncate` work the same way |
+| `datetime.fromepoch(seconds :: INTEGER \| FLOAT, nanoseconds :: INTEGER \| FLOAT) :: ZONED DATETIME` | The instant that many seconds after 1970-01-01 UTC | — |
+| `datetime.fromepochmillis(milliseconds :: INTEGER \| FLOAT) :: ZONED DATETIME` | The instant that many milliseconds after 1970-01-01 UTC | — |
+| `timestamp() :: INTEGER` | Milliseconds since 1970-01-01 UTC | One value for the whole statement |
+| `duration(input :: ANY, pattern = DEFAULT_TEMPORAL_ARGUMENT :: STRING) :: DURATION` | A `DURATION` from an ISO 8601 string or a map | Map keys: `years`, `months`, `weeks`, `days`, `hours`, `minutes`, `seconds` and smaller units; `duration({weeks: 2})` is `P14D` |
+| `duration.between(from :: ANY, to :: ANY) :: DURATION` | The difference in months, days, and seconds | Negative when `to` is earlier: `PT-1H-30M` |
+| `duration.inMonths(from :: ANY, to :: ANY) :: DURATION` | The difference in whole months | — |
+| `duration.inDays(from :: ANY, to :: ANY) :: DURATION` | The difference in whole days | — |
+| `duration.inSeconds(from :: ANY, to :: ANY) :: DURATION` | The difference in seconds | — |
+| `duration_between(from :: ANY, to :: ANY) :: DURATION` | Same as `duration.between` | GQL name |
+| `format(value :: DATE \| LOCAL TIME \| ZONED TIME \| LOCAL DATETIME \| ZONED DATETIME \| DURATION) :: STRING` | The ISO 8601 form | — |
+| `format(value :: …, pattern :: STRING) :: STRING` | The value formatted with a pattern | `format(date('2026-11-08'), 'dd/MM/yyyy')` is `'08/11/2026'` |
+
+```cypher run name=temporal
+RETURN date({year: 2026, week: 45, dayOfWeek: 7}) AS from_week, date.truncate('month', date('2026-11-08')) AS month_start,
+       duration.inDays(date('2026-01-01'), date('2026-11-08')) AS days, datetime.fromepochmillis(1000) AS epoch,
+       format(date('2026-11-08'), 'dd/MM/yyyy') AS formatted, datetime() IS NOT NULL AS now_works
+```
+
+## Spatial functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `point(input :: MAP) :: POINT` | A 2D or 3D point | The keys choose the coordinate system ([points](/docs/reference/cypher/types-and-values#points)) |
+| `point.distance(from :: POINT, to :: POINT) :: FLOAT` | The distance between two points in one coordinate system | Euclidean for Cartesian points; meters for WGS-84 points, on a sphere of radius 6,378,140 m. Points in two different systems give `null` |
+| `point.withinBBox(point :: POINT, lowerLeft :: POINT, upperRight :: POINT) :: BOOLEAN` | Whether the point is inside the box | A `POINT INDEX` serves this filter and `point.distance(…) < <bound>` ([geospatial](/docs/guides/cypher/geospatial)) |
+
+```cypher run name=spatial
+RETURN point.distance(point({x: 0, y: 0}), point({x: 3, y: 4})) AS cartesian,
+       round(point.distance(point({latitude: 51.5, longitude: -0.1}), point({latitude: 48.86, longitude: 2.35}))) AS meters,
+       point.withinBBox(point({x: 1, y: 1}), point({x: 0, y: 0}), point({x: 2, y: 2})) AS inside
+```
+
+## Vector functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `vector(vectorValue :: STRING \| LIST<INTEGER \| FLOAT>, dimension :: INTEGER, coordinateType :: [INTEGER64, INTEGER32, INTEGER16, INTEGER8, FLOAT64, FLOAT32]) :: VECTOR` | A `VECTOR` value | The coordinate type is a bare keyword; the spellings are in [vectors](/docs/reference/cypher/types-and-values#vectors) |
+| `vector.similarity.cosine(a :: VECTOR \| LIST<INTEGER \| FLOAT>, b :: VECTOR \| LIST<INTEGER \| FLOAT>) :: FLOAT` | Cosine similarity rescaled to 0 to 1 | `1.0` same direction, `0.5` orthogonal, `0.0` opposite; the score a cosine vector index reports |
+| `vector.similarity.euclidean(a :: VECTOR \| LIST<INTEGER \| FLOAT>, b :: VECTOR \| LIST<INTEGER \| FLOAT>) :: FLOAT` | `1 / (1 + d²)`, where `d` is the Euclidean distance | `1.0` for identical vectors |
+| `vector_distance(vector1 :: VECTOR, vector2 :: VECTOR, coordinateType :: [EUCLIDEAN, EUCLIDEAN_SQUARED, MANHATTAN, COSINE, DOT, HAMMING]) :: FLOAT` | The raw distance under the metric | Lower is closer for every metric; `DOT` is the negated dot product. Takes `VECTOR` values only |
+| `vector_norm(vector :: VECTOR, vectorDistanceMetric :: [EUCLIDEAN, MANHATTAN]) :: FLOAT` | The distance from the origin | — |
+| `vector_dimension_count(input :: VECTOR) :: INTEGER` | The dimensions | — |
+
+The similarity functions take a vector or a plain list in each position. Arguments of different lengths fail with `type error: InvalidArgumentValue: vectors must have same dimensions`, and a `null` argument gives `null`.
+
+```cypher run name=vector
+WITH vector([0, 0], 2, INT8) AS origin, vector([3, 4], 2, INT8) AS v
+RETURN vector.similarity.cosine([1, 0], [0, 1]) AS cosine, vector.similarity.euclidean([0, 0], [3, 4]) AS euclidean,
+       vector_distance(origin, v, EUCLIDEAN) AS distance, vector_distance(origin, v, MANHATTAN) AS manhattan,
+       vector_norm(v, EUCLIDEAN) AS norm, vector_dimension_count(v) AS dims
+```
+
+## UUID functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `uuid() :: UUID` | A random UUID | On the WASM build, the call stops the engine with `time not implemented on this platform` |
+| `uuid(name :: STRING) :: UUID` | The UUID a 36-character string spells | — |
+| `uuid(mostSigBits :: INTEGER, leastSigBits :: INTEGER) :: UUID` | The UUID with these two 64-bit halves | `uuid(0, 1)` is `00000000-0000-0000-0000-000000000001` |
+| `uuid.mostSignificantBits(uuid :: UUID) :: INTEGER` | The high 64 bits, signed | — |
+| `uuid.leastSignificantBits(uuid :: UUID) :: INTEGER` | The low 64 bits, signed | — |
+| `randomUUID() :: STRING` | A random UUID as a `STRING` | Same WASM limit as `uuid()` |
+
+```cypher run name=uuid
+WITH uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u
+RETURN toString(u) AS text, uuid.mostSignificantBits(u) AS high, uuid(0, 1) AS from_halves
+```
+
+## Aggregating functions
+
+An aggregating function reduces the rows of a group to one value; the other items of the `RETURN` or `WITH` are the grouping keys. `DISTINCT` before the argument aggregates each distinct value once, and `ALL` is the default.
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `count(input :: ANY) :: INTEGER` | The number of values that are not `null` | `count(*)` counts rows, `null` included |
+| `sum(input :: INTEGER \| FLOAT \| DURATION) :: INTEGER \| FLOAT \| DURATION` | The sum | `0` over no values; mixing numbers and durations fails |
+| `avg(input :: INTEGER \| FLOAT \| DURATION) :: INTEGER \| FLOAT \| DURATION` | The mean | A float for integers; `null` over no values |
+| `min(input :: ANY) :: ANY` | The smallest value | Across types, the type order of `ORDER BY` applies |
+| `max(input :: ANY) :: ANY` | The largest value | Same rule |
+| `collect(input :: ANY) :: LIST<ANY>` | The values as a list | `null` values are left out; `[]` over no values |
+| `stDev(input :: FLOAT) :: FLOAT` | Sample standard deviation, divided by N − 1 | `null` over no values |
+| `stDevP(input :: FLOAT) :: FLOAT` | Population standard deviation, divided by N | — |
+| `percentileCont(input :: FLOAT, percentile :: FLOAT) :: FLOAT` | The percentile, interpolated | `percentile` from 0 to 1 |
+| `percentileDisc(input :: INTEGER \| FLOAT, percentile :: FLOAT) :: INTEGER \| FLOAT` | The nearest value at the percentile | Returns a `FLOAT` for integer input: `2.0` |
+| `collect_list(input :: ANY) :: LIST<ANY>` | Same as `collect` | GQL name |
+| `stdev_samp(input :: FLOAT) :: FLOAT` | Same as `stDev` | GQL name |
+| `stdev_pop(input :: FLOAT) :: FLOAT` | Same as `stDevP` | GQL name |
+| `percentile_cont(input :: FLOAT, percentile :: FLOAT) :: FLOAT` | Same as `percentileCont` | GQL name |
+| `percentile_disc(input :: INTEGER \| FLOAT, percentile :: FLOAT) :: INTEGER \| FLOAT` | Same as `percentileDisc` | GQL name |
+
+Every aggregate but `count(*)` skips `null` values.
+
+```cypher run name=aggregates
+MATCH (p:Person)-[w:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project, count(*) AS people, collect(p.name) AS names,
+       min(w.since) AS first, avg(w.since) AS mean, percentileDisc(w.since, 0.5) AS median
+ORDER BY project
+```
+
+## Predicate functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `all(variable :: VARIABLE IN list :: LIST<ANY> WHERE predicate :: ANY) :: BOOLEAN` | `true` when every element passes | `true` for an empty list |
+| `any(variable :: VARIABLE IN list :: LIST<ANY> WHERE predicate :: ANY) :: BOOLEAN` | `true` when an element passes | `false` for an empty list |
+| `none(variable :: VARIABLE IN list :: LIST<ANY> WHERE predicate :: ANY) :: BOOLEAN` | `true` when no element passes | — |
+| `single(variable :: VARIABLE IN list :: LIST<ANY> WHERE predicate :: ANY) :: BOOLEAN` | `true` when exactly one element passes | — |
+| `allReduce(accumulator :: VARIABLE = initial :: ANY, variable :: VARIABLE IN list :: LIST<ANY> \| reducer :: ANY, predicate :: BOOLEAN) :: BOOLEAN` | `true` when the predicate holds after every step | Stops at the first step that fails |
+| `exists(input :: ANY) :: BOOLEAN` | `true` when the pattern has a match | Takes a pattern: `exists((a)-[:KNOWS]->())`. The property form `exists(n.prop)` fails with ``syntax error: InvalidPropertyExistence: the property existence syntax `exists(variable.property)` is no longer supported. Please use `variable.property IS NOT NULL` or `property_exists(...)` instead`` |
+| `isEmpty(input :: STRING \| MAP \| LIST<ANY>) :: BOOLEAN` | `true` for `''`, `{}` and `[]` | — |
+| `property_exists(element :: NODE \| RELATIONSHIP, propertyKeyName :: STRING) :: BOOLEAN` | `true` when the property is set | The key is written as a name, `property_exists(n, age)`; a string literal fails with `syntax error: parse error: PROPERTY_EXISTS() second argument must be a property name identifier` |
+
+```cypher run name=predicates
+MATCH (p:Person {name: 'Grace'})
+RETURN exists((p)-[:WORKS_ON]->()) AS works, property_exists(p, role) AS has_role,
+       property_exists(p, email) AS has_email, isEmpty([]) AS empty,
+       all(x IN [2023, 2022] WHERE x > 2020) AS all_recent
+```
+
+## Path functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `shortestPath(pathPattern :: PATH) :: PATH` | One shortest path for the pattern | In an expression, `null` when there is none |
+| `allShortestPaths(pathPattern :: PATH) :: LIST<PATH>` | Every shortest path | — |
+
+As `MATCH p = shortestPath(…)`, the same forms return one row per path; [patterns](/docs/reference/cypher/patterns) covers them and the `SHORTEST` path selector.
+
+```cypher run name=paths
+MATCH (a:Person {name: 'Ada'}), (t:Project {name: 'opencypher-tck'})
+RETURN length(shortestPath((a)-[*]-(t))) AS hops, size(allShortestPaths((a)-[*]-(t))) AS paths
+```
+
+## Graph reference functions
+
+| Signature | Returns | Notes |
+| --- | --- | --- |
+| `graph.names() :: LIST<STRING>` | The graphs of a composite database | Fails in relate, which has no composite databases: `semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph <call>`, where `<call>` is the call as written, such as `graph.names()` |
+| `graph.byName(name :: STRING) :: GRAPH` | A graph reference for `USE` | Composite databases only; same error |
+| `graph.byElementId(elementId :: STRING) :: GRAPH` | A graph reference for `USE` | Composite databases only; same error |
+| `graph.propertiesByName(graphName :: STRING) :: MAP` | A graph's properties | Composite databases only; same error |
+
+## Preview functions
+
+These functions are off until `RELATE_PREVIEW` names their feature, and `SHOW FUNCTIONS` lists them only then. Off, a call fails with `syntax error: UnknownFunction: unknown function <name>()`. The WASM build has no process environment, so it cannot turn them on.
+
+| Signature | Returns | Opt-in | Notes |
+| --- | --- | --- | --- |
+| `coll.zip(list1 :: LIST<ANY>, list2 :: LIST<ANY> ...) :: LIST<ANY>` | Per-index lists, to the longest input's length | `coll-zip` | Missing positions are `null`: `coll.zip([1, 2], ['a'])` is `[[1, 'a'], [2, null]]` |
+| `coll.hasAnyOf(list :: LIST<ANY>, values :: LIST<ANY>) :: BOOLEAN` | `true` when any of `values` is in `list` | `coll-has` | An undecided result with a `null` element is `null` |
+| `coll.hasAllOf(list :: LIST<ANY>, values :: LIST<ANY>) :: BOOLEAN` | `true` when every one of `values` is in `list` | `coll-has` | — |
+| `coll.hasNoneOf(list :: LIST<ANY>, values :: LIST<ANY>) :: BOOLEAN` | `true` when none of `values` is in `list` | `coll-has` | — |
+| `stddev_samp(input :: FLOAT) :: FLOAT` | Same as `stDev` | `gql-stddev-aliases` | `stdev_samp` needs no opt-in |
+| `stddev_pop(input :: FLOAT) :: FLOAT` | Same as `stDevP` | `gql-stddev-aliases` | `stdev_pop` needs no opt-in |
+
+With the opt-ins in the command's environment:
+
+```bash verify
+RELATE_PREVIEW=coll-zip,coll-has,gql-stddev-aliases relate --mode jsonl "RETURN coll.zip([1, 2], ['a']) AS zipped, coll.hasAnyOf([1, 2], [2]) AS any_of, coll.hasAllOf([1, 2], [1, 3]) AS all_of, coll.hasNoneOf([1, 2], [5]) AS none_of"
+```
+
+```text
+{"all_of":false,"any_of":true,"none_of":true,"zipped":[[1,"a"],[2,null]]}
+```
+
+## See also
+
+- [Expressions](/docs/reference/cypher/expressions): operators, `CASE`, comprehensions and the forms that look like functions (`reduce`, `all`, `COUNT { … }`).
+- [Types and values](/docs/reference/cypher/types-and-values): the values these functions take and return.
+- [Procedures](/docs/reference/cypher/procedures): the `CALL` procedures, `db.*` and the ontology preview.
+- [Search](/docs/reference/cypher/search): the `SEARCH` clause the vector functions' scores come from.
+- [Geospatial memory](/docs/concepts/problems-relate-solves#geospatial-memory): points, distances and boxes in an agent's memory.

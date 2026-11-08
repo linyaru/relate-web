@@ -85,8 +85,11 @@ test('on the docs graph, with a committed query vector: the Worker\'s two lanes 
   assert.ok(near.slice(0, 3).some((r) => r.id === 'guides/agents/connect-over-mcp#cursor'), near.slice(0, 3).map((r) => r.id).join(', '));
 
   // search_docs's own pipeline (src/docs.ts): the re-ranked full-text lane and
-  // the vector lane, each cut to HYBRID_DEPTH, fused. For both questions with
-  // committed vectors, the section the question is about ranks first.
+  // the vector lane, each cut to HYBRID_DEPTH, fused. For both questions the
+  // section it is about ranks first. (In phase 2 part B the second slipped to
+  // fifth, behind the Python API's `Cursor` heading and two integration
+  // guides' "Write the tool" headings; the re-rank's heading precision, in
+  // src/rank.ts, put it back.)
   const pipeline = (question: string, v: number[], depth: number) => {
     const words = queryWords(question);
     const full = (run(SEARCH_STATEMENT, { q: words.join(' '), k: CANDIDATES, section: null, surface: null }) as unknown as SearchRow[])
@@ -96,13 +99,14 @@ test('on the docs graph, with a committed query vector: the Worker\'s two lanes 
     const vec = run(VECTOR_STATEMENT, { vector: v, k: CANDIDATES, section: null, surface: null }) as unknown as SearchRow[];
     return hybridRows(vec.slice(0, depth), full.slice(0, depth), 5).map((x) => x.r.id);
   };
-  const expected: Record<string, string> = {
-    [RECIPE_QUESTIONS[0]]: 'guides/agents/agent-safety#verify',
-    [RECIPE_QUESTIONS[1]]: 'guides/agents/connect-over-mcp#cursor',
+  const expected: Record<string, [string, number]> = {
+    [RECIPE_QUESTIONS[0]]: ['guides/agents/agent-safety#verify', 1],
+    [RECIPE_QUESTIONS[1]]: ['guides/agents/connect-over-mcp#cursor', 1],
   };
-  for (const [question, first] of Object.entries(expected)) {
+  for (const [question, [section, within]] of Object.entries(expected)) {
     const qv = decodeVector(artifact.queries.find((x) => x.id === question)!.vector);
-    assert.equal(pipeline(question, qv, HYBRID_DEPTH)[0], first, question);
+    const ids = pipeline(question, qv, HYBRID_DEPTH);
+    assert.ok(ids.slice(0, within).includes(section), `${question}: ${ids.join(', ')}`);
   }
   db.free();
 });

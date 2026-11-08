@@ -1,4 +1,179 @@
 ---
 title: Serve a store over MCP
-status: planned
+label: MCP
+description: Serve a store to agent hosts over MCP with relate serve, on stdio or an HTTP port, read-only or writable, and check the tools it lists.
+order: 10
+surfaces: [mcp, cli, agents]
+prerequisites: [get-started/install]
+related: [guides/agents/connect-over-mcp, reference/server/mcp, reference/cli/serve, guides/serve/auth-and-tls, reference/errors#mcp-read-query-only, guides/agents/agent-safety, concepts/problems-relate-solves#graph-queries-over-mcp]
 ---
+
+This guide shows you how to serve a relate :term[store]{id=store} over :term[MCP]{id=mcp} (the Model Context Protocol) with `relate serve --mcp`: on stdio, for an agent host that starts the server itself, or on a port over HTTP, for clients that connect to a URL. The store opens :term[read-only]{id=read-only} unless the agent is meant to write. The configuration block for each agent host is in [Connect over MCP](/docs/guides/agents/connect-over-mcp); this page is about the server those blocks start.
+
+## Prerequisites
+
+- relate on your `PATH`: `relate --version` prints its version ([Install relate](/docs/get-started/install)).
+- A store to serve. A read-only open never creates one, so the first step creates `graph.rl`.
+- `curl`, for the HTTP transport.
+
+## Create a store to serve
+
+This command writes a new `graph.rl` holding the shared example graph: three people, two projects, and who works on what.
+
+```bash verify
+relate --database ./graph.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+## Serve on stdio
+
+Pass the keyword `stdio` to `--mcp`:
+
+```bash
+relate serve --mcp stdio --database ./graph.rl --read-only
+```
+
+To allow writes, remove `--read-only`.
+
+The server reads newline-delimited JSON-RPC 2.0 messages on stdin and writes one response per request on stdout. It runs in the foreground until the host closes stdin, then exits 0. Its startup lines go to stderr, so stdout carries nothing but JSON-RPC. There is no authentication challenge on stdio: the host spawned the process, and `--auth` on a stdio-only run is a usage error (exit code 2).
+
+This is the command every block in [Connect over MCP](/docs/guides/agents/connect-over-mcp) starts: the blocks under [Claude Code](/docs/guides/agents/connect-over-mcp#claude-code), [Claude Desktop](/docs/guides/agents/connect-over-mcp#claude-desktop), and [Cursor](/docs/guides/agents/connect-over-mcp#cursor), which also has an install link.
+
+## Choose read-only or writable
+
+What an agent can do depends on how the store is opened, not on the host's settings. Opened `--read-only`, the server takes no writer lease, never creates the store, and lists two tools. One JSON-RPC `tools/list` request shows them; `grep` keeps only the tool names:
+
+```bash verify
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null \
+  | grep -o '"name":"[a-z_]*"'
+```
+
+```text
+"name":"read_cypher"
+"name":"get_schema"
+```
+
+Opened writable, the server also lists `write_cypher`. This command opens `graph.rl` for writing, though the request it sends writes nothing:
+
+{/* docs-check-ignore trust-read-only */}
+```bash verify
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | relate serve --mcp stdio --database ./graph.rl 2>/dev/null \
+  | grep -o '"name":"[a-z_]*"'
+```
+
+```text
+"name":"write_cypher"
+"name":"read_cypher"
+"name":"get_schema"
+```
+
+The three tools, with the fields of the server's `tools/list` answer:
+
+| Tool | Listed | Input | Answer | Annotations |
+| --- | --- | --- | --- | --- |
+| `read_cypher` | Always | `statement` (string, required), `parameters` (object, default `{}`) | The result as a JSON envelope in the text content: `columns`, `columnTypes`, `rows`, `stats`, `notifications`, `plan`, `error`, and timings in milliseconds | `title: "Read Cypher"`, `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
+| `get_schema` | Always | `sample_size` (integer, optional; the nodes and relationships examined per label; `-1` examines all) | A map keyed by label: each label's `count`, its property keys with inferred types, and its outgoing relationship types | `title: "Get Schema"`, `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
+| `write_cypher` | Only when the store is writable | `statement` (string, required), `parameters` (object, default `{}`) | The same envelope with empty `rows`; the mutation counters are under `stats` | `title: "Write Cypher"`, `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` |
+
+Every call is classified with `EXPLAIN` before it runs, and the tools hold to that class whatever the open mode:
+
+| The call | What happens |
+| --- | --- |
+| A write or a schema statement (`CREATE INDEX`) sent to `read_cypher` | Refused with `Only MATCH queries are allowed for read-query`; the store is unchanged |
+| A read sent to `write_cypher` | Refused with `Only write queries are allowed for write-query` |
+| `write_cypher` on a read-only server | Refused with `unknown tool 'write_cypher'` |
+
+The message about `MATCH` is the wording the server keeps for compatibility; any pure read passes `read_cypher`, `OPTIONAL MATCH` and `RETURN` without `MATCH` included. A refusal is a tool result with `isError: true`, not a JSON-RPC error, so the host shows it to the agent as a failed call.
+
+Two more flags narrow what the server allows:
+
+- `--safe`, for a writable server, refuses a `CREATE` or `MERGE` of a new node bound to a variable without a label (an anonymous `()` passes), and a `MATCH` read whose final `RETURN` or `WITH` has neither `LIMIT` nor a reducing aggregate (`collect()` does not count). The refusal arrives as a tool error that starts `Error: syntax error: SafeModeViolation:`.
+- `--read-only=live`, on a :term[directory store]{id=directory-store}, serves a store another process is writing and follows that writer's commits ([live read-only](/docs/reference/glossary#live-read-only)). `write_cypher` is not listed. A `.rl` store and `:memory:` refuse `--read-only=live`.
+
+[Keep an agent safe](/docs/guides/agents/agent-safety) covers backups and the other controls to put in place before an agent writes.
+
+## Serve over HTTP
+
+Pass a port number to `--mcp` and the server takes the MCP streamable HTTP transport on `127.0.0.1:<port>`. It runs until SIGINT or SIGTERM. Every request needs a credential: without `--auth` or `RELATE_AUTH`, relate generates a token for the user `relate`.
+
+:::warning[Plaintext on the network]
+`relate serve` has no TLS. Keep the default `--host 127.0.0.1`, or put a TLS-terminating proxy in front ([Authentication and TLS](/docs/guides/serve/auth-and-tls)).
+:::
+
+```bash
+relate serve --mcp 8000 --database ./graph.rl --read-only
+```
+
+To allow writes, remove `--read-only`.
+
+On stderr, relate prints that the store is open read-only, then `auth: generated token for user relate: <token>` and `auth: persisted at ./graph.rl.auth-token (reused on restart)`, and last `serve: MCP (streamable HTTP) listening on http://127.0.0.1:8000 (auth: basic)`. The token file holds one line, `relate:<token>`, with mode `0600`; a restart reuses it and prints `auth: basic (token reused from ./graph.rl.auth-token)` instead. A `:memory:` store gets a fresh token on every start and no file.
+
+In another terminal, send one JSON-RPC message per `POST`, with `Content-Type: application/json` and the credential. The token file's line is already in the `user:password` form `curl -u` takes:
+
+```bash
+curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_schema","arguments":{}}}' \
+  http://127.0.0.1:8000
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"{\"Person\":{\"count\":3,\"properties\":{\"name\":{\"type\":\"String\"},\"role\":{\"type\":\"String\"}},\"relationships\":{\"KNOWS\":{\"direction\":\"out\",\"labels\":[\"Person\"]},\"MAINTAINS\":{\"direction\":\"out\",\"labels\":[\"Project\"]},\"WORKS_ON\":{\"direction\":\"out\",\"labels\":[\"Project\"],\"properties\":{\"since\":{\"type\":\"Integer\"}}}},\"type\":\"node\"},\"Project\":{\"count\":2,\"properties\":{\"language\":{\"type\":\"String\"},\"name\":{\"type\":\"String\"}},\"type\":\"node\"}}","type":"text"}],"isError":false}}
+```
+
+The transport is stateless: there is no `Mcp-Session-Id`, so the requests need no `initialize` first and can come in any order. A notification gets `202 Accepted` with an empty body. How the HTTP transport answers what it does not serve:
+
+| Request | Status | Body |
+| --- | --- | --- |
+| A `POST` with no `Content-Type`, `text/plain`, or a form type (browser-simple) | `415`, before the credential check | `{"error":"the request content type is browser-\"simple\" — a cross-origin form cannot send a non-simple type without a preflight"}` |
+| No credential, or the wrong one | `401`, with `WWW-Authenticate: Basic realm="relate"`, after a 1-second delay | `{"error":"authentication required"}` |
+
+[Errors and refusals](/docs/reference/server/mcp#errors-and-refusals) in the MCP server reference lists every status, including the `403` for a browser origin that is not loopback and the `405` for any method but `POST`, and the order the checks run in.
+
+The MCP transport allows only loopback browser origins and has no `--origin` setting; the `--origin` flag is for the HTTP Query API. To register the URL with Claude Code, use [Serve over HTTP](/docs/guides/agents/connect-over-mcp#serve-over-http) in the host guide.
+
+## Verify
+
+Run a read through `read_cypher` on the read-only server, the way a host does. The tool's answer is a JSON string inside the JSON-RPC response, so its quotes arrive escaped; `grep` keeps the `rows` member, because the rest of the envelope holds timings that change on every run:
+
+```bash verify
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name ORDER BY name","parameters":{"project":"relate"}}}}' \
+  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null \
+  | grep -o '\\"rows\\":\[[^]]*\]'
+```
+
+```text
+\"rows\":[{\"name\":\"Ada\"},{\"name\":\"Grace\"}]
+```
+
+Ada and Grace work on `relate`, so the server opened the store, ran the :term[statement]{id=statement} with its parameter, and answered on stdout.
+
+## If it goes wrong
+
+**The server exits 1 with `Error: Failed to open Relate: storage error: database not found: <path>`.** A read-only open never creates a store, and a relative path resolves against the directory the server starts in. Use the store's absolute path, or create the store first.
+
+**A call fails with `Only MATCH queries are allowed for read-query` or `unknown tool 'write_cypher'`.** The statement writes, and the server only reads: either the store is open `--read-only` or the statement went to `read_cypher`. Send writes to `write_cypher` on a server started without `--read-only`.
+
+**`relate serve` exits 2 with an error that begins `Error: serve --mcp stdio skips auth`.** `--auth` applies to the port listeners only. Drop it from a stdio command.
+
+**`relate serve` exits 1 with an error that begins `Error: serve --mcp 8000: cannot bind 127.0.0.1:8000: Address already in use`.** Another process holds the port. Ports have no defaults, so pick another one.
+
+**HTTP answers `401` or `415`.** The request lacked the credential (`curl -u "$(cat graph.rl.auth-token)"`), or it had no `Content-Type` or a browser-simple one (`text/plain` or a form type, which is what `curl -d` sends without `-H`); `Content-Type: application/json` clears it.
+
+## Related
+
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): the configuration block for each agent host.
+- [MCP server reference](/docs/reference/server/mcp): the protocol, the tools, and every answer.
+- [`relate serve`](/docs/reference/cli/serve): every flag of the command.
+- [Authentication and TLS](/docs/guides/serve/auth-and-tls): credentials, the token file, and TLS in front.
+- [MCP errors](/docs/reference/errors#mcp-read-query-only): each refusal and JSON-RPC error code.
+- [Graph queries over MCP](/docs/concepts/problems-relate-solves#graph-queries-over-mcp): the problem this page solves.

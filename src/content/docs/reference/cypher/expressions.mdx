@@ -1,4 +1,311 @@
 ---
 title: Expressions
-status: planned
+description: Operator precedence, comparison and null rules, string, list and map operators, CASE, comprehensions, map projections, reduce, list and type predicates.
+order: 90
+surfaces: [cypher]
+related: [reference/cypher/types-and-values, reference/cypher/functions, reference/cypher/patterns, guides/cypher/parameters, reference/cypher/differences-from-neo4j]
 ---
+
+An expression computes one value from literals, variables, :term[properties]{id=property}, :term[parameters]{id=parameter}, operators, and function calls. relate evaluates expressions in `RETURN`, `WITH`, `WHERE`, `SET`, `ORDER BY` and anywhere else a clause takes a value. The cells on this page run on relate's WebAssembly (WASM) build; the CLI and the clients evaluate expressions with the same engine.
+
+## Synopsis
+
+```text
+<literal> | <variable> | $<parameter>
+<expression>.<key> | <expression>[<index or key>] | <list>[<from>..<to>]
+<unary operator> <expression> | <expression> <binary operator> <expression>
+<function>(<argument>, …)
+CASE … WHEN … THEN … [ELSE …] END
+[<variable> IN <list> [WHERE <predicate>] [| <expression>]]
+[<pattern> [WHERE <predicate>] | <expression>]
+<variable> {.<key>, .*, <key>: <expression>, …}
+reduce(<accumulator> = <initial>, <variable> IN <list> | <expression>)
+all | any | none | single (<variable> IN <list> WHERE <predicate>)
+<expression> IS [NOT] :: <type>
+COUNT { … } | EXISTS { … } | COLLECT { … }
+```
+
+[Types and values](/docs/reference/cypher/types-and-values) lists the literal forms of each type, and [functions](/docs/reference/cypher/functions) lists every function.
+
+## Operator precedence
+
+Operators bind in this order, tightest first. Operators on one row have the same precedence and group from left to right, except the comparison row, which chains.
+
+| Level | Operators | Grouping | Example | Result |
+| --- | --- | --- | --- | --- |
+| 1 | `.key`, `[index]`, `[from..to]` | Postfix | `[1, 2, 3][1] * 2` | `4` |
+| 2 | Unary `-`, unary `+` | Prefix | `-2 ^ 2` | `4.0` |
+| 3 | `^` | Left to right | `2 ^ 3 ^ 2` | `64.0` |
+| 4 | `*`, `/`, `%` | Left to right | `2 * 3 % 4` | `2` |
+| 5 | `+`, `-`, `\|\|` | Left to right | `10 - 4 - 3` | `3` |
+| 6 | `IN`, `STARTS WITH`, `ENDS WITH`, `CONTAINS`, `IS [NOT] NULL`, `IS [NOT] :: <type>`, `IS [NOT] NORMALIZED` | Left to right | `1 + 2 IN [3]` | `true` |
+| 7 | `=`, `<>`, `<`, `>`, `<=`, `>=`, `=~` | Chained: `a < b < c` is `a < b AND b < c` | `1 < 2 < 3` | `true` |
+| 8 | `NOT` | Prefix | `NOT true = false` | `true` |
+| 9 | `AND` | Left to right | `true OR false AND false` | `true` |
+| 10 | `XOR` | Left to right | `true XOR true AND false` | `true` |
+| 11 | `OR` | Left to right | `false AND false OR true` | `true` |
+
+Parentheses override the table. Two rows surprise readers who come from other languages: unary minus binds tighter than `^`, so `-x ^ 2` is `(-x) ^ 2`, and a comparison chains, so `1 < 2 = true` is `1 < 2 AND 2 = true`, which is `false`.
+
+```cypher run name=precedence
+WITH 2 AS x
+RETURN -x ^ 2 AS neg_first, -(x ^ 2) AS pow_first, 2 ^ 3 ^ 2 AS left_assoc,
+       1 = 1 IN [true] AS in_binds_tighter, 1 < 2 = true AS chained,
+       (1 < 2) = true AS grouped, true XOR true AND false AS xor_and
+```
+
+## Arithmetic
+
+| Operator | Operands | Result | Edge cases |
+| --- | --- | --- | --- |
+| `+`, `-`, `*` | Two integers | `INTEGER` | Overflow fails with `type error: integer out of range` |
+| `+`, `-`, `*` | A float and a number | `FLOAT` | IEEE 754 64-bit arithmetic |
+| `/` | Two integers | `INTEGER`, truncated toward zero: `-7 / 2` is `-3` | `1 / 0` fails with `type error: / by zero` |
+| `/` | A float and a number | `FLOAT` | `1 / 0.0` is `Infinity` |
+| `%` | Two integers | `INTEGER`; the sign follows the dividend: `-7 % 3` is `-1` | `1 % 0` fails with `type error: % by zero` |
+| `%` | A float and a number | `FLOAT`: `7.5 % 2` is `1.5` | — |
+| `^` | Two numbers | Always `FLOAT`: `2 ^ 3` is `8.0` | `2 ^ -1` is `0.5` |
+| `-` | One number | The negation | — |
+| `+`, `-` | Temporal values and durations | See [temporal arithmetic](/docs/reference/cypher/types-and-values#temporal-arithmetic) | — |
+
+```cypher run name=arithmetic
+RETURN 7 / 2 AS int_div, -7 / 2 AS truncates, -7 % 3 AS remainder,
+       7.0 / 2 AS float_div, 2 ^ 3 AS power, 0.1 + 0.2 AS ieee
+```
+
+```cypher run name=divide-by-zero expect=error
+RETURN 1 / 0 AS boom
+```
+
+## Comparison and equality
+
+| Operator | Meaning | Rules |
+| --- | --- | --- |
+| `=` | Equal | An integer equals a float of the same value (`1 = 1.0` is `true`). Values of different types are not equal (`'1' = 1` is `false`). Lists are equal element by element, maps key by key. `NaN = NaN` is `false` |
+| `<>` | Not equal | The negation of `=`, with the same `null` rule |
+| `<`, `>`, `<=`, `>=` | Order | Numbers by value, strings by code point (`'B' < 'a'` is `true`), booleans with `false < true`, lists element by element (`[1, 2] < [1, 2, 0]` is `true`), temporal values of the same type by instant. Values that have no order between them give `null`: `1 < 'a'`, a `DATE` against a `ZONED DATETIME`, two points |
+| `=~` | Regular expression match | The whole string must match: `'Ada' =~ 'A'` is `false`. `(?i)` at the start ignores case |
+
+Any comparison with a `null` operand gives `null`, and so does an equality between two lists or maps that are equal except where one holds `null` (`[1, null] = [1, null]` is `null`). `IS NULL` and `IS NOT NULL` are the tests that never give `null`.
+
+```cypher run name=comparison
+RETURN 1 = 1.0 AS int_float, '1' = 1 AS cross_type, 1 < 'a' AS unordered,
+       'B' < 'a' AS code_point, [1, 2] < [1, 2, 0] AS lists,
+       NaN = NaN AS nan, [1, null] = [1, null] AS null_inside, 'Ada' =~ '(?i)ada' AS regex
+```
+
+## Null and three-valued logic
+
+`null` stands for a missing or unknown value. An operator or function that gets `null` returns `null` unless its row says otherwise; `AND`, `OR` and `XOR` follow three-valued logic:
+
+| `a` | `b` | `a AND b` | `a OR b` | `a XOR b` | `NOT a` |
+| --- | --- | --- | --- | --- | --- |
+| `true` | `null` | `null` | `true` | `null` | `false` |
+| `false` | `null` | `false` | `null` | `null` | `true` |
+| `null` | `null` | `null` | `null` | `null` | `null` |
+
+| Expression | Result | Rule |
+| --- | --- | --- |
+| `null = null` | `null` | Equality with `null` is unknown |
+| `x IS NULL` | `true` or `false` | The test for a missing value |
+| `1 + null` | `null` | Arithmetic propagates `null` |
+| `2 IN [1, null]` | `null` | Not found, but the `null` element might have matched |
+| `1 IN [1, null]` | `true` | Found before the `null` matters |
+| `null IN [1]` | `null` | Membership of an unknown value |
+| `n.missing` | `null` | A property that is not set reads as `null` |
+| `[1, 2][5]` | `null` | An index past the end |
+| `coalesce(null, 1)` | `1` | The first argument that is not `null` |
+
+A `WHERE` keeps a row only when its predicate is `true`; `false` and `null` both drop it. A property set to `null` is removed, so `keys(n)` does not list it.
+
+```cypher run name=nulls
+RETURN null = null AS eq, null IS NULL AS is_null, true AND null AS and_null,
+       false AND null AS false_and, true OR null AS or_null,
+       2 IN [1, null] AS maybe, 1 IN [1, null] AS found, coalesce(null, 1) AS first
+```
+
+## String operators
+
+| Operator | Result | Notes |
+| --- | --- | --- |
+| `a + b` | Concatenation | A number on either side is converted: `'a' + 1` is `'a1'` |
+| `a \|\| b` | Concatenation | Both sides must be strings; otherwise `type error: InvalidArgumentType: \|\| requires two strings or two lists` |
+| `a STARTS WITH b` | `BOOLEAN` | Case-sensitive |
+| `a ENDS WITH b` | `BOOLEAN` | Case-sensitive |
+| `a CONTAINS b` | `BOOLEAN` | Case-sensitive |
+| `a =~ <regex>` | `BOOLEAN` | The whole string must match; a comparison operator, so it chains |
+| `a IS [NOT] [NFC \| NFD \| NFKC \| NFKD] NORMALIZED` | `BOOLEAN` | Unicode normalization test; the form defaults to `NFC` |
+| `s'… {<expression>} …'` | Interpolated string | `\{` and `\}` are literal braces; an embedded `null` makes the whole string `null` |
+
+```cypher run name=strings
+RETURN 'rel' + 'ate' AS plus, 'rel' || 'ate' AS concat, 'a' + 1 AS mixed,
+       'relate' STARTS WITH 'rel' AS starts, 'relate' CONTAINS 'lat' AS contains,
+       'abc' IS NFC NORMALIZED AS normalized, s'{1 + 1} items' AS interpolated
+```
+
+## List operators
+
+| Operator | Result | Notes |
+| --- | --- | --- |
+| `a + b` | Concatenation | A non-list on the right is appended: `[1] + 2` is `[1, 2]` |
+| `a \|\| b` | Concatenation | Both sides must be lists |
+| `x IN list` | `BOOLEAN` | Element equality, with the `null` rule of the [null table](#null-and-three-valued-logic); a list can be an element: `[1] IN [[1]]` is `true` |
+| `list[i]` | The element at `i` | Zero-based; a negative index counts from the end (`[1, 2, 3][-1]` is `3`); past the end is `null`. A float index fails with `InvalidArgumentType: list index must be an integer` |
+| `list[from..to]` | A sublist | `from` is included and `to` is not; either bound may be left out or negative; bounds outside the list are clamped |
+
+A subscript on a string fails with `type error: InvalidArgumentType: subscript requires a list or map`; `substring()` and `left()` take characters from a string.
+
+```cypher run name=lists
+RETURN [1, 2] + [3] AS plus, [1] + 2 AS append, [1, 2, 3][0] AS first,
+       [1, 2, 3][-1] AS last, [1, 2, 3, 4][1..3] AS slice, [1, 2, 3][5] AS past_end,
+       [1] IN [[1]] AS nested
+```
+
+## Map and property access
+
+| Form | Result | Notes |
+| --- | --- | --- |
+| `m.key`, `n.key` | The value under `key` | `null` when the key is absent |
+| `m['key']`, `n[$key]`, `n[k]` | The value under a computed key | A dynamic key on a :term[node]{id=node} or relationship never uses an index; on an indexed label `EXPLAIN` reports notification `03N95` ([notifications](/docs/reference/cypher/notifications)) |
+| `a + b` on two maps | A merged map | A key in `b` replaces the same key in `a`: `{a: 1} + {a: 2, b: 3}` is `{a: 2, b: 3}` |
+| `{i IN list \| <key>: <value>}` | A map comprehension | One entry per element; a key that is not a string fails with `type error: map comprehension key expression must be a STRING` |
+
+## CASE
+
+| Form | Syntax | Result |
+| --- | --- | --- |
+| Simple | `CASE <expr> WHEN <value> THEN <result> … [ELSE <default>] END` | The first `THEN` whose value equals `<expr>` |
+| Simple, several values | `CASE <expr> WHEN <v1>, <v2> THEN <result> … END` | The first `THEN` with any matching value |
+| Simple, comparison | `CASE <expr> WHEN > <value> THEN <result> … END` | The first `THEN` whose comparison holds |
+| Generic | `CASE WHEN <predicate> THEN <result> … [ELSE <default>] END` | The first `THEN` whose predicate is `true` |
+
+Without `ELSE`, a `CASE` that matches nothing gives `null`.
+
+```cypher run name=case
+RETURN CASE 2 WHEN 1 THEN 'one' WHEN 2 THEN 'two' ELSE 'many' END AS simple,
+       CASE 2 WHEN 1, 2 THEN 'small' ELSE 'big' END AS several,
+       CASE 5 WHEN > 3 THEN 'above three' ELSE 'three or less' END AS comparison,
+       CASE WHEN 1 > 2 THEN 'never' END AS no_else
+```
+
+## List and pattern comprehensions
+
+A list comprehension builds a list from another list; a pattern comprehension builds one from the matches of a pattern, once per row.
+
+| Form | Result |
+| --- | --- |
+| `[x IN list WHERE <predicate>]` | The elements for which the predicate is `true` |
+| `[x IN list \| <expression>]` | The expression for every element |
+| `[x IN list WHERE <predicate> \| <expression>]` | Both |
+| `[<pattern> WHERE <predicate> \| <expression>]` | The expression for every match of the pattern, which usually starts from a variable of the current row |
+
+The pattern cells on this page run on the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```cypher run name=comprehensions
+MATCH (p:Person {name: 'Grace'})
+RETURN [x IN range(1, 10) WHERE x % 2 = 0 | x * x] AS even_squares,
+       [(p)-[w:WORKS_ON]->(proj) WHERE w.since >= 2023 | proj.name] AS recent_projects
+```
+
+## Map projections
+
+A map projection builds a map from a node, a relationship, or a map variable.
+
+| Item | Adds |
+| --- | --- |
+| `.key` | The property `key`, or `null` when it is not set |
+| `.*` | Every property |
+| `key: <expression>` | A computed entry, which may hold a pattern comprehension |
+| `var` | The value of the variable `var`, under its own name |
+
+```cypher run name=projection
+MATCH (p:Person)
+RETURN p {.name, .role, projects: [(p)-[:WORKS_ON]->(proj) | proj.name]} AS person
+ORDER BY person.name
+```
+
+## reduce and allReduce
+
+| Form | Result |
+| --- | --- |
+| `reduce(acc = <initial>, x IN list \| <expression>)` | Evaluates the expression for each element in order, with `acc` holding the previous result; returns the last |
+| `allReduce(acc = <initial>, x IN list \| <expression>, <predicate>)` | `true` when the predicate holds for the accumulator after every step; stops at the first step where it fails |
+
+```cypher run name=reduce
+RETURN reduce(total = 0, x IN [1, 2, 3, 4] | total + x) AS total,
+       allReduce(s = 0, x IN [1, 2, 3] | s + x, s < 5) AS stays_under_five
+```
+
+## List predicates
+
+| Predicate | `true` when | On an empty list |
+| --- | --- | --- |
+| `all(x IN list WHERE p)` | `p` is `true` for every element | `true` |
+| `any(x IN list WHERE p)` | `p` is `true` for at least one element | `false` |
+| `none(x IN list WHERE p)` | `p` is `true` for no element | `true` |
+| `single(x IN list WHERE p)` | `p` is `true` for exactly one element | `false` |
+
+When no element decides the answer and `p` gives `null` for some element, the predicate gives `null`: `any(x IN [null] WHERE x > 1)` is `null`.
+
+```cypher run name=predicates
+RETURN all(x IN [1, 2] WHERE x > 0) AS all_positive, any(x IN [1, 2] WHERE x > 1) AS any_big,
+       none(x IN [1, 2] WHERE x > 5) AS none_huge, single(x IN [1, 2] WHERE x > 1) AS one_big,
+       all(x IN [] WHERE false) AS empty_all, any(x IN [null] WHERE x > 1) AS unknown
+```
+
+## Type predicates
+
+`<expression> IS :: <type>` tests a value's type; `IS NOT ::` negates it. `IS TYPED <type>` and `:: <type>` are the same test. The type names are the ones `valueType()` returns ([types and values](/docs/reference/cypher/types-and-values#value-types)).
+
+| Form | Rule |
+| --- | --- |
+| `x IS :: INTEGER` | `true` for an integer, and for `null`: every type includes `null` unless it says `NOT NULL` |
+| `x IS :: INTEGER NOT NULL` | `false` for `null` |
+| `x IS :: INTEGER \| STRING` | `true` for either type |
+| `x IS :: LIST<INTEGER>` | `true` for a list whose elements are all integers |
+| `x IS :: ANY` | `true` for every value |
+| `valueType(x)` | The type name as a string, with its nullability: `valueType(1)` is `'INTEGER NOT NULL'` |
+
+```cypher run name=type-predicates
+RETURN 5 IS :: INTEGER AS int, null IS :: INTEGER AS null_is_int,
+       null IS :: INTEGER NOT NULL AS not_null, 1 IS :: INTEGER | STRING AS union_type,
+       [1] IS :: LIST<INTEGER> AS list_type, valueType([1, 'two']) AS mixed
+```
+
+## Subquery expressions
+
+| Form | Result |
+| --- | --- |
+| `EXISTS { <pattern or statement> }` | `true` when the subquery returns at least one row |
+| `COUNT { <pattern or statement> }` | The number of rows |
+| `COLLECT { <statement> }` | A list of the single column the statement returns |
+
+Variables of the outer row are visible inside. [Composing clauses](/docs/reference/cypher/composing-clauses) covers `CALL` subqueries, which return more than one column.
+
+```cypher run name=subqueries
+MATCH (p:Person {name: 'Grace'})
+RETURN COUNT { (p)-[:WORKS_ON]->() } AS projects,
+       EXISTS { (p)<-[:KNOWS]-() } AS known,
+       COLLECT { MATCH (p)-[:WORKS_ON]->(proj) RETURN proj.name ORDER BY proj.name } AS names
+```
+
+## See also
+
+- [Types and values](/docs/reference/cypher/types-and-values): every value type, its literal form, and how it serializes.
+- [Functions](/docs/reference/cypher/functions): every built-in function, by category.
+- [Patterns](/docs/reference/cypher/patterns): node, relationship, and path patterns, label expressions, and quantifiers.
+- [Use parameters](/docs/guides/cypher/parameters): passing values into a statement with `$name`.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the forms an agent trained on Neo4j Cypher may reach for.

@@ -1,0 +1,521 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "schema": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 2, constraints added: 2",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "import": {
+      "kind": "table",
+      "text": "| imported |\n|----------|\n| 5        |\n1 row · nodes created: 8, relationships created: 5, properties set: 28, labels added: 8",
+      "table": {
+        "columns": [
+          "imported"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "5"
+          ]
+        ],
+        "summary": "1 row · nodes created: 8, relationships created: 5, properties set: 28, labels added: 8"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER"
+        ],
+        "columns": [
+          "imported"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "imported": 5
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 8,
+          "labels_removed": 0,
+          "nodes_created": 8,
+          "nodes_deleted": 0,
+          "properties_set": 28,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "recall": {
+      "kind": "table",
+      "text": "| id   | score  | text                                                         |\n|------|--------|--------------------------------------------------------------|\n| \"c1\" | 0.9975 | \"New engineers pair with a maintainer for their first week.\" |\n| \"c2\" | 0.997  | \"The first week ends with a small fix merged to main.\"       |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "score",
+          "text"
+        ],
+        "numeric": [
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"c1\"",
+            "0.9975",
+            "\"New engineers pair with a maintainer for their first week.\""
+          ],
+          [
+            "\"c2\"",
+            "0.997",
+            "\"The first week ends with a small fix merged to main.\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT",
+          "STRING"
+        ],
+        "columns": [
+          "id",
+          "score",
+          "text"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "c1",
+            "score": 0.9975,
+            "text": "New engineers pair with a maintainer for their first week."
+          },
+          {
+            "id": "c2",
+            "score": 0.997,
+            "text": "The first week ends with a small fix merged to main."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "expand": {
+      "kind": "table",
+      "text": "| hit  | document     | context                                                                    |\n|------|--------------|----------------------------------------------------------------------------|\n| \"c3\" | \"incident-7\" | [\"Splitting the suite across four runners brought build times back down.\"] |\n1 row",
+      "table": {
+        "columns": [
+          "hit",
+          "document",
+          "context"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"c3\"",
+            "\"incident-7\"",
+            "[\"Splitting the suite across four runners brought build times back down.\"]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "hit",
+          "document",
+          "context"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "context": [
+              "Splitting the suite across four runners brought build times back down."
+            ],
+            "document": "incident-7",
+            "hit": "c3"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "keywords": {
+      "kind": "table",
+      "text": "| id   | score |\n|------|-------|\n| \"c4\" | 2.0   |\n| \"c3\" | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"c4\"",
+            "2.0"
+          ],
+          [
+            "\"c3\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "c4",
+            "score": 2
+          },
+          {
+            "id": "c3",
+            "score": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "counts": {
+      "kind": "table",
+      "text": "| source    | expected | actual | ok   |\n|-----------|----------|--------|------|\n| \"tickets\" | 2        | 2      | true |\n| \"wiki\"    | 3        | 3      | true |\n2 rows",
+      "table": {
+        "columns": [
+          "source",
+          "expected",
+          "actual",
+          "ok"
+        ],
+        "numeric": [
+          false,
+          true,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"tickets\"",
+            "2",
+            "2",
+            "true"
+          ],
+          [
+            "\"wiki\"",
+            "3",
+            "3",
+            "true"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "INTEGER",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "source",
+          "expected",
+          "actual",
+          "ok"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "actual": 2,
+            "expected": 2,
+            "ok": true,
+            "source": "tickets"
+          },
+          {
+            "actual": 3,
+            "expected": 3,
+            "ok": true,
+            "source": "wiki"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "types": {
+      "kind": "table",
+      "text": "| id | stored |\n|----|--------|\n0 rows",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "ANY",
+          "ANY"
+        ],
+        "columns": [
+          "id",
+          "stored"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "self-recall": {
+      "kind": "table",
+      "text": "| id   | top  | score | ok   |\n|------|------|-------|------|\n| \"c1\" | \"c1\" | 1.0   | true |\n| \"c2\" | \"c2\" | 1.0   | true |\n| \"c3\" | \"c3\" | 1.0   | true |\n| \"c4\" | \"c4\" | 1.0   | true |\n| \"c5\" | \"c5\" | 1.0   | true |\n5 rows",
+      "table": {
+        "columns": [
+          "id",
+          "top",
+          "score",
+          "ok"
+        ],
+        "numeric": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"c1\"",
+            "\"c1\"",
+            "1.0",
+            "true"
+          ],
+          [
+            "\"c2\"",
+            "\"c2\"",
+            "1.0",
+            "true"
+          ],
+          [
+            "\"c3\"",
+            "\"c3\"",
+            "1.0",
+            "true"
+          ],
+          [
+            "\"c4\"",
+            "\"c4\"",
+            "1.0",
+            "true"
+          ],
+          [
+            "\"c5\"",
+            "\"c5\"",
+            "1.0",
+            "true"
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "id",
+          "top",
+          "score",
+          "ok"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "c1",
+            "ok": true,
+            "score": 1,
+            "top": "c1"
+          },
+          {
+            "id": "c2",
+            "ok": true,
+            "score": 1,
+            "top": "c2"
+          },
+          {
+            "id": "c3",
+            "ok": true,
+            "score": 1,
+            "top": "c3"
+          },
+          {
+            "id": "c4",
+            "ok": true,
+            "score": 1,
+            "top": "c4"
+          },
+          {
+            "id": "c5",
+            "ok": true,
+            "score": 1,
+            "top": "c5"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "wrong-length": {
+      "kind": "table",
+      "text": "error: type error: vector() dimension does not match list",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "type error: vector() dimension does not match list",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    }
+  }
+}

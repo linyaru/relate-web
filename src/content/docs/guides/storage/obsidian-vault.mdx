@@ -1,4 +1,300 @@
 ---
 title: Open a store as an Obsidian vault
-status: planned
+label: Obsidian vault
+description: Use a folder of markdown notes as a relate store with the markdown codec, query and write it with Cypher, and keep editing the same notes in Obsidian.
+order: 60
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/storage/formats#codecs, reference/cli/flags#markdown-body-properties, guides/storage/clone-and-convert, guides/agents/diffable-memory, guides/storage/schema-as-files, concepts/problems-relate-solves#diffable-memory]
 ---
+
+This guide shows you how to open a folder of markdown notes, such as an Obsidian vault, as a relate store, query and write it with Cypher, and keep editing the same files by hand. With the `markdown` :term[codec]{id=codec}, the notes are the store: each note is a :term[node]{id=node}, each top-level folder a :term[label]{id=label}, and each `[[wikilink]]` under a frontmatter key a relationship. The engine keeps its own state in a hidden `.cypherlite/` folder and two hidden lock files, `.cypherlite.lock` and `.cypherlite.writer`, at the vault root.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A folder of markdown notes with YAML frontmatter. This guide makes a small one from the shared example graph: three people and the project they work on, one note each, with relationships as wikilinks:
+
+```bash verify
+mkdir -p team-vault/Person team-vault/Project
+cat > team-vault/Person/Ada.md <<'EOF'
+---
+role: engineer
+WORKS_ON:
+  - "[[Project/relate]]"
+KNOWS:
+  - "[[Person/Grace]]"
+---
+
+Writes the planner.
+EOF
+cat > team-vault/Person/Grace.md <<'EOF'
+---
+role: engineer
+WORKS_ON:
+  - "[[Project/relate]]"
+  - "[[Project/opencypher-tck]]"
+---
+
+Keeps the conformance tests green.
+EOF
+cat > team-vault/Person/Noor.md <<'EOF'
+---
+role: maintainer
+MAINTAINS:
+  - "[[Project/relate]]"
+---
+EOF
+cat > team-vault/Project/relate.md <<'EOF'
+---
+language: Rust
+---
+
+An embedded graph database.
+EOF
+```
+
+## How notes map to the graph
+
+| In the vault | In the graph |
+| --- | --- |
+| A top-level folder, such as `Person/` | A label |
+| A note in it, such as `Person/Ada.md` | A node with that label; the filename is its key, stored as `name` |
+| A note at the vault root | A node with the label `Vault` |
+| A frontmatter key holding a scalar or a list of values, such as `role: engineer` | A :term[property]{id=property} |
+| A frontmatter key holding `[[Folder/note]]` links, such as `WORKS_ON:` | Relationships of that :term[type]{id=relationship-type}, from this note to each linked note |
+| A link to a missing note | A node with only its key, written as a new note at the next checkpoint |
+| The note's text after the frontmatter | The `body` property, or the properties `--markdown-body-properties` names |
+
+A link with properties takes a map form, `- since: 2024` with `target: "[[Project/relate]]"`; its key counts as a relationship type once some note uses it with a bare link.
+
+:::warning[The first open rewrites the notes]
+The first writable open adds `type` and `name` to every note's frontmatter, sorts its keys, writes a note for every link that points nowhere, and adds an `index.md` per folder, a root `index.md` and a `log.md`. Commit the vault to git, or copy it, before the first open, so the change is a diff you can read and undo.
+:::
+
+## Open the vault
+
+Name the codec on the first open with `--snapshot-format markdown`; relate never takes a folder of notes for a store on its own. The first open must be writable, because it creates the `.cypherlite/` folder:
+
+```bash verify
+relate --database ./team-vault --snapshot-format markdown --mode envelope "MATCH (n) RETURN labels(n)[0] AS label, n.name AS name ORDER BY label, name"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["label","name"],"notifications":[],"rows":[{"label":"Person","name":"Ada"},{"label":"Person","name":"Grace"},{"label":"Person","name":"Noor"},{"label":"Project","name":"opencypher-tck"},{"label":"Project","name":"relate"}],"truncated":false}
+```
+
+`opencypher-tck` is a node because Grace's note links it. The codec is now recorded in `.cypherlite/manifest.json`, so later opens need no flag.
+
+## Read the file layout
+
+The checkpoint at exit wrote the stub note, an index note per folder, and the two root notes. `ls` leaves out the hidden `.cypherlite/` folder and lock files:
+
+```bash verify
+ls team-vault team-vault/Person team-vault/Project
+```
+
+```text
+team-vault:
+Person
+Project
+index.md
+log.md
+
+team-vault/Person:
+Ada.md
+Grace.md
+Noor.md
+index.md
+
+team-vault/Project:
+index.md
+opencypher-tck.md
+relate.md
+```
+
+Ada's note now carries its label and key in the frontmatter, with the relationship keys after the properties:
+
+```bash verify
+cat team-vault/Person/Ada.md
+```
+
+```text
+---
+type: Person
+name: Ada
+role: engineer
+KNOWS:
+  - "[[Person/Grace]]"
+WORKS_ON:
+  - "[[Project/relate]]"
+---
+
+Writes the planner.
+```
+
+`index.md` and `log.md` are views relate rewrites at every checkpoint, so edits to them are lost. Other dot folders, such as Obsidian's `.obsidian/`, are left alone.
+
+## Query and write the vault
+
+The vault answers Cypher like any store. Who works on what:
+
+```bash verify
+relate --database ./team-vault --read-only --mode envelope "MATCH (p:Person)-[r]->(x) RETURN p.name AS person, type(r) AS rel, x.name AS target ORDER BY person, rel, target"
+```
+
+```text
+{"columnTypes":["STRING","STRING","STRING"],"columns":["person","rel","target"],"notifications":[],"rows":[{"person":"Ada","rel":"KNOWS","target":"Grace"},{"person":"Ada","rel":"WORKS_ON","target":"relate"},{"person":"Grace","rel":"WORKS_ON","target":"opencypher-tck"},{"person":"Grace","rel":"WORKS_ON","target":"relate"},{"person":"Noor","rel":"MAINTAINS","target":"relate"}],"truncated":false}
+```
+
+A write becomes a note at the checkpoint. This statement adds Ines, with a body, working on `relate`:
+
+```bash verify
+relate --database ./team-vault --mode envelope "MATCH (r:Project {name: 'relate'}) CREATE (:Person {name: 'Ines', role: 'engineer', body: 'Joined to work on the planner.'})-[:WORKS_ON]->(r)"
+cat team-vault/Person/Ines.md
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+---
+type: Person
+name: Ines
+role: engineer
+WORKS_ON:
+  - "[[Project/relate]]"
+---
+
+Joined to work on the planner.
+```
+
+Every node of a label needs its key, `name` here, unique within the label: it is the note's filename. Deleting a node deletes its note.
+
+## Edit notes by hand
+
+Edit the notes in Obsidian or any editor while no relate process has the vault open; the next open reads them. Noor's note gains a second project and a body:
+
+```bash verify
+cat > team-vault/Person/Noor.md <<'EOF'
+---
+type: Person
+name: Noor
+role: maintainer
+MAINTAINS:
+  - "[[Project/relate]]"
+  - "[[Project/opencypher-tck]]"
+---
+
+Reviews every release.
+EOF
+relate --database ./team-vault --read-only --mode envelope "MATCH (p:Person {name: 'Noor'})-[:MAINTAINS]->(x) RETURN p.body AS body, collect(x.name) AS maintains"
+```
+
+```text
+{"columnTypes":["STRING","LIST"],"columns":["body","maintains"],"notifications":[],"rows":[{"body":"Reviews every release.","maintains":["opencypher-tck","relate"]}],"truncated":false}
+```
+
+While a process holds the vault open, it is the one writer: an edit made to the files then is refused at its next checkpoint ([If it goes wrong](#if-it-goes-wrong)).
+
+## Put more properties in the note body
+
+By default a note's body is the `body` property. `--markdown-body-properties` takes a list: the first property is the text right after the frontmatter, and each further one becomes a `## <property>` section. Editing the text under a section heading changes that property. `Label=list` sets a list for one label, and `;` separates entries. Add a `notes` section:
+
+```bash verify
+relate --database ./team-vault --markdown-body-properties "body,notes" --mode envelope "MATCH (p:Person {name: 'Ada'}) SET p.notes = 'Prefers small commits.'"
+cat team-vault/Person/Ada.md
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+---
+type: Person
+name: Ada
+role: engineer
+KNOWS:
+  - "[[Person/Grace]]"
+WORKS_ON:
+  - "[[Project/relate]]"
+---
+
+Writes the planner.
+
+## notes
+
+Prefers small commits.
+```
+
+The list is recorded in `.cypherlite/manifest.json`, so later opens use it without the flag; other properties stay in the frontmatter. After a change to the list, the text of a section no longer listed becomes part of the first property's value, and none is lost.
+
+## Round-trip through another codec
+
+`relate clone` copies the vault into any layout and codec, and back. A `parquet` copy does not record the body list, so pass it again when cloning back to markdown, and the notes come back the same:
+
+```bash verify
+relate clone --to-snapshot-format parquet ./team-vault ./team.rl
+relate clone --to-snapshot-format markdown --markdown-body-properties "body,notes" ./team.rl ./team-vault-copy
+diff -r team-vault/Person team-vault-copy/Person && diff -r team-vault/Project team-vault-copy/Project && echo "same notes"
+```
+
+```text
+same notes
+```
+
+Without the flag, the copy keeps the same values but puts `notes` in the frontmatter. [Clone and convert a store](/docs/guides/storage/clone-and-convert) covers cloning in general.
+
+## Verify
+
+The vault opens without the flag and holds the four people and two projects:
+
+```bash verify
+relate --database ./team-vault --read-only --mode envelope "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS notes ORDER BY label"
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["label","notes"],"notifications":[],"rows":[{"label":"Person","notes":4},{"label":"Project","notes":2}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Failed to open Relate: storage error: ambiguous legacy storage role at <path>; explicit offline migration required`** (exit code 1). A folder of notes was opened without `--snapshot-format markdown`. Nothing in it changed; open it again with the flag.
+- **`Failed to open Relate: storage error: read-only open requires an existing database at <path>`** (exit code 1). The first open was `--read-only`. Open the vault once without `--read-only`, after committing it to git.
+- **`Failed to open Relate: storage error: markdown vault: <note>: '<KEY>' holds map-form link entries but no file declares the relationship type with a bare wikilink; declare it or use a bare link`** (exit code 1). A key holds links with properties and no note declares that relationship type with a plain `- "[[Folder/note]]"` link. Add a bare link under that key in one note.
+- **`Error: final checkpoint failed: storage error: markdown vault: node <id> of label <Label> has no 'name' property; the markdown vault requires a non-null unique 'name' on :<Label>`** (exit code 1). A statement created a node without its key. The write committed, and every writable open fails its checkpoint the same way until the key is set:
+
+  ```bash verify
+  relate --database ./team-vault --mode envelope "CREATE (:Person {role: 'reviewer'})"
+  echo "exit=$?"
+  ```
+
+  ```text
+  {"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+  Error: final checkpoint failed: storage error: markdown vault: node 7 of label Person has no 'name' property; the markdown vault requires a non-null unique 'name' on :Person
+  exit=1
+  ```
+
+  Give the node its key, and the next checkpoint writes its note:
+
+  ```bash verify
+  relate --database ./team-vault --mode envelope "MATCH (p:Person) WHERE p.name IS NULL SET p.name = 'Jun'"
+  ls team-vault/Person
+  ```
+
+  ```text
+  {"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+  Ada.md
+  Grace.md
+  Ines.md
+  Jun.md
+  Noor.md
+  index.md
+  ```
+
+  Two nodes of one label with the same key fail the same way, with `two nodes of label <Label> share the key value '<value>'; the vault filename would collide`; rename or delete one.
+- **`Error: final checkpoint failed: storage error: markdown vault: the vault changed on disk while the database was open; close the database, let your edits in, and reopen (concurrent writers are not merged)`** (exit code 1). A note was edited while a relate process held the vault. If that process had written, the next open fails with `storage error: markdown vault: the markdown vault changed on disk while uncheckpointed writes were pending; reopen without the edits or recover from a checkpointed state`. Put the edited notes back as they were (`git checkout` on those files), open the vault so relate applies its pending writes, then make the edit again with no relate process running.
+
+## Related
+
+- [Storage formats](/docs/reference/storage/formats#codecs): the `markdown` codec's files beside `parquet` and `json`.
+- [`--markdown-body-properties`](/docs/reference/cli/flags#markdown-body-properties) in the flags reference.
+- [Clone and convert a store](/docs/guides/storage/clone-and-convert): copy a vault into another codec and back.
+- [Keep a diffable memory in the repo](/docs/guides/agents/diffable-memory): notes an agent writes, reviewed as diffs.
+- [Diffable memory](/docs/concepts/problems-relate-solves#diffable-memory) in the capability catalog.

@@ -1,4 +1,231 @@
 ---
 title: Environment variables
-status: planned
+description: Every environment variable the relate CLI reads, grouped by what it sets, with its default, the flag that beats it, and what an invalid value does.
+order: 25
+surfaces: [cli]
+related: [reference/cli/flags, reference/cli/agent-mode, reference/privacy-and-telemetry, reference/errors, guides/operate/durability-modes, guides/cli/scripting]
 ---
+
+The `relate` CLI reads environment variables for five jobs: default values for its flags, detecting an :term[agent harness]{id=agent-harness}, turning off usage metrics, turning on preview features, and finding its config directory. A flag always beats its variable, and a variable beats the built-in default. A variable set to an empty or blank value counts as unset, with two exceptions the synopsis table names. An invalid value stops the run before any statement executes, with exit code 2 or 1 depending on the variable; a few variables fall back to their default instead, and the tables on this page say which. `RELATE_SHARD_TARGET_BYTES` is the exception to that order: it is read at the checkpoint, after the run's statements have run and committed.
+
+## Synopsis
+
+```text
+<NAME>=<value> relate [OPTIONS] [--database PATH] [QUERY]
+<NAME>=<value> relate <COMMAND> [ARGS]
+```
+
+| Rule | Behavior |
+| --- | --- |
+| Precedence | Flag, then environment variable, then built-in default |
+| Empty value | An empty or blank value counts as unset, except `RELATE_LOAD_CSV_DIR` (the open fails, exit 1) and `RELATE_SHARD_TARGET_BYTES` (the checkpoint fails, exit 1) |
+| When it is read | Once per run, before the first statement; engine variables are read when the :term[store]{id=store} opens; `RELATE_SHARD_TARGET_BYTES` at each checkpoint that writes Parquet shards |
+| Invalid value | Exit 2 for a variable the CLI parses, exit 1 for one the engine parses at open; the messages are in the tables on this page, and an open failure prints `Failed to open Relate: ` before its message |
+| `--help`, `--version` | Still print and exit 0 when a variable holds an invalid value, except a set `CYPHERLITE_*` variable ([retired names](#retired-names)) |
+| Scope | The CLI process and every store it opens; `relate serve` reads the engine variables when it opens the store it serves |
+
+## Precedence
+
+`RELATE_MAX_ROWS=1` caps every statement at one row. `--max-rows 0` on the same command beats it and prints every row:
+
+```bash verify
+RELATE_MAX_ROWS=1 relate --mode jsonl "UNWIND [1, 2, 3] AS x RETURN x"
+RELATE_MAX_ROWS=1 relate --mode jsonl --max-rows 0 "UNWIND [1, 2, 3] AS x RETURN x"
+```
+
+```text
+warning: result truncated to 1 rows (the statement returned 3); pass --max-rows 0 for all rows
+{"x":1}
+{"rowCap":{"kept":1,"total":3}}
+{"x":1}
+{"x":2}
+{"x":3}
+```
+
+The same holds for every pair: `--no-safe` beats `RELATE_SAFE_MODE=1`, `--durability-mode` beats `RELATE_DURABILITY_MODE`, and `--load-csv-dir` beats `RELATE_LOAD_CSV_DIR`.
+
+## Every variable
+
+Each row is at a stable anchor, `https://relatedb.ai/docs/reference/cli/environment-variables#<id>` (`#env-relate-max-rows`). A flag in the last column links its row on the [flags page](/docs/reference/cli/flags).
+
+<EnvVars />
+
+## Durability and storage
+
+These set the defaults for a persistent store's write path and snapshot. `:memory:` has no WAL or snapshot, so only `RELATE_SNAPSHOT_FORMAT` is checked there.
+
+| Variable | Flag | Accepted values | An invalid value |
+| --- | --- | --- | --- |
+| `RELATE_DURABILITY_MODE` | `--durability-mode` | `full` (default), `everysecond`, `snapshot` | Exit 2: `Error: invalid RELATE_DURABILITY_MODE: semantic error: invalid durability mode "<value>"; expected full, everysecond, or snapshot` |
+| `RELATE_CHECKPOINT_INTERVAL_SECS` | `--checkpoint-interval-secs` | Whole seconds, default `300`; `0` turns the timer off | Ignored: the default `300` applies |
+| `RELATE_SNAPSHOT_FORMAT` | `--snapshot-format` | `parquet` (default), `json`, `markdown`, for an empty directory | Exit 1: `Failed to open Relate: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)` |
+| `RELATE_MARKDOWN_BODY_PROPERTIES` | `--markdown-body-properties` | The flag's list grammar; default `body` | Exit 1: `Failed to open Relate: semantic error: invalid markdown body properties '<value>': an entry names no property` |
+| `RELATE_SHARD_TARGET_BYTES` | none | The target size of one Parquet shard written at a checkpoint, `1` to `1073741824` bytes; default 256 MiB | The checkpoint fails, exit 1, after the run's statements have committed to the WAL: `Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824`; an empty value fails the same way |
+
+On an existing store, `RELATE_SNAPSHOT_FORMAT` must name the store's recorded :term[codec]{id=codec}, or the open fails with exit 1: `Failed to open Relate: storage error: snapshot codec mismatch: directory is <codec>, requested <codec>`. `relate serve` takes no `--checkpoint-interval-secs` flag, so `RELATE_CHECKPOINT_INTERVAL_SECS` is how a server's checkpoint timer is set. Only a checkpoint that writes Parquet shards reads `RELATE_SHARD_TARGET_BYTES`, so a run on `:memory:`, a `--read-only` open, and a `json` codec store never check it. The [durability modes guide](/docs/guides/operate/durability-modes) covers each mode's loss window.
+
+## Limits
+
+These bound one run's memory, traversal depth, printed rows, and local file access. Each is a safety limit, not a store property: a different run can open the same store with different limits.
+
+| Variable | Flag | Accepted values | An invalid value |
+| --- | --- | --- | --- |
+| `RELATE_LOGICAL_GRAPH_SIZE_LIMIT` | `--logical-graph-size-limit` | A size: bytes, or a number with `mb`, `mib`, `gb` or `gib`; `0` is unlimited, the default | Exit 2: `Error: invalid RELATE_LOGICAL_GRAPH_SIZE_LIMIT: semantic error: invalid memory limit '<value>'` |
+| `RELATE_EXPRESSION_MEMORY_LIMIT` | `--expression-memory-limit` | A size, or `none` or `0` for no cap; default 256 MiB | Exit 2: `Error: invalid RELATE_EXPRESSION_MEMORY_LIMIT: invalid memory limit '<value>'` |
+| `RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT` | `--concurrent-logical-workspace-limit` | A positive size turns query admission on; unset leaves it off | Exit 2: `Error: invalid RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT: must be positive` for `0` |
+| `RELATE_MAX_TRAVERSAL_DEPTH` | `--max-traversal-depth` | `1` through `2000`; default `500` | Exit 2: `Error: invalid RELATE_MAX_TRAVERSAL_DEPTH: must be between 1 and 2000` |
+| `RELATE_MAX_ROWS` | `--max-rows` | A non-negative integer; `0` is unlimited | Exit 2: `Error: invalid RELATE_MAX_ROWS: '<value>' is not a non-negative integer` |
+| `RELATE_LOAD_CSV_DIR` | `--load-csv-dir` | A directory local `LOAD CSV` may read; unset denies every local file | Exit 1 at open: `Failed to open Relate: semantic error: LOAD CSV invalid configuration`, for a directory that does not exist or an empty value |
+
+[Size a store and its memory](/docs/guides/operate/sizing-and-memory) works through the memory limits.
+
+### Retired names
+
+Three retired names are refused rather than ignored, because an unset limit means unlimited and a store would otherwise open uncapped. Setting one fails the open with exit 1:
+
+| Retired name | Message |
+| --- | --- |
+| `RELATE_MEMORY_LIMIT` | `Failed to open Relate: semantic error: RELATE_MEMORY_LIMIT is set but ignored; set RELATE_LOGICAL_GRAPH_SIZE_LIMIT` |
+| `RELATE_TOKEN_ADMISSION` | `Failed to open Relate: semantic error: RELATE_TOKEN_ADMISSION is set but ignored; set RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT` |
+| `RELATE_CONCURRENT_PEAK_TOKEN_LIMIT` | `Failed to open Relate: semantic error: RELATE_CONCURRENT_PEAK_TOKEN_LIMIT is set but ignored; set RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT` |
+
+Any variable whose name starts with `CYPHERLITE_`, the product's former prefix, is refused too when its value is not empty or blank, even a name relate never read. The check runs before anything else, so every command fails with exit 1, `--help` and `--version` included, and the message names the matching `RELATE_` name:
+
+```bash verify
+CYPHERLITE_MAX_ROWS=1 relate "RETURN 1 AS x"
+echo "exit=$?"
+```
+
+```text
+Error: semantic error: CYPHERLITE_MAX_ROWS is set but ignored; set RELATE_MAX_ROWS
+exit=1
+```
+
+## Safety and agent mode
+
+`RELATE_SAFE_MODE` and `RELATE_AGENT_MODE` take `1` or `0`, with surrounding whitespace ignored. Any other value exits 2 before a statement runs.
+
+| Variable | Flags | `1` | `0` | An invalid value |
+| --- | --- | --- | --- | --- |
+| `RELATE_SAFE_MODE` | `--safe`, `--no-safe` | Safe mode on: an unbounded `MATCH` read and a new named node without a label are refused | Off, the default | `Error: invalid RELATE_SAFE_MODE: '<value>' is not 1 or 0` |
+| `RELATE_AGENT_MODE` | `--agent-mode`, `--no-agent-mode` | Agent mode on, announced on stderr | Off, even under a detected harness | `Error: invalid RELATE_AGENT_MODE: '<value>' is neither 1 nor 0` |
+
+With `RELATE_AGENT_MODE` unset, agent mode turns on when stdout is not a terminal and one of these variables is set to a non-empty value: `AI_AGENT`, `AGENT`, `CLAUDECODE`, `CLAUDE_CODE`, `COPILOT_AGENT`, `COPILOT_CLI`, `COPILOT_AGENT_SESSION_ID`, `REPL_ID`, `GEMINI_CLI`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `OPENCODE`, `AUGMENT_AGENT`, `GOOSE_PROVIDER` or `CURSOR_AGENT`. It also turns on when `EDITOR` contains `devin`, `TERM_PROGRAM` contains `kiro`, or `PATH` contains `.pi/agent`, each matched case-insensitively. Detection prints nothing. Agent mode, whether set or detected, turns on neither `--read-only` nor safe mode. The [agent mode page](/docs/reference/cli/agent-mode#detection) has the detection ladder and the two defaults agent mode changes.
+
+## Preview features
+
+`RELATE_PREVIEW` turns on :term[preview features]{id=preview-feature}: a comma-separated list of feature names, read once when the store opens. Unset or empty turns on nothing. With `coll-zip` named, the `coll.zip` function exists:
+
+```bash verify
+RELATE_PREVIEW=coll-zip relate --mode envelope "RETURN coll.zip([1, 2], ['a', 'b']) AS pairs"
+```
+
+```text
+{"columnTypes":["LIST"],"columns":["pairs"],"notifications":[],"rows":[{"pairs":[[1,"a"],[2,"b"]]}],"truncated":false}
+```
+
+An unknown name fails the open with exit 1, and the message lists every name the binary knows:
+
+```bash verify
+RELATE_PREVIEW=bogus relate --mode jsonl "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature 'bogus' (known features: hybrid-search, local-callables, graph-type-opt-props, graph-type-default-values, graph-type-implied-labels, ontology, obfuscated-literals, mixed-label-syntax, float16-coordinate-types, chronological-comparisons, complex-search-patterns, coll-zip, coll-has, gql-stddev-aliases)
+{"error":{"code":"fatal_error","exit_code":1,"kind":"semantic","message":"semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature 'bogus' (known features: hybrid-search, local-callables, graph-type-opt-props, graph-type-default-values, graph-type-implied-labels, ontology, obfuscated-literals, mixed-label-syntax, float16-coordinate-types, chronological-comparisons, complex-search-patterns, coll-zip, coll-has, gql-stddev-aliases)","retryable":false}}
+exit=1
+```
+
+On `relate serve`, the variable is the server process's setting: a feature it turns on is on for every connected client.
+
+## Usage metrics
+
+The CLI's anonymous usage metrics, its :term[telemetry]{id=telemetry}, are on by default. The first layer that decides wins:
+
+| Order | Setting | Turns metrics off | Turns metrics on |
+| --- | --- | --- | --- |
+| 1 | `DO_NOT_TRACK` | `1` or `true` | — |
+| 2 | `RELATE_TELEMETRY` | `0`, `false` or `off` | `1`, `true` or `on` |
+| 3 | `config.json` in the config directory, written by `relate telemetry off` and `on` | `false` | `true` |
+| 4 | The default | — | on |
+
+A `RELATE_TELEMETRY` value outside those six falls through to the next layer. `relate telemetry status` names the layer that decided:
+
+```bash verify
+DO_NOT_TRACK=1 RELATE_TELEMETRY=1 relate telemetry status
+```
+
+```text
+disabled (DO_NOT_TRACK)
+```
+
+Three more variables exist for development and testing: `RELATE_MIXPANEL_ENDPOINT` replaces the `/track` URL (an `https://` URL, or `http://` for a loopback host only; a rejected value turns metrics off for the run with one warning on stderr), `RELATE_MIXPANEL_TOKEN` replaces the project token, and `RELATE_TELEMETRY_FLUSH_MS` sets how long the exit waits for the last batch, default `250`, with `0` waiting not at all. Each event's `invoker` property is `agent` when `CLAUDECODE`, `CURSOR_AGENT`, `GEMINI_CLI` or `OPENCODE` is set, else `ci` when `CI` is set to a value other than empty, `0` or `false`, else `human`. The [privacy and telemetry page](/docs/reference/privacy-and-telemetry#turning-usage-metrics-off) lists every event and property.
+
+## Paths and terminal
+
+| Variable | Read by | Effect |
+| --- | --- | --- |
+| `XDG_CONFIG_HOME` | Usage metrics, `relate extension`, `relate skill` | The config directory is `$XDG_CONFIG_HOME/relate/` when the value is set, non-empty and an absolute path; otherwise `$HOME/.config/relate/`. It holds `config.json`, `state.json` and installed extensions. `relate skill` also resolves agent directories under it |
+| `HOME` | The same | The base of `~/.config/relate/` and of the agent directories `relate skill install` writes to |
+| `COLUMNS` | The `table` output mode | The wrap width when stdout is not a terminal and `--width` is not given; a value under `20` is ignored, and the table keeps its natural width |
+
+The config directory follows `XDG_CONFIG_HOME`. In this run, the config file in `./cfg/relate/` turns metrics off, and `DO_NOT_TRACK` is removed from the command's environment so the file is the layer that decides:
+
+```bash verify
+mkdir -p cfg/relate
+printf '{"telemetry":false}\n' > cfg/relate/config.json
+env -u DO_NOT_TRACK XDG_CONFIG_HOME="$PWD/cfg" relate telemetry status
+```
+
+```text
+disabled (config file)
+```
+
+`COLUMNS` wraps a piped table. The widest column shrinks, and its cell continues on the next line:
+
+```bash verify
+COLUMNS=20 relate --mode table "UNWIND ['engineer', 'maintainer'] AS role RETURN role, size(role) AS len"
+```
+
+```text
++------------+-----+
+| role       | len |
++------------+-----+
+| "engineer" | 8   |
+| "maintaine | 10  |
+| r"         |     |
++------------+-----+
+```
+
+## Command variables
+
+Each of these is read by one or two commands, and its row in [every variable](#every-variable) names them (`NEO4J_USER` appears inside the `NEO4J_USERNAME` row):
+
+| Command | Variables | Detail |
+| --- | --- | --- |
+| `relate serve` | `RELATE_AUTH`, `RELATE_IDENTITY`, `RELATE_TX_IDLE_TIMEOUT_SECS`, `RELATE_MAX_OPEN_TRANSACTIONS`, `RELATE_MAX_CONNECTIONS`, `RELATE_WS_MAX_CONNECTIONS`, `RELATE_HEADER_DEADLINE_SECS`, `RELATE_BODY_DEADLINE_SECS` | [`relate serve`](/docs/reference/cli/serve) |
+| `relate pull` | `NEO4J_URI`, `NEO4J_USERNAME` (or `NEO4J_USER`), `NEO4J_PASSWORD`, `NEO4J_DATABASE`, read when `--from` is not given | [`relate pull`](/docs/reference/cli/pull) |
+| `relate push` | `NEO4J_USERNAME` (or `NEO4J_USER`), `NEO4J_PASSWORD`, `NEO4J_DATABASE`, read when `--to` is a Query API URI rather than an env file | [`relate push`](/docs/reference/cli/push) |
+| `relate upgrade`, `relate extension` | `GITHUB_TOKEN`, `RELATE_RELEASES_JSON_URL`, `RELATE_EXTENSIONS_JSON_URL`, `RELATE_RELEASE_DOWNLOAD_URL`, `RELATE_GITHUB_API_URL` | [`relate upgrade`](/docs/reference/cli/upgrade), [`relate extension`](/docs/reference/cli/extension) |
+| Every `--help` page | `RELATE_HELP_EXAMPLES`: `0`, `false`, `off` or `no`, in any case, drops the `Examples:` section; any other value keeps it | [relate CLI](/docs/reference/cli) |
+
+The four URL variables are for development and testing. Each replaces one default URL, and an empty value means the default.
+
+## Engine diagnostics
+
+Three variables tune the query engine and are read once at open. They exist for measurement, not for routine tuning.
+
+| Variable | Accepted values | An invalid value |
+| --- | --- | --- |
+| `RELATE_PATTERN_ENGINE` | `auto` (default), `nfa`, `walk`: which pattern-matching engine serves a clause | Exit 1: `Failed to open Relate: semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine "<value>"; expected auto, nfa, or walk` |
+| `RELATE_BULK_BATCH_THRESHOLD` | A positive integer, default `10000`: the estimated entity count at which a store-wide bulk write commits in batches | Exit 1: `Failed to open Relate: semantic error: invalid RELATE_BULK_BATCH_THRESHOLD '<value>'` |
+| `RELATE_BULK_BATCH_BUDGET` | A positive integer, default `25000`: the estimated entities per batch commit | Exit 1: `Failed to open Relate: semantic error: invalid RELATE_BULK_BATCH_BUDGET '<value>'` |
+
+## See also
+
+- [CLI flags](/docs/reference/cli/flags): the flag each variable sets a default for
+- [Agent mode](/docs/reference/cli/agent-mode): detection and the defaults it changes
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what the usage metrics hold and every way to turn them off
+- [Errors](/docs/reference/errors#cli-errors): each invalid-value message with its cause and remedy
+- [Script the CLI](/docs/guides/cli/scripting): pinning the output mode and limits in a script

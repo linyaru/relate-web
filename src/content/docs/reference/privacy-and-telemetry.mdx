@@ -3,7 +3,7 @@ title: Privacy and telemetry
 description: The anonymous usage events the relate CLI sends and how to turn them off, the surfaces that never send anything, and what the relatedb.ai site loads and logs.
 order: 100
 surfaces: [cli, python, node, browser, bolt, http, mcp, agents]
-related: [reference/security, reference/project, reference/cli/flags, guides/agents/run-in-a-sandbox]
+related: [reference/security, reference/project, reference/cli/flags, guides/agents/run-in-a-sandbox, concepts/security-and-trust]
 ---
 
 The `relate` CLI binary sends anonymous usage metrics to Mixpanel. They are on by default, and `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0`, or `relate telemetry off` turns them off. The events carry command shapes and a random install ID; query text, :term[store]{id=store} paths, and :term[parameter]{id=parameter} values are never collected, because the code that builds an event has no field to hold them. The client libraries, the WebAssembly build, the C library, and the served :term[surfaces]{id=surface} never send usage metrics. Today the docs, cookbook, and playground pages load nothing from a third party.

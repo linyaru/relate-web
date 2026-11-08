@@ -91,7 +91,7 @@
         "surfaces/relate-python/python/relate/exceptions.py",
         "relate 0.16.1 (ac441ec), source build"
       ],
-      "note": "Recorded form: `semantic error: NumberOutOfRange` for a negative vector dimension; the prefix is `semantic error:` although the kind is `argument`.",
+      "note": "Recorded form: `semantic error: NumberOutOfRange` for a negative vector dimension; the prefix is `semantic error:` although the kind is `argument`. On Bolt the same rejection arrives at RUN as FAILURE `Neo.ClientError.General.InvalidArguments` with message `semantic error: NumberOutOfRange`.",
       "recorded": {
         "command": "relate --mode envelope \"CREATE VECTOR INDEX v FOR (n:Doc) ON (n.embedding) OPTIONS {indexConfig: {\\`vector.dimensions\\`: -1}}\"",
         "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"argument\",\"message\":\"semantic error: NumberOutOfRange\",\"retryable\":false}}\n",
@@ -156,14 +156,16 @@
       "neo4j_code": "Neo.TransientError.Transaction.Outdated",
       "message": "write-write conflict",
       "cause": "Two transactions wrote the same data; the later one lost.",
-      "remedy": "Re-run the statement in a fresh transaction. This is the only retryable error.",
+      "remedy": "Re-run the statement in a fresh transaction. One of the two retryable errors; the other is a contended workspace-pool refusal.",
       "python_class": null,
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/bolt/spec.md",
-        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md"
-      ]
+        "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
+        "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08"
+      ],
+      "note": "The Java, Go and Swift clients report the conflict from `commit()` with code `Neo.TransientError.Transaction.Outdated`, GQL status `42000`, stage runtime, retryable true (Java `TransientException`)."
     },
     {
       "id": "cli-conflict-locked",
@@ -586,7 +588,7 @@
       "remedy": "Check the path or URL and that the source is one JSON document.",
       "python_class": null,
       "http_status": null,
-      "note": "Recorded forms: `Error: --fetch-params <name>: invalid JSON: <detail>` and `Error: --fetch-params <name>: reading <path>: <reason>` (for example `No such file or directory (os error 2)`, or `source exceeded the 64 MiB cap`). A value without `=` is a usage error instead: `Error: invalid --fetch-params value: expected name=value`, exit code 2.",
+      "note": "Recorded forms: `Error: --fetch-params <name>: invalid JSON: <detail>` and `Error: --fetch-params <name>: reading <path>: <reason>` (for example `No such file or directory (os error 2)`, or `source exceeded the 64 MiB cap`). A value without `=` is a usage error instead: `Error: invalid --fetch-params value: expected name=value`, exit code 2. An HTTP source that answers an error status prints `Error: --fetch-params <name>: HTTP <status>` (observed as HTTP 404).",
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
         "relate 0.16.1 (ac441ec), source build"
@@ -1338,6 +1340,1122 @@
           "exit": 0
         }
       ]
+    },
+    {
+      "id": "cli-serve-nothing-to-serve",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT",
+      "cause": "`relate serve` with no listener flag; ports have no defaults.",
+      "remedy": "Pass at least one of `--http PORT`, `--mcp PORT|stdio` or `--bolt PORT`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate serve --database :memory:",
+        "stdout": "",
+        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-serve-read-only-before-verb",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)",
+      "cause": "`--read-only` placed before the `serve` word.",
+      "remedy": "Put `--read-only` after `serve`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --read-only serve --database :memory: --http 7474",
+        "stdout": "",
+        "stderr": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-serve-auth-malformed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --auth: expected user:password or 'none'",
+      "cause": "`--auth` has no colon.",
+      "remedy": "Pass `<user>:<password>` or `none`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate serve --database :memory: --http 7474 --auth ada",
+        "stdout": "",
+        "stderr": "Error: --auth: expected user:password or 'none'\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-serve-env-auth-malformed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: RELATE_AUTH: expected user:password or 'none'",
+      "cause": "`RELATE_AUTH` has no colon.",
+      "remedy": "Set `RELATE_AUTH` to `<user>:<password>` or `none`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_AUTH=ada relate serve --database :memory: --http 7474",
+        "stdout": "",
+        "stderr": "Error: RELATE_AUTH: expected user:password or 'none'\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-serve-env-auth-empty-side",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: RELATE_AUTH: expected user:password with both sides non-empty",
+      "cause": "`RELATE_AUTH` has an empty user or password.",
+      "remedy": "Set both sides of `RELATE_AUTH`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_AUTH=:pw relate serve --database :memory: --http 7474",
+        "stdout": "",
+        "stderr": "Error: RELATE_AUTH: expected user:password with both sides non-empty\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-serve-auth-missing-value",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --auth requires USER:PASSWORD or none",
+      "cause": "`--auth` is the last argument, with no value.",
+      "remedy": "Pass `--auth <user>:<password>` or `--auth none`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate serve --database :memory: --http 7474 --auth",
+        "stdout": "",
+        "stderr": "Error: --auth requires USER:PASSWORD or none\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-serve-auth-stdio",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only",
+      "cause": "`--auth` with `--mcp stdio` as the only listener; the stdio transport has no credential.",
+      "remedy": "Drop `--auth`, or add an HTTP, MCP-over-HTTP or Bolt listener for it to guard.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate serve --database :memory: --auth a:b --mcp stdio < /dev/null",
+        "stdout": "",
+        "stderr": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-serve-bind-failed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: serve --<surface> <port>: cannot bind <host>:<port>: <reason>",
+      "cause": "Another process listens on the port, or the address is not available on this machine.",
+      "remedy": "Choose a free port, or stop the process that holds it.",
+      "python_class": null,
+      "http_status": null,
+      "note": "On macOS the reason reads `Address already in use (os error 48)`; the OS error number differs by platform.",
+      "sources": [
+        "relate serve --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "verify": "Needs a second process on the port, and the OS error number differs by platform, so no recorded run replays it."
+    },
+    {
+      "id": "cli-open-readonly-missing-dir",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to open Relate: storage error: read-only open requires an existing database at <path>",
+      "cause": "`--read-only` on a directory path that holds no store; a read-only open never creates one.",
+      "remedy": "Correct the path, or create the store with a writable open first.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate query --database ./nope --read-only \"RETURN 1\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: read-only open requires an existing database at <dir>/nope\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: read-only open requires an existing database at <dir>/nope\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-open-readonly-missing-rl",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to open Relate: storage error: database not found: <path>",
+      "cause": "`--read-only` on a `.rl` path that does not exist; a read-only open never creates one.",
+      "remedy": "Correct the path, or create the store with a writable open first.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate query --database ./nope.rl --read-only \"RETURN 1\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: database not found: <dir>/nope.rl\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: database not found: <dir>/nope.rl\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-clone-wal-dir-rl",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to clone database: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)",
+      "cause": "`relate clone --wal-dir` with a `.rl` source, which holds its own WAL.",
+      "remedy": "Drop `--wal-dir`; it applies to a directory source only.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate clone --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate clone --wal-dir ./w ./s.rl ./d",
+        "setup": "relate --database ./s.rl \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Failed to clone database: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-clone-markdown-body-properties-codec",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored",
+      "cause": "`--markdown-body-properties` on a clone whose destination codec is not `markdown`.",
+      "remedy": "Add `--to-snapshot-format markdown`, or drop `--markdown-body-properties`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate clone --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate clone --markdown-body-properties body ./s ./d",
+        "setup": "relate --database ./s \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-clone-source-missing-rl",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to clone database: storage error: database not found: <path>",
+      "cause": "The `.rl` SOURCE does not exist.",
+      "remedy": "Correct the SOURCE path.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate clone --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate clone ./nope.rl ./x2",
+        "stdout": "",
+        "stderr": "Failed to clone database: storage error: database not found: <dir>/nope.rl\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-info-not-found",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to read store info: storage error: database not found: <path>",
+      "cause": "`relate info --database` names a path with no store.",
+      "remedy": "Correct the path.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate info --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate info --database ./nope",
+        "stdout": "",
+        "stderr": "Failed to read store info: storage error: database not found: ./nope\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-telemetry-no-config-dir",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)",
+      "cause": "`relate telemetry on` or `off` with neither `HOME` nor an absolute `XDG_CONFIG_HOME` set, so there is nowhere to write its config file.",
+      "remedy": "Set `HOME`, or set `XDG_CONFIG_HOME` to an absolute path; `DO_NOT_TRACK=1` turns usage metrics off without a config directory.",
+      "python_class": null,
+      "http_status": null,
+      "note": "A failed write prints `Error: telemetry: writing <path>: <reason>` (from the source; not reproduced).",
+      "sources": [
+        "surfaces/relate-cli/src/telemetry_cmd.rs",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "env -u HOME relate telemetry off",
+        "stdout": "",
+        "stderr": "Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-pull-destination-not-empty",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: destination database is not empty; pull writes into an empty database only (ADR-0158)",
+      "cause": "`relate pull` into a store that already holds data. The check runs before any connection.",
+      "remedy": "Pull into a new path; a pull never merges.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --from n.env --query 'MATCH (n) RETURN n' --database ./t.rl",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env && relate --database ./t.rl \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Error: destination database is not empty; pull writes into an empty database only (ADR-0158)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-pull-shape-query",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: <item>",
+      "cause": "A `--query` statement returns a property, a scalar or an aggregate; pull copies only nodes, relationships and paths.",
+      "remedy": "Return the graph elements themselves, such as `RETURN n`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --from n.env --query 'MATCH (n) RETURN count(n) AS nodes' --database ./m.rl",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env",
+        "stdout": "",
+        "stderr": "Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: count(n)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-pull-plaintext",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: refusing to send Basic auth credentials in the clear: Query API URL <url> is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI",
+      "cause": "The Neo4j URI resolves to `http://` on a host other than the loopback interface, so the credentials would cross the network unencrypted.",
+      "remedy": "Use an `https://` `NEO4J_URI`, or pass `--allow-plaintext` to accept the risk.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --from p.env --query 'MATCH (n) RETURN n' --database ./p.rl",
+        "setup": "printf 'NEO4J_URI=http://neo4j.example.com:7474\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > p.env && chmod 600 p.env",
+        "stdout": "",
+        "stderr": "Error: refusing to send Basic auth credentials in the clear: Query API URL http://neo4j.example.com:7474/db/neo4j/query/v2 is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-pull-memory",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: pull cannot target :memory: (--database must persist)",
+      "cause": "`relate pull --database :memory:`; the copy would vanish when the command exits.",
+      "remedy": "Name a directory or `.rl` path.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --query 'MATCH (n) RETURN n' --database :memory:",
+        "stdout": "",
+        "stderr": "Error: pull cannot target :memory: (--database must persist)\nUsage: relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH\nRun 'relate pull --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-pull-credential-missing",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: <name> missing from environment",
+      "cause": "No `--from` env file, and a Neo4j variable the pull needs is not set.",
+      "remedy": "Set `NEO4J_URI`, `NEO4J_USERNAME` and `NEO4J_PASSWORD`, or name an env file with `--from`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "NEO4J_URI=http://127.0.0.1:9 NEO4J_PASSWORD=x relate pull --query 'MATCH (n) RETURN n' --database ./p1",
+        "stdout": "",
+        "stderr": "Error: NEO4J_USERNAME missing from environment\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-pull-env-file-key",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: <name> missing from env file",
+      "cause": "The `--from` env file lacks one of `NEO4J_URI`, `NEO4J_USERNAME` or `NEO4J_PASSWORD`. No store is created.",
+      "remedy": "Add the key to the env file.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --from nokey.env --query 'MATCH (n) RETURN n' --database ./a.rl",
+        "setup": "printf 'NEO4J_URI=https://h:7473\\nNEO4J_USERNAME=neo4j\\n' > nokey.env && chmod 600 nokey.env",
+        "stdout": "",
+        "stderr": "Error: NEO4J_PASSWORD missing from env file\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-query-no-statements",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: no statements in --query value",
+      "cause": "`relate pull` or `relate push` got a `--query` value with no statement in it.",
+      "remedy": "Pass at least one statement.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate pull --from n.env --query '' --database ./d.rl",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env",
+        "stdout": "",
+        "stderr": "Error: no statements in --query value\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-push-one-scope",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: push takes one of --query, --labels, or --types (none pushes the whole store)",
+      "cause": "More than one of `--query`, `--labels` and `--types`.",
+      "remedy": "Pass one selector, or none to push the whole store.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate push --to n.env --database ./t.rl --labels A --types B",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env && relate --database ./t.rl \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Error: push takes one of --query, --labels, or --types (none pushes the whole store)\nUsage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]\nRun 'relate push --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-push-namespace",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --namespace is not valid with push (push always reads the neo4j namespace)",
+      "cause": "`--namespace` with `relate push`.",
+      "remedy": "Drop `--namespace`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --namespace neo4j push --to n.env --database ./t.rl --dry-run",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env && relate --database ./t.rl \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Error: --namespace is not valid with push (push always reads the neo4j namespace)\nUsage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]\nRun 'relate push --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-push-merge-key-format",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: --merge-key \"<value>\" must be NAME:PROP[,PROP] (no ':' found)",
+      "cause": "A `--merge-key` value without a colon.",
+      "remedy": "Pass `<Label>:<property>[,<property>]`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate pull --help",
+        "relate push --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate push --to n.env --database ./t.rl --dry-run --merge-key foo",
+        "setup": "printf 'NEO4J_URI=https://neo4j.example.com:7473\\nNEO4J_USERNAME=neo4j\\nNEO4J_PASSWORD=x\\n' > n.env && chmod 600 n.env && relate --database ./t.rl \"CREATE (:A)\" > /dev/null",
+        "stdout": "",
+        "stderr": "Error: --merge-key \"foo\" must be NAME:PROP[,PROP] (no ':' found)\nUsage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]\nRun 'relate push --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-run-not-installed",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: no installed action '<name>' — first-party extension available: relate extension install <name>",
+      "cause": "`relate run <name>` for a first-party extension that is not installed.",
+      "remedy": "Install it with `relate extension install <name>`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate run git-to-graph",
+        "stdout": "",
+        "stderr": "Error: no installed action 'git-to-graph' — first-party extension available: relate extension install git-to-graph\nUsage: relate run <name> [flags]\nRun 'relate run --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-run-no-action",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: run requires an action name (no actions installed; relate extension install <name> adds one)",
+      "cause": "`relate run` with no action name.",
+      "remedy": "Name an installed action; `relate run --help` lists them.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate run",
+        "stdout": "",
+        "stderr": "Error: run requires an action name (no actions installed; relate extension install <name> adds one)\nUsage: relate run <name> [flags]\nRun 'relate run --help' for more information.\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-extension-url-scheme",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: extension install: --url accepts only https URLs (or plain http to the loopback interface); '<url>' is neither",
+      "cause": "`relate extension install --url` with a plain `http://` URL to another host.",
+      "remedy": "Use an `https://` URL.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate extension install other --url http://example.com/x.tar.gz",
+        "stdout": "",
+        "stderr": "Error: extension install: --url accepts only https URLs (or plain http to the loopback interface); 'http://example.com/x.tar.gz' is neither\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-extension-remove-not-installed",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: extension remove: no installed extension '<name>' (relate extension list prints the installed set)",
+      "cause": "`relate extension remove` for a name that is not installed.",
+      "remedy": "Check the name with `relate extension list`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate extension remove nothing",
+        "stdout": "",
+        "stderr": "Error: extension remove: no installed extension 'nothing' (relate extension list prints the installed set)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-extension-init-exists",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: extension init: <dir> already exists (init writes a new package directory)",
+      "cause": "`relate extension init <name>` where a directory of that name exists.",
+      "remedy": "Choose another name, or move the directory.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate extension init greet",
+        "setup": "relate extension init greet > /dev/null",
+        "stdout": "",
+        "stderr": "Error: extension init: <dir>/greet already exists (init writes a new package directory)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-extension-check-not-executable",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "executable: failed: the extension executable <path> is not executable",
+      "cause": "`relate extension check` on a package whose executable file lacks the execute bit.",
+      "remedy": "`chmod +x` the executable the manifest names.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate extension check ./greet",
+        "setup": "relate extension init greet > /dev/null && chmod -x greet/greet.py",
+        "stdout": "manifest: ok (greet 0.1.0, protocol 2025-06-18)\nexecutable: failed: the extension executable ./greet/greet.py is not executable\n",
+        "stderr": "",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-extension-child-exited",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: the extension child exited with <n>: <stderr>",
+      "cause": "The extension's executable exited before it finished the import.",
+      "remedy": "Read the child's stderr in the message; run `relate extension check` on the package.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "verify": "Needs an extension whose child fails; no recorded run."
+    },
+    {
+      "id": "cli-extension-no-request",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: the extension wrote no MCP request within 10s",
+      "cause": "The extension's executable started but sent nothing for ten seconds.",
+      "remedy": "Check that the executable starts the protocol client; `relate extension check` runs the same handshake.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate run --help",
+        "relate extension --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "verify": "Needs an extension whose child stalls; no recorded run."
+    },
+    {
+      "id": "cli-unknown-dot-command",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: unknown command <name>",
+      "cause": "A line starting with a dot that is not a shell dot command. In a script, it stops the run.",
+      "remedy": "Use a listed dot command (`.help` prints them), or an output flag such as `--mode csv` in place of `.mode`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/cli/spec.md",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "printf '.mode csv\\n' | relate query",
+        "stdout": "",
+        "stderr": "Error: unknown command .mode\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-invalid-mode",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid mode '<name>' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)",
+      "cause": "`--mode` names no output mode.",
+      "remedy": "Use one of the listed modes.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode xml \"RETURN 1 AS x\"",
+        "stdout": "",
+        "stderr": "Error: invalid mode 'xml' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-invalid-width",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default",
+      "cause": "`--width` below 20.",
+      "remedy": "Pass 20 or more, or omit `--width`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --width 10 \"RETURN 1 AS x\"",
+        "stdout": "",
+        "stderr": "Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default\n",
+        "exit": 2
+      }
+    },
+    {
+      "id": "cli-speedscope-requires-profile",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)",
+      "cause": "`--mode speedscope` on a statement that is not a `PROFILE`. The statement has already run, and its writes are committed, so rerunning a write duplicates it.",
+      "remedy": "Prefix the statement with `PROFILE`, or use another mode.",
+      "python_class": null,
+      "http_status": null,
+      "note": "A variant ends `(the plan tree carries no PROFILE metrics)`; on 0.16.1 it appears for a `PROFILE` of `count()` over an Expand, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`. No error object is printed.",
+      "sources": [
+        "relate --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode speedscope \"RETURN 1 AS x\"",
+        "stdout": "",
+        "stderr": "speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-invalid-env-markdown-body-properties",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to open Relate: semantic error: invalid markdown body properties '<value>': <detail>",
+      "cause": "`RELATE_MARKDOWN_BODY_PROPERTIES` (or `--markdown-body-properties`) does not parse.",
+      "remedy": "Use a comma-separated property list, or `Label=LIST` entries separated by `;`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate --help",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_MARKDOWN_BODY_PROPERTIES='=' relate \"RETURN 1 AS x\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: invalid markdown body properties '=': an entry names no property\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: semantic error: invalid markdown body properties '=': an entry names no property\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-retired-env",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Failed to open Relate: semantic error: <name> is set but ignored; set <new name>",
+      "cause": "A retired variable is set: `RELATE_MEMORY_LIMIT` (now `RELATE_LOGICAL_GRAPH_SIZE_LIMIT`), `RELATE_TOKEN_ADMISSION` or `RELATE_CONCURRENT_PEAK_TOKEN_LIMIT` (now `RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT`).",
+      "remedy": "Unset it, and set the variable the message names.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate/relate/src/open_config.rs",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": [
+        {
+          "command": "RELATE_MEMORY_LIMIT=1 relate \"RETURN 1 AS x\"",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: RELATE_MEMORY_LIMIT is set but ignored; set RELATE_LOGICAL_GRAPH_SIZE_LIMIT\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: semantic error: RELATE_MEMORY_LIMIT is set but ignored; set RELATE_LOGICAL_GRAPH_SIZE_LIMIT\n",
+          "exit": 1
+        },
+        {
+          "command": "RELATE_TOKEN_ADMISSION=1 relate \"RETURN 1 AS x\"",
+          "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"semantic\",\"message\":\"semantic error: RELATE_TOKEN_ADMISSION is set but ignored; set RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT\",\"retryable\":false}}\n",
+          "stderr": "Failed to open Relate: semantic error: RELATE_TOKEN_ADMISSION is set but ignored; set RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT\n",
+          "exit": 1
+        }
+      ]
+    },
+    {
+      "id": "cli-retired-cypherlite-env",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: semantic error: <name> is set but ignored; set <new name>",
+      "cause": "A `CYPHERLITE_*` variable from before the rename is set to a non-empty value. Every command fails, `--help` and `--version` included.",
+      "remedy": "Unset it, and set the `RELATE_*` variable the message names.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "surfaces/relate-cli/src/main.rs",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": [
+        {
+          "command": "CYPHERLITE_MAX_ROWS=1 relate \"RETURN 1 AS x\"",
+          "stdout": "",
+          "stderr": "Error: semantic error: CYPHERLITE_MAX_ROWS is set but ignored; set RELATE_MAX_ROWS\n",
+          "exit": 1
+        },
+        {
+          "command": "CYPHERLITE_MAX_ROWS=1 relate --version",
+          "stdout": "",
+          "stderr": "Error: semantic error: CYPHERLITE_MAX_ROWS is set but ignored; set RELATE_MAX_ROWS\n",
+          "exit": 1
+        }
+      ]
+    },
+    {
+      "id": "cli-invalid-env-shard-target-bytes",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824",
+      "cause": "`RELATE_SHARD_TARGET_BYTES` is empty, not an integer, or out of range. It is read at a checkpoint that writes Parquet shards, after the run's statements have committed to the WAL, so they are not lost and not to be rerun.",
+      "remedy": "Unset it, or set an integer from 1 to 1073741824, then reopen the store; the next checkpoint writes the snapshot.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate-storage snapshot/native/mod.rs",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_SHARD_TARGET_BYTES=0 relate --database ./s \"CREATE (:A)\"",
+        "stdout": "",
+        "stderr": "Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "cli-line-editor-unavailable",
+      "surface": "cli",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "warning: line editor unavailable (<reason>); falling back to plain stdin",
+      "cause": "The interactive shell could not start its line editor; the shell still runs, without history or editing.",
+      "remedy": "None needed; the shell reads plain lines.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "surfaces/relate-cli/src/repl.rs"
+      ],
+      "verify": "Needs a terminal whose line editor fails to start; no recorded run."
+    },
+    {
+      "id": "cli-invalid-fetch-params",
+      "surface": "cli",
+      "code": "usage_error",
+      "kind": null,
+      "exit_code": 2,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Error: invalid --fetch-params value: <detail>",
+      "cause": "A `--fetch-params` value with no source, no parameter name, or a source that is not an `http`, `https` or file path.",
+      "remedy": "Pass `name=<path or URL>`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "Recorded details: `missing source`, `missing parameter name`, `unsupported source (only http, https, and file paths): <source>`.",
+      "sources": [
+        "docs/api/cli/spec.md § Query-engine flags",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": [
+        {
+          "command": "relate --fetch-params 'team=' 'RETURN 1 AS n'",
+          "stdout": "",
+          "stderr": "Error: invalid --fetch-params value: missing source\n",
+          "exit": 2
+        },
+        {
+          "command": "relate --fetch-params '=team.json' 'RETURN 1 AS n'",
+          "stdout": "",
+          "stderr": "Error: invalid --fetch-params value: missing parameter name\n",
+          "exit": 2
+        },
+        {
+          "command": "relate --fetch-params 'team=ftp://x/team.json' 'RETURN 1 AS n'",
+          "stdout": "",
+          "stderr": "Error: invalid --fetch-params value: unsupported source (only http, https, and file paths): ftp://x/team.json\n",
+          "exit": 2
+        }
+      ]
     }
   ],
   "engine": [
@@ -1416,10 +2534,11 @@
       "remedy": "Close the other opener, or open a directory store read-only beside its writer.",
       "python_class": "OperationalError",
       "http_status": null,
-      "note": "Python raises `OperationalError` with kind `StorageError` and this message. The Node.js client (@relate/relate 0.16.1) reports every `Database.open` failure, this one, a missing store and a `{ readOnly: true }` open of a `.rl` store a writable handle holds included, as `RelateError` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, stage `internal` and `gqlStatus` `42000`. The CLI reports the lock as [cli-conflict-locked](/docs/reference/errors#cli-conflict-locked).",
+      "note": "Python raises `OperationalError` with kind `StorageError` and this message. The Node.js client (@relate/relate 0.16.1) reports every `Database.open` failure, this one, a missing store and a `{ readOnly: true }` open of a `.rl` store a writable handle holds included, as `RelateError` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, stage `internal` and `gqlStatus` `42000`. The CLI reports the lock as [cli-conflict-locked](/docs/reference/errors#cli-conflict-locked). The Java, Go and Swift clients report the same: `DatabaseException` (Java), `*relate.Error` (Go) or `RelateError.engine` (Swift) with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, GQL status `42000`, stage internal, for a locked store, a second writable open in the same process, and a read-only open of a missing path.",
       "sources": [
         "relate-db 0.16.1 (ac441ec), source build",
-        "@relate/relate 0.16.1 (ac441ec), source build"
+        "@relate/relate 0.16.1 (ac441ec), source build",
+        "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08"
       ]
     },
     {
@@ -2023,21 +3142,22 @@
       "kind": "semantic",
       "exit_code": 6,
       "retryable": false,
-      "gql_status": null,
-      "neo4j_code": null,
+      "gql_status": "42N18",
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
       "message": "semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.",
       "cause": "A write on a store opened `--read-only` (or an ephemeral `--load` into `:memory:`).",
       "remedy": "Reopen without `--read-only` when the write is intended.",
       "python_class": "OperationalError",
       "http_status": null,
       "name": "WriteOnReadOnlyAccessDatabase",
-      "note": "A `--load` into `:memory:` is read-only too. The Bolt server's message is `database is read-only`.",
+      "note": "A `--load` into `:memory:` is read-only too. The Bolt server's message is `database is read-only`. The C ABI clients (Java `ClientException`, Go `*relate.Error`, Swift `.engine`) report this code and GQL status, stage runtime, on a write or a checkpoint. On the HTTP Query API a write in a managed transaction on a store served `--read-only` runs inside the transaction and the commit answers 400 with `42N18`.",
       "sources": [
         "docs/api/cli/spec.md § Loading a store from a source",
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/python/spec.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.16.1 (ac441ec), source build",
+        "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08"
       ],
       "recorded": [
         {
@@ -2220,8 +3340,10 @@
       "python_class": "OperationalError",
       "http_status": null,
       "sources": [
-        "docs/api/python/spec.md § Session namespace"
-      ]
+        "docs/api/python/spec.md § Session namespace",
+        "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08"
+      ],
+      "note": "Through the C ABI (Java, Go, Swift) the message is `semantic error: TransactionError: Cannot change the namespace while a transaction is open.`, code `Neo.ClientError.Statement.SemanticError`, GQL status `42000`."
     },
     {
       "id": "engine-already-in-transaction",
@@ -2262,11 +3384,432 @@
       "cause": "A statement failed inside an explicit transaction; every later statement and the commit fail until rollback.",
       "remedy": "Roll back, then run the transaction again.",
       "python_class": null,
-      "http_status": null,
-      "note": "The CLI stops a script at its first failure, so it does not reach this error.",
+      "http_status": 400,
+      "note": "The CLI stops a script at its first failure, so it does not reach this error. On the HTTP Query API, a failed statement in a managed transaction (22G03, 42N06, 42N02 and others) poisons it: every later statement and the commit answer 400 with this message and GQL status `42000`; an empty keep-alive still answers 200; a commit that gets it closes the transaction with nothing written; a refusal under `accessMode` READ does not poison it.",
       "sources": [
-        "@relate/relate 0.16.1 (ac441ec), source build"
+        "@relate/relate 0.16.1 (ac441ec), source build",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
       ]
+    },
+    {
+      "id": "engine-constraint-requires-properties",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: ConstraintValidationFailed: `<constraint>` requires properties",
+      "cause": "A write leaves a property that an `IS NOT NULL` constraint requires unset.",
+      "remedy": "Set the property in the same write.",
+      "python_class": "IntegrityError",
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"CREATE (:Person {name: 'Eli'})\"",
+        "setup": "relate --database ./s.rl \"CREATE CONSTRAINT person_role FOR (p:Person) REQUIRE p.role IS NOT NULL\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: ConstraintValidationFailed: `person_role` requires properties\",\"retryable\":false}}\n",
+        "stderr": "semantic error: ConstraintValidationFailed: `person_role` requires properties\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-constraint-property-type",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: ConstraintValidationFailed: `<constraint>` property type",
+      "cause": "A write stores a value of another type than an `IS :: <TYPE>` constraint requires.",
+      "remedy": "Store a value of the required type.",
+      "python_class": "IntegrityError",
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"CREATE ()-[:WORKS_ON {since: '2025'}]->()\"",
+        "setup": "relate --database ./s.rl \"CREATE CONSTRAINT works_on_since FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS :: INTEGER\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: ConstraintValidationFailed: `works_on_since` property type\",\"retryable\":false}}\n",
+        "stderr": "semantic error: ConstraintValidationFailed: `works_on_since` property type\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-constraint-already-exists",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: ConstraintAlreadyExists",
+      "cause": "`CREATE CONSTRAINT` with a name that is taken, without `IF NOT EXISTS`.",
+      "remedy": "Add `IF NOT EXISTS`, or choose another name.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS UNIQUE\"",
+        "setup": "relate --database ./s.rl \"CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS UNIQUE\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: ConstraintAlreadyExists\",\"retryable\":false}}\n",
+        "stderr": "semantic error: ConstraintAlreadyExists\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-constraint-not-found",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: ConstraintNotFound",
+      "cause": "`DROP CONSTRAINT` names no constraint, without `IF EXISTS`.",
+      "remedy": "Check the name with `SHOW CONSTRAINTS`, or add `IF EXISTS`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"DROP CONSTRAINT project_name\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: ConstraintNotFound\",\"retryable\":false}}\n",
+        "stderr": "semantic error: ConstraintNotFound\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-index-belongs-to-constraint",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "Unable to drop '<name>': the index belongs to a constraint.",
+      "cause": "`DROP INDEX` on the index a uniqueness or key constraint owns.",
+      "remedy": "Drop the constraint instead; its index goes with it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"DROP INDEX project_name\"",
+        "setup": "relate --database ./s.rl \"CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS UNIQUE\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"execution\",\"message\":\"Unable to drop 'project_name': the index belongs to a constraint.\",\"retryable\":false}}\n",
+        "stderr": "Unable to drop 'project_name': the index belongs to a constraint.\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "engine-constraint-index-already-exists",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: AlreadyExists: there already exists an index (<schema>). A constraint cannot be created until the index has been dropped.",
+      "cause": "A uniqueness constraint over a label and property that a range index already covers.",
+      "remedy": "Drop the index, then create the constraint; the constraint brings its own index.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --database ./s.rl --mode envelope \"CREATE CONSTRAINT person_role FOR (p:Person) REQUIRE p.role IS UNIQUE\"",
+        "setup": "relate --database ./s.rl \"CREATE INDEX person_role_idx FOR (p:Person) ON (p.role)\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: AlreadyExists: there already exists an index (:Person {role}). A constraint cannot be created until the index has been dropped.\",\"retryable\":false}}\n",
+        "stderr": "semantic error: AlreadyExists: there already exists an index (:Person {role}). A constraint cannot be created until the index has been dropped.\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-invalid-index-option",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "syntax error: InvalidIndexOption",
+      "cause": "`CREATE INDEX … OPTIONS {…}` with a key other than `indexConfig`.",
+      "remedy": "Put settings under `indexConfig`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CREATE INDEX x FOR (p:Person) ON (p.y) OPTIONS {foo: 1}\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: InvalidIndexOption\",\"retryable\":false}}\n",
+        "stderr": "syntax error: InvalidIndexOption\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-delete-connected-node",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "DeleteConnectedNode: Cannot delete node with relationships unless DETACH",
+      "cause": "`DELETE` on a node that still has relationships.",
+      "remedy": "Use `DETACH DELETE`, or delete the relationships first.",
+      "python_class": "IntegrityError",
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CREATE (a:Person)-[:KNOWS]->(:Person) WITH a DELETE a\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"execution\",\"message\":\"DeleteConnectedNode: Cannot delete node with relationships unless DETACH\",\"retryable\":false}}\n",
+        "stderr": "DeleteConnectedNode: Cannot delete node with relationships unless DETACH\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "engine-merge-null-property",
+      "surface": "engine",
+      "code": "fatal_error",
+      "kind": "execution",
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "MergeReadOwnWrites: cannot MERGE with null properties",
+      "cause": "A `MERGE` pattern with a property whose value is null.",
+      "remedy": "Filter out the null first, or `MERGE` on the properties that have values.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"MERGE (p:Person {name: null})\"",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"execution\",\"message\":\"MergeReadOwnWrites: cannot MERGE with null properties\",\"retryable\":false}}\n",
+        "stderr": "MergeReadOwnWrites: cannot MERGE with null properties\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "engine-invalid-property-type",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "type error: InvalidPropertyType",
+      "cause": "A property value that cannot be stored: a map, a list of mixed types, or a list holding null.",
+      "remedy": "Store a scalar or a homogeneous list without nulls; model a map as properties or nodes.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"CREATE (:Person {tags: ['rust', 1]})\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: InvalidPropertyType\",\"retryable\":false}}\n",
+        "stderr": "type error: InvalidPropertyType\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-write-before-call-in-transactions",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "syntax",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS",
+      "cause": "A write, `LOAD CSV` included, before `CALL { … } IN TRANSACTIONS` in the same statement.",
+      "remedy": "Move the write inside the subquery, or run it as its own statement.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"UNWIND [1, 2] AS i CREATE (:Log) WITH i CALL (i) { CREATE (:Row {v: i}) } IN TRANSACTIONS\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"syntax\",\"message\":\"syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS\",\"retryable\":false}}\n",
+        "stderr": "syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-system-restricted-clauses",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: SemanticError: The following unsupported clauses were used: <clauses>.  The system database supports a restricted set of Cypher clauses. The supported clause structure for procedure calls is: CALL, YIELD, RETURN. YIELD and RETURN clauses are optional. The order of the clauses is fixed and each can only occur once.",
+      "cause": "A `MATCH`, `RETURN` or other clause outside a procedure call, routed to the `system` namespace.",
+      "remedy": "Run the statement on `neo4j`, or use `SHOW …` or `CALL … YIELD … RETURN` on `system`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "Two spaces follow the first period, as printed.",
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"USE system MATCH (n) RETURN n\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: SemanticError: The following unsupported clauses were used: MATCH.  The system database supports a restricted set of Cypher clauses. The supported clause structure for procedure calls is: CALL, YIELD, RETURN. YIELD and RETURN clauses are optional. The order of the clauses is fixed and each can only occur once.\",\"retryable\":false}}\n",
+        "stderr": "semantic error: SemanticError: The following unsupported clauses were used: MATCH.  The system database supports a restricted set of Cypher clauses. The supported clause structure for procedure calls is: CALL, YIELD, RETURN. YIELD and RETURN clauses are optional. The order of the clauses is fixed and each can only occur once.\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-point-latitude-range",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "argument",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "InvalidArgumentValue: point() latitude must be in the range [-90, 90]",
+      "cause": "A geographic `point()` with a latitude outside -90 to 90; longitude and latitude may be swapped.",
+      "remedy": "Pass the latitude as `latitude` (or `y`) and keep it within range.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The CLI prints it after `semantic error:`; the WebAssembly build after `type error:`.",
+      "sources": [
+        "public/wasm run",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "relate --mode envelope \"RETURN point({latitude: 91, longitude: 0}) AS p\"",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"argument\",\"message\":\"semantic error: InvalidArgumentValue: point() latitude must be in the range [-90, 90]\",\"retryable\":false}}\n",
+        "stderr": "semantic error: InvalidArgumentValue: point() latitude must be in the range [-90, 90]\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-no-transaction",
+      "surface": "engine",
+      "code": null,
+      "kind": null,
+      "exit_code": 1,
+      "retryable": false,
+      "gql_status": "42000",
+      "neo4j_code": "Neo.ClientError.Statement.SemanticError",
+      "message": "semantic error: no transaction",
+      "cause": "A commit or rollback with no explicit transaction open: `.commit` or `.rollback` in the shell, or `commit()`/`rollback()` in a client.",
+      "remedy": "Begin a transaction first, or drop the commit.",
+      "python_class": null,
+      "http_status": null,
+      "note": "The Java, Go, Swift and Node.js clients report it with GQL status `42000` and stage runtime; in a CLI script it stops the run with exit code 1.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08",
+        "@relate/relate 0.16.1 (ac441ec), source build",
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "printf '.commit\\n' | relate query",
+        "stdout": "",
+        "stderr": "semantic error: no transaction\n",
+        "exit": 1
+      }
+    },
+    {
+      "id": "engine-ontology-unsupported-version",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: Unsupported ontology spec version: '<uri>'. This version of Relate supports up to Ontology Graph Spec 1.1.0 ('https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json').",
+      "cause": "`db.ontology.set` got a document whose `schema` names a spec version this build does not support (preview: `RELATE_PREVIEW=ontology`).",
+      "remedy": "Write the document against Ontology Graph Spec 1.1.0 or earlier.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_PREVIEW=ontology relate --mode envelope --param 'ontology=schema: https://example.com/schema.json' 'CALL db.ontology.set($ontology)'",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: Unsupported ontology spec version: 'https://example.com/schema.json'. This version of Relate supports up to Ontology Graph Spec 1.1.0 ('https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json').\",\"retryable\":false}}\n",
+        "stderr": "semantic error: Unsupported ontology spec version: 'https://example.com/schema.json'. This version of Relate supports up to Ontology Graph Spec 1.1.0 ('https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json').\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-ontology-argument-type",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "type",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "type error: InvalidArgumentType: db.ontology.set argument `ontology` expects STRING",
+      "cause": "`db.ontology.set` got a map or another non-string value; the document is passed as one string (preview: `RELATE_PREVIEW=ontology`).",
+      "remedy": "Pass the document as a string.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_PREVIEW=ontology relate --mode envelope --param 'ontology={\"schema\": \"x\"}' 'CALL db.ontology.set($ontology)'",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: InvalidArgumentType: db.ontology.set argument `ontology` expects STRING\",\"retryable\":false}}\n",
+        "stderr": "type error: InvalidArgumentType: db.ontology.set argument `ontology` expects STRING\n",
+        "exit": 6
+      }
+    },
+    {
+      "id": "engine-ontology-user-database-only",
+      "surface": "engine",
+      "code": "validation_error",
+      "kind": "semantic",
+      "exit_code": 6,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "semantic error: SemanticError: Ontologies can only be stored for the user database 'neo4j'.",
+      "cause": "An ontology procedure called with the session on the `system` namespace (preview: `RELATE_PREVIEW=ontology`).",
+      "remedy": "Call it on `neo4j`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "relate 0.16.1 (ac441ec), source build"
+      ],
+      "recorded": {
+        "command": "RELATE_PREVIEW=ontology relate --namespace system --mode envelope 'CALL db.ontology.get()'",
+        "stdout": "{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: SemanticError: Ontologies can only be stored for the user database 'neo4j'.\",\"retryable\":false}}\n",
+        "stderr": "semantic error: SemanticError: Ontologies can only be stored for the user database 'neo4j'.\n",
+        "exit": 6
+      }
     }
   ],
   "http": [
@@ -2303,8 +3846,10 @@
       "python_class": null,
       "http_status": 404,
       "sources": [
-        "docs/api/http/spec.md"
-      ]
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
+      ],
+      "note": "An unknown path answers the message `not found`; an unknown namespace `semantic error: DatabaseNotFound: Graph not found: <name>`."
     },
     {
       "id": "http-transaction-expired",
@@ -2376,8 +3921,10 @@
       "python_class": null,
       "http_status": 400,
       "sources": [
-        "docs/api/http/spec.md"
-      ]
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
+      ],
+      "note": "Observed messages: a body over the 16 MiB cap is `malformed request: body too large`; a request line that is not HTTP/1.1 is `unsupported HTTP version HTTP/1.0: this surface answers HTTP/1.1`; a wrong method (405) is `method not allowed`."
     },
     {
       "id": "http-internal",
@@ -2395,6 +3942,82 @@
       "http_status": 500,
       "sources": [
         "docs/api/http/spec.md"
+      ]
+    },
+    {
+      "id": "http-unsupported-media-type",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42000",
+      "neo4j_code": null,
+      "message": "the request content type is browser-\"simple\" — a cross-origin form cannot send a non-simple type without a preflight",
+      "cause": "A `POST` with no `Content-Type`, or a browser-simple one (`text/plain` or a form type; `curl -d` sends `application/x-www-form-urlencoded`).",
+      "remedy": "Send `Content-Type: application/json`.",
+      "python_class": null,
+      "http_status": 415,
+      "sources": [
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
+      ]
+    },
+    {
+      "id": "http-origin-forbidden",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42000",
+      "neo4j_code": null,
+      "message": "origin is not allowed",
+      "cause": "A browser request whose `Origin` is not the server's own and not one `--origin` allows.",
+      "remedy": "Add the page's origin with `--origin`.",
+      "python_class": null,
+      "http_status": 403,
+      "sources": [
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
+      ]
+    },
+    {
+      "id": "http-read-transaction-write",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42000",
+      "neo4j_code": null,
+      "message": "writing is not allowed in a READ transaction",
+      "cause": "A write in a managed transaction begun with `\"accessMode\": \"READ\"`. It does not poison the transaction.",
+      "remedy": "Begin the transaction without `accessMode`, or with `WRITE`.",
+      "python_class": null,
+      "http_status": 400,
+      "sources": [
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
+      ]
+    },
+    {
+      "id": "http-transaction-not-found",
+      "surface": "http",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": "42000",
+      "neo4j_code": null,
+      "message": "transaction <id> not found",
+      "cause": "The transaction id was never issued, or the transaction was committed, rolled back or closed after a failed commit.",
+      "remedy": "Begin a new transaction.",
+      "python_class": null,
+      "http_status": 404,
+      "sources": [
+        "docs/api/http/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --http"
       ]
     }
   ],
@@ -2414,8 +4037,10 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "docs/api/bolt/spec.md"
-      ]
+        "docs/api/bolt/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --bolt"
+      ],
+      "note": "A Bolt 4.4 HELLO with a wrong or missing credential answers the message `authentication failed`; the message in this row is the Bolt 5.4 LOGON failure."
     },
     {
       "id": "bolt-request-invalid",
@@ -2445,7 +4070,7 @@
       "gql_status": null,
       "neo4j_code": "Neo.ClientError.General.TransactionOutOfMemoryError",
       "message": "query result exceeds max-result-bytes limit of <N> bytes",
-      "cause": "A result over `--max-result-bytes` (default 256 MiB).",
+      "cause": "A result over the Bolt server's fixed cap of 256 MiB of retained data per connection; `relate serve` has no flag that changes it.",
       "remedy": "Add `LIMIT` or page the result.",
       "python_class": null,
       "http_status": null,
@@ -2546,7 +4171,7 @@
       "retryable": null,
       "gql_status": null,
       "neo4j_code": null,
-      "message": null,
+      "message": "Method not found: <method>",
       "cause": "Unknown JSON-RPC method.",
       "remedy": "Use `initialize`, `ping`, `tools/list` or `tools/call`.",
       "python_class": null,
@@ -2565,7 +4190,7 @@
       "retryable": null,
       "gql_status": null,
       "neo4j_code": null,
-      "message": null,
+      "message": "Invalid params: <detail>",
       "cause": "Malformed `tools/call` params.",
       "remedy": "Match the tool's input schema.",
       "python_class": null,
@@ -2611,6 +4236,618 @@
       "jsonrpc_code": -32600,
       "sources": [
         "docs/api/mcp/spec.md"
+      ]
+    },
+    {
+      "id": "mcp-missing-statement",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "invalid params: missing string \"statement\"",
+      "cause": "A Cypher tool call without a `statement` string.",
+      "remedy": "Pass the statement as `statement`.",
+      "python_class": null,
+      "http_status": null,
+      "note": "A tool result with `isError: true`.",
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-parameters-not-object",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "invalid params: \"parameters\" must be an object",
+      "cause": "`parameters` is a string, list, number or boolean; `null` is accepted as no parameters.",
+      "remedy": "Pass `parameters` as an object, or leave it out.",
+      "python_class": null,
+      "http_status": null,
+      "note": "A tool result with `isError: true`.",
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-bad-sample-size",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "invalid params: sample_size must be -1 or non-negative, got <n>",
+      "cause": "`get_schema` with a negative `sample_size` other than -1.",
+      "remedy": "Pass -1 (every node) or a count of zero or more.",
+      "python_class": null,
+      "http_status": null,
+      "note": "A tool result with `isError: true`.",
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-http-unauthorized",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "{\"error\":\"authentication required\"}",
+      "cause": "The MCP HTTP transport got no credential, or the wrong one; the response carries `WWW-Authenticate: Basic realm=\"relate\"`.",
+      "remedy": "Send `Authorization: Basic` with the `serve` credential.",
+      "python_class": null,
+      "http_status": 401,
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-http-unsupported-media-type",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "{\"error\":\"the request content type is browser-\\\"simple\\\" — a cross-origin form cannot send a non-simple type without a preflight\"}",
+      "cause": "A `POST` to the MCP HTTP transport with no `Content-Type`, or `text/plain` or a form type.",
+      "remedy": "Send `Content-Type: application/json`.",
+      "python_class": null,
+      "http_status": 415,
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-http-origin-forbidden",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "{\"error\":\"origin is not allowed\"}",
+      "cause": "A browser request to the MCP HTTP transport from an origin `--origin` does not allow.",
+      "remedy": "Send the request without an `Origin` header or from a loopback origin; the MCP transport has no `--origin` setting.",
+      "python_class": null,
+      "http_status": 403,
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    },
+    {
+      "id": "mcp-http-method-not-allowed",
+      "surface": "mcp",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": null,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "{\"error\":\"streamable HTTP MCP is POST-only\"}",
+      "cause": "A `GET` or another method on the MCP HTTP endpoint; the response carries `Allow: POST`.",
+      "remedy": "Send JSON-RPC requests with `POST`.",
+      "python_class": null,
+      "http_status": 405,
+      "sources": [
+        "docs/api/mcp/spec.md",
+        "relate 0.16.1 (ac441ec), source build, relate serve --mcp"
+      ]
+    }
+  ],
+  "client": [
+    {
+      "id": "node-params-not-object",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params must be a plain object",
+      "cause": "The second argument of `query` is not a plain object (an array, a class instance, a string).",
+      "remedy": "Pass parameters as a plain object, `{ name: value }`.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-extra-arguments",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query takes (cypher, params?) — extra arguments",
+      "cause": "`query` got more than a statement and a parameters object.",
+      "remedy": "Put every parameter in the one object.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-not-a-statement",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query expects a Cypher string or a tagged template",
+      "cause": "`query` got neither a string nor a tagged template.",
+      "remedy": "Pass the statement as a string, or call it as a tagged template.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-param-not-cypher",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> cannot be a Cypher parameter",
+      "cause": "A parameter value has no Cypher type: a function, a symbol, `undefined` inside a list, and similar.",
+      "remedy": "Convert the value to a number, string, boolean, list, plain object or one of the client's value classes.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-param-map-not-object",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> must be a plain object",
+      "cause": "A nested map value is not a plain object.",
+      "remedy": "Pass nested maps as plain objects.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-param-int64-range",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> is an integer outside the int64 range",
+      "cause": "A `BigInt` parameter outside the 64-bit signed range.",
+      "remedy": "Keep integers within -2^63 to 2^63 - 1.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-param-cyclic",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> is cyclic",
+      "cause": "A parameter list or object refers to itself.",
+      "remedy": "Pass a value without cycles.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-vector-coordinate-integer",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> coordinate <i> must be an integer for dtype <dtype>",
+      "cause": "A vector parameter with an integer `dtype` holds a coordinate that is not an integer.",
+      "remedy": "Use whole numbers, or a float `dtype`.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-vector-coordinate-number",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "query params: <path> coordinate <i> must be a number for dtype <dtype>",
+      "cause": "A vector parameter with a float `dtype` holds a coordinate that is not a number.",
+      "remedy": "Use numbers for every coordinate.",
+      "python_class": null,
+      "http_status": null,
+      "name": "TypeError",
+      "note": "`<path>` is the parameter name in double quotes, plus `[<i>]` or `.<key>` for a nested value.",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-sync-while-async",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "a synchronous <call> cannot start while an async query is in flight on this connection",
+      "cause": "A synchronous call on a connection while one of its async queries has not settled. `code`, `gqlStatus` and `stage` are null.",
+      "remedy": "Await the async query first, or use another connection.",
+      "python_class": null,
+      "http_status": null,
+      "name": "RelateError",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "node-ffi-not-found",
+      "surface": "node",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/<platform>-<arch> (lib/ directory), (3) the repo target/debug and target/release directories. Set RELATE_LIB to the library path.",
+      "cause": "The native library is not installed for this platform: the optional platform package was skipped, or the platform has none.",
+      "remedy": "Install the package again with optional dependencies, or set `RELATE_LIB` to the library path.",
+      "python_class": null,
+      "http_status": null,
+      "name": "Error",
+      "sources": [
+        "clients/javascript/{index.js,values.js,errors.js} at ac441ec",
+        "@relate/relate 0.16.1 (ac441ec), source build, runs on Node.js 25"
+      ]
+    },
+    {
+      "id": "wasm-opfs-needs-worker",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "storage error: OPFS needs a dedicated worker",
+      "cause": "`RelateDb.open()` ran on the page's thread, or in a shared or service worker.",
+      "remedy": "Run the engine in a dedicated worker.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-opfs-name",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "OPFS name must be 1-64 characters from [A-Za-z0-9_-]",
+      "cause": "The name after `opfs://` is empty, too long, or has another character (`opfs://team.rl`, `opfs://a/b`).",
+      "remedy": "Use letters, digits, `_` and `-` only.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-opfs-uri",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "OPFS open requires an opfs://name URI; use new RelateDb() for :memory:",
+      "cause": "`RelateDb.open()` got a path, a `file://` URL or `:memory:`; the browser build opens only OPFS and in-memory stores.",
+      "remedy": "Pass `opfs://<name>`, or use `new RelateDb()` for an in-memory store.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-opfs-locked",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "storage locked: opfs://<name>",
+      "cause": "Another handle holds the store, from any worker of the same origin, in this tab or another.",
+      "remedy": "Send statements to the worker that holds it, or free that handle first.",
+      "python_class": null,
+      "http_status": null,
+      "note": "`prepareOpfs` throws the same message with `name` `RelateLocked`.",
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-opfs-unavailable",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "storage error: OPFS is not available in this browser",
+      "cause": "The worker has no `navigator.storage.getDirectory`.",
+      "remedy": "Use an in-memory store in this browser.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-read-only-reset",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "database is read-only",
+      "cause": "`reset()` on a handle opened read-only.",
+      "remedy": "Open the store writable to reset it.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-use-after-free",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "null pointer passed to rust",
+      "cause": "A call on a handle after `free()`.",
+      "remedy": "Open a new handle.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-invalid-params-json",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "invalid params JSON: <detail>",
+      "cause": "The parameters string passed to `query` does not parse as JSON. It comes back as an error envelope, not a throw.",
+      "remedy": "Pass `JSON.stringify` of an object.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-params-not-object",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "params must be a JSON object",
+      "cause": "The parameters string parses, but not to an object. It comes back as an error envelope.",
+      "remedy": "Pass a JSON object.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-fetch-failed",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "failed to fetch Wasm: <status> <statusText> fetching '<url>'",
+      "cause": "`init` fetched `relate_bg.wasm` and got a non-2xx status, such as `404 Not Found` when the file is not beside `relate.js`.",
+      "remedy": "Serve `relate_bg.wasm` beside `relate.js`, or pass its URL to `init`.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "wasm-envelope-no-columns",
+      "surface": "browser",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "envelope <i>: no `columns` array",
+      "cause": "`renderResult` got an entry, counted from 0, that is JSON without a `columns` array, such as `{}`.",
+      "remedy": "Pass the text `query` returned.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "docs/api/wasm/spec.md",
+        "public/wasm (relate 0.16.1, ac441ec) run in Chrome 157 and Node.js, 2026-11-08"
+      ]
+    },
+    {
+      "id": "c-null-out-pointer",
+      "surface": "c",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "null out pointer",
+      "cause": "A C ABI call got a NULL output pointer where it writes a result, such as `relate_conn_commit` with a NULL `bookmark_out`.",
+      "remedy": "Pass a pointer to a variable for the call to fill.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "surfaces/relate-ffi/include/relate.h at ac441ec",
+        "C and Rust sample runs against librelate_ffi (relate 0.16.1), 2026-11-08"
+      ]
+    },
+    {
+      "id": "c-ffi-internal-error",
+      "surface": "c",
+      "code": null,
+      "kind": null,
+      "exit_code": null,
+      "retryable": false,
+      "gql_status": null,
+      "neo4j_code": null,
+      "message": "ffi internal error: <message>",
+      "cause": "The stderr line `RELATE_FFI_LOG` prints for an internal failure behind a C ABI call.",
+      "remedy": "Report it with the message; the call returned an error object.",
+      "python_class": null,
+      "http_status": null,
+      "sources": [
+        "surfaces/relate-ffi/include/relate.h at ac441ec",
+        "C and Rust sample runs against librelate_ffi (relate 0.16.1), 2026-11-08"
       ]
     }
   ],
@@ -2718,17 +4955,176 @@
       }
     ],
     "messages": [
-      "query parameters must be a dict …",
-      "… keys must be strings …"
+      "query parameters must be a dict mapping string keys to values, got '<type>'",
+      "query parameter keys must be strings, got a key of type '<type>'",
+      "map keys must be strings, got a key of type '<type>'",
+      "Relate cannot convert a parameter of Python type '<type>' to a graph value",
+      "integer parameter is out of range for a 64-bit Relate integer",
+      "timedelta parameter field '<field>' is out of range for a 64-bit Relate duration",
+      "parameter contains a cycle: a list or map references itself",
+      "parameter nesting exceeds the maximum depth of 128",
+      "Cannot operate on a closed connection",
+      "expected exactly one row, got <n>",
+      "Relate connection used from a thread other than the one that opened it: connections are thread-affine (DB-API threadsafety = 1). Create the connection on the thread that uses it."
     ],
     "sources": [
       "docs/api/python/spec.md",
       "surfaces/relate-python/python/relate/exceptions.py",
       "surfaces/relate-cli/src/skill/bundle/references/client-python.md",
-      "settled on surfaces/relate-python/python/relate/exceptions.py at upstream ac441ec: a syntax error raises ProgrammingError; RelateError is an alias of Error"
-    ]
+      "settled on surfaces/relate-python/python/relate/exceptions.py at upstream ac441ec: a syntax error raises ProgrammingError; RelateError is an alias of Error",
+      "surfaces/relate-python/python/relate/{connection.py,cursor.py,exceptions.py} and src/{lib.rs,convert.rs} at ac441ec, plus runs of relate-db 0.16.1 on 2026-11-08"
+    ],
+    "message_notes": "ProgrammingError: the parameter-shape, map-key, conversion, closed-connection and wrong-thread (kind WrongThread) messages. DataError: the integer and timedelta range messages (the timedelta one only from a subclass that overrides days, seconds or microseconds). A plain ValueError, not a relate.Error subclass: the cycle and depth messages. ResultNotSingleError: `expected exactly one row`."
   },
   "notifications": [
+    {
+      "id": "notif-00na0",
+      "gql_status": "00NA0",
+      "code": "Neo.ClientNotification.Schema.IndexOrConstraintAlreadyExists",
+      "severity": "INFORMATION",
+      "category": "SCHEMA",
+      "title": "Index or constraint already exists"
+    },
+    {
+      "id": "notif-00na1",
+      "gql_status": "00NA1",
+      "code": "Neo.ClientNotification.Schema.IndexOrConstraintDoesNotExist",
+      "severity": "INFORMATION",
+      "category": "SCHEMA",
+      "title": "Index or constraint does not exist"
+    },
+    {
+      "id": "notif-00na2",
+      "gql_status": "00NA2",
+      "code": "Neo.ClientNotification.Schema.VectorIndexDimensionsNotSpecified",
+      "severity": "INFORMATION",
+      "category": "SCHEMA",
+      "title": "Vector index dimensions not specified"
+    },
+    {
+      "id": "notif-01n00",
+      "gql_status": "01N00",
+      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
+      "name": "CallSubqueryWithoutScope / MergeSelfReference / CreateSelfReference",
+      "category": "DEPRECATION",
+      "severity": "WARNING"
+    },
+    {
+      "id": "notif-01n01",
+      "gql_status": "01N01",
+      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
+      "name": "DeprecatedFunction / DeprecatedProcedure / AmbiguousSubclauseReference / ComplexSubclauseReference",
+      "category": "DEPRECATION",
+      "severity": "WARNING"
+    },
+    {
+      "id": "notif-01n30",
+      "gql_status": "01N30",
+      "code": "Neo.ClientNotification.Statement.JoinHintUnfulfillableWarning",
+      "severity": "WARNING",
+      "category": "HINT",
+      "title": "The database was unable to plan a hinted join.",
+      "note": "relate 0.16.1 was not observed to emit it."
+    },
+    {
+      "id": "notif-01n31",
+      "gql_status": "01N31",
+      "code": "Neo.ClientNotification.Schema.HintedIndexNotFound",
+      "severity": "WARNING",
+      "category": "HINT",
+      "title": "The request (directly or indirectly) referred to an index that does not exist.",
+      "note": "relate 0.16.1 was not observed to emit it."
+    },
+    {
+      "id": "notif-01n50",
+      "gql_status": "01N50",
+      "code": "Neo.ClientNotification.Statement.UnknownLabelWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED",
+      "title": "Unknown label"
+    },
+    {
+      "id": "notif-01n51",
+      "gql_status": "01N51",
+      "code": "Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED",
+      "title": "Unknown relationship type"
+    },
+    {
+      "id": "notif-01n52",
+      "gql_status": "01N52",
+      "code": "Neo.ClientNotification.Statement.UnknownPropertyKeyWarning",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED",
+      "title": "Unknown property key"
+    },
+    {
+      "id": "notif-01n61",
+      "gql_status": "01N61",
+      "code": "Neo.ClientNotification.Statement.UnsatisfiableRelationshipTypeExpression",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED",
+      "title": "Unsatisfiable relationship type expression"
+    },
+    {
+      "id": "notif-01n63",
+      "gql_status": "01N63",
+      "code": "Neo.ClientNotification.Statement.RepeatedRelationshipVariable",
+      "severity": "WARNING",
+      "category": "UNRECOGNIZED",
+      "title": "Repeated relationship pattern variable"
+    },
+    {
+      "id": "notif-03c90",
+      "gql_status": "03C90",
+      "code": "Relate.Notification.Statement.AllNodesScan",
+      "category": "PERFORMANCE",
+      "severity": "INFORMATION",
+      "title": "All nodes scan"
+    },
+    {
+      "id": "notif-03c91",
+      "gql_status": "03C91",
+      "code": "Relate.Notification.Statement.MissingIndex",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE",
+      "title": "Missing index"
+    },
+    {
+      "id": "notif-03c92",
+      "gql_status": "03C92",
+      "code": "Relate.Notification.Statement.EagerAggregation",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE",
+      "title": "Eager aggregation"
+    },
+    {
+      "id": "notif-03c93",
+      "gql_status": "03C93",
+      "name": "EstimationMiss",
+      "category": "PERFORMANCE",
+      "note": "PROFILE only.",
+      "code": "Relate.Notification.Statement.EstimationMiss",
+      "severity": "INFORMATION",
+      "title": "Estimation miss"
+    },
+    {
+      "id": "notif-03n60",
+      "gql_status": "03N60",
+      "code": "Neo.ClientNotification.Statement.SubqueryVariableShadowing",
+      "severity": "INFORMATION",
+      "category": "UNRECOGNIZED",
+      "title": "Subquery variable shadowing"
+    },
+    {
+      "id": "notif-03n63",
+      "gql_status": "03N63",
+      "code": "Neo.ClientNotification.Statement.IdentifierShadowingVariable",
+      "severity": "INFORMATION",
+      "category": "UNRECOGNIZED",
+      "title": "Identifier shadowing variable"
+    },
     {
       "id": "notif-03n90",
       "gql_status": "03N90",
@@ -2742,69 +5138,24 @@
       "gql_status": "03N91",
       "code": "Neo.ClientNotification.Statement.UnboundedVariableLengthPattern",
       "severity": "INFORMATION",
-      "category": "PERFORMANCE"
-    },
-    {
-      "id": "notif-01n50",
-      "gql_status": "01N50",
-      "code": "Neo.ClientNotification.Statement.UnknownLabelWarning",
-      "severity": "WARNING",
-      "category": "UNRECOGNIZED"
-    },
-    {
-      "id": "notif-01n51",
-      "gql_status": "01N51",
-      "code": "Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning",
-      "severity": "WARNING",
-      "category": "UNRECOGNIZED"
-    },
-    {
-      "id": "notif-01n52",
-      "gql_status": "01N52",
-      "code": "Neo.ClientNotification.Statement.UnknownPropertyKeyWarning",
-      "severity": "WARNING",
-      "category": "UNRECOGNIZED"
-    },
-    {
-      "id": "notif-01n00",
-      "gql_status": "01N00",
-      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
-      "name": "CallSubqueryWithoutScope",
-      "category": "DEPRECATION"
-    },
-    {
-      "id": "notif-01n01",
-      "gql_status": "01N01",
-      "code": "Neo.ClientNotification.Statement.FeatureDeprecationWarning",
-      "name": "DeprecatedFunction / DeprecatedProcedure",
-      "category": "DEPRECATION"
-    },
-    {
-      "id": "notif-03c90",
-      "gql_status": "03C90",
-      "code": "Relate.Notification.Statement.AllNodesScan",
-      "category": "PERFORMANCE"
-    },
-    {
-      "id": "notif-03c91",
-      "gql_status": "03C91",
-      "code": "Relate.Notification.Statement.MissingIndex",
-      "severity": "INFORMATION",
-      "category": "PERFORMANCE"
-    },
-    {
-      "id": "notif-03c92",
-      "gql_status": "03C92",
-      "code": "Relate.Notification.Statement.EagerAggregation",
-      "severity": "INFORMATION",
-      "category": "PERFORMANCE"
-    },
-    {
-      "id": "notif-03c93",
-      "gql_status": "03C93",
-      "name": "EstimationMiss",
       "category": "PERFORMANCE",
-      "note": "PROFILE only."
+      "title": "Unbounded variable-length pattern"
+    },
+    {
+      "id": "notif-03n92",
+      "gql_status": "03N92",
+      "code": "Neo.ClientNotification.Statement.ExhaustiveShortestPath",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE",
+      "title": "Exhaustive shortest path"
+    },
+    {
+      "id": "notif-03n95",
+      "gql_status": "03N95",
+      "code": "Neo.ClientNotification.Statement.DynamicProperty",
+      "severity": "INFORMATION",
+      "category": "PERFORMANCE",
+      "title": "Queries using dynamic properties will use neither index seeks nor index scans for those properties"
     }
   ],
   "gql_status_index": {
@@ -2812,7 +5163,12 @@
       "http-general",
       "engine-storage-locked",
       "engine-already-in-transaction",
-      "engine-transaction-failed-rollback-required"
+      "engine-transaction-failed-rollback-required",
+      "engine-no-transaction",
+      "http-unsupported-media-type",
+      "http-origin-forbidden",
+      "http-read-transaction-write",
+      "http-transaction-not-found"
     ],
     "22G03": [
       "cli-validation-error-type",
@@ -2834,7 +5190,8 @@
       "engine-system-ontologies-not-queryable"
     ],
     "42N18": [
-      "engine-system-ontologies-write"
+      "engine-system-ontologies-write",
+      "engine-write-on-read-only"
     ],
     "42N48": [
       "engine-unknown-function"

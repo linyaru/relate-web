@@ -1,4 +1,176 @@
 ---
 title: relate run
-status: planned
+description: The relate run command, which runs an installed extension action into a store relate owns, with its arguments, the action's flags, refusals and exit codes.
+order: 160
+surfaces: [cli, extensions]
+related: [reference/cli/extension, guides/extensions/install-and-run, guides/extensions/write-an-extension, guides/extensions/git-to-graph, guides/extensions/fs-to-graph, reference/cli/exit-codes-and-errors]
 ---
+
+`relate run <name>` runs an installed :term[extension]{id=extension} action and imports what it produces into a :term[store]{id=store}. The extension is a separate program: relate starts it, hands it the action's flag values, and answers its requests over the :term[Model Context Protocol]{id=mcp} on stdin and stdout. relate alone opens the store, enforces the limits and sets the :term[exit code]{id=exit-code}; the extension never sees the store's path. Without `--database`, the import goes into an :term[in-memory store]{id=in-memory-store}. `relate run` never fetches anything: an action that is not installed fails, and [`relate extension install`](/docs/reference/cli/extension#install) is the command that installs one.
+
+## Synopsis
+
+```text
+relate run <name> [-d PATH] [<positional>] [--<flag> VALUE ...]
+relate run <name> --help
+relate run --help
+```
+
+| Input | Required | Meaning |
+| --- | --- | --- |
+| `<name>` | yes | The installed action: the `name` in the package's `extension.json` |
+| `-d`, `--database PATH` | no | The store to import into; default `:memory:` |
+| `<positional>` | no | One positional argument, when the action's manifest declares one |
+| `--<flag>` | no | The action's own flags, from its manifest |
+| `--help` | no | After `<name>`, the action's usage and flags with their kinds and defaults; without a name, the command's page with the list of installed actions |
+
+## Options
+
+<Flags command="run" />
+
+| `--database` | After the import |
+| --- | --- |
+| A path | The store takes its final checkpoint and the command exits |
+| Omitted, stdin a terminal | The interactive shell opens on the in-memory graph, with the action's starter statements |
+| Omitted, stdin not a terminal | The command exits and nothing is kept |
+
+## The action and its flags
+
+The flags an action accepts are its manifest's `flags` table. Each entry has a kind, a name and a default; a flag left off the command line takes its default.
+
+| Kind | On the command line | Value |
+| --- | --- | --- |
+| `string` | `--<name> VALUE` | The text |
+| `integer` | `--<name> N` | A whole number; anything else is a usage error naming the flag and the value |
+| `boolean` | `--<name>` | `true` when present |
+| `repeatable` | `--<name> VALUE`, once per value | A list of the values given |
+
+A manifest that declares a flag twice, or a flag named `database` or `db`, is refused, because `-d` and `--database` belong to relate. A manifest declares at most one positional argument.
+
+## What happens during a run
+
+| Step | What relate does |
+| --- | --- |
+| 1. Find the action | Reads every package under the extensions directory (`$XDG_CONFIG_HOME/relate/extensions/`, else `~/.config/relate/extensions/`). A package that fails to load fails every `relate run`, help pages included |
+| 2. Parse the command line | Against the action's manifest |
+| 3. Open the store | The `--database` target, or `:memory:` |
+| 4. Fresh-store check | An action whose manifest sets `requires-fresh-store` is refused when the target already holds nodes, before the extension starts |
+| 5. Start the extension | Runs the manifest's executable with no shell and no arguments, and writes one JSON line to its stdin: each flag's value and the positional, by name |
+| 6. Serve its requests | Answers `initialize`, then the tool calls `write_cypher`, `read_cypher`, `update_schema`, `batch_cypher` and `report_output`, writing through relate's own store |
+| 7. Print the summary | The text the extension gave `report_output`, then each starter statement on its own line, indented two spaces |
+
+The manifest's `commit` policy frames the writes. Under `whole-import`, the whole run is one transaction, and any failure rolls all of it back. Under `per-batch`, each writing call commits when it lands, so the calls before a failure stay committed.
+
+From the extensions specification, not from a run, relate holds every extension to these limits; a call over a limit is refused before it writes:
+
+| Limit | Value |
+| --- | --- |
+| One statement, and one line of a response | 8 MiB |
+| Rows in one `write_cypher` call | 1000 |
+| Statements in one `batch_cypher` call | 4096 |
+| Bytes across the whole session | 128 MiB |
+
+The extension's stderr is kept up to 64 KiB and shown in a failure's error. Usage metrics name the command `run` with the action `extension`, never the action's own name; `DO_NOT_TRACK=1` sends none.
+
+## What it refuses
+
+| Case | Exit code | Message |
+| --- | --- | --- |
+| No action name, nothing installed | 2 | `Error: run requires an action name (no actions installed; relate extension install <name> adds one)` |
+| A name that is not installed | 2 | `Error: no installed action '<name>' — first-party extension available: relate extension install <name>`, printed for any name the registry does not hold; nothing is fetched to produce it |
+| An unknown flag | 2 | `Error: unexpected argument to run <name>: <flag>`, with `Did you mean '<flag>'?` when a flag of the action is close |
+| A positional the action does not declare | 2 | `Error: unexpected argument to run <name>: <argument>` |
+| A package that fails to load: a malformed manifest, a name that collides, an executable outside the package, another protocol revision | 2 | The refusal, which names the package |
+| A target that is not fresh, for an action that requires one | 1 | `the extension '<name>' requires a fresh store, but the target holds <n> nodes` |
+| The extension breaks the protocol, exceeds a session limit, exits non-zero or is killed | 1 | One `Error:` line |
+
+A usage error (exit code 2) is followed by the usage line, the action's own when the name resolved, and `Run 'relate run --help' for more information.` (or the action's help hint). A refused single call, such as an unknown tool or one statement over its limit, is answered to the extension as an error and does not end the run.
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | The extension finished and the summary printed |
+| 1 | A runtime failure: the work started and failed, or the fresh-store check refused the target |
+| 2 | A usage error: before anything ran |
+
+## Examples
+
+The examples run in a fresh directory with a fresh home and no `XDG_CONFIG_HOME`. With nothing installed, a bare `relate run` names the install command:
+
+```bash verify
+relate run
+echo "exit=$?"
+```
+
+```text
+Error: run requires an action name (no actions installed; relate extension install <name> adds one)
+Usage: relate run <name> [flags]
+Run 'relate run --help' for more information.
+exit=2
+```
+
+The remaining examples use a package scaffolded and installed by [`relate extension`](/docs/reference/cli/extension). Its one flag is `--name`, and its sample writes one `:Scaffold` node:
+
+```bash verify
+relate extension init team-import --lang sh > /dev/null
+relate extension install team-import --from ./team-import > /dev/null
+```
+
+The run imports into `team.rl`, prints the extension's summary and its starter statement, and exits:
+
+```bash verify
+relate run team-import -d ./team.rl --name Ada
+```
+
+```text
+team-import: Hello Ada world! — wrote 1 sample node(s)
+  MATCH (n:Scaffold) RETURN n
+```
+
+The store holds what the extension wrote; this command reads it without the right to write:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (n:Scaffold) RETURN n.id AS id, n.note AS note"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["id","note"],"notifications":[],"rows":[{"id":"example","note":"Ada"}],"truncated":false}
+```
+
+A misspelled flag gets a suggestion from the action's own flags, and the usage line is the action's:
+
+```bash verify
+relate run team-import --nam Ada
+echo "exit=$?"
+```
+
+```text
+Error: unexpected argument to run team-import: --nam
+Did you mean '--name'?
+Usage: relate run team-import [--name VALUE]
+Run 'relate run team-import --help' for more information.
+exit=2
+```
+
+A name that is not installed fails without fetching anything:
+
+```bash verify
+relate run git-to-graph
+echo "exit=$?"
+```
+
+```text
+Error: no installed action 'git-to-graph' — first-party extension available: relate extension install git-to-graph
+Usage: relate run <name> [flags]
+Run 'relate run --help' for more information.
+exit=2
+```
+
+## See also
+
+- [`relate extension`](/docs/reference/cli/extension): scaffold, check, install, list, and remove packages
+- [Install and run an extension](/docs/guides/extensions/install-and-run): the task from install to a first query
+- [Write an extension](/docs/guides/extensions/write-an-extension): the manifest, the protocol and `walk()`
+- [The git-to-graph extension](/docs/guides/extensions/git-to-graph) and [the fs-to-graph extension](/docs/guides/extensions/fs-to-graph): the first-party actions
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit codes every command shares

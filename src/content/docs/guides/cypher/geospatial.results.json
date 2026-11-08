@@ -1,0 +1,484 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 8, properties set: 24, labels added: 8",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 8,
+          "labels_removed": 0,
+          "nodes_created": 8,
+          "nodes_deleted": 0,
+          "properties_set": 24,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "read-point": {
+      "kind": "table",
+      "text": "| srid | crs      | latitude | longitude |\n|------|----------|----------|-----------|\n| 4326 | \"wgs-84\" | 45.5231  | -122.6765 |\n1 row",
+      "table": {
+        "columns": [
+          "srid",
+          "crs",
+          "latitude",
+          "longitude"
+        ],
+        "numeric": [
+          true,
+          false,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "4326",
+            "\"wgs-84\"",
+            "45.5231",
+            "-122.6765"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "STRING",
+          "FLOAT",
+          "FLOAT"
+        ],
+        "columns": [
+          "srid",
+          "crs",
+          "latitude",
+          "longitude"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "crs": "wgs-84",
+            "latitude": 45.5231,
+            "longitude": -122.6765,
+            "srid": 4326
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "distance": {
+      "kind": "table",
+      "text": "| km    |\n|-------|\n| 233.8 |\n1 row",
+      "table": {
+        "columns": [
+          "km"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "233.8"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "FLOAT"
+        ],
+        "columns": [
+          "km"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "km": 233.8
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "radius": {
+      "kind": "table",
+      "text": "| name               | kind      | meters |\n|--------------------|-----------|--------|\n| \"Riverside Office\" | \"office\"  | 0.0    |\n| \"Bean There\"       | \"cafe\"    | 393.0  |\n| \"Harbor Library\"   | \"library\" | 532.0  |\n| \"Ferry Cafe\"       | \"cafe\"    | 1844.0 |\n4 rows",
+      "table": {
+        "columns": [
+          "name",
+          "kind",
+          "meters"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Riverside Office\"",
+            "\"office\"",
+            "0.0"
+          ],
+          [
+            "\"Bean There\"",
+            "\"cafe\"",
+            "393.0"
+          ],
+          [
+            "\"Harbor Library\"",
+            "\"library\"",
+            "532.0"
+          ],
+          [
+            "\"Ferry Cafe\"",
+            "\"cafe\"",
+            "1844.0"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "name",
+          "kind",
+          "meters"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "kind": "office",
+            "meters": 0,
+            "name": "Riverside Office"
+          },
+          {
+            "kind": "cafe",
+            "meters": 393,
+            "name": "Bean There"
+          },
+          {
+            "kind": "library",
+            "meters": 532,
+            "name": "Harbor Library"
+          },
+          {
+            "kind": "cafe",
+            "meters": 1844,
+            "name": "Ferry Cafe"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "nearest": {
+      "kind": "table",
+      "text": "| cafe               | km  |\n|--------------------|-----|\n| \"Bean There\"       | 0.4 |\n| \"Ferry Cafe\"       | 1.8 |\n| \"Hilltop Roasters\" | 2.9 |\n3 rows",
+      "table": {
+        "columns": [
+          "cafe",
+          "km"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Bean There\"",
+            "0.4"
+          ],
+          [
+            "\"Ferry Cafe\"",
+            "1.8"
+          ],
+          [
+            "\"Hilltop Roasters\"",
+            "2.9"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "cafe",
+          "km"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "cafe": "Bean There",
+            "km": 0.4
+          },
+          {
+            "cafe": "Ferry Cafe",
+            "km": 1.8
+          },
+          {
+            "cafe": "Hilltop Roasters",
+            "km": 2.9
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "bbox": {
+      "kind": "table",
+      "text": "| name               |\n|--------------------|\n| \"Bean There\"       |\n| \"Ferry Cafe\"       |\n| \"Harbor Library\"   |\n| \"Riverside Office\" |\n4 rows",
+      "table": {
+        "columns": [
+          "name"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"Bean There\""
+          ],
+          [
+            "\"Ferry Cafe\""
+          ],
+          [
+            "\"Harbor Library\""
+          ],
+          [
+            "\"Riverside Office\""
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "name"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Bean There"
+          },
+          {
+            "name": "Ferry Cafe"
+          },
+          {
+            "name": "Harbor Library"
+          },
+          {
+            "name": "Riverside Office"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-index": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "verify": {
+      "kind": "table",
+      "text": "| name        | type    | labelsOrTypes | properties | state    |\n|-------------|---------|---------------|------------|----------|\n| \"place_loc\" | \"POINT\" | [\"Place\"]     | [\"loc\"]    | \"ONLINE\" |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"place_loc\"",
+            "\"POINT\"",
+            "[\"Place\"]",
+            "[\"loc\"]",
+            "\"ONLINE\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labelsOrTypes": [
+              "Place"
+            ],
+            "name": "place_loc",
+            "properties": [
+              "loc"
+            ],
+            "state": "ONLINE",
+            "type": "POINT"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

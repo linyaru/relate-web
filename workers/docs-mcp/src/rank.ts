@@ -18,14 +18,21 @@ export function queryWords(q: string): string[] {
 
 /**
  * The rank of a candidate section: ten times the share of the query's words
- * that are words of its heading, plus the engine's full-text score divided
- * by log2(2 + the section's length in characters). A section whose heading
- * names the query ranks first; among the rest, a dense short section beats
- * a long one that mentions the words in passing.
+ * that are words of its heading (recall), times one plus the share of the
+ * heading's own words, stopwords dropped, that are query words (precision);
+ * plus the engine's full-text score divided by log2(2 + the section's length
+ * in characters). A section whose heading names the query ranks first, and
+ * the heading that is the query ("Exit codes") before one that names it
+ * among other words ("Errors and exit codes"); among the rest, a dense short
+ * section beats a long one that mentions the words in passing.
  */
 export function rankScore(words: string[], heading: string, score: number, length: number | null | undefined): number {
-  const own = new Set(tokens(heading));
-  const hits = words.filter((w) => own.has(w)).length;
-  return (10 * hits) / Math.max(words.length, 1) + Number(score) / Math.log2(2 + (length ?? 1000));
+  const own = tokens(heading);
+  const ownSet = new Set(own);
+  const hits = words.filter((w) => ownSet.has(w)).length;
+  const recall = hits / Math.max(words.length, 1);
+  const query = new Set(words);
+  const named = [...new Set(own.filter((t) => !STOPWORDS.has(t)))];
+  const precision = named.filter((t) => query.has(t)).length / Math.max(named.length, 1);
+  return 10 * recall * (1 + precision) + Number(score) / Math.log2(2 + (length ?? 1000));
 }
-

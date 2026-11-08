@@ -20,8 +20,8 @@
 //
 // Each rule's severity is configurable: `DEFAULT_SEVERITY` below, then the
 // `severity` option, then DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>[,…]
-// in the environment. graph-cli is a warning until the CLI reference pages
-// exist (DOCS-PLAN.md §10, phase 1 part B); make it an error then.
+// in the environment. graph-cli was a warning until the CLI reference pages
+// existed (DOCS-PLAN.md §10); since phase 2 part B it is an error.
 //
 // Synchronous, so it can run inside a synchronous check runner: the WASM
 // bundle is loaded with require() (Node ≥ 22.12 loads an ES module that way),
@@ -46,7 +46,7 @@ export const DEFAULT_SEVERITY: Record<GraphRule, Severity | 'off'> = {
   'graph-seed': 'error',
   'graph-orphan': 'error',
   'graph-unlinked': 'warning',
-  'graph-cli': 'warning',
+  'graph-cli': 'error',
   'graph-prereq': 'error',
   'graph-prereq-cycle': 'error',
   'graph-term': 'error',

@@ -1,0 +1,466 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 12, relationships created: 17, properties set: 37, labels added: 12",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 12,
+          "labels_removed": 0,
+          "nodes_created": 12,
+          "nodes_deleted": 0,
+          "properties_set": 37,
+          "relationships_created": 17,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "indexes": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 4",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "co-changed": {
+      "kind": "table",
+      "text": "| file                    | co_changed            | times |\n|-------------------------|-----------------------|-------|\n| \"planner/src/main.rs\"   | \"planner/src/plan.rs\" | 2     |\n| \"planner/README.md\"     | \"planner/src/main.rs\" | 1     |\n| \"planner/docs/costs.md\" | \"planner/src/plan.rs\" | 1     |\n3 rows",
+      "table": {
+        "columns": [
+          "file",
+          "co_changed",
+          "times"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"planner/src/main.rs\"",
+            "\"planner/src/plan.rs\"",
+            "2"
+          ],
+          [
+            "\"planner/README.md\"",
+            "\"planner/src/main.rs\"",
+            "1"
+          ],
+          [
+            "\"planner/docs/costs.md\"",
+            "\"planner/src/plan.rs\"",
+            "1"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "file",
+          "co_changed",
+          "times"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "co_changed": "planner/src/plan.rs",
+            "file": "planner/src/main.rs",
+            "times": 2
+          },
+          {
+            "co_changed": "planner/src/main.rs",
+            "file": "planner/README.md",
+            "times": 1
+          },
+          {
+            "co_changed": "planner/src/plan.rs",
+            "file": "planner/docs/costs.md",
+            "times": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "alongside": {
+      "kind": "table",
+      "text": "| coupled                 | times |\n|-------------------------|-------|\n| \"planner/src/main.rs\"   | 2     |\n| \"planner/docs/costs.md\" | 1     |\n2 rows",
+      "table": {
+        "columns": [
+          "coupled",
+          "times"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"planner/src/main.rs\"",
+            "2"
+          ],
+          [
+            "\"planner/docs/costs.md\"",
+            "1"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "coupled",
+          "times"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "coupled": "planner/src/main.rs",
+            "times": 2
+          },
+          {
+            "coupled": "planner/docs/costs.md",
+            "times": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "hotspots": {
+      "kind": "table",
+      "text": "| file                    | commits |\n|-------------------------|---------|\n| \"planner/src/main.rs\"   | 3       |\n| \"planner/src/plan.rs\"   | 3       |\n| \"planner/README.md\"     | 2       |\n| \"planner/docs/costs.md\" | 1       |\n4 rows",
+      "table": {
+        "columns": [
+          "file",
+          "commits"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"planner/src/main.rs\"",
+            "3"
+          ],
+          [
+            "\"planner/src/plan.rs\"",
+            "3"
+          ],
+          [
+            "\"planner/README.md\"",
+            "2"
+          ],
+          [
+            "\"planner/docs/costs.md\"",
+            "1"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "file",
+          "commits"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "commits": 3,
+            "file": "planner/src/main.rs"
+          },
+          {
+            "commits": 3,
+            "file": "planner/src/plan.rs"
+          },
+          {
+            "commits": 2,
+            "file": "planner/README.md"
+          },
+          {
+            "commits": 1,
+            "file": "planner/docs/costs.md"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "owners": {
+      "kind": "table",
+      "text": "| person  | commits |\n|---------|---------|\n| \"Grace\" | 2       |\n| \"Ada\"   | 1       |\n2 rows",
+      "table": {
+        "columns": [
+          "person",
+          "commits"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "2"
+          ],
+          [
+            "\"Ada\"",
+            "1"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "person",
+          "commits"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "commits": 2,
+            "person": "Grace"
+          },
+          {
+            "commits": 1,
+            "person": "Ada"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "single-author": {
+      "kind": "table",
+      "text": "| file                    | author |\n|-------------------------|--------|\n| \"planner/docs/costs.md\" | \"Ada\"  |\n1 row",
+      "table": {
+        "columns": [
+          "file",
+          "author"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"planner/docs/costs.md\"",
+            "\"Ada\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "file",
+          "author"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "author": "Ada",
+            "file": "planner/docs/costs.md"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fixes": {
+      "kind": "table",
+      "text": "| subject                 | authored_at            |\n|-------------------------|------------------------|\n| \"Fix the cost estimate\" | \"2026-10-05T14:00:00Z\" |\n| \"Fix README wording\"    | \"2026-10-09T08:15:00Z\" |\n2 rows",
+      "table": {
+        "columns": [
+          "subject",
+          "authored_at"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Fix the cost estimate\"",
+            "\"2026-10-05T14:00:00Z\""
+          ],
+          [
+            "\"Fix README wording\"",
+            "\"2026-10-09T08:15:00Z\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "DATETIME"
+        ],
+        "columns": [
+          "subject",
+          "authored_at"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "authored_at": "2026-10-05T14:00:00Z",
+            "subject": "Fix the cost estimate"
+          },
+          {
+            "authored_at": "2026-10-09T08:15:00Z",
+            "subject": "Fix README wording"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

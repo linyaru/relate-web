@@ -1,8 +1,8 @@
 # The SEARCH clause: every form
 
 relate searches two kinds of index. A vector index answers "which entities
-are nearest to this vector" with an approximate nearest-neighbor search
-over a Hierarchical Navigable Small World (HNSW) graph; a full-text index
+are nearest to this vector" with an exact nearest-neighbor search (every
+indexed vector is scored; ties go to the lower element id); a full-text index
 answers "which entities contain these words". The `SEARCH` clause restricts
 a `MATCH` to an index's top results and names their score. The statements
 below run in order on one in-memory store, on relate 0.16.1.

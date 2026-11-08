@@ -4,10 +4,10 @@ label: Search (vector and full-text)
 description: Vector and full-text index DDL, the SEARCH clause and its rules, index options and defaults, the search procedures and vector functions, and hybrid search.
 order: 30
 surfaces: [cypher]
-related: [guides/cypher/vector-search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j]
+related: [guides/cypher/vector-search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j, guides/cypher/full-text-and-hybrid-search]
 ---
 
-relate searches two kinds of :term[index]{id=index}. A :term[vector index]{id=vector-index} answers "which entities are nearest to this vector" with an approximate nearest-neighbor search over a Hierarchical Navigable Small World (HNSW) graph; a :term[full-text index]{id=full-text-index} answers "which entities contain these words". The `SEARCH` clause restricts a `MATCH` to an index's top results and names their score. The cells on this page run on relate's WebAssembly (WASM) build; the `COMBINE` example runs on the CLI, because it needs a preview opt-in.
+relate searches two kinds of :term[index]{id=index}. A :term[vector index]{id=vector-index} answers "which entities are nearest to this vector" with an exact nearest-neighbor search: every search scores each indexed vector and keeps the top `LIMIT`, ties going to the lower element id; a :term[full-text index]{id=full-text-index} answers "which entities contain these words". The `SEARCH` clause restricts a `MATCH` to an index's top results and names their score. The cells on this page run on relate's WebAssembly (WASM) build; the `COMBINE` example runs on the CLI, because it needs a preview opt-in.
 
 ## Synopsis
 
@@ -61,8 +61,8 @@ The keys go in `OPTIONS {indexConfig: {…}}`. They contain dots, so each key is
 | --- | --- | --- |
 | `vector.dimensions` | not set | An integer from 1 to 4096; `0` and `4097` fail with `semantic error: NumberOutOfRange` |
 | `vector.similarity_function` | `COSINE` | `'cosine'` or `'euclidean'`, in any case; other values fail with `semantic error: InvalidInputValue` |
-| `vector.hnsw.m` | `16` | An integer; `SHOW INDEXES` reports the value set |
-| `vector.hnsw.ef_construction` | `100` | An integer; `SHOW INDEXES` reports the value set |
+| `vector.hnsw.m` | `16` | An integer; `SHOW INDEXES` reports the value set; stored and reported only, the search does not use it |
+| `vector.hnsw.ef_construction` | `100` | An integer; `SHOW INDEXES` reports the value set; stored and reported only, the search does not use it |
 | `vector.default_search_expansion_factor` | `3.0` | A number; `SHOW INDEXES` reports the value set |
 | `vector.quantization.type` | `BINARY` | A string; `SHOW INDEXES` reports the value set |
 

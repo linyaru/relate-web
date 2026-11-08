@@ -1,4 +1,199 @@
 ---
 title: Keep the schema as files
-status: planned
+label: Schema as files
+description: Read a relate store's indexes and constraints from the text files in .cypherlite/schema/, review schema changes as diffs, and apply them to a new store.
+order: 50
+surfaces: [cli, agents]
+prerequisites: [get-started/install]
+related: [reference/storage/formats#directory-store-files, guides/agents/diffable-memory, guides/cypher/indexes-and-constraints, reference/cypher/schema-clauses, guides/storage/clone-and-convert, concepts/problems-relate-solves#schema-as-files]
 ---
+
+This guide shows you how to read a store's schema from files, review a schema change in a pull request, and apply the same schema to a new store. Every checkpoint of a durable store writes its indexes and constraints as Cypher text into the :term[schema folder]{id=schema-folder}, `.cypherlite/schema/`, inside a directory store. The files are a copy for reading and diffing: the schema changes only through Cypher statements, and an edited file stops the store from opening.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A directory store. A `.rl` file keeps its contents inside one file, so to read its schema folder, clone it into a directory first ([Clone and convert a store](/docs/guides/storage/clone-and-convert)). To follow along, create the shared example graph as `team`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team < team.cypher
+```
+
+## Find the schema folder
+
+The folder holds one file for a store without a schema, `schema.cypher`, and it is empty:
+
+```bash verify
+ls -A team/.cypherlite/schema
+```
+
+```text
+schema.cypher
+```
+
+| File | Holds | Present |
+| --- | --- | --- |
+| `schema.cypher` | One `CREATE INDEX` or `CREATE CONSTRAINT` statement per line, as the `createStatement` column of `SHOW INDEXES` and `SHOW CONSTRAINTS` renders it: indexes first, then constraints, each group in name order | Always; empty when the store has no index or constraint |
+| `graph-type.cypher` | The store's :term[graph type]{id=graph-type}, as the body of its declaration, such as ``(:`Person` => {`name` :: STRING NOT NULL})`` | When the store has a graph type |
+| `ontology.json` or `ontology.yaml` | The :term[ontology]{id=ontology} document, byte for byte as it was set | When an ontology is set; the `db.ontology.*` procedures are a preview feature (`RELATE_PREVIEW=ontology`, [Use an ontology](/docs/guides/cypher/ontology)) |
+
+A `markdown` store keeps the same folder beside its other engine files, in `.cypherlite/schema/` under the vault root. A constraint that a graph type manages, and an index that has no standalone `CREATE` form, is left out of `schema.cypher`; the graph type and the store's manifest carry it.
+
+## Read the schema
+
+Create a uniqueness :term[constraint]{id=constraint} and a range index. Each statement runs in its own process, and the CLI checkpoints when a run that opened the store for writing exits:
+
+```bash verify
+relate --database ./team --mode envelope "CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE"
+relate --database ./team --mode envelope "CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+One file read now answers what the schema is, with no store opened and no `SHOW` statement run:
+
+```bash verify
+cat team/.cypherlite/schema/schema.cypher
+```
+
+```text
+CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`);
+CREATE CONSTRAINT `person_name` FOR (n:`Person`) REQUIRE (n.`name`) IS UNIQUE;
+```
+
+The folder changes at a checkpoint, not at each commit. A one-shot CLI run checkpoints as it exits. A long-running process, such as `relate serve` or an application on a client, checkpoints every 300 seconds by default, after 64 MiB of WAL or 10,000 commits, and when it closes the store; until then the folder shows the schema of the last checkpoint.
+
+## Review a schema change
+
+Commit the store folder, or at least `.cypherlite/schema/`, to the repository. A schema change then shows up in a pull request as added and removed lines. To see the same diff without git, keep a copy of the file, add a full-text :term[index]{id=index}, and compare:
+
+```bash verify
+cp team/.cypherlite/schema/schema.cypher schema-before.cypher
+relate --database ./team --mode envelope "CREATE FULLTEXT INDEX project_search IF NOT EXISTS FOR (p:Project) ON EACH [p.name, p.language]"
+diff schema-before.cypher team/.cypherlite/schema/schema.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+1a2
+> CREATE FULLTEXT INDEX `project_search` FOR (n:`Project`) ON EACH [n.`name`, n.`language`] OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words',`fulltext.eventually_consistent`: false}};
+```
+
+The rendered statement spells out every option, defaults included, so a reviewer sees every setting the index runs with. An agent reads the same file to learn which indexes a statement can use before it writes one.
+
+## Apply the schema to a new store
+
+Each line of `schema.cypher` is a statement that ends with `;`, so the file runs as a script. Pipe it into a new, empty store to give that store the same indexes and constraints, then compare the two copies:
+
+```bash verify
+relate query --database ./team-staging --mode envelope < team/.cypherlite/schema/schema.cypher
+cmp team/.cypherlite/schema/schema.cypher team-staging/.cypherlite/schema/schema.cypher && echo "same schema"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+same schema
+```
+
+Apply the schema before loading data, so a uniqueness constraint checks every row as it arrives. The statements in the file carry no `IF NOT EXISTS`, so running them against a store that already has the same index fails at the first one ([If it goes wrong](#if-it-goes-wrong)).
+
+## Keep the files read-only
+
+The folder is a mirror of the schema the last checkpoint wrote, never a source. Each open compares it byte for byte with that schema, and a changed, missing or extra file fails the open, read-only included. An index added by hand to the file is refused:
+
+```bash verify
+cp -R team team-edited
+echo "CREATE INDEX person_age FOR (n:Person) ON (n.age);" >> team-edited/.cypherlite/schema/schema.cypher
+relate --database ./team-edited --read-only --mode envelope "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Failed to open Relate: storage error: schema mirror .cypherlite/schema/schema.cypher differs from the schema this store's checkpoint persisted; it was edited by hand or copied from another store; delete the .cypherlite/schema/ directory and reopen: the next checkpoint regenerates it from the store's schema
+{"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: schema mirror .cypherlite/schema/schema.cypher differs from the schema this store's checkpoint persisted; it was edited by hand or copied from another store; delete the .cypherlite/schema/ directory and reopen: the next checkpoint regenerates it from the store's schema","retryable":false}}
+exit=1
+```
+
+The refusal touched nothing else in the store. The repair is in the message: delete the folder and open the store for writing once, so its checkpoint at exit writes the folder again from the store's schema:
+
+```bash verify
+rm -r team-edited/.cypherlite/schema
+relate --database ./team-edited --mode envelope "RETURN 1 AS ok"
+cat team-edited/.cypherlite/schema/schema.cypher
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`);
+CREATE FULLTEXT INDEX `project_search` FOR (n:`Project`) ON EACH [n.`name`, n.`language`] OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words',`fulltext.eventually_consistent`: false}};
+CREATE CONSTRAINT `person_name` FOR (n:`Person`) REQUIRE (n.`name`) IS UNIQUE;
+```
+
+The hand-added `person_age` index is gone: to add an index, run its `CREATE INDEX` statement. A schema change committed since the last checkpoint is not drift; it waits in the WAL, and the next checkpoint writes it to the folder. A store with no `.cypherlite/schema/` folder at all, such as one written by an older release, opens normally and gains the folder at its next checkpoint.
+
+## Diff the data too
+
+The schema folder covers indexes and constraints. To review changes to nodes and relationships as well, keep the store in the `json` codec, whose checkpoint writes the whole graph to one `graph.json` beside the same schema folder:
+
+```bash verify
+relate clone --to-snapshot-format json ./team ./team-json
+ls -A team-json team-json/.cypherlite/schema
+```
+
+```text
+team-json:
+.cypherlite
+.cypherlite.lock
+.cypherlite.writer
+graph.json
+manifest.json
+wal
+
+team-json/.cypherlite/schema:
+schema.cypher
+```
+
+`graph.json` is written as one line of JSON, so a line diff marks the whole file as changed; pass it through a JSON formatter before diffing to see which nodes and relationships changed. [Keep a diffable memory in the repo](/docs/guides/agents/diffable-memory) applies this to an agent's memory, and the [formats reference](/docs/reference/storage/formats#codecs) shows what `graph.json` holds.
+
+## Verify
+
+The store's own catalog lists the same three entries the file holds. `SHOW INDEXES` includes the range index that backs the uniqueness constraint, under the constraint's name:
+
+```bash verify
+relate --database ./team --read-only --mode envelope "SHOW INDEXES YIELD name, type RETURN name, type ORDER BY name"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["name","type"],"notifications":[],"rows":[{"name":"person_name","type":"RANGE"},{"name":"person_role","type":"RANGE"},{"name":"project_search","type":"FULLTEXT"}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Failed to open Relate: storage error: schema mirror .cypherlite/schema/<file> differs from the schema this store's checkpoint persisted; …`**, **`… schema mirror .cypherlite/schema/<file> is missing from the mirror this store's checkpoint wrote; …`** or **`… schema mirror .cypherlite/schema/<file> is not part of this store's schema mirror; …`** (exit code 1). A file in the folder was edited, deleted or added, or copied from another store, or a crash interrupted a checkpoint between writing the store and rewriting the folder. Delete `.cypherlite/schema/` and open the store for writing once; nothing in the store is lost.
+- **`semantic error: IndexAlreadyExists`** (exit code 6) when piping `schema.cypher` into a store. The store already has an index of that name; the script stops at the first failing statement and runs none after it. Apply the file to an empty store, or run only the statements for the entries the store lacks.
+- **The folder shows an old schema.** A long-running process has not checkpointed since the change. The folder catches up at its next checkpoint, or when the process closes the store.
+
+## Related
+
+- [Storage formats](/docs/reference/storage/formats#directory-store-files): every file a directory store holds.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): the statements that change the schema.
+- [Schema clauses](/docs/reference/cypher/schema-clauses): the `CREATE`, `DROP` and `SHOW` forms.
+- [Keep a diffable memory in the repo](/docs/guides/agents/diffable-memory): a store an agent writes, reviewed in pull requests.
+- [Schema as files](/docs/concepts/problems-relate-solves#schema-as-files) in the capability catalog.

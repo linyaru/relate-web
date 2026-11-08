@@ -106,10 +106,10 @@ the live docs graph is not a landing hero (§7.4).
 | `browser` — WASM in a Vite page, OPFS persistence in a worker | 2 | `docs/api/wasm/`, `playground/` |
 | `agent-quickstart` — **the first tutorial on the docs landing page**: the agent (or its operator) installs a pinned CLI and the skill, verifies `--version` and the expected bytes of one `--mode envelope` statement, runs `relate agent-context` (version-true by construction), loads a graph from a URL with its checksum, rehearses against a read-only copy (`--read-only`, `EXPLAIN`, `--safe`), runs for real, reads an error object and its exit code, opens the MCP surface read-only. Has a "No network?" block (`agent-context`, `--help`, the installed skill's path, a committed `relate-docs.rl`). Written so an agent can follow it from its markdown twin (the prompt to paste is the install page's Agent tab), to the safe-default contract of ADR-0013 | 1 | `docs/api/cli/examples/agents.md`, skill `SKILL.md` |
 | `agent-memory` — give an agent a memory: CLI + MCP + a recall query; bridges to the cookbook's agent-memory recipes | 2 | cookbook `agent-memory`, `docs/api/mcp/examples/` |
-| `rust`, `java`, `go`, `swift` — full tutorials, same shape as `python`: install, open a store, parameters, a transaction, errors, a working program at the end | 2 | `docs/api/<lang>/examples/` |
+| `rust`, `c`, `java`, `go`, `swift` — full tutorials, same shape as `python`: install, open a store, parameters, a transaction, errors, a working program at the end | 2 | `docs/api/<lang>/examples/` |
 
 Every binding gets a full tutorial (decision 5), so the Get started section
-has eleven pages: install, the agent quickstart, the CLI, eight languages,
+has twelve pages: install, the agent quickstart, the CLI, eight languages,
 agent memory. They share one outline and one example graph so a reader
 switching languages recognises the steps.
 
@@ -1665,6 +1665,27 @@ the `capabilities` and `example` resources, `validate_cypher`, the
 Left to the pages: the remaining agent guides,
 integrations, language guides and reference, and placing `<Matrix />` and
 `::::agentic` on published pages.
+
+*As built (phase 2, part B, the pages):* 90 pages written, none left
+planned, for 140 published pages in all: the five remaining language
+tutorials (`get-started/rust`, `java`, `go`, `swift`, `browser`) and
+`get-started/agent-memory`, then `get-started/c` after the cross-page
+review (141 published pages); `guides/embed/` and `reference/api/` for every
+client, the browser and the C ABI, with `<Matrix />` on the hub and the
+API pages; the `guides/serve/` guides and the Bolt, HTTP and MCP server
+reference; six Cypher guides; the remaining storage guides and Neo4j
+pull/push; the three remaining agent guides; six integrations;
+`guides/migrate/`; four extension guides; `concepts/namespaces` and
+`security-and-trust`. The inventory's remaining Cypher, CLI, serve and API
+reference pages (the Cypher clause, pattern, expression, type, function,
+procedure, plan and notification pages, a page per CLI command plus
+environment variables, output modes and dot commands, and the server and
+API reference) fell between the phase lists after ADR-0015 and were
+written here. With the CLI command pages in place, `graph-cli` is an
+error. The integration step added the client-library refusals to
+`errors.json` (a `client` list), let a verify step start its own loopback
+server (ADR-0034), and corrected the vector search to exact top-k across
+the search reference, the glossary and two task skills.
 
 **Phase 3 — the long tail.** `query_docs_graph` once the engine has a
 deadline; the storage animator, the scale demo,

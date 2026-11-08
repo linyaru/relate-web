@@ -1,4 +1,165 @@
 ---
-title: Mastra
-status: planned
+title: Use relate with Mastra
+label: Mastra
+description: Back a Mastra tool with relate from Node.js, behind a read-only guard, so a Mastra agent can query the graph and can't change it.
+order: 90
+surfaces: [node, agents]
+prerequisites: [get-started/node]
+related: [get-started/node, guides/integrations/vercel-ai-sdk, guides/agents/agent-safety, concepts/problems-relate-solves#text-to-cypher, reference/errors#engine-write-on-read-only, cookbook/tool-call-provenance]
 ---
+
+This guide shows you how to back a Mastra tool with relate from Node.js, behind a read-only guard. The tool's handle opens the :term[store]{id=store} :term[read-only]{id=read-only}, so the engine refuses every write on it, and the tool plans each :term[statement]{id=statement} with `EXPLAIN` before it runs only the reads. A Mastra agent gets the tool like any other: the model writes the Cypher, and relate decides what touches the graph.
+
+## Prerequisites
+
+- Node.js 22.13 or later (`@mastra/core` 1.82.0 requires it), with the relate :term[client]{id=client}, Mastra and Zod: `npm install @relate/relate @mastra/core zod`. The Mastra code on this page was checked against `@mastra/core` 1.82.0 and `zod` 4.6.7, as of 2026-11-08.
+- For the agent in [Give the tool to an agent](#give-the-tool-to-an-agent) only: a model provider's credential, such as `ANTHROPIC_API_KEY` in the environment for an `anthropic/…` model id. Everything before that runs without one.
+
+## Write the tool
+
+The program has three parts. A setup block writes the team graph the Get started pages use into `./team`, a directory store, standing in for the app that owns the data. The tool, `readGraph`, is a Mastra `createTool` with its own read-only handle on that store. The last block calls the tool's `execute` directly, the way an agent's tool call reaches it, with no model, and then tries a write on the read-only handle itself:
+
+```js run name=graph-tool title="graph-tool.mjs"
+import { Database, RelateError } from "@relate/relate";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+
+// Setup: the app that owns ./team writes the team graph once, on a writable handle.
+const owner = Database.open("./team").connect();
+if (owner.query("MATCH (p:Person) RETURN count(p) AS n").rows[0].n === 0) {
+  owner.query(`
+    CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+           (grace:Person {name: 'Grace', role: 'engineer'}),
+           (noor:Person {name: 'Noor', role: 'maintainer'}),
+           (relate:Project {name: 'relate', language: 'Rust'}),
+           (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+           (ada)-[:WORKS_ON {since: 2024}]->(relate),
+           (grace)-[:WORKS_ON {since: 2023}]->(relate),
+           (grace)-[:WORKS_ON {since: 2022}]->(tck),
+           (noor)-[:MAINTAINS]->(relate),
+           (ada)-[:KNOWS]->(grace)`);
+}
+
+// The tool's own handle: read-only, so the engine refuses every write on it.
+const graph = Database.open("./team", { readOnly: true }).connect();
+const MAX_ROWS = 50;
+
+export const readGraph = createTool({
+  id: "read-graph",
+  description:
+    "Run one read-only Cypher statement against the team graph (Person and Project nodes; WORKS_ON, MAINTAINS and KNOWS relationships) and return its rows.",
+  inputSchema: z.object({
+    statement: z.string().describe("One Cypher statement that only reads"),
+    params: z.record(z.string(), z.unknown()).default({}).describe("Values for the statement's $parameters"),
+  }),
+  outputSchema: z.object({
+    columns: z.array(z.string()).optional(),
+    rows: z.array(z.record(z.string(), z.unknown())).optional(),
+    truncated: z.boolean().optional(),
+    error: z.string().optional(),
+    code: z.string().optional(),
+  }),
+  execute: async ({ statement, params }) => {
+    try {
+      // EXPLAIN plans the statement without running it; query type "r" is a pure read.
+      const plan = graph.query(`EXPLAIN ${statement}`, params);
+      if (plan.queryType !== "r") {
+        return { error: `refused: the statement's query type is "${plan.queryType}", and this tool runs only reads ("r")` };
+      }
+      const result = graph.query(statement, params);
+      // Cypher integers outside ±(2^53 − 1) arrive as bigint, which JSON cannot carry.
+      const rows = JSON.parse(JSON.stringify(result.rows.slice(0, MAX_ROWS), (_, v) => (typeof v === "bigint" ? v.toString() : v)));
+      return { columns: result.columns, rows, truncated: result.rows.length > MAX_ROWS };
+    } catch (e) {
+      if (e instanceof RelateError) return { error: e.message, code: e.code };
+      throw e;
+    }
+  },
+});
+
+// Check: call the tool as an agent's tool call does, without a model.
+console.log(JSON.stringify(await readGraph.execute({
+  statement: "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since",
+  params: { project: "relate" },
+})));
+console.log(JSON.stringify(await readGraph.execute({
+  statement: "MATCH (p:Person {name: $name}) DETACH DELETE p",
+  params: { name: "Ada" },
+})));
+const invalid = await readGraph.execute({ statement: 42 });
+console.log(invalid.error, invalid.message.split("\n")[0]);
+try {
+  graph.query("CREATE (:Person {name: 'Mallory'})");
+} catch (e) {
+  console.log(e.gqlStatus, e.message);
+}
+const check = Database.open("./team", { readOnly: true }).connect();
+console.log("people:", check.query("MATCH (p:Person) RETURN count(p) AS people").rows[0].people);
+```
+
+The read returns its rows. The delete never runs: its plan says it writes, so the tool refuses it. A call whose input does not match `inputSchema` never reaches `execute`; Mastra returns a validation error to the caller instead. The fourth line is the engine's own refusal of a write sent straight to the read-only handle, past the tool's check, and the count shows all three people, Ada included.
+
+Each layer of the guard refuses something different:
+
+| Layer | Refuses | Enforced by |
+| --- | --- | --- |
+| `Database.open(path, { readOnly: true })` | Every write and checkpoint on that handle; a store that doesn't exist | The engine |
+| The `EXPLAIN` check (`queryType` must be `"r"`) | Writes (`"w"`, `"rw"`) and schema statements (`"s"`), before they run | The tool |
+| `inputSchema` | Input that is not a string statement with an object of parameters | Mastra |
+| `MAX_ROWS` | Rows beyond the first 50, with `truncated: true` in the result | The tool |
+
+The tool returns an engine error as data, `{ error, code }`, so the model reads the message and can correct its statement. A read-only handle sees the graph as it was when the handle opened, so commits the owner makes afterwards appear once the tool opens a new handle.
+
+A narrower tool skips model-written Cypher altogether: a fixed statement whose `inputSchema` takes only the values, such as a project name for `$project`. Keep the read-only handle either way.
+
+## Give the tool to an agent
+
+Add the agent to `graph-tool.mjs` in place of the check block. Mastra resolves the model id `anthropic/claude-opus-5-5` through its model router, which reads `ANTHROPIC_API_KEY`; without the key, `generate` throws `Could not find API key process.env.ANTHROPIC_API_KEY for model id anthropic/claude-opus-5-5`.
+
+```js
+import { Agent } from "@mastra/core/agent";
+
+const analyst = new Agent({
+  id: "team-analyst",
+  name: "Team analyst",
+  instructions: "Answer questions about the team graph. Use the read-graph tool for every fact, and pass values as params.",
+  model: "anthropic/claude-opus-5-5",
+  tools: { readGraph },
+});
+
+const result = await analyst.generate("Who works on the relate project, and since when?", { maxSteps: 5 });
+console.log(result.text);
+```
+
+`maxSteps: 5` lets the model call the tool, read the rows and answer, in at most five steps. To keep a person in the loop on a tool that writes, Mastra's `requireApproval: true` on `createTool` pauses each call until it is approved; the read-only handle stays the guard that the engine enforces.
+
+## Verify
+
+The program's last line already counts the people on a fresh read-only handle. The same check from the CLI, read-only, in the directory the program ran in:
+
+```bash
+relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+```
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` (`RelateError`, `gqlStatus` `42N18`) | A write reached the read-only handle | Expected: the guard held. Writes belong on a separate, writable handle that the app owns. |
+| `Tool input validation failed for read-graph. …` (the tool result has `error: true`) | The model's input does not match `inputSchema` | Nothing to fix in relate. The model reads the message, which names each field, and calls again. |
+| `internal error` (`RelateError`, `stage` `internal`) from `Database.open` | The read-only open found no store at the path, or found a single-file `.rl` store that a writable handle holds | Create the store first, or fix the path. To read beside a writer, use a directory store. |
+| `Could not find API key process.env.ANTHROPIC_API_KEY for model id anthropic/claude-opus-5-5` | The agent's provider credential is not in the environment | Export the provider's key before `generate` runs. |
+| `ERR_MODULE_NOT_FOUND` for `@relate/relate` | The program is an ES module, and ES modules ignore `NODE_PATH` | Install the packages in the project's own `node_modules`. |
+
+## Related
+
+- [Embed relate in a Node.js app](/docs/get-started/node): the client's handles, :term[parameters]{id=parameter}, transactions, and errors.
+- [Use relate with the Vercel AI SDK](/docs/guides/integrations/vercel-ai-sdk): the same guarded tool for the AI SDK.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, backups, and the permission matrix.
+- [Text-to-Cypher](/docs/concepts/problems-relate-solves#text-to-cypher) in the capability catalog: the schema, `EXPLAIN` and read-only opens a model's Cypher relies on.
+- [Errors](/docs/reference/errors#engine-write-on-read-only): the read-only refusal and every other engine error.
+- [Tool-call provenance](/cookbook/tool-call-provenance/): a worked example of recording what an agent's tools did.

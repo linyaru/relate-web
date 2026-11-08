@@ -4,7 +4,7 @@ description: Pick an in-memory store, a directory store or a single .rl file, an
 order: 10
 surfaces: [cli, python, node]
 prerequisites: [get-started/install]
-related: [reference/storage/formats, guides/storage/backup-and-restore, guides/operate/two-processes-one-store, concepts/storage-and-durability]
+related: [reference/storage/formats, guides/storage/backup-and-restore, guides/operate/two-processes-one-store, concepts/storage-and-durability, guides/storage/clone-and-convert, guides/storage/read-only-and-follow]
 ---
 
 This guide shows you how to choose where a relate :term[store]{id=store} lives and how it is written to disk. The path you pass to `--database` picks the layout: `:memory:` keeps the graph in the process, a path ending in `.rl` is one file, and any other path is a directory. Use `:memory:` for throwaway work, a `.rl` file for a store you copy or hand to someone, and a :term[directory store]{id=directory-store} when a second process reads beside the writer or you want a text snapshot you can diff.

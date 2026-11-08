@@ -4,8 +4,8 @@ label: Vercel AI SDK
 description: Back a Vercel AI SDK tool with relate from Node.js, behind a read-only guard, so a model can query the graph and can't change it.
 order: 30
 surfaces: [node, agents]
-prerequisites: [get-started/install]
-related: [get-started/node, guides/agents/agent-safety, reference/errors#engine-write-on-read-only, cookbook/tool-call-provenance]
+prerequisites: [get-started/node]
+related: [get-started/node, guides/agents/agent-safety, reference/errors#engine-write-on-read-only, cookbook/tool-call-provenance, guides/integrations/openai-agents-sdk, guides/integrations/mastra]
 ---
 
 This guide shows you how to back a Vercel AI SDK tool with relate from Node.js, behind a read-only guard. The tool's handle opens the :term[store]{id=store} :term[read-only]{id=read-only}, so the engine refuses every write on it. The tool also plans each statement with `EXPLAIN` first and runs only reads. The model writes the Cypher; relate decides what touches the graph.

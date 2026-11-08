@@ -1,4 +1,159 @@
 ---
 title: relate upgrade
-status: planned
+description: The relate upgrade command and its update alias, which replace the running binary with the latest signed release, with checks, sources and exit codes.
+order: 140
+surfaces: [cli]
+related: [get-started/install, reference/security, reference/cli/skill, reference/cli/flags#relate-upgrade, guides/operate/upgrade-a-store, concepts/problems-relate-solves#offline-and-sandboxed-use]
 ---
+
+`relate upgrade` replaces the running `relate` binary with the latest release, after checking the release's checksum list against the signing key built into the binary. `relate update` is the same command. `--check` reports the installed and latest versions and changes nothing. Self-upgrade runs on macOS and Linux, on amd64 and arm64; it never opens a :term[store]{id=store}. The release URLs on this page are the launch-day locations: before launch, nothing is published at them.
+
+## Synopsis
+
+```text
+relate upgrade [--yes] [--check]
+relate update  [--yes] [--check]
+```
+
+| Run | Reads | Changes |
+| --- | --- | --- |
+| `relate upgrade --check` | The release list | Nothing |
+| `relate upgrade` | The release list, then the newer release's files | The binary at its current path, then the installed skill copies |
+
+## Options
+
+<Flags command="upgrade" />
+
+Any other argument, such as `--json`, is a usage error (exit code 2).
+
+## What it checks
+
+`relate upgrade` runs these steps in order and stops at the first that fails. A failure before the last step leaves the running binary as it was.
+
+| Step | Check | On failure |
+| --- | --- | --- |
+| 1 | The platform is macOS or Linux on amd64 or arm64 | Exits 1; on Windows the message points to a manual download, because a running `.exe` cannot replace itself |
+| 2 | `releases.json` is read, and its `latest.tag` has the form `v<major>.<minor>.<patch>` | Exits 1 naming the URL and the reinstall command |
+| 3 | The latest version is compared with the binary's own as three numbers | Not newer: prints that relate is up to date and exits 0 |
+| 4 | The release lists the platform binary (`relate-<os>-<arch>`), `SHA256SUMS` and `SHA256SUMS.sig` | Exits 1 naming the missing file |
+| 5 | `SHA256SUMS.sig` verifies over the exact bytes of `SHA256SUMS`, as an SSH signature in the `relate-release` namespace, against the public key built into the binary | Exits 1 |
+| 6 | The first line of `SHA256SUMS`, `# relate-release-version: <tag>`, names the release from step 2 | Exits 1; a list without that line is accepted only for a release at or below v0.14.0, and with a warning |
+| 7 | The platform binary is downloaded, and its SHA-256 equals its line in `SHA256SUMS` | Exits 1: `checksum verification failed for <asset> (expected <hash>, got <hash>); not upgrading` |
+| 8 | The new binary replaces the running one at its path | Exits 1 naming the reinstall command |
+| 9 | The skill copies are refreshed | Never fails the upgrade |
+
+`--check` stops after step 3. The key is the one `install.sh` pins; the [security reference](/docs/reference/security) gives it and the manual checks that match these steps. Steps 4 to 9 are described from the binary's source, not from a recorded run, because no release newer than the verified version exists to upgrade to.
+
+## Where it downloads from
+
+| File | Location | Variable that overrides it |
+| --- | --- | --- |
+| The release list | `https://relatedb.ai/releases.json` | `RELATE_RELEASES_JSON_URL` |
+| `SHA256SUMS`, `SHA256SUMS.sig` and the binary | `https://github.com/relatedb/relate/releases/download/<tag>/<file>` | `RELATE_RELEASE_DOWNLOAD_URL` (the part before `/<tag>`) |
+| The same three files, when the first location answers 404 and `GITHUB_TOKEN` is set | The GitHub API's release-asset route, `https://api.github.com` | `RELATE_GITHUB_API_URL` |
+
+`GITHUB_TOKEN`, when set, is sent as a bearer token on the requests for the three files and never on the request for `releases.json`, and is never printed. The release list request has no retry, no cache, and no fallback location.
+
+<EnvVars usedBy="upgrade" />
+
+## Skill refresh
+
+After the binary is replaced, `relate upgrade` runs `relate skill install` from the new binary for every detected agent, so the installed :term[skill]{id=skill} matches the new version:
+
+| Detected agents | What happens |
+| --- | --- |
+| At least one holds a relate copy | Installs into every detected agent without a prompt |
+| None holds a copy, stdin is a terminal | Asks `Install the relate skill? [Y/n] ` first |
+| None holds a copy, `--yes` | Installs without asking |
+| None holds a copy, not a terminal, no `--yes` | Prints `run: relate skill install` and installs nothing |
+| A directory relate does not manage | Left untouched, with a note naming it |
+| No agent detected | Nothing |
+
+The [`relate skill` reference](/docs/reference/cli/skill#install-states) defines the states.
+
+## Output
+
+Every successful outcome, `--check` included, prints its status lines and then a two-line notice this build carries over from the project's previous name:
+
+{/* docs-check-ignore trust-pin */}
+```text
+cypherlite is now relate — this is the final cypherlite release
+install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+```
+
+| Outcome | Status lines on stdout |
+| --- | --- |
+| `--check`, current | `current version: <version>`, `latest release:  <version>`, `relate is up to date` |
+| `--check`, newer release | `current version: <version>`, `latest release:  <version>`, ``upgrade available: run `relate upgrade` to install <version>`` |
+| No `--check`, current | `relate <version> is up to date (latest release: <version>)` |
+| No `--check`, upgraded | `upgrading relate <old> -> <new> (<asset>)`, then `upgraded relate <old> -> <new> at <path>` |
+
+Every failure starts with `Error: upgrade: ` on stderr and exits 1; a failed replace (step 8) adds a second line that names the reinstall command.
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | Up to date, `--check` completed, or the upgrade completed |
+| 1 | Any failure in the steps of [What it checks](#what-it-checks), including no network |
+| 2 | A usage error: `Error: unexpected argument to upgrade: <argument>`, then the usage line and `Run 'relate upgrade --help' for more information.` |
+
+When the release list cannot be read, the message names its URL, the reason, and the reinstall command:
+
+```text
+Error: upgrade: could not read the release list from <url>: GET failed: <reason>; reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+```
+
+## Examples
+
+The `--check` runs on this page were recorded with `RELATE_RELEASES_JSON_URL` pointing at a copy of `releases.json` served from the local machine, so they needed no network. With the latest release equal to the installed version:
+
+```bash
+relate upgrade --check
+```
+
+```text
+current version: 0.16.1
+latest release:  0.16.1
+relate is up to date
+cypherlite is now relate — this is the final cypherlite release
+install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+```
+
+With the copy edited to list a higher version, `v0.99.0`, the report names it and nothing is downloaded:
+
+```text
+current version: 0.16.1
+latest release:  0.99.0
+upgrade available: run `relate upgrade` to install 0.99.0
+cypherlite is now relate — this is the final cypherlite release
+install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+```
+
+A run that cannot reach the release list exits 1. This one had `RELATE_RELEASES_JSON_URL=http://127.0.0.1:8874/releases.json` with nothing listening; the text after `io:` comes from the operating system, and this recording is from macOS:
+
+```text
+Error: upgrade: could not read the release list from http://127.0.0.1:8874/releases.json: GET failed: io: Connection refused (os error 61); reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+```
+
+A flag the command does not take is a usage error:
+
+```bash verify
+relate upgrade --json
+echo "exit=$?"
+```
+
+```text
+Error: unexpected argument to upgrade: --json
+Usage: relate upgrade [--yes] [--check]
+Run 'relate upgrade --help' for more information.
+exit=2
+```
+
+## See also
+
+- [Install relate](/docs/get-started/install): the first install, with the same signature check
+- [Security](/docs/reference/security): the signing key and the manual verification steps
+- [`relate skill`](/docs/reference/cli/skill): the skill copies the upgrade refreshes
+- [Upgrade a store](/docs/guides/operate/upgrade-a-store): what a new release does to a store written by an older one
+- [Problems relate solves: offline and sandboxed use](/docs/concepts/problems-relate-solves#offline-and-sandboxed-use): the commands that reach the network

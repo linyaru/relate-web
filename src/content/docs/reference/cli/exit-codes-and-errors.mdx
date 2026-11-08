@@ -55,7 +55,7 @@ A query run (a one-shot statement or a piped script) that fails in `--mode json`
 | --- | --- | --- | --- |
 | `code` | string | always | The class name from the exit code table: `fatal_error`, `conflict`, `validation_error` or `timeout` |
 | `exit_code` | number | always | The process exit code, equal to the table row of `code` |
-| `kind` | string | always | The engine's error variant: `syntax`, `semantic`, `argument`, `type`, `execution`, `conflict`, `capacity`, `storage`, `locked`, `io` or `internal` |
+| `kind` | string | always | The engine's error variant: `syntax`, `semantic`, `argument`, `type`, `execution`, `conflict`, `capacity`, `resource`, `storage`, `locked`, `io` or `internal` |
 | `message` | string | always | The text also printed on stderr, sanitized to one line |
 | `retryable` | boolean | always | `true` for a write-write conflict and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool; a locked store is `false` until its other opener exits |
 | `statement` | number | multi-statement runs | The 1-based index of the failed statement |
@@ -78,6 +78,7 @@ The CLI error object carries no GQL status code. Where an engine error has one, 
 | `syntax`, `semantic`, `argument`, `type` | `validation_error` | 6 | `false` |
 | `execution`, `capacity`, `storage`, `io`, `internal` | `fatal_error` | 1 | `false` |
 | `semantic`, for a store that fails to open on an invalid engine setting such as `RELATE_PREVIEW` | `fatal_error` | 1 | `false` |
+| `resource`, a `--concurrent-logical-workspace-limit` refusal | `fatal_error` | 1 | `true` while other statements hold the shared pool; `false` when the statement alone exceeds the limit |
 | `execution`, for a statement cancelled by `--timeout` | `timeout` | 7 | `false` |
 | `conflict` | `conflict` | 5 | `true` |
 | `locked` | `conflict` | 5 | `false` |

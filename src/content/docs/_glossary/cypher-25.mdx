@@ -1,16 +1,16 @@
 ---
 id: cypher-25
 term: "Cypher 25"
-short: "Neo4j's current Cypher version, aligned with GQL; the default language of every relate namespace, with `CYPHER 5` as the per-statement alternative."
+short: "The Neo4j Cypher version aligned with GQL; the default language of every relate namespace, with `CYPHER 5` as the per-statement alternative."
 aliases: []
 context: cypher
-see: reference/cypher/overview
+see: reference/cypher/cypher-versions
 related: ["cypher", "gql", "preview-feature", "namespace"]
 ---
 
-Cypher 25 is the version of Cypher that current Neo4j runs, and it is relate's target. Where an openCypher proposal, Cypher 5 and Cypher 25 disagree, relate does what Cypher 25 does. Statements run as Cypher 25 unless they start with `CYPHER 5`; a `CYPHER 25` prefix states the default explicitly.
+Cypher 25 is the Neo4j Cypher version aligned with GQL, and it is relate's target. Where an openCypher proposal, Cypher 5 and Cypher 25 disagree, relate does what Cypher 25 does. Statements run as Cypher 25 unless they start with `CYPHER 5`; a `CYPHER 25` prefix states the default explicitly.
 
-The default is recorded per :term[namespace]{id=namespace}, and `SHOW DATABASES` reports it as `defaultLanguage`. `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` changes it for one namespace.
+The default is recorded per :term[namespace]{id=namespace}, and `SHOW DATABASES` reports it as `defaultLanguage`. `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` changes only what `SHOW DATABASES` reports; an unprefixed statement still runs as Cypher 25.
 
 ```cypher
 CYPHER 25 MATCH (p:Person) LET years = 2026 - p.since FILTER years >= 3 RETURN p.name AS name

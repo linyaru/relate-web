@@ -1,4 +1,250 @@
 ---
 title: Go API
-status: planned
+label: Go
+description: The exported identifiers of the relate Go package, the Cypher and Go value mapping in both directions, result metadata, errors and cgo linking.
+order: 80
+surfaces: [go]
+related: [guides/embed/go, get-started/go, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+The Go :term[client]{id=client} is the module `github.com/relatedb/relate/clients/go`, package `relate`, for Go 1.22 or later. It is cgo code over the relate C library, `librelate_ffi`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous. This page lists the package's exported identifiers as `go doc` reports them for source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+
+## Synopsis
+
+```go
+import relate "github.com/relatedb/relate/clients/go"
+
+func Open(uri string) (*Database, error)
+func OpenReadOnly(uri string) (*Database, error)
+
+func (d *Database) Connect() (*Connection, error)
+func (d *Database) ConnectNamespace(name string) (*Connection, error)
+func (d *Database) Checkpoint() error
+func (d *Database) Close()
+
+func (c *Connection) Query(cypher string) (*Result, error)
+func (c *Connection) QueryParams(cypher string, params map[string]any) (*Result, error)
+func (c *Connection) SetNamespace(name string) error
+func (c *Connection) Begin() error
+func (c *Connection) Commit() (string, error)
+func (c *Connection) Rollback() error
+func (c *Connection) Close()
+```
+
+## Exported identifiers
+
+| Identifier | Kind | Holds |
+| --- | --- | --- |
+| `Database` | struct, unexported fields | An open store |
+| `Connection` | struct, unexported fields | One session on a store |
+| `Result` | struct | `Columns`, `Rows`, `QueryType`, `Namespace`, `Bookmark`, `Stats`, `Notifications`, `Plan` |
+| `Stats` | struct | The 11 mutation counters |
+| `QueryType` | `string` type | `QueryTypeRead` `"r"`, `QueryTypeWrite` `"w"`, `QueryTypeReadWrite` `"rw"`, `QueryTypeSchema` `"s"` |
+| `Namespace` | `string` type | `NamespaceNeo4j` `"neo4j"`, `NamespaceSystem` `"system"`, `NamespaceSystemOntologies` `"system_ontologies"` |
+| `Error` | struct | `Code`, `GQLStatus`, `Stage`, `Retryable`, `Message`; `Error()` returns `Message` |
+| `Stage` | `string` type | `StageCompile` `"compile"`, `StageRuntime` `"runtime"`, `StageInternal` `"internal"` |
+| `Node`, `Relationship`, `Path` | struct, struct, `[]any` | Graph values |
+| `Point`, `Vector` | struct | Spatial and vector values |
+| `Date`, `Time`, `LocalTime`, `DateTime`, `LocalDateTime`, `Duration` | struct | Temporal values as their components |
+| `Notification` | struct | One planner notification |
+| `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | struct | The structured plan |
+
+## Database
+
+| Function or method | Behavior |
+| --- | --- |
+| `Open(uri)` | Opens `:memory:`, a directory store or a `.rl` store for writing; creates a missing store |
+| `OpenReadOnly(uri)` | Loads an existing store once; refuses writes and checkpoints; a missing store is an error |
+| `Connect()` | A connection in the `neo4j` namespace |
+| `ConnectNamespace(name)` | A connection in `neo4j`, `system` or `system_ontologies`, matched case-insensitively |
+| `Checkpoint()` | Writes a :term[checkpoint]{id=checkpoint}, folding the write-ahead log into a fresh snapshot of committed state; refused on a read-only database |
+| `Close()` | Frees the native handle |
+
+A failed `Open` or `OpenReadOnly` returns a `*Error` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, GQLSTATUS `42000` and stage `internal`, whether the store is locked by another writer or missing. An unknown namespace returns `semantic error: DatabaseNotFound: Graph not found: <name>`.
+
+`Close` on a `*Database` or a `*Connection` frees the native handle and keeps no closed state: a second `Close`, or any later call on the value, uses freed memory. The package sets no finalizers, so a handle never closed keeps its store open, and a `.rl` store locked, until the process exits.
+
+## Connection
+
+| Method | Behavior |
+| --- | --- |
+| `Query(cypher)` | `QueryParams` with a nil map |
+| `QueryParams(cypher, params)` | Runs one statement; auto-commits outside an explicit transaction; a nil map binds no parameters |
+| `SetNamespace(name)` | Changes the session namespace; refused inside a transaction |
+| `Begin()` | Opens an explicit :term[transaction]{id=transaction}; transactions do not nest |
+| `Commit()` | Commits; returns the :term[bookmark]{id=bookmark} `"relate:<n>"`, or `""` when the transaction wrote nothing; a failure returns `""` and the error and ends the transaction |
+| `Rollback()` | Discards the explicit transaction |
+| `Close()` | Disconnects; an open transaction rolls back |
+
+A statement failure returns a nil `*Result` and the `*Error`. A connection's own refusals, each with code `Neo.ClientError.Statement.SemanticError` and GQLSTATUS `42000`:
+
+| Call | Message |
+| --- | --- |
+| `Begin()` inside a transaction | `semantic error: already in a transaction` |
+| `Commit()` or `Rollback()` with no transaction | `semantic error: no transaction` |
+| `SetNamespace(…)` inside a transaction | `semantic error: TransactionError: Cannot change the namespace while a transaction is open.` |
+
+The package holds no lock. A `*Database` may be shared between goroutines; calls that share a `*Connection` are serialized by the caller, one at a time, and distinct connections may run concurrently.
+
+## Result
+
+| Field | Type | Holds |
+| --- | --- | --- |
+| `Columns` | `[]string` | The column names, in `RETURN` order |
+| `Rows` | `[][]any` | One slice per row, cells typed as in [Values](#values) |
+| `QueryType` | `QueryType` | The plan-time classification; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `Namespace` | `Namespace` | The statement's `USE` target, else the session namespace |
+| `Bookmark` | `string` | An auto-commit write's bookmark, `relate:<n>`; `""` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `Stats` | `Stats` | The mutation counters; all zero for a read, an `EXPLAIN` or a write that matched no rows |
+| `Notifications` | `[]Notification` | Filled by `EXPLAIN` and `PROFILE`; an empty, non-nil slice on a plain run |
+| `Plan` | `*PlanDocument` | The `relate.plan/v1` plan document under `EXPLAIN` or `PROFILE`; `nil` on a plain run |
+
+A `Result` has no column types or timings. A bookmark's `<n>` grows across every connection of the store and orders as a number: as strings, `"relate:10"` sorts before `"relate:9"`.
+
+`Stats` has 11 `int64` fields, always present: `NodesCreated`, `NodesDeleted`, `RelationshipsCreated`, `RelationshipsDeleted`, `PropertiesSet`, `LabelsAdded`, `LabelsRemoved`, `IndexesAdded`, `IndexesRemoved`, `ConstraintsAdded`, `ConstraintsRemoved`. The counting follows Neo4j: one label per node it is added to, one property per write, and schema statements in the index and constraint counters.
+
+## Values
+
+Each result cell decodes to one Go type per Cypher kind:
+
+| Cypher kind | Go type |
+| --- | --- |
+| `NULL` | `nil` |
+| `BOOLEAN` | `bool` |
+| `INTEGER` | `int64`, lossless |
+| `FLOAT` | `float64`, NaN and infinities included |
+| `STRING` | `string`, an interior NUL kept |
+| `LIST` | `[]any` |
+| `MAP` | `map[string]any`; Go maps keep no order |
+| node | `Node{ElementID string, ID int64, Labels []string, Properties map[string]any}` |
+| relationship | `Relationship{ElementID, StartElementID, EndElementID string, ID, StartID, EndID int64, Type string, Properties map[string]any}` |
+| path | `Path`, a `[]any` alternating `Node` and `Relationship` |
+| `POINT` | `Point{SRID, Dimension int32, X, Y, Z float64}`; `Z` set only when `Dimension` is 3 |
+| `DATE` | `Date{Year, Month, Day int64}` |
+| `ZONED TIME` | `Time{Hour, Minute, Second, Nanosecond, OffsetSeconds int64}` |
+| `LOCAL TIME` | `LocalTime{Hour, Minute, Second, Nanosecond int64}` |
+| `ZONED DATETIME` | `DateTime{Year, Month, Day, Hour, Minute, Second, Nanosecond, OffsetSeconds int64, Zone string}`; `Zone` is the zone id, or `""` for an offset-only value |
+| `LOCAL DATETIME` | `LocalDateTime{Year, Month, Day, Hour, Minute, Second, Nanosecond int64}` |
+| `DURATION` | `Duration{Months, Days, Seconds, Nanos int64}` |
+| `VECTOR` | `Vector{DType string, Ints []int64, Floats []float64}`; the slice of the other family is nil |
+| byte array | `[]any` of `int64` |
+
+A zoned value reports its local wall clock. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`, and is `""` in the `system` namespace. The `ID` fields are the deprecated numeric ids `id()` returns. A value kind the client does not know is an error, never `nil`.
+
+## Parameters
+
+`QueryParams` binds each map entry as one Cypher value:
+
+| Go value | Binds as |
+| --- | --- |
+| `nil`, or a nil pointer, interface, slice, or map | `NULL` |
+| `bool` | `BOOLEAN` |
+| any signed or unsigned integer | `INTEGER`; an unsigned value greater than `math.MaxInt64` is refused |
+| `float32`, `float64` | `FLOAT` |
+| `string` | `STRING` |
+| slice or array, `[]byte` included | `LIST` |
+| `map[string]T` | `MAP` |
+| struct | `MAP` of its exported fields, keyed by `json` tag name; `json:"-"` is skipped and `omitempty` drops a zero value |
+
+The package's own value types are structs, so they bind as maps of their fields; a temporal, point or vector parameter is built in the statement from its parts, as `date($day)` or `vector($v, 3, FLOAT32)`. A value the builder refuses fails before the statement runs, as a plain `error` prefixed `parameter "<name>": `:
+
+| Case | Message after the prefix |
+| --- | --- |
+| Unsigned integer greater than `math.MaxInt64` | `unsigned value <n> exceeds the INT range` |
+| Map with a non-string key type | `map key type <type> is not a string` |
+| Struct with no exported fields, `time.Time` among them | `struct type <type> has no exported fields to bind` |
+| Any other type: a channel, a function, a complex number | `unsupported parameter type <type>` |
+
+A nested value adds its position (`item <n>`, `field "<name>"`, `key "<name>"`). A name holding a NUL byte fails with `parameter "<name>" holds an interior NUL and cannot cross the C boundary`, and a statement holding one with `statement holds an interior NUL and cannot cross the C boundary`.
+
+## Errors
+
+| Field | Holds |
+| --- | --- |
+| `Code` | The Neo4j status code, such as `Neo.ClientError.Statement.ArithmeticError` |
+| `GQLStatus` | The five-character GQLSTATUS, such as `22G03` |
+| `Stage` | `StageCompile` (parse or plan), `StageRuntime` (execution) or `StageInternal` (the C boundary: a poisoned handle, a caught panic, a refused argument) |
+| `Retryable` | `true` exactly when running the same work again can succeed: a write-write conflict (`Neo.TransientError.Transaction.Outdated`, message `write-write conflict`) or a retryable memory cap |
+| `Message` | The engine's message |
+
+Every failure the engine or the C boundary reports is a `*Error`, from a statement's result or from the call's own error channel; `errors.As(err, &e)` with `var e *relate.Error` matches it. The client's own refusals are plain `error` values: the parameter refusals, `ABI contract violated: …` for a result that breaks the C contract, and `unsupported value kind <n>`. A write on a read-only database returns code `Neo.ClientError.Statement.SemanticError` and GQLSTATUS `42N18`. The [errors reference](/docs/reference/errors) lists the engine's messages.
+
+## Notifications and plans
+
+`Notification` has the fields `Code`, `GQLStatus`, `Severity` (`INFORMATION` or `WARNING`), `Category` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `Title`, `Description`, `Remedy` and `OperatorID`, an `*int64` that is nil on a statement-scoped notification.
+
+| Struct | Fields |
+| --- | --- |
+| `PlanDocument` | `Schema` (`relate.plan/v1`), `Profiled`, `Statement *string`, `Root PlanNode` |
+| `PlanNode` | `Operator`, `Details`, `Identifiers`, `EstimatedRows *int64`, `Actual *PlanActual`, `Children`, `Warnings []Notification` |
+| `PlanActual` | `Rows`, `TimeMs`, `DbHits`, `MemoryBytes`, `Hops`, `NeighborWalks`, `NodeReads`, `Start *PlanStart`; nil on an `EXPLAIN` plan |
+| `PlanStart` | `Element`, `Backward`, `Reason` |
+
+## Linking
+
+The package's cgo directives include `relate.h` and link `-lrelate_ffi`, searching the `surfaces/relate-ffi/include`, `target/debug` and `target/release` directories of the relate source repository. Outside that repository the build reads cgo's environment:
+
+| Variable | Value | Without it |
+| --- | --- | --- |
+| `CGO_ENABLED` | `1` | The package's files are excluded: `undefined: relate.Open` |
+| `CGO_CFLAGS` | `-I<directory holding relate.h>` | `fatal error: 'relate.h' file not found` |
+| `CGO_LDFLAGS` | `-L<directory holding librelate_ffi> -lrelate_ffi`; for a static link on macOS, add `-framework CoreFoundation` | `ld: library 'relate_ffi' not found` |
+| `DYLD_LIBRARY_PATH` (macOS), `LD_LIBRARY_PATH` (Linux) | The shared library's directory, at run time. On Linux an rpath at link time does the same; on macOS the library's install name is the absolute path it was built at, so an rpath does not help | The binary does not start: on macOS, `dyld[<pid>]: Library not loaded: <absolute build path>/librelate_ffi.dylib` |
+
+Each release attaches `relate-ffi-<target>.tar.gz` (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`), holding the shared library, the static library, and the header. On Windows, cgo links with MinGW, which needs an import library generated from `relate_ffi.dll` with `gendef` and `dlltool`.
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), one value a statement builds is bounded by the expression memory cap, and a file-backed store has one writing open across every process. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+<Matrix columns={["go"]} />
+
+## Example
+
+This program writes two `Person` nodes and a `KNOWS` relationship to an in-memory store and prints the Go type of each returned value:
+
+```go run name=values
+package main
+
+import (
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	res, err := conn.Query(`
+		CREATE (ada:Person {name: 'Ada'})-[k:KNOWS {since: 2024}]->(grace:Person {name: 'Grace'})
+		RETURN ada, k, 9007199254740993 AS big, 1.5 AS ratio, date('2024-05-06') AS day,
+		       datetime('2024-05-06T09:30:00[Europe/Berlin]') AS meeting, duration('P1Y2M') AS term,
+		       point({x: 1, y: 2}) AS spot, vector([1, 2, 3], 3, INT8) AS counts`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i, col := range res.Columns {
+		fmt.Printf("%s: %T %+v\n", col, res.Rows[0][i], res.Rows[0][i])
+	}
+}
+```
+
+## See also
+
+- [Use the Go client](/docs/guides/embed/go): linking, open modes, parameters, transactions and errors, task by task.
+- [Embed relate in a Go app](/docs/get-started/go): the first program, step by step.
+- [API reference](/docs/reference/api): every surface and the capability matrix.
+- [C ABI](/docs/reference/api/c): the library and header this client links.
+- [Errors](/docs/reference/errors): every engine message with its codes.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the clients solve.

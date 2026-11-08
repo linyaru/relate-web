@@ -3,7 +3,7 @@ title: Security
 description: How relate releases are signed and checked, the signing key and its fingerprint, macOS notarization, what is not published yet, and vulnerability reports.
 order: 90
 surfaces: [cli, bolt, http, mcp, agents]
-related: [get-started/install, reference/privacy-and-telemetry, reference/project, guides/agents/agent-safety, reference/limitations]
+related: [get-started/install, reference/privacy-and-telemetry, reference/project, guides/agents/agent-safety, reference/limitations, concepts/security-and-trust]
 ---
 
 Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 key. `install.sh` and `relate upgrade` check that signature against a copy of the key pinned inside themselves, check that the manifest names the release being installed, check the binary's SHA-256, and install nothing if any check fails. The macOS binaries are also signed and notarized by Apple. No security policy, supported-versions statement, or vulnerability disclosure address is published yet, and no release carries a software bill of materials (SBOM) or SLSA provenance.
@@ -92,9 +92,9 @@ In the output, `<version>` is that version number. The other assets are `relate-
 | macOS CLI binaries | Signed with an Apple Developer ID Application identity, with the hardened runtime and a secure timestamp, then notarized by Apple. A bare binary cannot carry a stapled ticket, so Gatekeeper checks the notarization online the first time the binary runs. |
 | Linux CLI binaries | None |
 | Windows CLI binary | None; the release workflow has no Authenticode step |
-| C libraries (`relate-ffi-<target>.tar.gz`) and Python wheels | None |
+| C libraries (`relate-ffi-<target>.tar.gz`; `cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) and Python wheels | None |
 | Java jars | None on the release assets; the Maven Central publish, not enabled yet, signs with a GPG key |
-| Swift package | SwiftPM checks the release's `RelateFFI.xcframework.zip` against the checksum in the tagged `Package.swift` |
+| Swift package | SwiftPM checks the release's `RelateFFI.xcframework.zip` (`CypherLiteFFI.xcframework.zip` up to and including 0.16.1) against the checksum in the tagged `Package.swift` |
 | npm packages | To be published with npm provenance through trusted publishing; none is published yet |
 
 `SHA256SUMS` lists the five CLI binaries only. The other artifacts are not in it.

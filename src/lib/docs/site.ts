@@ -56,6 +56,8 @@ export interface DocsSite {
   twin: (page: DocsPage) => Twin;
   /** Pages in reading order, with their twins, for the indexes. */
   indexed: () => IndexedPage[];
+  /** The ids of `indexed`, in the same reading order, without building the twins. */
+  order: () => string[];
   /** The llms-full.txt files per section and group: [path, label, page ids]. */
   fullFiles: () => { path: string; label: string; ids: string[] }[];
 }
@@ -147,6 +149,7 @@ async function build(): Promise<DocsSite> {
       .filter((p) => p.section !== null)
       .sort(byOrder);
   const indexed = () => listed().map((p) => p.indexed());
+  const pageOrder = () => listed().map((p) => p.id);
   const fullFiles = () => {
     const out: { path: string; label: string; ids: string[] }[] = [];
     for (const section of nav) {
@@ -162,5 +165,5 @@ async function build(): Promise<DocsSite> {
     }
     return out;
   };
-  return { pages, generated, byId, nav, engine, glossary, links, twin, indexed, fullFiles };
+  return { pages, generated, byId, nav, engine, glossary, links, twin, indexed, order: pageOrder, fullFiles };
 }

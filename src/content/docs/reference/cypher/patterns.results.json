@@ -1,0 +1,717 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "label-expressions": {
+      "kind": "table",
+      "text": "| personOrProject | notPerson | anyLabel | isPerson |\n|-----------------|-----------|----------|----------|\n| 5               | 2         | 5        | 3        |\n1 row",
+      "table": {
+        "columns": [
+          "personOrProject",
+          "notPerson",
+          "anyLabel",
+          "isPerson"
+        ],
+        "numeric": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "5",
+            "2",
+            "5",
+            "3"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER",
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "personOrProject",
+          "notPerson",
+          "anyLabel",
+          "isPerson"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "anyLabel": 5,
+            "isPerson": 3,
+            "notPerson": 2,
+            "personOrProject": 5
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "type-expression": {
+      "kind": "table",
+      "text": "| type       | target           |\n|------------|------------------|\n| \"WORKS_ON\" | \"opencypher-tck\" |\n| \"WORKS_ON\" | \"relate\"         |\n2 rows",
+      "table": {
+        "columns": [
+          "type",
+          "target"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"WORKS_ON\"",
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"WORKS_ON\"",
+            "\"relate\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "type",
+          "target"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "target": "opencypher-tck",
+            "type": "WORKS_ON"
+          },
+          {
+            "target": "relate",
+            "type": "WORKS_ON"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "dynamic-labels": {
+      "kind": "table",
+      "text": "| nodes |\n|-------|\n| 5     |\n1 row",
+      "table": {
+        "columns": [
+          "nodes"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "5"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER"
+        ],
+        "columns": [
+          "nodes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "nodes": 5
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "mixed-labels": {
+      "kind": "table",
+      "text": "error: syntax error: parse error: InvalidLabelExpression: cannot mix colon-conjunction with label expression symbols\n  MATCH (n:Person:Project|Bot) RETURN count(n) AS nodes\n                         ^",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: parse error: InvalidLabelExpression: cannot mix colon-conjunction with label expression symbols\n  MATCH (n:Person:Project|Bot) RETURN count(n) AS nodes\n                         ^",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "inline-where": {
+      "kind": "table",
+      "text": "| person  | project          |\n|---------|------------------|\n| \"Grace\" | \"opencypher-tck\" |\n| \"Grace\" | \"relate\"         |\n2 rows",
+      "table": {
+        "columns": [
+          "person",
+          "project"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"Grace\"",
+            "\"relate\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "person",
+          "project"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "person": "Grace",
+            "project": "opencypher-tck"
+          },
+          {
+            "person": "Grace",
+            "project": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "variable-length": {
+      "kind": "table",
+      "text": "| types                 | reached          |\n|-----------------------|------------------|\n| [\"KNOWS\"]             | \"Grace\"          |\n| [\"WORKS_ON\"]          | \"relate\"         |\n| [\"KNOWS\", \"WORKS_ON\"] | \"opencypher-tck\" |\n| [\"KNOWS\", \"WORKS_ON\"] | \"relate\"         |\n4 rows",
+      "table": {
+        "columns": [
+          "types",
+          "reached"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"KNOWS\"]",
+            "\"Grace\""
+          ],
+          [
+            "[\"WORKS_ON\"]",
+            "\"relate\""
+          ],
+          [
+            "[\"KNOWS\", \"WORKS_ON\"]",
+            "\"opencypher-tck\""
+          ],
+          [
+            "[\"KNOWS\", \"WORKS_ON\"]",
+            "\"relate\""
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "types",
+          "reached"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "reached": "Grace",
+            "types": [
+              "KNOWS"
+            ]
+          },
+          {
+            "reached": "relate",
+            "types": [
+              "WORKS_ON"
+            ]
+          },
+          {
+            "reached": "opencypher-tck",
+            "types": [
+              "KNOWS",
+              "WORKS_ON"
+            ]
+          },
+          {
+            "reached": "relate",
+            "types": [
+              "KNOWS",
+              "WORKS_ON"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "group-variables": {
+      "kind": "table",
+      "text": "| from             | via                   | reached          |\n|------------------|-----------------------|------------------|\n| [\"Ada\", \"Grace\"] | [\"KNOWS\", \"WORKS_ON\"] | \"opencypher-tck\" |\n| [\"Ada\", \"Grace\"] | [\"KNOWS\", \"WORKS_ON\"] | \"relate\"         |\n2 rows",
+      "table": {
+        "columns": [
+          "from",
+          "via",
+          "reached"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Ada\", \"Grace\"]",
+            "[\"KNOWS\", \"WORKS_ON\"]",
+            "\"opencypher-tck\""
+          ],
+          [
+            "[\"Ada\", \"Grace\"]",
+            "[\"KNOWS\", \"WORKS_ON\"]",
+            "\"relate\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "from",
+          "via",
+          "reached"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "from": [
+              "Ada",
+              "Grace"
+            ],
+            "reached": "opencypher-tck",
+            "via": [
+              "KNOWS",
+              "WORKS_ON"
+            ]
+          },
+          {
+            "from": [
+              "Ada",
+              "Grace"
+            ],
+            "reached": "relate",
+            "via": [
+              "KNOWS",
+              "WORKS_ON"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "shortest": {
+      "kind": "table",
+      "text": "| route                              | hops |\n|------------------------------------|------|\n| [\"Noor\", \"relate\", \"Grace\"]        | 2    |\n| [\"Noor\", \"relate\", \"Ada\", \"Grace\"] | 3    |\n2 rows",
+      "table": {
+        "columns": [
+          "route",
+          "hops"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "[\"Noor\", \"relate\", \"Grace\"]",
+            "2"
+          ],
+          [
+            "[\"Noor\", \"relate\", \"Ada\", \"Grace\"]",
+            "3"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "INTEGER"
+        ],
+        "columns": [
+          "route",
+          "hops"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "hops": 2,
+            "route": [
+              "Noor",
+              "relate",
+              "Grace"
+            ]
+          },
+          {
+            "hops": 3,
+            "route": [
+              "Noor",
+              "relate",
+              "Ada",
+              "Grace"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "path-modes": {
+      "kind": "table",
+      "text": "| trail | acyclic |\n|-------|---------|\n| 2     | 0       |\n1 row",
+      "table": {
+        "columns": [
+          "trail",
+          "acyclic"
+        ],
+        "numeric": [
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "2",
+            "0"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "trail",
+          "acyclic"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "acyclic": 0,
+            "trail": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "match-modes": {
+      "kind": "table",
+      "text": "| differentRelationships | repeatableElements |\n|------------------------|--------------------|\n| 2                      | 7                  |\n1 row",
+      "table": {
+        "columns": [
+          "differentRelationships",
+          "repeatableElements"
+        ],
+        "numeric": [
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "2",
+            "7"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "differentRelationships",
+          "repeatableElements"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "differentRelationships": 2,
+            "repeatableElements": 7
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "hop-bound": {
+      "kind": "table",
+      "text": "error: syntax error: TraversalDepthExceeded: This query allows paths up to 1,000 hops. This is a safety limit protecting against excessive traversal (not a database limit) — lower the path bound, or raise it with --max-traversal-depth (up to 2000).",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: TraversalDepthExceeded: This query allows paths up to 1,000 hops. This is a safety limit protecting against excessive traversal (not a database limit) — lower the path bound, or raise it with --max-traversal-depth (up to 2000).",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "unbounded": {
+      "kind": "table",
+      "text": "| longestWalk | hopsTo33 | hopsTo34 |\n|-------------|----------|----------|\n| 39          | 32       | null     |\n1 row · nodes created: 40, relationships created: 39, properties set: 40, labels added: 40",
+      "table": {
+        "columns": [
+          "longestWalk",
+          "hopsTo33",
+          "hopsTo34"
+        ],
+        "numeric": [
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "39",
+            "32",
+            "null"
+          ]
+        ],
+        "summary": "1 row · nodes created: 40, relationships created: 39, properties set: 40, labels added: 40"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER",
+          "ANY"
+        ],
+        "columns": [
+          "longestWalk",
+          "hopsTo33",
+          "hopsTo34"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "hopsTo33": 32,
+            "hopsTo34": null,
+            "longestWalk": 39
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

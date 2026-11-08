@@ -3,19 +3,20 @@
 // task index as the one primary navigation, the four doors under it, the
 // install strip and the agent strip. A task whose page is not written yet
 // renders as text, not a link.
-import { agentsMd } from '../../components/docs/install.ts';
+import { agentsMd, releaseNames } from '../../components/docs/install.ts';
 import TabsStrip from '../../components/docs/TabsStrip.astro';
 import Docs from '../../layouts/Docs.astro';
 import { isNotYetPublic } from '../../lib/cookbook/links.ts';
 import { esc } from '../../lib/cookbook/result-view.ts';
 import { highlighter } from '../../lib/docs/highlight.ts';
-import { PRIMARY, TASKS, taskHref } from '../../lib/docs/landing.ts';
+import { orderedTasks, PRIMARY, taskHref } from '../../lib/docs/landing.ts';
 import { CANONICAL_PHRASE } from '../../lib/docs/llms.ts';
 import { SECTIONS } from '../../lib/docs/model.ts';
 import { docsSite } from '../../lib/docs/site.ts';
 
 const site = await docsSite();
 const published = site.links.pages;
+const tasks = orderedTasks(site.order());
 const highlight = await highlighter();
 let seq = 0;
 // A code block as the docs render one (dark, with a Copy button the script shows).
@@ -54,7 +55,7 @@ const description = `Documentation for ${CANONICAL_PHRASE}: install it, connect 
   <section class="landing-tasks" aria-labelledby="i-want-to">
     <h2 id="i-want-to">I want to…</h2>
     <div class="task-groups">
-      {TASKS.map((g) => (
+      {tasks.map((g) => (
         <div class="task-group">
           <h3>{g.id}</h3>
           <ul>
@@ -93,7 +94,7 @@ const description = `Documentation for ${CANONICAL_PHRASE}: install it, connect 
       </Fragment>
       <Fragment slot="windows">
         <p>
-          Download <code>relate-windows-amd64.exe</code> from the {isNotYetPublic(releases) ? 'releases page' : <a href={releases}>releases page</a>}.
+          Download <code>{releaseNames(site.engine.version).prefix}-windows-amd64.exe</code> from the {isNotYetPublic(releases) ? 'releases page' : <a href={releases}>releases page</a>}.
         </p>
       </Fragment>
     </TabsStrip>

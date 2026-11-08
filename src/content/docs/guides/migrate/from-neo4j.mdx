@@ -1,4 +1,167 @@
 ---
 title: Migrate from Neo4j
-status: planned
+label: From Neo4j
+description: Decide whether a Neo4j workload fits relate, copy the graph with relate pull, check its statements against the dialect, and rehearse the cut-over on a copy.
+order: 30
+surfaces: [cli, cypher, bolt]
+prerequisites: [get-started/install]
+related: [guides/neo4j/pull-from-neo4j, reference/cypher/differences-from-neo4j, reference/limitations, cookbook/migration-rehearsal, concepts/where-relate-fits, concepts/problems-relate-solves#neo4j-subgraph-mirror, concepts/problems-relate-solves#migration-rehearsal]
 ---
+
+This guide shows you how to move a graph and the application that queries it from Neo4j to relate. relate runs Neo4j's :term[Cypher]{id=cypher} inside one process, on one machine, so most statements carry over unchanged. What doesn't carry over is the server around them: procedure libraries, several databases, user accounts, and clustering. The first section lists each of those with what relate offers instead, so you can decide before you copy anything.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A Neo4j or Aura database that answers the HTTP Query API, for the copy. [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j) has the connection file and every refusal.
+- The application's Cypher statements, collected in one place, to check against the dialect.
+
+## Check what you'd miss
+
+Each row is something a Neo4j deployment commonly relies on. The relate column says what happens when a statement or a deployment reaches for it, quoting the error where there is one:
+
+| Neo4j feature | In relate | What to use instead |
+| --- | --- | --- |
+| The APOC library | None. `syntax error: UnknownFunction: unknown function apoc.text.join()`; `syntax error: ProcedureNotFound: apoc.meta.schema` | Built-in functions such as `string.join`, `string.regexReplace`, `coll.sort`, `coll.distinct` and `coll.flatten`; `CALL db.schema.nodeTypeProperties()` for the schema; `CALL { … } IN TRANSACTIONS` for batched writes; the CLI's `--fetch-params` to load a JSON file or URL. `SHOW FUNCTIONS` and `SHOW PROCEDURES` list what exists |
+| The Graph Data Science (GDS) library | None. `syntax error: ProcedureNotFound: gds.pageRank.stream` | Cypher patterns and aggregation: degree with a `COUNT { }` subquery, paths with `SHORTEST`. Other algorithms run in the application's own code over a query result |
+| Several databases per server (`CREATE DATABASE`, `USE <name>`) | Three fixed :term[namespaces]{id=namespace} per store, `neo4j`, `system` and `system_ontologies`. `semantic error: UnsupportedAdministrationCommand: Unsupported administration command: CREATE DATABASE movies` | One store per graph: a directory or a `.rl` file each |
+| Users, roles, and privileges | None. `CREATE USER bob SET PASSWORD 'secret'` fails with `syntax error: parse error: expected a pattern` | File permissions on the store; `--read-only` opens, which refuse every write; on a served store, one Basic-auth credential for every surface, from `relate serve --auth <user>:<password>` |
+| Clustering: replicas, failover, sharding | None. One process writes a store, and nothing replicates it to another machine | On the same machine, readers beside the writer with `--read-only` on a directory store, or `--read-only=live` to follow its commits; `relate serve` for many clients of one process; `relate clone` for a copy |
+| Several processes writing one database | One writing process per store. A second fails at open with `storage locked: <path>`, exit code 5 | Route every writer through one `relate serve` process ([two processes, one store](/docs/guides/operate/two-processes-one-store)) |
+| Graphs larger than memory | The whole graph and its indexes are held in memory, with no paging | Measure first ([size a store and its memory](/docs/guides/operate/sizing-and-memory)); `--logical-graph-size-limit` fails a growing write instead of exhausting memory |
+| Encrypted connections | `relate serve` has no TLS. Every surface binds to `127.0.0.1` unless `--host` names another address | A TLS-terminating proxy in front of `relate serve` ([auth and TLS](/docs/guides/serve/auth-and-tls)) |
+| `LOAD CSV` from a URL | Local files under the `--load-csv-dir` directory only, denied by default; anything else fails with `LOAD CSV file unavailable` | Download the file, then `--load-csv-dir <dir>` ([import a CSV](/docs/guides/cypher/import-csv)) |
+
+If a row is a requirement, relate is the wrong home for that workload, and [where relate fits](/docs/concepts/where-relate-fits) says what to use instead. The [limitations](/docs/reference/limitations) page lists every limit, and [differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) every statement-level habit.
+
+## Copy the data
+
+`relate pull` runs your statements against Neo4j over its HTTP Query API and writes the nodes and relationships they return into a new local :term[store]{id=store}, with the source's constraints and its range, text, and point indexes. This command writes to `./mirror`, which must not exist yet or be empty:
+
+```bash
+relate pull --from neo4j.env --query "MATCH (n)-[r]->(m) RETURN n, r, m" --database ./mirror
+```
+
+That statement copies every node with at least one relationship; add `MATCH (n) WHERE NOT EXISTS { (n)--() } RETURN n` as a second statement, separated by `;`, for nodes without any. Two things don't come across:
+
+- Full-text and vector indexes. The pull skips them with a warning on stderr; create them again with `CREATE FULLTEXT INDEX` or `CREATE VECTOR INDEX` ([search](/docs/reference/cypher/search)).
+- :term[Element ids]{id=element-id}. Every node and relationship gets a new one, so an application that stored Neo4j's element ids needs its own key property instead.
+
+[Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j) covers the connection file, the value types, and every error.
+
+## Check the application's statements
+
+Run each statement the application sends with `EXPLAIN` in front, against the copy. `EXPLAIN` plans without running, and an unknown function or procedure fails at planning. The pull and the driver connection are described here, not run in the docs build; the cells run on one in-memory store holding the team graph, standing in for the copy:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+A GDS call fails before anything runs:
+
+```cypher run name=gds expect=error
+EXPLAIN CALL gds.degree.stream('team') YIELD nodeId, score
+RETURN nodeId, score
+```
+
+Degree, the simplest centrality, is a `COUNT` subquery:
+
+```cypher run name=degree
+MATCH (p:Person)
+RETURN p.name AS person, COUNT { (p)--() } AS degree
+ORDER BY degree DESC, person
+```
+
+A shortest path is a pattern:
+
+```cypher run name=shortest
+MATCH path = SHORTEST 1 (:Person {name: 'Ada'})-[*]-(:Project {name: 'opencypher-tck'})
+RETURN [n IN nodes(path) | n.name] AS route, length(path) AS hops
+```
+
+APOC's list and text helpers have built-in counterparts. This statement does with `string.join`, `coll.sort` and `coll.distinct` what `apoc.text.join`, `apoc.coll.sort` and `apoc.coll.toSet` would:
+
+```cypher run name=builtins
+MATCH (p:Person)-[:WORKS_ON]->(proj:Project)
+WITH proj, collect(p.name) AS names, collect(p.role) AS roles
+RETURN proj.name AS project, string.join(coll.sort(names), ', ') AS people, coll.distinct(roles) AS roles
+ORDER BY project
+```
+
+A statement that plans cleanly can still return different results where the dialect differs; [differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists each case with the form to write instead.
+
+## Connect the application
+
+Two routes, depending on how much of the application should change:
+
+| Route | What changes | Start here |
+| --- | --- | --- |
+| Embed relate | The Neo4j driver gives way to the relate client for the language, which opens the store in the application's process. No server, no port | [Python](/docs/get-started/python), [Node.js](/docs/get-started/node), or the other [clients](/docs/reference/api) |
+| Keep the Neo4j driver | Nothing in the code but the URI. `relate serve --bolt <port>` speaks Bolt, and a `neo4j://` driver gets a single-server routing table | [Serve a store over Bolt](/docs/guides/serve/bolt) |
+
+The served form, with the copy opened read-only:
+
+```bash
+relate serve --database ./mirror --bolt 7687 --read-only
+```
+
+To allow writes, remove `--read-only`. Without `--auth` or `RELATE_AUTH`, relate generates a token, prints it at startup, and keeps it in `./mirror.auth-token` for the next start.
+
+## Rehearse the cut-over
+
+Run any change the move needs, such as replacing APOC calls in stored data or renaming a relationship type, on a clone of the copy, so the pull stays as it came. This writes the new store `./rehearsal`:
+
+```bash
+relate clone ./mirror ./rehearsal
+```
+
+The [migration rehearsal recipe](/cookbook/migration-rehearsal/) is the pattern for checking the result: fingerprint the graph before the change, write down what the change may touch, and compare afterwards. It catches a migration that keeps every node count right while it deletes 352 relationships.
+
+## Verify
+
+The same count statements run on Neo4j and on relate, so the copy is checked against the source with no translation. Nodes per label:
+
+```cypher run name=labels
+MATCH (n)
+RETURN labels(n) AS labels, count(*) AS nodes
+ORDER BY nodes DESC
+```
+
+Relationships per type:
+
+```cypher run name=types
+MATCH ()-[r]->()
+RETURN type(r) AS type, count(*) AS relationships
+ORDER BY relationships DESC, type
+```
+
+On the copy itself, open it read-only: `relate --database ./mirror --read-only --mode table "<statement>"`. Equal counts on both sides, and every application statement planning cleanly with `EXPLAIN`, mean the data and the statements have arrived.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `syntax error: UnknownFunction: unknown function apoc.<name>()` or `syntax error: ProcedureNotFound: apoc.<name>` | The statement calls APOC | Use the built-in from [Check what you'd miss](#check-what-youd-miss); `SHOW FUNCTIONS` lists them. |
+| `syntax error: ProcedureNotFound: gds.<name>` | The statement calls GDS | Write the measure in Cypher, or compute it in the application from a query result. |
+| `Error: destination database is not empty; pull writes into an empty database only (ADR-0158)` | `relate pull` targets a store that holds data | Pull into a new path. |
+| `semantic error: DatabaseNotFound: Graph not found: <name>` | The statement or driver session names a database other than the three namespaces | Drop the `USE` clause or the session's database name; put each graph in its own store. |
+| `Failed to open Relate: storage locked: <path>`, exit code 5 | A second process opened the store for writing | Send every writer through one `relate serve` process, or open the reader with `--read-only` on a directory store. |
+| A search returns nothing on the copy | The pull skipped the source's full-text and vector indexes | Create them with `CREATE FULLTEXT INDEX` or `CREATE VECTOR INDEX`. |
+
+## Related
+
+- [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j): the connection file, the value types, and every refusal.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): every statement-level habit with its error and the form to write instead.
+- [Limitations](/docs/reference/limitations): every limit, grouped by process model, storage, Cypher, and server.
+- [Where relate fits](/docs/concepts/where-relate-fits): the jobs relate suits, and when another database fits better.
+- [Migration rehearsal](/cookbook/migration-rehearsal/): fingerprints before and after a change.
+- [Neo4j subgraph mirror](/docs/concepts/problems-relate-solves#neo4j-subgraph-mirror) and [migration rehearsal](/docs/concepts/problems-relate-solves#migration-rehearsal) in the capability catalog.

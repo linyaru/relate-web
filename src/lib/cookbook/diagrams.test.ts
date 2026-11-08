@@ -102,7 +102,13 @@ test('inertSvg accepts what mermaid draws and nothing that can run, fetch, or na
       '<g class="node" data-id="A"><rect rx="5" width="10" height="4"/><foreignObject width="10" height="4"><div><span><p><b>A</b><br/>id</p></span></div></foreignObject></g></svg>',
     'mermaid shape',
   );
+  inertSvg(
+    '<svg><defs><symbol id="db" fill-rule="evenodd" clip-rule="evenodd" width="24" height="24"><path d="M0 0"/></symbol></defs>' +
+      '<rect name="Host" filter="url(#shadow)" width="10" height="4"/></svg>',
+    'mermaid sequenceDiagram',
+  );
   for (const [bad, what] of [
+    ['<svg><rect filter="url(https://example.com/f.svg#f)"/></svg>', /not a fragment/],
     ['<svg/onload="alert(1)"></svg>', /attribute onload/],
     ['<svg><foreignObject><img src="data:,"onerror="alert(1)"></foreignObject></svg>', /element <img>/],
     ['<svg><foreignObject><details/open/ontoggle="alert(1)"></details></foreignObject></svg>', /element <details>/],

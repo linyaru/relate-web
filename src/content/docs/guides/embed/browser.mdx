@@ -1,4 +1,205 @@
 ---
 title: Use relate from a web page
-status: planned
+label: Browser
+description: Embed the WebAssembly build in a web app, with the engine kept out of the bundle, a module worker, an OPFS store, the envelope's shapes and traps.
+order: 25
+surfaces: [browser]
+prerequisites: [get-started/browser]
+related: [reference/api/wasm, get-started/browser, reference/errors#engine-storage-locked, concepts/problems-relate-solves#embedded-graph-in-an-app, reference/limitations]
 ---
+
+This guide shows you how to embed relate in a web app through the `@relate/relate-wasm` package: serve the engine as static files, run it in a module worker, keep a graph in the Origin Private File System (OPFS), and read what comes back. [Run relate in the browser](/docs/get-started/browser) builds the same pieces step by step. The calls and messages here come from the WebAssembly (WASM) build this site ships, run in Chrome 157 and in Node.js, and from its `relate.d.ts`.
+
+## Prerequisites
+
+- A project that a bundler builds. The bundling facts on this page were checked with Vite 5.4.21.
+- For an OPFS store: a browser with module workers, OPFS, and its synchronous access handles. Chrome 157 was checked; this page makes no claim about other browsers.
+
+## Add the client
+
+The package is `@relate/relate-wasm`. Its glue, `relate.js`, fetches `relate_bg.wasm` from beside itself and imports its `snippets/` directory the same way. Install the package, then serve the four entries as files, unchanged, from one directory:
+
+```bash
+npm install @relate/relate-wasm
+mkdir -p public/relate
+cp -R node_modules/@relate/relate-wasm/{relate.js,relate_bg.wasm,trap.js,snippets} public/relate/
+```
+
+Vite copies `public/` to the built site as it is. Load the glue at runtime, by URL, so the bundler never rewrites it:
+
+```js
+const engine = (file) => new URL(`/relate/${file}`, self.location.origin).href;
+const relate = await import(/* @vite-ignore */ engine('relate.js'));
+await relate.default();
+```
+
+This site does the same with `/wasm/relate.js`. Serve `relate_bg.wasm` with `Content-Type: application/wasm`. With another type, the glue logs a warning and falls back to a slower load.
+
+To pass the engine's location yourself, `relate.default({ module_or_path: <url> })` takes a URL, a `Response`, bytes or a compiled `WebAssembly.Module`. Passing the URL on its own still works, and logs a deprecation warning.
+
+## Choose the thread
+
+Run the engine in a dedicated module worker, `new Worker(url, { type: 'module' })`, unless the graph is in memory and every statement is small.
+
+| | Page thread | Dedicated worker |
+| --- | --- | --- |
+| `new RelateDb()` (in memory) | Works | Works |
+| `RelateDb.open("opfs://<name>")` | Rejects: `storage error: OPFS needs a dedicated worker` | Works |
+| A long statement | Blocks the page until it returns | Blocks only the worker |
+| Stopping a runaway statement | Not possible: there is no statement timeout | `worker.terminate()` ends it |
+
+`execute()` and `executeScript()` are synchronous: each returns when its statements finish.
+
+In the worker, assign `onmessage` before the engine finishes loading and wait for it inside the handler, so the first message is not lost:
+
+```js
+const ready = (async () => {
+  const relate = await import(/* @vite-ignore */ engine('relate.js'));
+  await relate.default();
+  return new relate.RelateDb();
+})();
+
+self.onmessage = async (event) => {
+  const db = await ready;
+  self.postMessage(db.execute(event.data.statement, event.data.params ?? null));
+};
+```
+
+## Open a store
+
+`new RelateDb()` opens an in-memory store. To keep the graph in OPFS, open the store by name in the worker instead. This open is writable, because the app writes to it; `RelateDb.open('opfs://team', true)` opens it :term[read-only]{id=read-only}:
+
+```js
+const db = await relate.RelateDb.open('opfs://team');
+```
+
+The name is 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`. The :term[store]{id=store} is created when it does not exist, and its files live under `relate/<name>/` in the site's OPFS root. Each statement is durable when `execute()` returns, so a reload, or a terminated worker, keeps every write.
+
+| To | Call |
+| --- | --- |
+| Open read-only | `RelateDb.open('opfs://team', true)`: every write fails with `WriteOnReadOnlyAccessDatabase` |
+| Empty the store | `db.reset()`: wipes `opfs://team` and reopens it empty; a reload stays empty |
+| Release it in the same worker | `db.free()`, then `RelateDb.open()` again |
+
+One open handle holds a store at a time, read-only or not. A second open of the same name from any worker of the site, while the first is open, rejects with `storage locked: opfs://team`. A worker that ends, including on a reload, releases it.
+
+## Bind parameters and read typed values
+
+`execute(statement, params_json)` returns the :term[envelope]{id=envelope} as JSON text. The queries in this section run on the team graph that every embed guide uses, which one `CREATE` writes:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+A write returns no rows; its envelope's `stats` holds the eleven counters, with `nodes_created` at `5` here. A read's `rows` hold one object per row, keyed by the column names in `RETURN`.
+
+```cypher run name=read
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+```
+
+From a worker, with the project as a :term[parameter]{id=parameter}:
+
+```js
+const result = JSON.parse(db.execute(
+  'MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since',
+  JSON.stringify({ project: 'relate' }),
+));
+// result.columns      ["name","since"]
+// result.columnTypes  ["STRING","INTEGER"]
+// result.rows         [{"name":"Grace","since":2023},{"name":"Ada","since":2024}]
+// result.error        null
+```
+
+Parameters go in as one JSON object, or `null` for none. A nested object is an ordinary map, even with a `__type` key, so build typed values in Cypher: `date($d)`, `point($p)`.
+
+Values come back as JSON. A node is `{"id", "kind": "node", "labels", "properties"}`, a relationship `{"id", "kind": "relationship", "type", "start_node", "end_node", "properties"}`, and a path a list of them in order. Dates, times and durations are ISO 8601 strings. A point is `{"crs", "srid", "x", "y"}` when cartesian, plus `"z"` in 3D, or `{"crs", "srid", "longitude", "latitude"}` when geographic, plus `"height"` in 3D. The JSON text carries every integer exactly, but `JSON.parse` rounds one beyond `Number.MAX_SAFE_INTEGER` (9007199254740991). [Value shapes](/docs/reference/api/wasm#value-shapes) lists each type.
+
+## Group writes in a transaction
+
+The browser build has no :term[transaction]{id=transaction} API. Every statement commits on its own when `execute()` returns, and `BEGIN` is a syntax error. Within one statement, all of its writes apply or none do, so writes that must land together go in one statement: one `CREATE` with several patterns, or an `UNWIND` over a list parameter.
+
+`executeScript(script, params_json)` runs several statements separated by `;` in one call and returns one envelope per statement it ran. It is not a transaction: it stops after the first envelope whose `error` is set, and the statements before it stay committed.
+
+```js
+const envelopes = db.executeScript(
+  "CREATE (:Person {name: 'Lin', role: 'engineer'}); MATCH (p:Project {name: $project}) DETACH DELETE p",
+  null,
+).map((text) => JSON.parse(text));
+// envelopes.length       2
+// envelopes[0].error     null: Lin is committed
+// envelopes[1].error     "semantic error: ParameterMissing: Expected parameter(s): project"
+```
+
+[Transactions](/docs/reference/api/wasm#transactions) states the rule in the reference.
+
+## Read result metadata
+
+The rest of the envelope describes the statement. `notifications` and `plan` are filled on `EXPLAIN` and `PROFILE`: the notifications say what the planner noticed, such as a label that does not exist, and `plan` holds the operator tree; on a plain run they are `[]` and `null`. `elapsed_ms`, `parse_ms`, `plan_ms` and `execute_ms` time the statement and change on every run. [The envelope](/docs/reference/api/wasm#the-envelope) lists every key.
+
+`renderResult(envelopes)` turns a list of envelope texts into the text table this site's cells print.
+
+## Handle errors
+
+A failing statement never throws: its envelope has `error` set to a string, such as `semantic error: ParameterMissing: Expected parameter(s): name`, and the engine stays usable. Branch on `error !== null` after every call.
+
+A call that does throw is one of these: an open or a reset that failed (the constructor, `RelateDb.open()`, `reset()`), `renderResult()` given text that is not an envelope, a call on a freed handle (`null pointer passed to rust`), or a trap. A trap is a crash inside the engine, after which that instance can't be used again. `isWasmTrap(err)` from `trap.js` tells a trap from the others:
+
+```js
+const { isWasmTrap } = await import(/* @vite-ignore */ engine('trap.js'));
+
+try {
+  self.postMessage(db.execute(statement, params));
+} catch (err) {
+  if (isWasmTrap(err)) self.postMessage({ trap: true });
+  else throw err;
+}
+```
+
+After a trap, the page terminates the worker and starts a new one. An in-memory graph is gone with it; an OPFS store reopens with every write it acknowledged.
+
+## Verify
+
+From the page, send the worker a statement that reads the engine's version:
+
+```cypher run name=version
+CALL dbms.components() YIELD name, versions
+WHERE name = 'Relate'
+RETURN versions[0] AS version
+```
+
+The envelope's `rows` hold `[{"version":"0.16.1"}]`. For an OPFS store, write one node, reload the page, and count the nodes again: the count includes it.
+
+## If it goes wrong
+
+**`Error: storage error: OPFS needs a dedicated worker`.** `RelateDb.open()` ran on the page's thread, or in a shared or service worker. Move the engine into a dedicated worker.
+
+**`storage locked: opfs://<name>`.** Another worker of the same site holds the store, in this tab or another. Send it every statement instead of opening a second handle, or close the other handle with `free()`.
+
+**`OPFS name must be 1-64 characters from [A-Za-z0-9_-]`.** The name after `opfs://` has a dot, a slash or another character outside that set: `opfs://team.rl` fails, `opfs://team` opens.
+
+**`OPFS open requires an opfs://name URI; use new RelateDb() for :memory:`.** `RelateDb.open()` got a path, a `file://` URL or `:memory:`. The browser build opens only OPFS stores and in-memory ones; a `.rl` file cannot be opened.
+
+**`failed to fetch Wasm: 404 Not Found fetching '<url>'`.** `relate_bg.wasm` is not beside `relate.js` at the URL the glue resolved; another failing status shows in place of `404 Not Found`. Copy the four entries into one served directory, or pass the file's URL as `module_or_path`.
+
+**The console warning starts with `` `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. ``** The engine still loads, more slowly, through `WebAssembly.instantiate`. Configure the server to send that type for `.wasm`.
+
+**`null pointer passed to rust`.** The handle was used after `free()`. Open a new one.
+
+## Related
+
+- [WebAssembly API](/docs/reference/api/wasm): every export, the envelope, the OPFS rules and what the browser build leaves out.
+- [Run relate in the browser](/docs/get-started/browser): a page that keeps the team graph in OPFS, step by step.
+- [Errors](/docs/reference/errors#engine-storage-locked): the storage and engine messages, with their causes.
+- [Limitations](/docs/reference/limitations): what the engine does not do on any surface.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the browser build solves.

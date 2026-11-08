@@ -1,4 +1,352 @@
 ---
 title: Python API
-status: planned
+label: Python
+description: The relate-db package's module, classes and method signatures, open options, value mapping in both directions, exceptions with their codes, and limits.
+order: 20
+surfaces: [python]
+related: [guides/embed/python, get-started/python, reference/errors#python-exception-classes, reference/api/javascript, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+The relate Python :term[client]{id=client} is the `relate-db` package, imported as `relate`: a native extension that opens a :term[store]{id=store} and runs the engine in the calling process. It offers two layers. `relate.connect()` returns a `Connection` in the style of Python's database API (PEP 249), with cursors whose rows are dicts. `relate.Database` is the engine handle underneath, with Arrow output and the raw `QueryResult`. The signatures on this page are read from the package source and checked against `relate-db` 0.16.1.
+
+## Synopsis
+
+```python
+import relate
+
+conn = relate.connect(database=":memory:", namespace="neo4j", read_only=False)
+cur = conn.execute(query, params=None)        # a Cursor holding every row
+rows = cur.fetchall()                         # a list of Record dicts
+summary = cur.consume()                       # a ResultSummary
+conn.commit()                                 # a bookmark "relate:<n>", or None
+conn.close()
+
+db = relate.Database(path=":memory:", namespace="neo4j", *, read_only=False)
+result = db.execute(query, params=None)       # a QueryResult
+ipc = db.execute_arrow(query, params=None)    # Arrow IPC stream bytes
+```
+
+## Module
+
+| Name | Kind | Value or behavior |
+| --- | --- | --- |
+| `connect(database=":memory:", namespace="neo4j", read_only=False)` | function | Opens a store and returns a `Connection` |
+| `Connection`, `Cursor`, `Record`, `ResultSummary`, `ResultGraph` | classes | The database-API layer |
+| `Database`, `QueryResult` | classes | The native layer |
+| `Node`, `Relationship`, `Path`, `Point`, `Duration`, `Vector`, `Temporal` | classes | Values in results; `Point` and `Duration` are also built by callers |
+| `Error` (alias `RelateError`) and its subclasses, `Warning`, `RelateNativeError` | exceptions | See [Errors](#errors) |
+| `apilevel` | `str` | `"2.0"` |
+| `threadsafety` | `int` | `1`: threads may share the module, not a connection |
+| `paramstyle` | `str` | `"named"`: parameters are `$name` with a dict |
+| `__version__` | `str` | The client version string, `"0.16.1"` in this release (a literal in the package, not read from the installed metadata) |
+| `STRING`, `BINARY`, `NUMBER`, `DATETIME`, `ROWID` | type objects | The `type_code` values of `Cursor.description` |
+| `Date`, `Time`, `Timestamp`, `Binary`, `DateFromTicks`, `TimeFromTicks`, `TimestampFromTicks` | constructors | PEP 249 constructors over `datetime` and `bytes` |
+| `relate.viz` | module | Optional graph visualization over the `neo4j-viz` package; imported on its own, see [`relate.viz`](#relateviz) |
+
+## Open options
+
+`relate.connect()`, `relate.Connection()` and `relate.Database()` take the same three options.
+
+| Option | Default | Accepted values |
+| --- | --- | --- |
+| `database` (`path` on `Database`) | `":memory:"` | `":memory:"`; a directory path (a directory store); a path ending in `.rl` (a single-file store). A missing store is created, unless `read_only` is set |
+| `namespace` | `"neo4j"` | `"neo4j"`, `"system"` or `"system_ontologies"`, in any case; another name raises `OperationalError` ending `Graph not found: <name>` |
+| `read_only` | `False` | `True` loads the store once and refuses writes and checkpoints; a missing store raises `OperationalError`. Keyword-only on `Database` |
+
+| Environment variable | Effect on an open |
+| --- | --- |
+| `RELATE_SNAPSHOT_FORMAT` | The codec of a new, empty directory store: `parquet` (default), `json` or `markdown`; an existing store keeps its own |
+| `RELATE_LOAD_CSV_DIR` | The directory local `LOAD CSV` may read; unset, local `LOAD CSV` fails with `LOAD CSV file unavailable` |
+
+A file-backed store has one writing open at a time, in this process or any other; a second raises `OperationalError: storage locked: <path>`, where `<path>` is the `.rl` file, or `<store>/.cypherlite.writer` for a directory store. A directory store also opens `read_only=True` beside its writer; a `.rl` store does not.
+
+## `Connection`
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `execute(query, params=None)` | `Cursor` | Runs one statement; opens a transaction first when `autocommit` is `False` and none is open |
+| `executemany(query, params_list)` | `Cursor` | Runs the statement once per dict; the cursor holds the last run |
+| `cursor()` | `Cursor` | A new cursor bound to the connection |
+| `autocommit` | `bool` | Default `True`: each statement commits on its own. Setting `True` commits an open transaction |
+| `commit()` | `str` or `None` | Commits the open transaction and returns its bookmark, `relate:<n>`; `None` when nothing was committed |
+| `rollback()` | `None` | Discards the open transaction; a no-op without one |
+| `namespace` | `str` | The session namespace (read-only property) |
+| `set_namespace(name)` | `None` | Changes the session namespace; with a transaction open, raises `OperationalError` ending `Cannot change the namespace while a transaction is open.` |
+| `flush()` | `None` | Checkpoints a file-backed store; a no-op for `:memory:` and read-only stores |
+| `close()` | `None` | Rolls back an open transaction, then checkpoints and closes; a second call is a no-op |
+| `closed` | `bool` | Whether `close()` ran |
+| `with relate.connect(…) as conn:` | `Connection` | Calls `close()` on exit |
+
+Any call after `close()` raises `ProgrammingError: Cannot operate on a closed connection`.
+
+## `Cursor`
+
+A cursor holds the whole result from the moment the statement returns; fetching moves a position over rows already in memory.
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `execute(query, params=None)` | `Cursor` (itself) | Runs a statement and replaces the result |
+| `executemany(query, seq_of_params)` | `Cursor` (itself) | Runs once per dict; holds the last result |
+| `columns`, `keys()` | `list[str]` | Column names in `RETURN` order |
+| `description` | `list[tuple]` or `None` | One 7-tuple per column, `(name, type_code, None, None, None, None, None)`; `None` when the statement returns no columns |
+| `rowcount` | `int` | Number of rows; `-1` for a statement with no columns |
+| `stats` | `dict[str, int]` | The 11 mutation counters |
+| `arraysize` | `int` | Default `1`; the row count `fetchmany()` returns |
+| `fetchone()` | `Record` or `None` | The next row |
+| `fetchmany(size=None)`, `fetch(n)` | `list[Record]` | Up to `size` rows |
+| `fetchall()`, `data()` | `list[Record]` | Every remaining row |
+| `peek()` | `Record` or `None` | The next row without moving the position |
+| `single()` | `Record` | The one remaining row; zero or several raise `ResultNotSingleError: expected exactly one row, got <n>` |
+| iteration, `len(cursor)` | `Record`; `int` | Iterates the remaining rows; `len` is the total row count |
+| `consume()` | `ResultSummary` | Skips the remaining rows and returns the summary; repeatable. Before any statement: `ProgrammingError: no statement has been executed on this cursor` |
+| `graph()` | `ResultGraph` | The distinct nodes and relationships in every row, nested values included |
+| `to_df(**kwargs)` | `pandas.DataFrame` | The remaining rows; needs the `relate-db[pandas]` extra, else `ImportError: to_df() needs pandas: pip install 'relate-db[pandas]'` |
+| `to_arrow(**kwargs)` | `pyarrow.Table` | The remaining rows; needs the `relate-db[arrow]` extra, else `ImportError: to_arrow() needs pyarrow: pip install 'relate-db[arrow]'` |
+| `close()` | `None` | A no-op |
+
+## `Record`
+
+A row is a `relate.Record`, a `dict` subclass. `row["name"]` and `row.name` read the same value; assigning `row.name` raises `AttributeError`. `row.keys()` returns the column names in `RETURN` order, and `row.data()` returns a plain `dict` copy.
+
+## `ResultSummary`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `counters` | `dict[str, int]` | `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed` |
+| `query_type` | `str` | `"r"` a read, `"w"` a write with no columns, `"rw"` a write that returns columns, `"s"` a schema statement; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `namespace` | `str` | The namespace the statement ran in: its `USE` target, else the session namespace |
+| `bookmark` | `str` or `None` | An auto-commit write's bookmark, `relate:<n>`; `None` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `elapsed_ms` | `float` | Engine time for parse, plan and run, in milliseconds |
+| `parse_ms`, `plan_ms`, `execute_ms` | `float` | The three phases of `elapsed_ms`; their sum is at most `elapsed_ms` |
+| `notifications` | `list[dict]` | Empty on a plain run; filled by `EXPLAIN` and `PROFILE`. Keys: `code`, `gql_status`, `severity`, `category`, `title`, `description`, `remedy`, and `operator_id` on operator-scoped kinds |
+| `plan` | `dict` or `None` | `None` on a plain run; for `EXPLAIN` and `PROFILE`, a `relate.plan/v1` document with keys `schema`, `profiled`, `statement` and `root` |
+
+## `ResultGraph`
+
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `nodes` | `tuple[Node, …]` | Distinct nodes, ordered by id |
+| `relationships` | `tuple[Relationship, …]` | Distinct relationships, ordered by id |
+| `len(graph)` | `int` | Nodes plus relationships |
+
+## `Database`
+
+The native handle. It is thread-affine like a `Connection`, and runs statements in auto-commit mode until `begin_transaction()`.
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `Database(path=":memory:", namespace="neo4j", *, read_only=False)` | `Database` | Opens a store with the [open options](#open-options) |
+| `execute(query, params=None)` | `QueryResult` | Runs one statement |
+| `execute_arrow(query, params=None)` | `bytes` | The result as one Arrow IPC stream message; decoding it needs pyarrow |
+| `begin_transaction()`, `commit_transaction()`, `rollback_transaction()` | `None`; `str` or `None`; `None` | An explicit transaction; the commit returns its bookmark |
+| `transaction_active()` | `bool` | Whether a transaction is open |
+| `supports_transactions()` | `bool` | `True` |
+| `namespace()`, `set_namespace(name)` | `str`; `None` | The session namespace (a method here, a property on `Connection`) |
+| `flush()`, `close()` | `None` | Checkpoint; checkpoint and close |
+| `reset()` | `None` | Checkpoints, then reopens the same path in the same namespace and mode |
+| `node_count()`, `relationship_count()` | `int` | Counts over the whole namespace |
+| `labels()`, `relationship_types()` | `list[str]` | Sorted names |
+
+## `QueryResult`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `columns` | `list[str]` | Column names |
+| `data` | `list[dict]` | Rows |
+| `stats` | `dict[str, int]` | The mutation counters |
+| `column_types` | `list[str]` | One type name per column, taken from the first row: `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `UUID`, `BINARY` or `ANY` (a `null` first value, or no rows) |
+| `query_type`, `namespace`, `bookmark` | `str`; `str`; `str` or `None` | As on `ResultSummary` |
+| `elapsed_ms`, `parse_ms`, `plan_ms`, `execute_ms` | `float` | As on `ResultSummary` |
+| `notifications`, `plan` | `list[dict]`; `dict` or `None` | As on `ResultSummary` |
+
+## Value classes
+
+| Class | Members |
+| --- | --- |
+| `Node` | `id` (`int`), `element_id` (`str`, as `elementId()`), `labels` (`list[str]`), `properties` (`dict`), `node["key"]`, `"key" in node`, `items()` |
+| `Relationship` | `id`, `element_id`, `type`, `start_node`, `end_node` (aliases `start`, `end`), `start_node_element_id`, `end_node_element_id`, `properties`, `rel["key"]`, `items()` |
+| `Path` | `nodes` (`list[Node]`), `relationships` (`list[Relationship]`); `len(path)` is the relationship count |
+| `Point(srid, x, y, z=None)` | `srid`, `x`, `y`, `z`, `crs` (`cartesian`, `cartesian-3d`, `wgs-84`, `wgs-84-3d`), and the aliases `longitude`, `latitude`, `height` |
+| `Duration(months=0, days=0, seconds=0, nanoseconds=0)` | `months`, `days`, `seconds`, `nanoseconds`; `str()` is the ISO 8601 form (`P1M`, `PT1.000000005S`); `==` follows Cypher, so `PT36H` and `P1DT12H` differ; `to_timedelta()` raises `ValueError` when the duration has months, sub-microsecond nanoseconds, or lies outside `timedelta`'s range |
+| `Vector` | `coordinate_type` (`INTEGER8`, `INTEGER16`, `INTEGER32`, `INTEGER`, `FLOAT16`, `BFLOAT16`, `FLOAT32` or `FLOAT`), `dimension`, `values`, `len()`, `==`, `hash()`; no constructor |
+| `Temporal` | `text` (the ISO 8601 form, every digit), `kind` (`datetime`, `localdatetime`, `time` or `localtime`), `nanosecond`, `zone_name`, `offset_seconds`, `to_native()` (rounded down to microseconds, zone reduced to its offset); a result type only |
+
+`element_id` is `None` in the `system` namespace, where `elementId()` fails.
+
+## Value mapping
+
+`params` is a `dict` with `str` keys at every level, referenced as `$name`. Every parameter a statement names must be present; `None` is a value.
+
+| Python parameter | Cypher value |
+| --- | --- |
+| `None`, `bool`, `int`, `float`, `str` | `NULL`, `BOOLEAN`, `INTEGER` (64-bit), `FLOAT`, `STRING` |
+| `datetime.date` | `DATE` |
+| A naive or an aware `datetime.datetime` | `LOCAL DATETIME` or `ZONED DATETIME` |
+| `datetime.time` | `LOCAL TIME`, or `ZONED TIME` when it has a `tzinfo` |
+| `datetime.timedelta` | `DURATION`, normalized: `timedelta(hours=36)` binds as `P1DT12H` |
+| `relate.Duration` | `DURATION`, each component as given |
+| `relate.Point` | `POINT` |
+| `relate.Vector` from a result | `VECTOR`, unchanged |
+| `uuid.UUID` | `STRING`, lowercase with hyphens |
+| `bytes`, `bytearray` | `LIST<INTEGER>` of byte values 0 to 255 |
+| `list`, `tuple` | `LIST` |
+| `dict` | `MAP`, also when its keys look like a point's |
+
+| Cypher result | Python value |
+| --- | --- |
+| `NULL`, `BOOLEAN`, `INTEGER`, `FLOAT`, `STRING` | `None`, `bool`, `int`, `float`, `str` |
+| `DATE` | `datetime.date` |
+| `LOCAL TIME`, `ZONED TIME` | `datetime.time`, aware when the value has an offset |
+| `LOCAL DATETIME` | naive `datetime.datetime` |
+| `ZONED DATETIME` with an offset | aware `datetime.datetime` |
+| Any temporal with nanoseconds, or a datetime with a named zone | `relate.Temporal` |
+| `DURATION` | `relate.Duration`, at every depth |
+| `POINT` | `relate.Point` |
+| `VECTOR` | `relate.Vector`, at every depth |
+| `NODE`, `RELATIONSHIP`, `PATH` | `relate.Node`, `relate.Relationship`, `relate.Path` |
+| `LIST`, `MAP` | `list`, `dict` in the engine's key order |
+
+`Cursor.description` maps the engine's column type to a PEP 249 type object:
+
+| Engine column type | `type_code` |
+| --- | --- |
+| `STRING` | `relate.STRING` |
+| `BINARY` | `relate.BINARY` |
+| `INTEGER`, `FLOAT`, `BOOLEAN` | `relate.NUMBER` |
+| `DATETIME`, `DATE`, `TIME` | `relate.DATETIME` |
+| every other type, and `ANY` | `None` |
+
+## `relate.viz`
+
+An optional module that turns a result into a `neo4j_viz.VisualizationGraph`. It needs the `neo4j-viz` package, which no `relate-db` extra installs; `import relate` does not load it.
+
+| Function | Returns | Behavior |
+| --- | --- | --- |
+| `to_visualization_graph(result, node_caption=None)` | `neo4j_viz.VisualizationGraph` | `result` is a `Cursor`, a `QueryResult` or an iterable of dicts. Every node, relationship and path in the rows, nested values included, becomes part of the graph. `node_caption` maps a label to the property that captions its nodes; without one, a node's caption is the first of `name`, `title` or `display_name` it has, else its labels. Raises `ImportError` without `neo4j-viz`, and `ValueError` when the rows hold no node, relationship, or path |
+| `render_html(vg, **kwargs)` | `IPython.display.HTML` | Standalone HTML whose data block has an id unique to each call, so two renders on one page each show their own graph; `kwargs` pass to `vg.render()` |
+
+## Errors
+
+Every engine error and every parameter-type or range error raises a subclass of `relate.Error`, in the PEP 249 tree; a cyclic parameter, or one nested more than 128 levels deep, raises Python's own `ValueError`, which `except relate.Error` does not catch. The engine's classification is copied onto the exception as attributes; an error the client raises itself carries `None` in the four engine attributes.
+
+| Class | Parent | Raised for |
+| --- | --- | --- |
+| `Error` (alias `RelateError`) | `Exception` | The base of every relate database error |
+| `InterfaceError` | `Error` | Native module communication |
+| `DatabaseError` | `Error` | An engine error no rule maps |
+| `DataError` | `DatabaseError` | A bad type or value, every capacity refusal, an out-of-range `int` parameter |
+| `OperationalError` | `DatabaseError` | Opening, locking and I/O; namespace errors; writes on a read-only store; transaction state |
+| `IntegrityError` | `DatabaseError` | Constraint violations; deleting a connected node without `DETACH` |
+| `InternalError` | `DatabaseError` | An engine invariant the caller cannot fix |
+| `ProgrammingError` | `DatabaseError` | Syntax errors, missing parameters, parameter-shape mistakes, closed connections, wrong-thread use |
+| `NotSupportedError` | `DatabaseError` | Unsupported administration commands |
+| `ResultNotSingleError` | `ProgrammingError` | `cursor.single()` with zero or several rows |
+
+| Attribute | Meaning |
+| --- | --- |
+| `kind` | The engine's finest error kind, such as `ParameterMissing` or `WrongThread`; `None` only on an error the client raised itself |
+| `tck_class` | The openCypher error class |
+| `neo4j_code` | The Neo4j status code, such as `Neo.ClientError.Statement.SyntaxError` |
+| `gql_status` | The GQLSTATUS code, such as `42N02` |
+| `stage` | `"compile"`, `"runtime"` or `"internal"` |
+| `retryable` | `True` only when retrying the transaction can succeed, such as after a write-write conflict |
+
+| Message the client raises | Class |
+| --- | --- |
+| `query parameters must be a dict mapping string keys to values, got '<type>'` | `ProgrammingError` |
+| `query parameter keys must be strings, got a key of type '<type>'` | `ProgrammingError` |
+| `map keys must be strings, got a key of type '<type>'` | `ProgrammingError` (a nested `dict` value) |
+| `Relate cannot convert a parameter of Python type '<type>' to a graph value` | `ProgrammingError` |
+| `integer parameter is out of range for a 64-bit Relate integer` | `DataError` |
+| `timedelta parameter field '<field>' is out of range for a 64-bit Relate duration` | `DataError` (a `timedelta` subclass that overrides `days`, `seconds` or `microseconds`; a standard `timedelta` stays in range) |
+| `parameter contains a cycle: a list or map references itself` | `ValueError`, not a `relate.Error` |
+| `parameter nesting exceeds the maximum depth of 128` | `ValueError`, not a `relate.Error` |
+| `Cannot operate on a closed connection` | `ProgrammingError` |
+| `expected exactly one row, got <n>` | `ResultNotSingleError` |
+
+The [errors reference](/docs/reference/errors#python-exception-classes) lists the engine messages behind each class.
+
+## Threading
+
+A `Connection` or `Database` belongs to the thread that opened it. A statement or other call from another thread raises `ProgrammingError` with `kind` `WrongThread`, and the connection stays usable on its own thread. `Connection.close()` from another thread also raises `WrongThread`, but it marks the `Connection` closed: every later call, from any thread, raises `ProgrammingError: Cannot operate on a closed connection`. Dropping the last reference, on any thread, checkpoints a writable store. The engine releases the GIL while a statement runs.
+
+## Limits
+
+| Limit | Value | When exceeded |
+| --- | --- | --- |
+| Integer parameter | A signed 64-bit integer | `DataError: integer parameter is out of range for a 64-bit Relate integer` |
+| Parameter nesting | 128 levels | `ValueError: parameter nesting exceeds the maximum depth of 128` |
+| Statement text | 4194304 bytes | `ProgrammingError: syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes` |
+| One value a statement builds | The engine's expression memory cap | `DataError` with `kind` `MemoryLimitExceeded`: `This statement tried to build a single value of <size>. …` |
+| Writing opens of a file-backed store | One, across every process | `OperationalError: storage locked: <path>` |
+| Threads per connection | The opening thread | `ProgrammingError` with `kind` `WrongThread` |
+
+## Capabilities
+
+<Matrix columns={["python"]} />
+
+## Example
+
+The native layer reports a type name per column, from the first row, and counts without a statement:
+
+```python run name=native
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+db = relate.Database(":memory:")
+db.execute(TEAM)
+result = db.execute(
+    "MATCH (p:Person {name: 'Grace'})-[w:WORKS_ON]->(proj) "
+    "RETURN p.name AS name, w.since AS since, proj AS project ORDER BY since LIMIT 1"
+)
+print(result.columns, result.column_types, result.query_type)
+print(db.node_count(), db.relationship_count(), db.labels(), db.relationship_types())
+db.close()
+```
+
+A :term[node]{id=node} arrives as a `relate.Node`, a :term[relationship]{id=relationship} as a `relate.Relationship`, and a :term[path]{id=path} as a `relate.Path` holding both:
+
+```python run name=entities
+import relate
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+with relate.connect(":memory:") as conn:
+    conn.execute(TEAM)
+    path = conn.execute("MATCH p = (:Person {name: 'Ada'})-[:KNOWS]->(:Person) RETURN p").single()["p"]
+    ada, grace = path.nodes
+    knows = path.relationships[0]
+    print(len(path), ada["name"], ada.element_id, ada.labels)
+    print(knows.type, knows.element_id, knows.start_node_element_id, knows.end_node_element_id, grace["name"])
+```
+
+## See also
+
+- [Use the Python client](/docs/guides/embed/python): open modes, typed values, transactions, errors, and threads in working programs.
+- [Embed relate in a Python app](/docs/get-started/python): the first program.
+- [Errors](/docs/reference/errors#python-exception-classes): the exception classes and every engine error with its codes.
+- [Node.js API](/docs/reference/api/javascript): the same engine from Node.js.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the clients solve.

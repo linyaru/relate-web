@@ -3,7 +3,7 @@ title: Cypher overview
 description: The Cypher dialect relate runs, from the openCypher floor to Neo4j's Cypher 25 and GQL-aligned extensions, the preview features, and what is out of scope.
 order: 10
 surfaces: [cypher, cli]
-related: [reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations, concepts/cypher-dialect]
+related: [reference/cypher/differences-from-neo4j, reference/cypher/search, reference/limitations, concepts/cypher-dialect, reference/cypher/cypher-versions, reference/cypher/functions, reference/cypher/procedures]
 ---
 
 relate runs :term[openCypher]{id=opencypher}, plus a large part of Neo4j's Cypher 25 and its extensions aligned with GQL, the ISO graph query language. Statements run as Cypher 25 unless a `CYPHER 5` prefix says otherwise. Preview features stay off until `RELATE_PREVIEW` names them. Cypher for servers and clusters, such as users, roles and composite databases, is out of scope for an engine that runs inside one process.
@@ -16,7 +16,7 @@ relate runs :term[openCypher]{id=opencypher}, plus a large part of Neo4j's Cyphe
 
 | Setting | Default | Values |
 | --- | --- | --- |
-| Language version | `CYPHER 25` for every :term[namespace]{id=namespace}, as `SHOW DATABASES` reports in `defaultLanguage` | A `CYPHER 5` or `CYPHER 25` prefix on one statement; `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` or `CYPHER 25` for a namespace |
+| Language version | `CYPHER 25` for every :term[namespace]{id=namespace}, as `SHOW DATABASES` reports in `defaultLanguage` | A `CYPHER 5` or `CYPHER 25` prefix on one statement. `ALTER DATABASE <name> SET DEFAULT LANGUAGE CYPHER 5` changes only what `SHOW DATABASES` reports ([Cypher versions](/docs/reference/cypher/cypher-versions#default-language)) |
 | Preview features | None enabled | `RELATE_PREVIEW=<feature>[,<feature>…]` in the environment of the process that opens the store |
 | Plan prefixes | None | `EXPLAIN` plans without running; `PROFILE` runs and measures ([tune a query](/docs/guides/cypher/tune-a-query)) |
 

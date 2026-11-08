@@ -4,7 +4,7 @@ description: Serve a relate store over MCP to Claude Code, Claude Desktop, Curso
 order: 40
 surfaces: [mcp, cli, agents]
 prerequisites: [get-started/install]
-related: [get-started/agent-quickstart, reference/server/docs-mcp, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk]
+related: [get-started/agent-quickstart, guides/serve/mcp, reference/server/mcp, reference/server/docs-mcp, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk, guides/integrations/pydantic-ai]
 ---
 
 This guide shows you how to connect an agent host to a relate store over :term[MCP]{id=mcp} (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs. The guide also adds the hosted relate docs server, which searches this documentation and needs no store.
@@ -80,7 +80,7 @@ Quit and restart Claude Desktop after saving. The server's stderr, including rel
 
 ### Cursor
 
-The file is `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for every project.
+The file is `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for every project. With `--read-only` in `args`, Cursor can query the graph and cannot write to it.
 
 ```json title="mcp.json"
 {
@@ -209,21 +209,7 @@ To allow writes, remove `"--read-only"` from `command`. `opencode mcp list` show
 
 ## Serve over HTTP
 
-If your host connects to a URL, or several clients share one server, start relate yourself on a port.
-
-:::warning[Plaintext on the network]
-`relate serve` has no TLS. Any `--host` other than the loopback default exposes the credential and every result in plaintext, and relate prints a `WARNING` at startup. Keep `127.0.0.1`, or put a TLS-terminating proxy in front.
-:::
-
-Set the credential in the environment rather than on the command line, where the process list shows it:
-
-```bash
-RELATE_AUTH=<user>:<password> relate serve --database ./graph.rl --read-only --mcp 8000
-```
-
-To allow writes, remove `--read-only`.
-
-Every request is a `POST` with `Content-Type: application/json` and an `Authorization: Basic` header for that credential. Without `RELATE_AUTH` or `--auth`, relate generates a token for the user `relate`, prints it on stderr, and saves it beside the store as `<store>.auth-token`. The transport is stateless: there is no session header to keep.
+If your host connects to a URL, or several clients share one server, start relate yourself on a port as in [Serve over HTTP](/docs/guides/serve/mcp#serve-over-http): `relate serve --mcp 8000 --database ./graph.rl --read-only` listens on `127.0.0.1:8000` and checks a credential from `RELATE_AUTH` or `--auth`, or else a token it generates for the user `relate` and saves beside the store as `<store>.auth-token`. The [MCP server reference](/docs/reference/server/mcp) describes the transport and every answer.
 
 In another terminal, register the URL with your host. For Claude Code, `<credential>` is the base64 of `<user>:<password>` (`printf '%s' '<user>:<password>' | base64` prints it):
 
@@ -390,7 +376,7 @@ curl -s -u <user>:<password> -H 'Content-Type: application/json' -X POST http://
 
 **A write fails with `Only MATCH queries are allowed for read-query`, or `unknown tool 'write_cypher'`.** The store is open read-only, as configured. To let the agent write, remove `--read-only`; [Keep an agent safe](/docs/guides/agents/agent-safety) covers what to put in place first.
 
-**HTTP answers `401 Unauthorized` or `415 Unsupported Media Type`.** A 401 carries `WWW-Authenticate: Basic realm="relate"`: the request has no credential, or the wrong one. A 415 means the `POST` lacked `Content-Type: application/json`.
+**HTTP answers `401 Unauthorized` or `415 Unsupported Media Type`.** A 401 carries `WWW-Authenticate: Basic realm="relate"`: the request has no credential, or the wrong one. A 415 means the `POST` had no `Content-Type`, or a browser-simple one (`text/plain` or a form type).
 
 **`relate serve` exits 2 with an error that begins `Error: serve --mcp stdio skips auth`.** `--auth` applies to the port listeners only. Drop it from a stdio block.
 

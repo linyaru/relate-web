@@ -1,4 +1,246 @@
 ---
 title: Swift API
-status: planned
+label: Swift
+description: The public types and methods of the relate Swift package, the CypherValue cases, result metadata, errors, concurrency rules, and platforms.
+order: 90
+surfaces: [swift]
+related: [guides/embed/swift, get-started/swift, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+The Swift :term[client]{id=client} is the package `Relate`, from the repository `github.com/relatedb/relate`, for iOS 16 or later and macOS 13 or later in the Swift 6 language mode. It is a Swift layer over the relate C library, linked in as the static XCFramework `RelateFFI`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous and throws `RelateError`. This page describes the package as built from source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+
+## Synopsis
+
+```swift
+import Relate
+
+public final class Database: @unchecked Sendable {
+    public init(path: String) throws
+    public init(readOnlyPath path: String) throws
+    public static func inMemory() throws -> Database
+    public let path: String
+    public let isReadOnly: Bool
+    public func connect() throws -> Connection
+    public func connect(namespace: String?) throws -> Connection
+    public func checkpoint() throws
+}
+
+public final class Connection {
+    public let database: Database
+    @discardableResult
+    public func query(_ cypher: String, _ parameters: [String: CypherValue] = [:]) throws -> QueryResult
+    public func setNamespace(_ name: String) throws
+    public func begin() throws
+    @discardableResult public func commit() throws -> String?
+    public func rollback() throws
+    @discardableResult public func transaction<T>(_ body: (Connection) throws -> T) throws -> T
+}
+```
+
+## Public types
+
+| Type | Kind | Holds |
+| --- | --- | --- |
+| `Database` | final class, `Sendable` | An open store |
+| `Connection` | final class, not `Sendable` | One session on a store |
+| `QueryResult` | struct, `Sendable` | One statement's columns, rows, and metadata |
+| `QueryType` | enum, `String` raw values | `.read` `"r"`, `.write` `"w"`, `.readWrite` `"rw"`, `.schema` `"s"` |
+| `QueryStats` | struct | The 11 mutation counters |
+| `CypherValue` | enum, `Sendable`, `Hashable` | One Cypher value, at any depth |
+| `CypherValueKind` | enum, `UInt32` raw values | The kind of a `CypherValue` |
+| `Notification` | struct | One planner notification |
+| `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | structs | The structured plan |
+| `RelateError` | enum, `LocalizedError` | Every error the package throws |
+| `EngineError` | struct | The engine's classified error: `code`, `gqlStatus`, `stage`, `retryable`, `message` |
+
+## Database
+
+| Member | Behavior |
+| --- | --- |
+| `init(path:)` | Opens `:memory:`, a directory store or a `.rl` store for writing; creates a missing store |
+| `init(readOnlyPath:)` | Loads an existing store once; refuses writes and checkpoints; a missing store is an error |
+| `inMemory()` | `Database(path: ":memory:")` |
+| `path`, `isReadOnly` | The path the database was opened with, and whether it is read-only |
+| `connect()` | A connection in the `neo4j` namespace |
+| `connect(namespace:)` | A connection in `neo4j`, `system` or `system_ontologies`, matched case-insensitively; `nil` selects `neo4j` |
+| `checkpoint()` | Writes a :term[checkpoint]{id=checkpoint}, folding the write-ahead log into a fresh snapshot of committed state; refused on a read-only database |
+
+A `Database` closes its :term[store]{id=store} when its last reference is released; there is no `close()`. Every `Connection` keeps its `database`, so the store outlives its connections. A failed open throws `.engine` with message `internal error`, code `Neo.DatabaseError.General.UnknownError`, GQLSTATUS `42000` and stage `.internal`, whether the store is locked by another writer or missing. An unknown namespace throws `semantic error: DatabaseNotFound: Graph not found: <name>`.
+
+## Connection
+
+| Member | Behavior |
+| --- | --- |
+| `query(_:_:)` | Runs one statement; auto-commits outside an explicit transaction; an empty dictionary binds no parameters |
+| `setNamespace(_:)` | Changes the session namespace; refused inside a transaction |
+| `begin()` | Opens an explicit transaction; transactions do not nest |
+| `commit()` | Commits; returns the :term[bookmark]{id=bookmark} `"relate:<n>"`, or `nil` when the transaction wrote nothing |
+| `rollback()` | Discards the explicit transaction |
+| `transaction(_:)` | Begins, runs the body, and commits when it returns; when the body or the commit throws, rolls back and rethrows that error |
+
+A `Connection` disconnects when it is released. Its own refusals, each `.engine` with code `Neo.ClientError.Statement.SemanticError` and GQLSTATUS `42000`:
+
+| Call | Message |
+| --- | --- |
+| `begin()` inside a transaction | `semantic error: already in a transaction` |
+| `commit()` or `rollback()` with no transaction | `semantic error: no transaction` |
+| `setNamespace(_:)` inside a transaction | `semantic error: TransactionError: Cannot change the namespace while a transaction is open.` |
+
+## QueryResult
+
+A `QueryResult` is a plain value, copied out of the engine before `query` returns.
+
+| Member | Type | Holds |
+| --- | --- | --- |
+| `columns` | `[String]` | The column names, in `RETURN` order |
+| `rows` | `[[CypherValue]]` | One array per row, cells in column order |
+| `records` | `[[String: CypherValue]]` | The rows keyed by column name; for a repeated name, the last column's value |
+| `scalar()` | `CypherValue` | The one value of a one-row, one-column result; otherwise throws `.decoding` |
+| `queryType` | `QueryType` | The plan-time classification; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `namespace` | `String` | The statement's `USE` target, else the session namespace |
+| `bookmark` | `String?` | An auto-commit write's bookmark, `relate:<n>`; `nil` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `stats` | `QueryStats` | The mutation counters; all zero for a read or an `EXPLAIN` |
+| `notifications` | `[Notification]` | Filled by `EXPLAIN` and `PROFILE`; empty on a plain run |
+| `plan` | `PlanDocument?` | The `relate.plan/v1` plan document under `EXPLAIN` or `PROFILE`; `nil` on a plain run |
+| `elapsedMs` | `Double` | The engine's parse, plan and execute time, in milliseconds |
+| `parseMs`, `planMs`, `executeMs` | `Double` | The phases of `elapsedMs`; their sum never exceeds it |
+
+A `QueryResult` has no column types. `QueryStats` has 11 `Int` properties: `nodesCreated`, `nodesDeleted`, `relationshipsCreated`, `relationshipsDeleted`, `propertiesSet`, `labelsAdded`, `labelsRemoved`, `indexesAdded`, `indexesRemoved`, `constraintsAdded`, `constraintsRemoved`. A bookmark's `<n>` grows across every connection of the store and orders as a number: as strings, `"relate:10"` sorts before `"relate:9"`.
+
+## Values
+
+Every cell, and every element of a list or map, is a `CypherValue` that keeps its kind at any depth:
+
+| Case | Cypher kind | Payload |
+| --- | --- | --- |
+| `.null` | `NULL` | |
+| `.bool` | `BOOLEAN` | `Bool` |
+| `.int` | `INTEGER` | `Int64` |
+| `.float` | `FLOAT` | `Double`, NaN and infinities included |
+| `.string` | `STRING` | `String`, interior NUL characters kept |
+| `.list` | `LIST` | `[CypherValue]` |
+| `.map` | `MAP` | `[String: CypherValue]`; a map shaped like a node stays `.map` |
+| `.node` | node | `Node`: `id`, `elementId`, `labels`, `properties` |
+| `.relationship` | relationship | `Relationship`: `id`, `elementId`, `type`, `startId`, `endId`, `startElementId`, `endElementId`, `properties` |
+| `.path` | path | `Path`: `nodes`, `relationships`, with one more node than relationships |
+| `.point` | `POINT` | `Point`: `srid`, `x`, `y`, `z` (`nil` in 2D); `x` and `y` are longitude and latitude for srid 4326 and 4979 |
+| `.date` | `DATE` | `Date`: `year`, `month`, `day` |
+| `.time` | `ZONED TIME` | `Time`: `hour`, `minute`, `second`, `nanosecond`, `offsetSeconds` |
+| `.localTime` | `LOCAL TIME` | `LocalTime`: `hour`, `minute`, `second`, `nanosecond` |
+| `.dateTime` | `ZONED DATETIME` | `DateTime`: the date and time parts, `offsetSeconds`, `zone` (`nil` for an offset-only value) |
+| `.localDateTime` | `LOCAL DATETIME` | `LocalDateTime`: the date and time parts |
+| `.duration` | `DURATION` | `Duration`: `months`, `days`, `seconds`, `nanoseconds` |
+| `.vector` | `VECTOR` | `Vector`: `.floats(dtype:values:)` or `.ints(dtype:values:)` |
+
+`Vector.DType` has the cases `.integer8`, `.integer16`, `.integer32`, `.integer`, `.float16`, `.bfloat16`, `.float32` and `.float`, whose raw values are the engine's names (`INTEGER8` … `FLOAT`). UUIDs arrive as `.string`, byte arrays as a `.list` of `.int`. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`; the `Int64` ids are the deprecated numeric ids `id()` returns. A value kind the package does not know throws `.decoding`.
+
+| Accessor | Returns |
+| --- | --- |
+| `kind` | The `CypherValueKind` |
+| `isNull` | `true` for `.null` |
+| `boolValue`, `intValue`, `stringValue`, `listValue`, `mapValue` | The payload, or `nil` for another case |
+| `doubleValue` | A `.float`, or an `.int` widened to `Double` |
+| `nodeValue`, `relationshipValue`, `pathValue`, `pointValue` | The graph or spatial payload, or `nil` |
+| `dateValue`, `timeValue`, `localTimeValue`, `dateTimeValue`, `localDateTimeValue`, `durationValue`, `vectorValue` | The temporal or vector payload, or `nil` |
+| `subscript(key:)` | A map entry, or a node or relationship property; `nil` otherwise |
+| `description` | A Cypher-like rendering for logs, map keys sorted; not a format to parse |
+
+## Parameters
+
+`query(_:_:)` binds each dictionary entry as one value. `CypherValue` conforms to `ExpressibleByNilLiteral`, `…BooleanLiteral`, `…IntegerLiteral`, `…FloatLiteral`, `…StringLiteral`, `…ArrayLiteral` and `…DictionaryLiteral`, so `["n": 1, "tags": ["a"], "m": ["k": true]]` needs no wrapping. A variable binds through `CypherValue(_:)` for `Int`, `Double`, `String` and `Bool`; the struct payloads of the point, temporal, duration and vector cases have public initializers. Non-finite floats and every `Int64` value bind directly.
+
+| Refusal | Error |
+| --- | --- |
+| A `.node`, `.relationship` or `.path` value | `.invalidParameter`: `nodes, relationships and paths cannot be passed as parameters; pass their element id or properties` |
+| A statement, path, namespace, parameter name or map key holding a NUL byte | `.invalidParameter`: `<what> contains a NUL byte` |
+| A value the engine's builder refuses: an impossible date, an unknown zone, a srid that does not fit the dimensions | `.engine` with stage `.internal` |
+| A parameter the statement refers to and the dictionary lacks | `.engine`: `semantic error: ParameterMissing: Expected parameter(s): <names>` |
+
+## Errors
+
+| `RelateError` case | Thrown when | `description` |
+| --- | --- | --- |
+| `.engine(EngineError)` | The engine or the C boundary refused the call | `Relate: [<code>] <message>` |
+| `.invalidParameter(String)` | A parameter cannot cross the C boundary | `Relate invalid parameter: <message>` |
+| `.decoding(String)` | A result broke the C contract, or `scalar()` met other than one row and one column | `Relate decoding error: <message>` |
+
+`error.message` is the message of any case and `error.engineError` the `EngineError` of the `.engine` case, else `nil`.
+
+| `EngineError` property | Holds |
+| --- | --- |
+| `code` | The Neo4j status code, such as `Neo.ClientError.Statement.ArithmeticError` |
+| `gqlStatus` | The five-character GQLSTATUS, such as `22G03` |
+| `stage` | `.compile` (parse or plan), `.runtime` (execution) or `.internal` (the C boundary: a poisoned handle, a caught panic, a refused argument) |
+| `retryable` | `true` exactly when running the same work again can succeed: a write-write conflict (`Neo.TransientError.Transaction.Outdated`, message `write-write conflict`) or the retryable workspace cap |
+| `message` | The engine's message |
+
+A statement failure throws from `query`; a conflict in an explicit transaction throws from `commit()`. After a `.internal` failure the handle may be poisoned: later calls throw `.internal` too, and only a new handle recovers. A write on a read-only database throws code `Neo.ClientError.Statement.SemanticError` with GQLSTATUS `42N18`. The [errors reference](/docs/reference/errors) lists the engine's messages.
+
+## Notifications and plans
+
+`Notification` has the properties `code`, `gqlStatus`, `severity` (`INFORMATION` or `WARNING`), `category` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `title`, `description`, `remedy` and `operatorId`, an `Int64?` that is `nil` on a statement-scoped notification.
+
+| Struct | Properties |
+| --- | --- |
+| `PlanDocument` | `schema` (`relate.plan/v1`), `profiled`, `statement: String?`, `root: PlanNode` |
+| `PlanNode` | `operator`, `details`, `identifiers`, `estimatedRows: Int64?`, `actual: PlanActual?`, `children`, `warnings: [Notification]` |
+| `PlanActual` | `rows`, `timeMs`, `dbHits`, `memoryBytes`, `hops`, `neighborWalks`, `nodeReads`, `start: PlanStart?`; `nil` on an `EXPLAIN` plan |
+| `PlanStart` | `element`, `backward`, `reason` |
+
+## Concurrency
+
+| Rule | Detail |
+| --- | --- |
+| `Database` is `Sendable` | One database may be shared across tasks and actors |
+| `Connection` is not `Sendable` | The Swift 6 compiler refuses code that shares one between isolation domains; concurrent work opens more connections |
+| Calls block | Every call is synchronous while the engine runs |
+| Errors travel with the call | A call from any task reports its own error; nothing depends on the calling thread |
+| One writer per store | Only one process holds a store writable at a time |
+
+## Platforms and linking
+
+| Item | Value |
+| --- | --- |
+| Platforms | iOS 16 or later, macOS 13 or later |
+| Language mode | Swift 6 (`swift-tools-version: 6.0`) |
+| Product | `.product(name: "Relate", package: "relate")` |
+| Binary target | `RelateFFI`, a static XCFramework with the slices `ios-arm64`, `ios-arm64_x86_64-simulator` and `macos-arm64_x86_64`, downloaded from the release the tag names |
+| Linked system libraries | `iconv`, `CoreFoundation` |
+| Privacy manifest | `PrivacyInfo.xcprivacy`: no data collected, no tracking; the file-timestamp API reason `C617.1` |
+| `RELATE_LOCAL_XCFRAMEWORK=1` | Builds against `target/apple/RelateFFI.xcframework` in a source checkout instead of the release binary |
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), one value a statement builds is bounded by the expression memory cap, and a file-backed store has one writing open across every process. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+<Matrix columns={["swift"]} />
+
+## Example
+
+This program writes two `Person` nodes and a `KNOWS` relationship to an in-memory store and prints the `CypherValue` kind of each returned value:
+
+```swift run name=values
+import Relate
+
+let conn = try Database.inMemory().connect()
+let result = try conn.query("""
+    CREATE (ada:Person {name: 'Ada'})-[k:KNOWS {since: 2024}]->(grace:Person {name: 'Grace'})
+    RETURN ada, k, 9007199254740993 AS big, 1.5 AS ratio, date('2024-05-06') AS day,
+           datetime('2024-05-06T09:30:00[Europe/Berlin]') AS meeting, duration('P1Y2M') AS term,
+           point({x: 1, y: 2}) AS spot, vector([1, 2, 3], 3, INT8) AS counts
+    """)
+for (column, value) in zip(result.columns, result.rows[0]) {
+    print("\(column): \(value.kind) \(value)")
+}
+```
+
+## See also
+
+- [Use the Swift package](/docs/guides/embed/swift): the dependency, open modes, parameters, transactions, errors and actors, task by task.
+- [Embed relate in a Swift app](/docs/get-started/swift): the first program, step by step.
+- [API reference](/docs/reference/api): every surface and the capability matrix.
+- [C ABI](/docs/reference/api/c): the library under this package.
+- [Errors](/docs/reference/errors): every engine message with its codes.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the clients solve.

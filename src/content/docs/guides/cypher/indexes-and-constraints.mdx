@@ -1,4 +1,224 @@
 ---
 title: Indexes and constraints
-status: planned
+description: Create each index and constraint kind relate supports, list them with SHOW, check with EXPLAIN when the planner uses an index, and drop them.
+order: 35
+surfaces: [cypher, cli]
+prerequisites: [get-started/first-graph]
+related: [reference/cypher/schema-clauses, guides/cypher/tune-a-query, reference/cypher/search, guides/cypher/geospatial, reference/errors#engine-uniqueness-violation, guides/cypher/ontology]
 ---
+
+This guide shows you how to add :term[indexes]{id=index} that make lookups fast and :term[constraints]{id=constraint} that keep the data clean, list both, check with `EXPLAIN` that the planner uses an index, and drop them. An index changes how fast a statement runs and never what it returns; a constraint changes which writes succeed. The cells run in page order on one in-memory store; the plan steps also run in a terminal.
+
+## Prerequisites
+
+- A first look at Cypher, such as [your first graph](/docs/get-started/first-graph).
+- For the terminal steps, relate on your `PATH` ([install](/docs/get-started/install)).
+
+## Load the example graph
+
+This cell writes the shared graph: Ada, Grace and Noor, the `relate` and `opencypher-tck` projects, and who works on what.
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+## Choose an index
+
+Every index has a name, one :term[label]{id=label} or :term[relationship type]{id=relationship-type}, and the properties it covers. `IF NOT EXISTS` after the name makes a create a no-op when an index of that name exists.
+
+| Kind | Statement | Serves |
+| --- | --- | --- |
+| Range, the default | `CREATE INDEX <name> FOR (n:<Label>) ON (n.<prop>)`; `CREATE RANGE INDEX` is the same; `ON (n.<a>, n.<b>)` covers two properties | Equality and range comparisons on the property, `IN` a list, and `STARTS WITH` |
+| Range, on relationships | `CREATE INDEX <name> FOR ()-[r:<TYPE>]-() ON (r.<prop>)` | Created and listed; on the verified version, `PROFILE` shows a relationship-property filter still reading every relationship of the type |
+| Text | `CREATE TEXT INDEX <name> FOR (n:<Label>) ON (n.<prop>)` | `CONTAINS` on a string property |
+| Point | `CREATE POINT INDEX <name> FOR (n:<Label>) ON (n.<prop>)` | `point.distance(<prop>, <center>) < <bound>` and `point.withinBBox` ([geospatial queries](/docs/guides/cypher/geospatial)) |
+| Full-text | `CREATE FULLTEXT INDEX <name> FOR (n:<Label>) ON EACH [n.<prop>, …]` | `SEARCH … FULLTEXT INDEX` ([full-text and hybrid search](/docs/guides/cypher/full-text-and-hybrid-search)) |
+| Vector | `CREATE VECTOR INDEX <name> FOR (n:<Label>) ON (n.<prop>) OPTIONS {…}` | `SEARCH … VECTOR INDEX` ([vector search](/docs/guides/cypher/vector-search)) |
+| Lookup | `CREATE LOOKUP INDEX <name> FOR (n) ON EACH labels(n)` | Created and listed by `SHOW INDEXES` |
+
+This cell creates a range index on a person's role, a text index on a project's language, and a two-property index:
+
+```cypher run name=create-indexes
+CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role);
+CREATE TEXT INDEX project_language IF NOT EXISTS FOR (p:Project) ON (p.language);
+CREATE INDEX person_name_role IF NOT EXISTS FOR (p:Person) ON (p.name, p.role)
+```
+
+The search indexes take options and have their own rules; the [search reference](/docs/reference/cypher/search) lists them.
+
+## Add constraints
+
+A constraint is checked on every write, and on the existing data when you create it. A write that breaks one fails as a whole and changes nothing.
+
+| Kind | Statement | Refuses |
+| --- | --- | --- |
+| Uniqueness | `CREATE CONSTRAINT <name> FOR (n:<Label>) REQUIRE n.<prop> IS UNIQUE`; on relationships, `FOR ()-[r:<TYPE>]-()` | A second node or relationship with the same value. One without the property passes |
+| Existence | `… REQUIRE n.<prop> IS NOT NULL` | A node or relationship without the property, or a `REMOVE` of it |
+| Property type | `… REQUIRE n.<prop> IS :: <TYPE>`, such as `INTEGER` or `STRING` | A value of another type |
+| Node key | `… REQUIRE (n.<a>, n.<b>) IS NODE KEY` | A node missing any of the properties, or repeating their combination |
+| Relationship key | `FOR ()-[r:<TYPE>]-() REQUIRE r.<prop> IS RELATIONSHIP KEY` | The same, for relationships |
+
+A uniqueness constraint and a key constraint each create a range index of the same name, which serves lookups like any range index. This cell adds three constraints: unique project names, a required role, and an integer `since`:
+
+```cypher run name=create-constraints
+CREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE;
+CREATE CONSTRAINT person_role_required IF NOT EXISTS FOR (p:Person) REQUIRE p.role IS NOT NULL;
+CREATE CONSTRAINT works_on_since IF NOT EXISTS FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS :: INTEGER
+```
+
+A second `relate` project now fails, and the statement writes nothing:
+
+```cypher run name=violation expect=error
+CREATE (:Project {name: 'relate', language: 'Go'})
+```
+
+`MERGE` on the constrained key finds the existing node instead of creating a duplicate, so it is the write to use for "create unless it exists":
+
+```cypher run name=merge
+MERGE (p:Project {name: 'relate'})
+ON CREATE SET p.language = 'Go'
+RETURN p.name AS name, p.language AS language
+```
+
+A constraint that the existing data already breaks is refused when you create it. No project has a `tag`, so this one fails:
+
+```cypher run name=existing-data expect=error
+CREATE CONSTRAINT project_tag FOR (p:Project) REQUIRE p.tag IS NOT NULL
+```
+
+A [graph type](/docs/reference/cypher/schema-clauses) declares the same rules for a whole graph at once, and an :term[ontology]{id=ontology} can be applied as one ([use an ontology](/docs/guides/cypher/ontology)).
+
+## List indexes and constraints
+
+`SHOW INDEXES` and `SHOW CONSTRAINTS` return one row per entry. `YIELD` picks the columns:
+
+```cypher run name=show-constraints
+SHOW CONSTRAINTS YIELD name, type, entityType, labelsOrTypes, properties, propertyType
+RETURN name, type, entityType, labelsOrTypes, properties, propertyType
+ORDER BY name
+```
+
+```cypher run name=show-indexes
+SHOW INDEXES YIELD name, type, labelsOrTypes, properties, owningConstraint, state
+RETURN name, type, labelsOrTypes, properties, owningConstraint, state
+ORDER BY name
+```
+
+`owningConstraint` names the constraint an index belongs to, and `state` is `ONLINE` once the index serves reads. `SHOW RANGE INDEXES`, `SHOW UNIQUE CONSTRAINTS` and the other kinds narrow the list to one kind.
+
+## Check that the planner uses an index
+
+`EXPLAIN` plans a statement without running it. In a terminal, `--mode table` prints the plan and the planner's notifications. This step writes the example graph to a new store, `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+Without an index, a lookup by name scans every `Project`, and the planner says which index would help:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Project {name: 'relate'}) RETURN p.language AS language"
+```
+
+```text
+Query: MATCH (p:Project {name: 'relate'}) RETURN p.language AS language
+Plan:
++---------------------+----+-------------+----------------+
+| Operator            | Id | Details     | Estimated Rows |
++---------------------+----+-------------+----------------+
+| + ProduceResults    | 0  | 1 item(s)   | -              |
++---------------------+----+-------------+----------------+
+| | + NodeByLabelScan | 1  | (p:Project) | 2              |
++---------------------+----+-------------+----------------+
+Notifications:
+Id 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Project without a range index on (:Project {name}) Remedy: CREATE INDEX relate_Project__name FOR (n:Project) ON (n.name)
+```
+
+The uniqueness constraint's index serves the same lookup. This command writes the constraint to `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE"
+```
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Project {name: 'relate'}) RETURN p.language AS language"
+```
+
+```text
+Query: MATCH (p:Project {name: 'relate'}) RETURN p.language AS language
+Plan:
++-------------------+----+---------------------------------------------------+----------------+
+| Operator          | Id | Details                                           | Estimated Rows |
++-------------------+----+---------------------------------------------------+----------------+
+| + ProduceResults  | 0  | 1 item(s)                                         | -              |
++-------------------+----+---------------------------------------------------+----------------+
+| | + NodeIndexSeek | 1  | RANGE INDEX p:Project(name) WHERE name = 'relate' | 1              |
++-------------------+----+---------------------------------------------------+----------------+
+```
+
+`NodeIndexSeek` starts from the one node the index finds, and the notification is gone. A plan names an index only when it starts from it: `NodeIndexSeek` for an equality and `NodeIndexSeekByRange` for a range comparison. A point index, a text index, and a range index serving `IN` or `STARTS WITH` work inside the scan's `WHERE` filter instead, so the plan still shows `NodeByLabelScan`; `PROFILE` shows the difference as fewer database hits ([geospatial queries](/docs/guides/cypher/geospatial#add-a-point-index) has a worked example, and [tune a query](/docs/guides/cypher/tune-a-query) reads a profile).
+
+## Drop an index or a constraint
+
+`DROP INDEX <name>` and `DROP CONSTRAINT <name>` remove one; `IF EXISTS` makes a missing name a no-op. Dropping a constraint also drops the index it owns:
+
+```cypher run name=drop
+DROP INDEX person_name_role IF EXISTS;
+DROP CONSTRAINT person_role_required IF EXISTS
+```
+
+An index that belongs to a constraint cannot be dropped on its own:
+
+```cypher run name=drop-owned expect=error
+DROP INDEX project_name
+```
+
+## Verify
+
+List what the store holds after the drops:
+
+```cypher run name=verify
+SHOW INDEXES YIELD name, type, owningConstraint, state
+RETURN name, type, owningConstraint, state
+ORDER BY name
+```
+
+Three `ONLINE` indexes, one of them owned by `project_name`, and the `NodeIndexSeek` plan in the terminal mean the indexes are in place and serve the lookups they were made for.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| ``semantic error: ConstraintValidationFailed: `project_name` uniqueness`` (exit code 6) | A write repeats a unique value or key. | Use `MERGE` on the key, or change the value. |
+| ``semantic error: ConstraintValidationFailed: `<name>` requires properties`` | A write leaves out a required or key property, or the existing data lacks it when the constraint is created. | Set the property, or fill it in on the existing data first. |
+| ``semantic error: ConstraintValidationFailed: `<name>` property type`` | A value of another type than the constraint names. | Convert the value, such as `toInteger(row.since)`. |
+| `semantic error: IndexAlreadyExists` or `semantic error: ConstraintAlreadyExists` | The name is taken. | Add `IF NOT EXISTS`, or check `SHOW INDEXES` and `SHOW CONSTRAINTS`. |
+| `semantic error: EquivalentSchemaRuleAlreadyExists` | An index or constraint on the same label and properties exists under another name, such as a constraint's own index. | Keep the existing one. |
+| `semantic error: AlreadyExists: there already exists an index (:Person {role}). A constraint cannot be created until the index has been dropped.` | A uniqueness constraint over properties that a range index already covers. | Drop the index, then create the constraint, which brings its own. |
+| `Unable to drop 'project_name': the index belongs to a constraint.` (exit code 1) | `DROP INDEX` on a constraint's index. | Drop the constraint. |
+| ``semantic error: NoSuchIndex: `<name>` `` or `semantic error: ConstraintNotFound` | The name does not exist. | Add `IF EXISTS`, or check the name with `SHOW`. |
+
+## Related
+
+- [Schema clauses](/docs/reference/cypher/schema-clauses): the grammar of index, constraint and graph type statements.
+- [Tune a query](/docs/guides/cypher/tune-a-query): read a plan and a profile, and act on the planner's notifications.
+- [Search](/docs/reference/cypher/search): vector and full-text index options.
+- [Errors](/docs/reference/errors#engine-uniqueness-violation): constraint failures and their exit codes, at stable anchors.

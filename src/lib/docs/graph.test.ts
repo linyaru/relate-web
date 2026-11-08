@@ -96,6 +96,7 @@ test('inline references: command lines and bare flags', () => {
   assert.deepEqual(sorted(inlineRefs('--safe / --no-safe', idx, null)), ['Flag:safe']);
   assert.deepEqual(sorted(inlineRefs('--param name=<value>', idx, null)), []);
   assert.deepEqual(sorted(inlineRefs('MATCH (n) RETURN n', idx, null)), []);
+  assert.deepEqual(sorted(inlineRefs('--', idx, null)), ['Flag:end-of-options']);
 });
 
 test('cypher literals: one line, escaped, nulls left out', () => {
@@ -266,9 +267,9 @@ test('the structural checks find each failure, with its page', () => {
 });
 
 test('severities: defaults, the option, then DOCS_GRAPH_SEVERITY', () => {
-  assert.equal(severities({}, '')['graph-cli'], 'warning');
-  assert.equal(severities({ 'graph-cli': 'error' }, '')['graph-cli'], 'error');
-  assert.equal(severities({ 'graph-cli': 'error' }, 'graph-cli=off, graph-orphan=warning')['graph-cli'], 'off');
+  assert.equal(severities({}, '')['graph-cli'], 'error');
+  assert.equal(severities({ 'graph-cli': 'warning' }, '')['graph-cli'], 'warning');
+  assert.equal(severities({ 'graph-cli': 'warning' }, 'graph-cli=off, graph-orphan=warning')['graph-cli'], 'off');
   assert.throws(() => severities({}, 'graph-nope=error'), /DOCS_GRAPH_SEVERITY/);
 });
 

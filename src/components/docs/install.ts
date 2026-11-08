@@ -115,7 +115,10 @@ export const VERSION_LINE = VERSION_OUTPUT.split('\n')[0];
 const bash = (code: string): Block => ({ code, lang: 'bash' });
 const text = (code: string): Block => ({ code, lang: 'text' });
 
-function cliTab(): Tab {
+function cliTab(v: string): Tab {
+  const n = releaseNames(v);
+  const exe = `${n.prefix}-windows-amd64.exe`;
+  const legacyNote = n.legacy ? ` Releases up to and including ${LAST_CYPHERLITE_RELEASE} use the earlier name, so ${v} ships it as \`${exe}\`; from the first relate-named release it is \`relate-windows-amd64.exe\`.` : '';
   return {
     key: 'cli',
     label: 'CLI',
@@ -143,8 +146,8 @@ function cliTab(): Tab {
         blocks: [
           {
             p:
-              `\`install.sh\` runs on macOS and Linux. On Windows, download \`relate-windows-amd64.exe\` and \`SHA256SUMS\` from the [releases page](${RELEASES}). ` +
-              'In PowerShell, `Get-FileHash relate-windows-amd64.exe` prints the binary\'s SHA-256, which must equal its line in `SHA256SUMS`.',
+              `\`install.sh\` runs on macOS and Linux. On Windows, download \`${exe}\` and \`SHA256SUMS\` from the [releases page](${RELEASES}). ` +
+              `In PowerShell, \`Get-FileHash ${exe}\` prints the binary's SHA-256, which must equal its line in \`SHA256SUMS\`.${legacyNote}`,
           },
         ],
       },
@@ -165,14 +168,19 @@ function packageTab(v: string): Tab {
       {
         key: 'java',
         label: 'Java',
-        blocks: [{ p: `\`com.relate:relate\`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](${RELEASES}).` }],
+        blocks: [{ p: `\`com.relate:relate\`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](${RELEASES}). The client needs JNA (\`net.java.dev.jna:jna\`) and Jackson (\`com.fasterxml.jackson.core:jackson-databind\`) on the classpath; a Maven or Gradle build brings both in through the coordinate.` }],
       },
       {
         key: 'go',
         label: 'Go',
         blocks: [
+          { p: 'In a Go module (`go mod init <module>` creates one):' },
           bash('go get github.com/relatedb/relate/clients/go'),
-          { p: 'The module uses cgo and links `librelate_ffi`, from the `relate-ffi-<target>.tar.gz` archive attached to each release.' },
+          {
+            p:
+              `The module uses cgo and links \`librelate_ffi\`, from the \`${releaseNames(v).prefix}-ffi-<target>.tar.gz\` archive attached to each release` +
+              (releaseNames(v).legacy ? ` (\`relate-ffi-<target>.tar.gz\` from the first relate-named release on).` : '.'),
+          },
         ],
       },
       {
@@ -302,7 +310,7 @@ relate, the embedded Cypher graph database (relatedb.ai). This repository uses v
 /** The four tabs. */
 export function tabs(v: string): Tab[] {
   return [
-    cliTab(),
+    cliTab(v),
     packageTab(v),
     { key: 'agent', label: 'Agent', blocks: agentBlocks(v) },
     { key: 'pinned', label: 'Pinned binary', blocks: pinnedBlocks(v) },

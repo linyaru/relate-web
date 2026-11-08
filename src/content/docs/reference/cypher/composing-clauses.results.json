@@ -1,0 +1,702 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "union-last-branch": {
+      "kind": "table",
+      "text": "| name             |\n|------------------|\n| \"relate\"         |\n| \"opencypher-tck\" |\n| \"Noor\"           |\n| \"Grace\"          |\n| \"Ada\"            |\n5 rows",
+      "table": {
+        "columns": [
+          "name"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"relate\""
+          ],
+          [
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"Noor\""
+          ],
+          [
+            "\"Grace\""
+          ],
+          [
+            "\"Ada\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "name"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "relate"
+          },
+          {
+            "name": "opencypher-tck"
+          },
+          {
+            "name": "Noor"
+          },
+          {
+            "name": "Grace"
+          },
+          {
+            "name": "Ada"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "union-sorted": {
+      "kind": "table",
+      "text": "| name             |\n|------------------|\n| \"Ada\"            |\n| \"Grace\"          |\n| \"Noor\"           |\n| \"opencypher-tck\" |\n| \"relate\"         |\n5 rows",
+      "table": {
+        "columns": [
+          "name"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada\""
+          ],
+          [
+            "\"Grace\""
+          ],
+          [
+            "\"Noor\""
+          ],
+          [
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"relate\""
+          ]
+        ],
+        "summary": "5 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "name"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Ada"
+          },
+          {
+            "name": "Grace"
+          },
+          {
+            "name": "Noor"
+          },
+          {
+            "name": "opencypher-tck"
+          },
+          {
+            "name": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "call-scope": {
+      "kind": "table",
+      "text": "| name    | projects |\n|---------|----------|\n| \"Ada\"   | 1        |\n| \"Grace\" | 2        |\n| \"Noor\"  | 0        |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "projects"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Ada\"",
+            "1"
+          ],
+          [
+            "\"Grace\"",
+            "2"
+          ],
+          [
+            "\"Noor\"",
+            "0"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "name",
+          "projects"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Ada",
+            "projects": 1
+          },
+          {
+            "name": "Grace",
+            "projects": 2
+          },
+          {
+            "name": "Noor",
+            "projects": 0
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "optional-call": {
+      "kind": "table",
+      "text": "| name    | project          |\n|---------|------------------|\n| \"Ada\"   | \"relate\"         |\n| \"Grace\" | \"opencypher-tck\" |\n| \"Grace\" | \"relate\"         |\n| \"Noor\"  | null             |\n4 rows",
+      "table": {
+        "columns": [
+          "name",
+          "project"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada\"",
+            "\"relate\""
+          ],
+          [
+            "\"Grace\"",
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"Grace\"",
+            "\"relate\""
+          ],
+          [
+            "\"Noor\"",
+            "null"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "project"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Ada",
+            "project": "relate"
+          },
+          {
+            "name": "Grace",
+            "project": "opencypher-tck"
+          },
+          {
+            "name": "Grace",
+            "project": "relate"
+          },
+          {
+            "name": "Noor",
+            "project": null
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "in-transactions": {
+      "kind": "table",
+      "text": "| i | committed | error       |\n|---|-----------|-------------|\n| 1 | true      | null        |\n| 0 | false     | \"/ by zero\" |\n| 2 | true      | null        |\n3 rows · nodes created: 2, properties set: 2, labels added: 2",
+      "table": {
+        "columns": [
+          "i",
+          "committed",
+          "error"
+        ],
+        "numeric": [
+          true,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "1",
+            "true",
+            "null"
+          ],
+          [
+            "0",
+            "false",
+            "\"/ by zero\""
+          ],
+          [
+            "2",
+            "true",
+            "null"
+          ]
+        ],
+        "summary": "3 rows · nodes created: 2, properties set: 2, labels added: 2"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "BOOLEAN",
+          "ANY"
+        ],
+        "columns": [
+          "i",
+          "committed",
+          "error"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "committed": true,
+            "error": null,
+            "i": 1
+          },
+          {
+            "committed": false,
+            "error": "/ by zero",
+            "i": 0
+          },
+          {
+            "committed": true,
+            "error": null,
+            "i": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 2,
+          "labels_removed": 0,
+          "nodes_created": 2,
+          "nodes_deleted": 0,
+          "properties_set": 2,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "subquery-expressions": {
+      "kind": "table",
+      "text": "| name    | knowsSomeone | projects | projectNames                 |\n|---------|--------------|----------|------------------------------|\n| \"Ada\"   | true         | 1        | [\"relate\"]                   |\n| \"Grace\" | false        | 2        | [\"opencypher-tck\", \"relate\"] |\n| \"Noor\"  | false        | 0        | []                           |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "knowsSomeone",
+          "projects",
+          "projectNames"
+        ],
+        "numeric": [
+          false,
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada\"",
+            "true",
+            "1",
+            "[\"relate\"]"
+          ],
+          [
+            "\"Grace\"",
+            "false",
+            "2",
+            "[\"opencypher-tck\", \"relate\"]"
+          ],
+          [
+            "\"Noor\"",
+            "false",
+            "0",
+            "[]"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "BOOLEAN",
+          "INTEGER",
+          "LIST"
+        ],
+        "columns": [
+          "name",
+          "knowsSomeone",
+          "projects",
+          "projectNames"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "knowsSomeone": true,
+            "name": "Ada",
+            "projectNames": [
+              "relate"
+            ],
+            "projects": 1
+          },
+          {
+            "knowsSomeone": false,
+            "name": "Grace",
+            "projectNames": [
+              "opencypher-tck",
+              "relate"
+            ],
+            "projects": 2
+          },
+          {
+            "knowsSomeone": false,
+            "name": "Noor",
+            "projectNames": [],
+            "projects": 0
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "collect-two-columns": {
+      "kind": "table",
+      "text": "error: syntax error: parse error: A COLLECT subquery must end with a single return column\n  RETURN COLLECT { MATCH (p:Person) RETURN p.name, p.role } AS pairs\n                                                            ^",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: parse error: A COLLECT subquery must end with a single return column\n  RETURN COLLECT { MATCH (p:Person) RETURN p.name, p.role } AS pairs\n                                                            ^",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "use-neo4j": {
+      "kind": "table",
+      "text": "| people |\n|--------|\n| 3      |\n1 row",
+      "table": {
+        "columns": [
+          "people"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "3"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER"
+        ],
+        "columns": [
+          "people"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "people": 3
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "use-system": {
+      "kind": "table",
+      "text": "error: semantic error: SemanticError: The following unsupported clauses were used: MATCH. \nThe system database supports a restricted set of Cypher clauses. The supported clause structure for procedure calls is: CALL, YIELD, RETURN. YIELD and RETURN clauses are optional. The order of the clauses is fixed and each can only occur once.",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: SemanticError: The following unsupported clauses were used: MATCH. \nThe system database supports a restricted set of Cypher clauses. The supported clause structure for procedure calls is: CALL, YIELD, RETURN. YIELD and RETURN clauses are optional. The order of the clauses is fixed and each can only occur once.",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "procedure": {
+      "kind": "table",
+      "text": "| l         |\n|-----------|\n| \"Project\" |\n1 row",
+      "table": {
+        "columns": [
+          "l"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"Project\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "l"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "l": "Project"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "next-when": {
+      "kind": "table",
+      "text": "| name    | duty      |\n|---------|-----------|\n| \"Noor\"  | \"reviews\" |\n| \"Ada\"   | \"builds\"  |\n| \"Grace\" | \"builds\"  |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "duty"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Noor\"",
+            "\"reviews\""
+          ],
+          [
+            "\"Ada\"",
+            "\"builds\""
+          ],
+          [
+            "\"Grace\"",
+            "\"builds\""
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "duty"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "duty": "reviews",
+            "name": "Noor"
+          },
+          {
+            "duty": "builds",
+            "name": "Ada"
+          },
+          {
+            "duty": "builds",
+            "name": "Grace"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

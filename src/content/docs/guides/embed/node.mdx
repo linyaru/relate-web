@@ -1,4 +1,381 @@
 ---
 title: Use the Node.js client
-status: planned
+label: Node.js
+description: Open stores from Node.js, bind typed values and BigInt integers, query with tagged templates, run transactions and async queries, and handle errors.
+order: 20
+surfaces: [node]
+prerequisites: [get-started/node]
+related: [reference/api/javascript, get-started/node, reference/errors, concepts/transactions-and-concurrency, guides/operate/two-processes-one-store, guides/storage/choose-a-store-layout, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
+
+This guide shows you how to use the relate Node.js :term[client]{id=client}, the `@relate/relate` package, in an app: which store to open and how, which JavaScript value each Cypher value arrives as, how to write statements as tagged templates, how to group writes and run statements off the main thread, and how to branch on an error. The client runs the engine inside your Node.js process. Every program on this page uses the same team graph as the [Node.js tutorial](/docs/get-started/node), which covers the first program step by step.
+
+## Prerequisites
+
+- Node.js 18 or later, and the steps of [Embed relate in a Node.js app](/docs/get-started/node) or the equivalent experience.
+
+## Add the client
+
+The package is `@relate/relate`:
+
+```bash
+npm install @relate/relate
+```
+
+npm installs the engine library as the platform package for your system, `@relate/<platform>-<arch>`, with no install script. On a platform without one, `RELATE_LIB` names a library built from source. The client checks the library's ABI version when it loads and refuses one it was not built for.
+
+## Open a store
+
+`Database.open(uri, options)` opens a store; `db.connect(namespace)` returns a connection that runs statements. The path decides the layout:
+
+| Call | Opens | Notes |
+| --- | --- | --- |
+| `Database.open(":memory:")` | An in-memory store | Gone when the process exits |
+| `Database.open("./team")` | A directory store | Created when missing; another process may read it with `readOnly: true` while you write |
+| `Database.open("./team.rl")` | A :term[single-file store]{id=single-file-store} | Created when missing; opens only while no other process writes it |
+| `Database.open(path, { readOnly: true })` | An existing store, read-only | Loads once and refuses writes; a missing store is an error, never created |
+| `db.connect("system")` | A connection in another namespace | `neo4j` (default), `system` or `system_ontologies` |
+
+The client has no close method. Each statement is durable when `query()` returns, and `db.checkpoint()` writes the current state to the snapshot. A new directory store writes its snapshot with the codec in `RELATE_SNAPSHOT_FORMAT` (`parquet` by default, `json` or `markdown`). This program writes a directory store, then reads it through a second, read-only handle beside the writer:
+
+```js run name=open
+const { Database, RelateError } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const db = Database.open("./team");
+db.connect().query(TEAM);
+db.checkpoint();
+
+const reader = Database.open("./team", { readOnly: true }).connect();
+console.log("people:", reader.query("MATCH (p:Person) RETURN count(p) AS n").single().n);
+try {
+  reader.query("CREATE (:Person {name: 'Lin'})");
+} catch (e) {
+  if (!(e instanceof RelateError)) throw e;
+  console.log(e.name, e.gqlStatus);
+}
+```
+
+A read-only handle sees the store as it was when it opened. To change namespaces later, call `conn.setNamespace(name)` between transactions, or name the target in the statement with `USE system`.
+
+## Bind parameters and read typed values
+
+`query(statement, params)` takes a plain object, and each value converts to a Cypher value. Results come back with each value carrying its own type; there is no per-column type list.
+
+| Cypher value | As a parameter | In a result |
+| --- | --- | --- |
+| `INTEGER` | An integer-valued `number`, or a `bigint` | A `number` within ±(2^53 − 1), a `bigint` beyond it |
+| `FLOAT` | A `number` with a fraction, `NaN` or `±Infinity`; `float(n)` for a whole number | A `number` |
+| `STRING`, `BOOLEAN`, `NULL` | `string`, `boolean`, `null` | The same |
+| `DATE`, `ZONED TIME`, `LOCAL TIME`, `ZONED DATETIME`, `LOCAL DATETIME` | `CypherDate`, `CypherTime`, `CypherLocalTime`, `CypherDateTime`, `CypherLocalDateTime` | The same classes |
+| `DURATION` | `CypherDuration(months, days, seconds, nanos)` | `CypherDuration` |
+| `POINT`, `VECTOR` | `CypherPoint(srid, x, y, z?)`, `CypherVector(dtype, values)` | The same classes |
+| `LIST`, `MAP` | An array, a plain object | An array, a plain object |
+
+A JavaScript `Date` is refused with a `TypeError`: whether it means UTC or local time is ambiguous, so build a `CypherDateTime`. `undefined`, functions, `Map`, `Set` and class instances are refused the same way. This program stores a start date, a release cycle, an office location and a star count beyond `Number.MAX_SAFE_INTEGER` on the `relate` project, then reads them back:
+
+```js run name=typed-values
+const { Database, CypherDate, CypherDuration, CypherPoint, float } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+conn.query(TEAM);
+conn.query(
+  "MATCH (p:Project {name: 'relate'}) " +
+    "SET p.started = $started, p.cycle = $cycle, p.office = $office, p.stars = $stars, p.weight = $weight",
+  {
+    started: new CypherDate(2023, 3, 1),
+    cycle: new CypherDuration(0, 42, 0, 0),
+    office: new CypherPoint(4326, 13.4, 52.5),
+    stars: 9007199254740993n,
+    weight: float(1),
+  }
+);
+const row = conn.query(
+  "MATCH (p:Project {name: 'relate'}) " +
+    "RETURN p.started AS started, p.cycle AS cycle, p.office AS office, " +
+    "p.started + p.cycle AS next_release, p.stars AS stars, toString(p.weight) AS weight"
+).single();
+
+const { started, cycle, office, next_release, stars, weight } = row;
+console.log("started:", started.constructor.name, started.year, started.month, started.day);
+console.log("cycle:", cycle.constructor.name, cycle.days, "days");
+console.log("office:", office.constructor.name, office.srid, office.x, office.y);
+console.log("next release:", next_release.year, next_release.month, next_release.day);
+console.log("stars:", typeof stars, stars.toString());
+console.log("weight:", weight);
+```
+
+A decoded value binds back unchanged, so a `CypherVector` read from one statement can be a parameter of the next. A `CypherDuration` keeps months, days, seconds and nanoseconds apart, so `PT36H` and `P1DT12H` stay different values.
+
+## Group writes in a transaction
+
+A connection commits each statement as its own :term[transaction]{id=transaction} until you call `conn.begin()`. `conn.commit()` keeps the transaction and returns its :term[bookmark]{id=bookmark}, `relate:<n>`, or `null` when it wrote nothing; `conn.rollback()` discards it. An auto-commit write's bookmark is on `result.bookmark`.
+
+```js run name=transaction
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+console.log("seed bookmark:", conn.query(TEAM).bookmark);
+
+conn.begin();
+conn.query(
+  "MATCH (tck:Project {name: 'opencypher-tck'}) " +
+    "CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)"
+);
+conn.query("MATCH (noor:Person {name: 'Noor'}) SET noor.role = 'lead'");
+console.log("commit bookmark:", conn.commit());
+
+conn.begin();
+conn.query("MATCH (p:Project) DETACH DELETE p");
+conn.rollback();
+console.log("projects:", conn.query("MATCH (p:Project) RETURN count(p) AS n").single().n);
+```
+
+## Read result metadata
+
+A `Result` holds every row at once in `result.rows`, plus `columns`, `stats`, `queryType`, `namespace`, `bookmark`, `notifications` and `plan`. `result.consume()` returns a `ResultSummary` with the same facts and the engine's timings. `result.graph()` collects the distinct nodes and relationships the rows carry; each has an :term[element id]{id=element-id} (`elementId`), the string Cypher's `elementId()` returns.
+
+```js run name=metadata
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+conn.query(TEAM);
+
+const graph = conn.query("MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p, w, proj").graph();
+console.log("nodes:", graph.nodes.map((n) => n.properties.name).sort().join(", "));
+console.log("relationships:", graph.relationships.length);
+const first = graph.nodes[0];
+console.log(first.properties.name, first.elementId, first.labels.join(","));
+
+const found = conn.query("MATCH (n) WHERE elementId(n) = $id RETURN n.name AS name", { id: first.elementId });
+console.log("found by element id:", found.single().name);
+
+const plan = conn.query("EXPLAIN MATCH (p:Person), (q:Project) RETURN p, q");
+console.log("query type:", plan.queryType);
+for (const n of plan.notifications) console.log(n.gql_status, n.title);
+```
+
+`graph()` lists entities in the order the rows first carry them. A plain run leaves `notifications` empty and `plan` `null`; `EXPLAIN` and `PROFILE` fill both. `result.single()` returns the one row and throws `ResultNotSingleError` on zero rows or more than one.
+
+## Handle errors
+
+Every error the engine reports throws a `RelateError` with the engine's classification: `gqlStatus` (the GQLSTATUS code), `code` (the Neo4j status code), `stage` (`compile`, `runtime` or `internal`) and `retryable`. A parameter the client cannot convert throws a `TypeError` naming it, before anything runs.
+
+```js run name=errors
+const { Database, RelateError } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+conn.query(TEAM);
+
+for (const statement of [
+  "MATCH (p:Person) RETURN p.name +",
+  "MATCH (:Person {name: 'Ada'})-[w:WORKS_ON]->() RETURN w.since / 0",
+  "MATCH (p:Person {name: $name}) RETURN p.role AS role",
+]) {
+  try {
+    conn.query(statement);
+  } catch (e) {
+    if (!(e instanceof RelateError)) throw e;
+    console.log(e.name, e.gqlStatus, e.stage, e.retryable);
+  }
+}
+
+try {
+  conn.query("MATCH (p:Person {name: $name}) RETURN p", { name: new Date(0) });
+} catch (e) {
+  if (!(e instanceof TypeError)) throw e;
+  console.log(e.name, e.message);
+}
+```
+
+The [errors reference](/docs/reference/errors) lists every engine message with its codes. `retryable` (also spelled `isRetriable`) is `true` only for a failure that re-running the work can fix, such as a write-write conflict, which can surface on a statement or on `commit()`. A `stage` of `internal` means the failure was outside the statement: check the store and the handle rather than retrying.
+
+## Write statements as tagged templates
+
+`query` is also a template tag. Each `${value}` becomes a parameter (`$p0`, `$p1`, …), never statement text, so a value holding quotes or Cypher stays data:
+
+```js run name=templates
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+conn.query(TEAM);
+
+const name = "Grace";
+const rows = conn.query`
+  MATCH (:Person {name: ${name}})-[w:WORKS_ON]->(p:Project)
+  RETURN p.name AS project, w.since AS since ORDER BY since
+`.rows;
+for (const row of rows) console.log(row.project, row.since);
+
+const hostile = "Grace'}) DETACH DELETE p //";
+console.log("matches:", conn.query`MATCH (p:Person {name: ${hostile}}) RETURN count(p) AS n`.single().n);
+console.log("people:", conn.query`MATCH (p:Person) RETURN count(p) AS n`.single().n);
+```
+
+A template interpolates values only. To build a clause from parts, assemble the string and pass the values in `params`.
+
+## Run statements off the main thread
+
+`query()` blocks the event loop while the statement runs. `queryAsync()` takes the same arguments, template form included, runs the statement on a worker thread and returns a Promise of the same result. Calls on one connection run one at a time, in order; separate connections run at once.
+
+```js run name=async
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const TEAM_OF = "MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN collect(p.name) AS people";
+
+async function main() {
+  const conn = Database.open(":memory:").connect();
+  await conn.queryAsync(TEAM);
+  const results = await Promise.all(
+    ["relate", "opencypher-tck"].map((project) => conn.queryAsync(TEAM_OF, { project }))
+  );
+  for (const result of results) console.log(result.single().people.sort().join(", "));
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});
+```
+
+While an async call is in flight, a synchronous call on the same connection (`query`, `begin`, `commit`, `rollback`, `setNamespace`) throws a `RelateError` instead of waiting. A synchronous call in the same tick as `queryAsync()` runs first, because the async statement starts on the next microtask. Await the Promise first, or use a second connection.
+
+## Verify
+
+Write the graph to a directory store and read it back through a read-only handle:
+
+```js run name=verify
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+Database.open("./team").connect().query(TEAM);
+
+const reader = Database.open("./team", { readOnly: true }).connect();
+const row = reader
+  .query("MATCH (n) OPTIONAL MATCH (n)-[r]->() RETURN count(DISTINCT n) AS nodes, count(r) AS relationships")
+  .single();
+console.log("nodes:", row.nodes, "relationships:", row.relationships);
+```
+
+Five nodes and five relationships from the read-only handle mean the store was written and read back through the client.
+
+## If it goes wrong
+
+| Error | Cause | Remedy |
+| --- | --- | --- |
+| `Error`: `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/<platform>-<arch> (lib/ directory), …` | npm did not install the platform package, or the platform has none | Reinstall without `--omit=optional`, or set `RELATE_LIB` to a library built from source |
+| `RelateError` from `Database.open()` with message `internal error` and `stage` `internal` | Another process holds the store for writing, or `readOnly: true` names a path with no store | Close the other writer, open a directory store read-only beside it, or fix the path |
+| `RelateError`: `semantic error: WriteOnReadOnlyAccessDatabase: …` (`gqlStatus` `42N18`) | A write through a read-only handle | Open without `readOnly` for writes |
+| `TypeError`: `query params: "<name>" must be a plain object` | A `Date`, `Map`, `Set` or class instance as a parameter | Pass a `CypherDateTime`, an array, or a plain object |
+| `RelateError`: `a synchronous query cannot start while an async query is in flight on this connection` | A synchronous call while a `queryAsync()` on the same connection is running | Await the Promise first, or use a second connection |
+
+## Related
+
+- [Node.js API](/docs/reference/api/javascript): every export, method, value class, and error.
+- [Embed relate in a Node.js app](/docs/get-started/node): the first program, step by step.
+- [Errors](/docs/reference/errors): every engine error message and its codes.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Share one store between two processes](/docs/guides/operate/two-processes-one-store): a writer and its readers on one store.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem this client solves.

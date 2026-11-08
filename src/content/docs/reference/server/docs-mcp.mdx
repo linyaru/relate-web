@@ -2,12 +2,12 @@
 title: The hosted docs MCP server
 label: Hosted docs MCP server
 description: The relate documentation over MCP, with five read-only tools, its documents as resources, and two prompts; the hosted server's limits, logs, and threat model.
-order: 10
+order: 50
 surfaces: [mcp, agents]
-related: [guides/agents/connect-over-mcp, reference/security, reference/privacy-and-telemetry, reference/errors, reference/cypher/differences-from-neo4j, concepts/problems-relate-solves, guides/agents/agent-safety]
+related: [guides/agents/connect-over-mcp, reference/server/mcp, reference/security, reference/privacy-and-telemetry, reference/errors, reference/cypher/differences-from-neo4j, concepts/problems-relate-solves, guides/agents/agent-safety]
 ---
 
-`https://relatedb.ai/mcp` serves the relate documentation to agent hosts over :term[MCP]{id=mcp} (the Model Context Protocol): five read-only tools that search the pages, read one section or one page, look up an error, check a Cypher statement with `EXPLAIN`, and match a problem to what relate offers; the pages, the skills, the capability catalog and the cookbook's cells as resources; and two prompts. It needs no account and no credential, and it opens no :term[store]{id=store} of yours. The URL is a launch-day target: the server is not deployed yet, and until it is, it runs only as a local build of the site's source. It is not relate's own MCP server, `relate serve --mcp`, which serves a store of yours with the tools `read_cypher`, `get_schema` and `write_cypher`; no tool here shares a name with those, so a host can connect both.
+`https://relatedb.ai/mcp` serves the relate documentation to agent hosts over :term[MCP]{id=mcp} (the Model Context Protocol): five read-only tools that search the pages, read one section or one page, look up an error, check a Cypher statement with `EXPLAIN`, and match a problem to what relate offers; the pages, the skills, the capability catalog and the cookbook's cells as resources; and two prompts. It needs no account and no credential, and it opens no :term[store]{id=store} of yours. The URL is a launch-day target: the server is not deployed yet, and until it is, it runs only as a local build of the site's source. It is not relate's own [MCP server](/docs/reference/server/mcp), `relate serve --mcp`, which serves a store of yours with the tools `read_cypher`, `get_schema` and `write_cypher`; no tool here shares a name with those, so a host can connect both.
 
 ## Synopsis
 

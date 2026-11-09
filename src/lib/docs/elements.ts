@@ -173,7 +173,8 @@ export function elementNeeds(file: string, body: string): { elements: boolean; e
 /** An element's build file, loaded (Node only: docs:check and --record). Throws when it does not export an ElementSpec. */
 export async function loadSpec(name: string): Promise<ElementSpec> {
   const file = join(ELEMENTS_DIR, `${name}.ts`);
-  const mod = (await import(pathToFileURL(file).href)) as { default?: Partial<ElementSpec> };
+  // Element build files are found by listing a directory (ADR-0035), so the path is computed.
+  const mod = (await import(/* @vite-ignore */ pathToFileURL(file).href)) as { default?: Partial<ElementSpec> };
   const spec = mod.default;
   if (!spec || typeof spec.live !== 'string' || !spec.live.trim() || typeof spec.staticForm !== 'function') {
     throw new Error(`src/lib/docs/elements/${name}.ts must \`export default { live, staticForm, validate?, inputs? } satisfies ElementSpec\``);

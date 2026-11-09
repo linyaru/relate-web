@@ -33,6 +33,9 @@ export default defineConfig({
     shikiConfig: { theme: 'github-dark-default', langs: ['cypher'] },
   },
   vite: {
+    // Agent worktrees (.claude/worktrees/) are whole copies of the repo; the
+    // dev server must not watch them or restart when one is removed.
+    server: { watch: { ignored: ['**/.claude/**'] } },
     resolve: {
       alias: {
         // NVL (the cookbook's graph view) imports Segment telemetry for side

@@ -5,7 +5,8 @@
 //
 //   graph-seed    the seed replays without an error, every node and
 //                 relationship it writes is there afterwards, the three search
-//                 indexes exist (docs, docs_vector, problems), and as many sections carry a vector as the
+//                 indexes exist (docs, docs_vector, problems), docs_vector filterable on
+//                 VECTOR_FILTER_PROPERTIES, and as many sections carry a vector as the
 //                 embeddings artifact has current entries for
 //   graph-orphan  a published page nothing links to, lists as a prerequisite
 //                 or as related, and that /docs/llms.txt does not list
@@ -34,7 +35,7 @@ import { join } from 'node:path';
 
 import { WASM_DIR, type Engine as WasmEngine } from '../../cookbook/run.ts';
 import { ENGINE_FILE, type Engine, type PageFile } from '../content.ts';
-import { buildGraph, CLI_FILE, EMBEDDING_PROPERTY, EMBEDDINGS_FILE, FULLTEXT_INDEX, graphInput, PROBLEMS_INDEX, seedScript, VECTOR_INDEX, type DocsGraph } from '../graph.ts';
+import { buildGraph, CLI_FILE, EMBEDDING_PROPERTY, EMBEDDINGS_FILE, FULLTEXT_INDEX, graphInput, PROBLEMS_INDEX, seedScript, VECTOR_FILTER_PROPERTIES, VECTOR_INDEX, type DocsGraph } from '../graph.ts';
 
 export type Severity = 'error' | 'warning';
 export type Report = (file: string, line: number | null, severity: Severity, rule: string, message: string) => void;
@@ -188,9 +189,15 @@ export function checkGraph(site: GraphSite, report: Report, options: GraphCheckO
       );
     }
 
-    const indexes = new Set(query('SHOW INDEXES YIELD name RETURN name').map((r) => String(r.name)));
+    const indexes = new Map(query('SHOW INDEXES YIELD name, properties RETURN name, properties').map((r) => [String(r.name), r.properties]));
     for (const name of [FULLTEXT_INDEX, VECTOR_INDEX, PROBLEMS_INDEX]) {
       if (!indexes.has(name)) emit('graph-seed', ENGINE_FILE, null, `the seed script creates no index \`${name}\` on public/wasm`);
+    }
+    // A vector search filters only on the properties its index declares with WITH [...]; the cookbook recipe filters on `page`.
+    const covers = JSON.stringify(indexes.get(VECTOR_INDEX));
+    const wanted = JSON.stringify([EMBEDDING_PROPERTY, ...VECTOR_FILTER_PROPERTIES]);
+    if (indexes.has(VECTOR_INDEX) && covers !== wanted) {
+      emit('graph-seed', ENGINE_FILE, null, `the index \`${VECTOR_INDEX}\` covers ${covers} on public/wasm, not ${wanted}: a vector search could not filter on ${VECTOR_FILTER_PROPERTIES.join(', ')}`);
     }
     const [vectors] = query(`MATCH (s:Section) WHERE s.${EMBEDDING_PROPERTY} IS NOT NULL RETURN count(s) AS n`);
     if (Number(vectors.n) !== graph.vectors.size) {

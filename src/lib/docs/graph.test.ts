@@ -366,7 +366,7 @@ test('section inputs: page title, heading and text, hashed', () => {
 test('the seed sets fresh vectors only, creates the vector index, and the WASM answers vector and hybrid queries', () => {
   const plain = buildGraph(fixture());
   assert.equal(plain.vectors.size, 0);
-  assert.match(seedScript(plain), new RegExp(`CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR \\(s:Section\\) ON \\(s\\.embedding\\) OPTIONS \\{indexConfig: \\{\`vector\\.dimensions\`: 384, \`vector\\.similarity_function\`: 'cosine'\\}\\};`));
+  assert.match(seedScript(plain), new RegExp(`CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR \\(s:Section\\) ON \\(s\\.embedding\\) WITH \\[s\\.page\\] OPTIONS \\{indexConfig: \\{\`vector\\.dimensions\`: 384, \`vector\\.similarity_function\`: 'cosine'\\}\\};`));
   assert.doesNotMatch(seedScript(plain), /SET s\.embedding/);
 
   // One stale entry (wrong hash), one orphan: the stale section is left out of the seed.
@@ -399,6 +399,10 @@ test('the seed sets fresh vectors only, creates the vector index, and the WASM a
   try {
     query(db, seed);
     assert.deepEqual(query(db, search, { v: fakeVector(target) }), [{ id: 'get-started/install#verify' }]);
+    // The index declares `page`, so a search can filter on it before it ranks: another page's sections only.
+    const filtered = search.replace(' LIMIT 1)', ' WHERE s.page IN $pages LIMIT 1)');
+    const [other] = query(db, filtered, { v: fakeVector(target), pages: ['guides/serve'] });
+    assert.match(String(other.id), /^guides\/serve#/);
     const hits = query(db, HYBRID_STATEMENT, { vector: fakeVector(target), query: 'verify version', k: 5, limit: 3 });
     assert.equal(hits[0].id, 'get-started/install#verify');
     assert.equal(hits[0].vector_rank, 1);

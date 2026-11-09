@@ -29,7 +29,7 @@ ships (`public/wasm/`) and fails if a result drifts from what the file records
 |---|---|---|---|
 | [Context graph for a codebase](codebase-context-graph.md) | Answer multi-hop questions about a codebase: IDF-weighted full-text search finds where to start, and bounded graph hops follow supersessions, dependencies, and citations. | Advanced | Fully |
 | [Hybrid recall: vector + full-text + RRF](hybrid-recall.md) | Fuse vector and full-text SEARCH by reciprocal rank in one Cypher statement, then hop from each recalled note to its topic's latest decision. | Advanced | Fully |
-| [Query the relate docs](query-the-relate-docs.md) | Search a slice of the relate docs graph with full-text SEARCH, vector SEARCH and both fused by reciprocal rank, then hop from the best sections to their pages. | Intermediate | Fully |
+| [Query the relate docs](query-the-relate-docs.md) | Find entry points in the relate docs graph with vector SEARCH, then let the graph expand them into context, scope the search by a traversal, and reach the capability and its worked example. | Intermediate | Fully |
 
 ### Data quality
 

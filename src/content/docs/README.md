@@ -864,8 +864,8 @@ The build also serves these files for agents:
 | `/docs/changelog.json` | The changelog as a JSON Feed 1.1 document; each item carries the structured entry under `_relate` |
 | `/docs/changelog.md` | The changelog twin |
 | `/docs/feedback.md` | What a report of a wrong or missing page holds; the operator decides whether one is sent |
-| `/docs/graph.cypher` | The docs graph as a deterministic Cypher seed script (`src/lib/docs/graph.ts`): pages, sections (with their vectors), examples, terms, surfaces, recipes, CLI commands and flags, capabilities and the problems they solve; full-text indexes `docs` and `problems`, vector index `docs_vector` |
-| `/docs/graph.json` | The same graph as JSON (`format`, `verified`, `seed`, `nodes`, `relationships`, and `embeddings`: the vector index, model and section count) |
+| `/docs/graph.cypher` | The docs graph as a deterministic Cypher seed script (`src/lib/docs/graph.ts`): pages, sections (with their vectors), examples, terms, surfaces, recipes, CLI commands and flags, capabilities and the problems they solve; full-text indexes `docs` and `problems`, vector index `docs_vector` (filterable on `page`) |
+| `/docs/graph.json` | The same graph as JSON (`format`, `verified`, `seed`, `nodes`, `relationships`, and `embeddings`: the vector index, its filter properties, the model and the section count) |
 | `/docs/glossary.json` | The glossary as data (`src/lib/docs/glossary.ts`): `{id, term, short, aliases, context, url}` per term in the page's order, wrapped with what the file is, its limits and the `verified` engine version; `kind: "documentation"`, no timestamp |
 | `/docs/capabilities.json` | The capability catalog as data (`src/lib/docs/capabilities.ts`): each problem with its capability, intents, surfaces, data model as mermaid source, `schema_url`, the verify run (or null) and canonical URLs; `kind: "documentation"` |
 | `/docs/samples.json` | The verified samples' index (`src/lib/docs/sample-manifests.ts`): every manifest's page, id, language, section URL, URL and the SHA-256 of its bytes and of its output, and each language's client build once; `kind: "documentation"` |

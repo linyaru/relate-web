@@ -206,10 +206,9 @@ finite values and normalized), asks `VECTOR_STATEMENT` for the 200 nearest
 sections (same filters), takes each lane's 10 best (`HYBRID_DEPTH`, or
 `limit` when larger: the vector lane by similarity, the full-text lane in the
 re-rank order) and fuses them by reciprocal rank, k = 60, the constant of the
-hybrid-recall and query-the-relate-docs recipes. The depth was measured on the
-two questions with committed vectors: at 10 the section each is about ranks
-first; at 20, 50 and 200, sections that are middling in both lanes crowd it
-out. `src/hybrid.test.ts` asserts both, and that the fusion of the two lanes'
+hybrid-recall recipe. The depth was measured on the two questions with
+committed vectors: at 10 the section each is about ranks first; at 20, 50
+and 200, sections that are middling in both lanes crowd it out. `src/hybrid.test.ts` asserts both, and that the fusion of the two lanes'
 raw orders equals `HYBRID_STATEMENT` of `src/lib/docs/graph.ts` on the whole
 docs graph. Any failure of the model or the vector read falls back to
 full-text with `retrieval: "full-text"` and a `retrieval_note`; without the

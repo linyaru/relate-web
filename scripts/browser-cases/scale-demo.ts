@@ -2,11 +2,9 @@
 // (src/lib/docs/elements/scale-demo.ts): it goes live without starting any
 // engine and offers the size for the screen; Build runs the three cells at
 // a hundred thousand nodes on a second engine, leaves the page's engine
-// unstarted and its cells on their recordings, and draws the tree's inner
-// rings with NVL's WebGL renderer, as many nodes as it can place (read back
-// from NVL); a smaller tree is drawn whole; the count and the walk run
-// again from another node; Free, the engine bar's Reset and Stop each close
-// the second engine and put the recordings back.
+// unstarted and its cells on their recordings, and draws nothing; the
+// count and the walk run again from another node; Free, the engine bar's
+// Reset and Stop each close the second engine and put the recordings back.
 
 import { scenario, type BrowserCases } from './_kit.ts';
 
@@ -21,7 +19,7 @@ const UP = `
   const bar = document.getElementById('engineBar');
 `;
 
-/** Build at `size` and wait until the run (and the drawing) is over. */
+/** Build at `size` and wait until the run is over. */
 const build = (size: number) => `
   q('.sd-size select').value = '${size}';
   q('.sd-build').click();
@@ -49,12 +47,11 @@ export default {
         expect(log, failures, (wide ? 'a wide screen' : 'a narrow screen') + ' is offered ' + (wide ? 'the largest size' : 'the middle size'), size === (wide ? '100000' : '10000'), size);
         expect(log, failures, 'the memory note is there before anything runs', /memory/.test(q('.sd-note').textContent));
         expect(log, failures, 'Free and the rerun wait for a build', q('.sd-free').disabled && q('.sd-rerun').disabled);
-        expect(log, failures, 'no tree is drawn yet', q('.sd-frame').hidden);
         return { log: [innerWidth + ' px, offered ' + size + '; ' + log.filter((l) => l.startsWith('FAIL')).length + ' failed'], failures };
       `),
     },
     {
-      name: 'Build runs the cells at 100,000 nodes on a second engine and draws them with WebGL',
+      name: 'Build runs the cells at 100,000 nodes on a second engine and draws nothing',
       scenario: scenario(`
         ${UP}
         const log = [], failures = [];
@@ -66,14 +63,7 @@ export default {
         expect(log, failures, 'each cell has an engine time', [b, c, w].every((x) => /^(?:<0\\.1|\\d+(?:\\.\\d)?) ms$/.test(x.time)), [b, c, w].map((x) => x.time).join(', '));
         expect(log, failures, 'the status is the live line', ${LIVE_LINE}.test(said.textContent) && /n = 100,000/.test(said.textContent), said.textContent);
         expect(log, failures, 'the memory line names this tab', /^The second engine's memory in this tab: [\\d,]+ MB\\./.test(q('.sd-memory').textContent), q('.sd-memory').textContent);
-        const frame = q('.sd-frame');
-        const view = frame.scaleView;
-        const state = view && view.state();
-        expect(log, failures, 'NVL draws with the WebGL renderer', state && state.renderer === 'webgl', JSON.stringify(state));
-        // NVL 1.2.2's WebGL renderer places at most 65,536 nodes (graph.ts SCALE_MAX_NODES): the inner 16 rings of the heap, 2^16 - 1 nodes.
-        expect(log, failures, 'NVL holds the inner 16 rings, every node it can place', state && state.nodes === 65535 && state.rels === 65534, JSON.stringify(state));
-        expect(log, failures, 'a WebGL canvas is in the stage', [...q('.sd-canvas').querySelectorAll('canvas')].some((cv) => { try { return !!cv.getContext('webgl'); } catch { return false; } }));
-        expect(log, failures, 'the drawing is described in words, with the cut', /^Drawn with WebGL: the inner 16 of 17 rings, 65,535 of the 100,000 nodes and the 65,534 relationships between them\\. NVL's WebGL renderer places at most 65,536 nodes; the engine holds them all\\.$/.test(q('.sd-drawn').textContent), q('.sd-drawn').textContent);
+        expect(log, failures, 'nothing is drawn: no canvas in the pane', !root.querySelector('canvas'));
         expect(log, failures, "the page's engine never started", !bar.dataset.status, bar.dataset.status);
         expect(log, failures, "the page's cells keep their recordings", [...document.querySelectorAll('cypher-cell')].every((x) => !x.classList.contains('is-live')));
         return { log: [b.time + ' build, ' + c.time + ' count, ' + w.time + ' walk; ' + q('.sd-memory').textContent.split('.')[0]], failures };
@@ -86,7 +76,6 @@ export default {
         const log = [], failures = [];
         ${build(1000)}
         const first = cell('walk').live;
-        expect(log, failures, 'a tree under the renderer\\'s limit is drawn whole', /^Drawn with WebGL: 1,000 nodes and 999 relationships, in 10 rings out from the root\\.$/.test(q('.sd-drawn').textContent) && q('.sd-frame').scaleView.state().nodes === 1000, q('.sd-drawn').textContent);
         q('.sd-start input').value = '3';
         q('.sd-rerun').click();
         await wait(50);
@@ -103,7 +92,7 @@ export default {
       scenario: scenario(`
         ${UP}
         const log = [], failures = [];
-        const back = () => ['build', 'count', 'walk'].every((r) => cell(r).live === '-' && cell(r).time === '-') && q('.sd-frame').hidden && !q('.sd-memory').textContent && q('.sd-free').disabled;
+        const back = () => ['build', 'count', 'walk'].every((r) => cell(r).live === '-' && cell(r).time === '-') && !q('.sd-memory').textContent && q('.sd-free').disabled;
         ${build(1000)}
         expect(log, failures, 'built', cell('count').live === 'nodes: 1,000, relationships: 999', cell('count').live);
         q('.sd-free').click();

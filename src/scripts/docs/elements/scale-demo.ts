@@ -5,33 +5,21 @@
 // presses Build: then the element opens a database of its own
 // (`page.scratch()`, a second engine worker, so the page's database and its
 // cells never see the large graph), runs the build, count and walk cells as
-// the page wrote them with `n` set to the size picked, reads the
-// relationships back, lays the tree out (_scale-demo-model.ts) and draws it
-// with NVL's WebGL renderer (graph.ts `renderScale`): the whole tree, or the
-// whole rings from the root out that fit the 65,536 nodes that renderer
-// places (`SCALE_MAX_NODES`), saying so. Every number it shows
-// is from this tab's run (liveLine). "Run the count and the walk again"
-// times them once more, from the node the reader names. Free closes the
-// second engine, which hands its memory back; so do the engine bar's Reset
-// and leaving the page. Without WebGL the cells still run and the tree is
-// not drawn: the canvas renderer would stall the tab at this size.
+// the page wrote them with `n` set to the size picked, and shows each
+// cell's first row and engine time beside its recording. It draws nothing.
+// Every number it shows is from this tab's run (liveLine). "Run the count
+// and the walk again" times them once more, from the node the reader names.
+// Free closes the second engine, which hands its memory back; so do the
+// engine bar's Reset and leaving the page.
 //
 // Narrow screens are offered the middle size first (phones have less memory
-// to give a tab). Nothing animates: the layout is computed before drawing
-// and the camera jumps, under prefers-reduced-motion or not.
+// to give a tab). Nothing animates.
 
 import { engineMs, formatMs, liveLine, recordedLine, versions } from '../../../lib/docs/elements/_wording.ts';
-import { DEFAULT_SIZES, firstSize, radialTree, sizesOf, WIDE_PX } from '../../../lib/docs/elements/_scale-demo-model.ts';
+import { DEFAULT_SIZES, firstSize, sizesOf, WIDE_PX } from '../../../lib/docs/elements/_scale-demo-model.ts';
 import type { ElementContext, Envelope, ScratchDb, ScratchRun } from '../element-api.ts';
-import type { ScaleView } from '../../cookbook/graph.ts';
 // `?inline`: the styles ride in this lazy chunk (a plain import would put them on every docs page).
 import styles from './scale-demo.css?inline';
-
-/** What the element reads back to draw: every relationship, child to parent, as engine ids. */
-const READ_BACK = 'MATCH (child)-->(parent) RETURN collect(id(child)) AS child, collect(id(parent)) AS parent';
-/** Layout units between neighbouring nodes, and a node's radius in them. */
-const SPACING = 10;
-const NODE_SIZE = 4;
 
 const ROLES = ['build', 'count', 'walk'] as const;
 type Role = (typeof ROLES)[number];
@@ -48,18 +36,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
   }
   parent?.append(node);
   return node;
-}
-
-const ICONS: Record<string, string> = {
-  in: '<path d="M8 3v10M3 8h10"/>',
-  out: '<path d="M3 8h10"/>',
-  fit: '<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>',
-};
-
-function tool(parent: HTMLElement, icon: string, label: string) {
-  const b = el('button', { type: 'button', class: 'sd-tool', title: label, 'aria-label': label }, parent);
-  b.innerHTML = `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[icon]}</svg>`;
-  return b;
 }
 
 /** A first row as `key: value` pairs, the way the static form prints a recording. */
@@ -145,18 +121,6 @@ export async function mount(ctx: ElementContext) {
   rerun.disabled = true;
   const memory = el('p', { class: 'sd-memory' }, root);
 
-  const frame = el('div', { class: 'sd-frame' }, root);
-  frame.hidden = true;
-  const stage = el('div', { class: 'sd-stage' }, frame);
-  const canvas = el('div', { class: 'sd-canvas' }, stage);
-  const tools = el('div', { class: 'sd-tools' }, stage);
-  const fitButton = tool(tools, 'fit', 'Fit the tree');
-  const zoomIn = tool(tools, 'in', 'Zoom in');
-  const zoomOut = tool(tools, 'out', 'Zoom out');
-  const hint = el('p', { class: 'sd-hint', role: 'status' }, stage);
-  hint.hidden = true;
-  const drawn = el('p', { class: 'sd-drawn' }, root);
-
   live.replaceChildren(root);
   const recordedNote = () => `${recordedLine(versions(page).recorded)} The table shows the cells' recordings, with n = ${recordedParams.n === undefined ? '?' : fmt(recordedParams.n)}.`;
   said.textContent = recordedNote();
@@ -164,12 +128,10 @@ export async function mount(ctx: ElementContext) {
 
   // ---------------------------------------------------------------- state
   let db: ScratchDb | null = null;
-  let view: ScaleView | null = null;
   let size = 0;
   let busy = false;
   /** Bumped by every release: a run that started before one has been stopped, and its answer is dropped. */
   let generation = 0;
-  let hintTimer: ReturnType<typeof setTimeout> | undefined;
 
   const setBusy = (on: boolean) => {
     busy = on;
@@ -187,18 +149,9 @@ export async function mount(ctx: ElementContext) {
   const showMemory = (run: ScratchRun) => {
     memory.textContent = run.memory ? `The second engine's memory in this tab: ${megabytes(run.memory)}. It grows with the graph and is handed back only when the engine closes.` : '';
   };
-  const clearView = () => {
-    view?.destroy();
-    view = null;
-    delete (frame as { scaleView?: unknown }).scaleView;
-    frame.hidden = true;
-    canvas.replaceChildren();
-    drawn.textContent = '';
-  };
   /** Close the second engine (its memory goes back to the tab) and go back to the recordings. */
   const release = () => {
     generation++;
-    clearView();
     db?.close();
     db = null;
     for (const r of ROLES) {
@@ -221,41 +174,6 @@ export async function mount(ctx: ElementContext) {
     if (run.error) throw new Error(`cell ${cells[r]!.id} failed: ${run.error}`);
     return run;
   };
-
-  async function draw(at: ScratchDb) {
-    const back = await at.run(READ_BACK);
-    showMemory(back);
-    if (back.error) throw new Error(`reading the tree back failed: ${back.error}`);
-    const row = back.envelopes.at(-1)?.rows?.[0] as { child?: number[]; parent?: number[] } | undefined;
-    const graph = await page.graph();
-    if (!graph.webglAvailable()) {
-      drawn.textContent = `This browser gives the page no WebGL, so the tree is not drawn; the counts and times in the table are the engine's.`;
-      return;
-    }
-    const tree = radialTree(row?.child ?? [], row?.parent ?? [], SPACING, graph.SCALE_MAX_NODES);
-    frame.hidden = false;
-    view = graph.renderScale(canvas, tree.nodes, tree.rels, {
-      frame: root,
-      size: NODE_SIZE,
-      onWheelPast: () => {
-        hint.textContent = 'Click the tree, or hold Ctrl or ⌘, to zoom with the wheel';
-        hint.hidden = false;
-        clearTimeout(hintTimer);
-        hintTimer = setTimeout(() => (hint.hidden = true), 2500);
-      },
-    });
-    view.fit();
-    // A browser case reads NVL's state through the frame, as the page has no other handle on the view.
-    Object.defineProperty(frame, 'scaleView', { value: view, configurable: true });
-    const state = view.state();
-    frame.dataset.nodes = String(state.nodes);
-    frame.dataset.rels = String(state.rels);
-    const rings = tree.drawnDepth + 1;
-    drawn.textContent =
-      tree.nodes.length === tree.total
-        ? `Drawn with WebGL: ${fmt(state.nodes)} nodes and ${fmt(state.rels)} relationships, in ${rings} rings out from the root.`
-        : `Drawn with WebGL: the inner ${rings} of ${tree.depth + 1} rings, ${fmt(state.nodes)} of the ${fmt(tree.total)} nodes and the ${fmt(state.rels)} relationships between them. NVL's WebGL renderer places at most ${fmt(graph.SCALE_MAX_NODES)} nodes; the engine holds them all.`;
-  }
 
   /** What a run that threw comes to: the reader stopped it, the engine ended (a crash, memory), or a statement failed. */
   const failed = (err: unknown, at: ScratchDb | null, gen: number) => {
@@ -289,7 +207,6 @@ export async function mount(ctx: ElementContext) {
       for (const r of ROLES) runs.push(await runCell(r, at));
       startInput.max = String(size - 1);
       said.textContent = liveLine({ version: at.version, ms: engineMs(runs.flatMap((x) => x.envelopes)), of: `cells ${ROLES.map((r) => cells[r]!.id).join(', ')} with n = ${fmt(size)}` });
-      await draw(at);
     } catch (err) {
       failed(err, at, gen);
     } finally {
@@ -321,14 +238,6 @@ export async function mount(ctx: ElementContext) {
       if (gen === generation) setBusy(false);
     }
   });
-  fitButton.addEventListener('click', () => view?.fit());
-  zoomIn.addEventListener('click', () => view?.zoomBy(1.5));
-  zoomOut.addEventListener('click', () => view?.zoomBy(1 / 1.5));
-  stage.addEventListener('pointerdown', () => root.classList.add('is-engaged'));
-  const disengage = (e: PointerEvent) => {
-    if (!root.contains(e.target as Node)) root.classList.remove('is-engaged');
-  };
-  document.addEventListener('pointerdown', disengage);
 
   // The engine bar's Reset (or Stop, or a crash) empties the page: the demo's engine goes too.
   const offReset = page.onReset(() => {
@@ -340,8 +249,6 @@ export async function mount(ctx: ElementContext) {
   setBusy(false);
   return () => {
     offReset();
-    document.removeEventListener('pointerdown', disengage);
-    clearTimeout(hintTimer);
     release();
   };
 }

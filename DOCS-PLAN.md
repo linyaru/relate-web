@@ -1318,7 +1318,7 @@ hand-off). A status bar names the engine version, which matches the page's
 | **MCP tryout** | the three MCP tools as buttons against the page's database: `get_schema`, `read_cypher`, `write_cypher`, each showing the JSON-RPC request and the envelope reply; a write under read-only refused | `connect-over-mcp`, MCP reference, agent-native concept | the engine (the tools are thin over `execute`) | 2 |
 | **Agent trace playback** | a transcript of an agent solving a task: each step a tool call with its live result, step-through and run-all; the trace from a cookbook recipe (tool-call provenance, agent memory) | agent-memory tutorial, `guides/integrations/`, cookbook | MCP tryout + cell runtime | 2 |
 | **The docs graph, live** | `reference/docs-graph` draws the docs graph (ADR-0007) with NVL: pages by section, links, terms; click a node to open the page; search highlights nodes. Not a landing hero: it fails §7.1's bar there | `reference/docs-graph` | NVL, the seed script | 2 |
-| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph, the WebGL renderer draws it (at most 65,536 nodes in NVL 1.2.2; ADR-0047), count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept | NVL `webgl` renderer | 3 |
+| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph (as built, nothing is drawn; ADR-0047), count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept | NVL `webgl` renderer | 3 |
 | Graph diff | before and after a migration: added, removed and changed elements coloured | migration-rehearsal recipe, `clone-and-convert` | graph view | 3 |
 | Timeline view | temporal and bi-temporal results on a time axis | agent-trajectory and bitemporal recipes | SVG | 3 |
 | Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view (a directive: ADR-0015's five phase 1 JSX components are taken by `<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`; not built yet, LAUNCH.md) | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
@@ -1344,8 +1344,8 @@ hand-off). A status bar names the engine version, which matches the page's
 
 - **One graph module.** All NVL use goes through one module extended from
   the cookbook's `graph.ts` (shared palette, label colours, theme watcher,
-  inspector, expand). Canvas renderer by default; WebGL only in the scale
-  demo. Telemetry stays aliased out (`astro.config.mjs`). Instances are
+  inspector, expand). Canvas renderer (the scale demo, which would have
+  used WebGL, draws nothing; ADR-0047). Telemetry stays aliased out (`astro.config.mjs`). Instances are
   destroyed on navigation.
 - **Static forms are built, not drawn by hand.** For each graph element
   the build lays the recorded result out with d3-force (already a
@@ -1751,10 +1751,9 @@ items deferred from phase 2 above are either here or in the backlog below).
   `concepts/storage-and-durability` (replacing its mermaid diagram),
   `guides/operate/durability-modes` and `guides/storage/choose-a-store-layout`.
 - The scale demo (ADR-0047) on `concepts/architecture`, on a database of
-  its own (`page.scratch()`, a second engine worker) and NVL's WebGL
-  renderer (`renderScale`); times only from the reader's run. NVL 1.2.2
-  places at most 65,536 nodes, so at 100,000 the engine builds, counts and
-  walks every node and the view draws the inner rings that fit, and says so.
+  its own (`page.scratch()`, a second engine worker); times only from the
+  reader's run. It draws nothing: a WebGL drawing was built and removed,
+  since NVL 1.2.2 places at most 65,536 nodes in WebGL.
 - In-browser embeddings (ADR-0049), `:::embed-question`, on the
   query-the-relate-docs recipe, not the vector-search guide: that recipe
   holds the site's only model-made vectors (bge-small-en-v1.5), while the

@@ -158,8 +158,8 @@ async function launchChrome() {
     '--headless=new',
     '--disable-gpu',
     // WebGL in software (SwiftShader), which headless Chrome no longer turns
-    // on by itself: the scale demo draws with NVL's WebGL renderer, and the
-    // graph views run NVL's layout on WebGL as they do in a reader's browser.
+    // on by itself: the graph views run NVL's layout on WebGL as they do in a
+    // reader's browser.
     '--enable-unsafe-swiftshader',
     '--remote-debugging-port=0',
     // A desktop-sized window: at Chrome's headless default (800x600) the

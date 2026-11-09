@@ -163,7 +163,7 @@ MATCH (:Item {i: $start})<-[:CHILD_OF*]-(descendant:Item)
 RETURN count(descendant) AS descendants
 ```
 
-The scale demo runs the same three cells with `n` up to 100,000, on a database of its own, and draws the tree with the browser's WebGL renderer. Nothing runs until **Build the tree** is pressed; the tree then holds memory in the tab until **Free** closes the demo's engine.
+The scale demo runs the same three cells with `n` up to 100,000, on a database of its own, and shows what each returns and how long the engine took. Nothing runs until **Build the tree** is pressed; the tree then holds memory in the tab until **Free** closes the demo's engine.
 
 :::scale-demo{build=tree-build count=tree-count walk=tree-walk}
 :::

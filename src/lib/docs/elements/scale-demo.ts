@@ -5,9 +5,9 @@
 // thousand nodes, on a database of the element's own (PageApi.scratch: a
 // second engine worker, so the page's database never holds the large graph
 // and closing it hands the memory back). The build cell makes a tree whose
-// relationships point from child to parent; the element reads them back
-// and draws the tree with NVL's WebGL renderer (src/scripts/cookbook/graph.ts
-// `renderScale`), then times the count and the walk on each run.
+// relationships point from child to parent; the element times the build,
+// the count and the walk on each run. It draws nothing: the numbers are
+// the demo.
 //
 // The static form says what the demo does and holds the three cells'
 // recorded results at the page's size. It carries no timing and no memory
@@ -47,7 +47,7 @@ function firstRow(input: ElementInput, id: string): string {
 }
 
 export default {
-  live: 'a button runs the three cells again at the size picked (the largest by default, the middle size on a narrow screen) on a separate in-memory database in your browser, apart from the page\'s database, draws the tree with WebGL, times the count and the walk on each run, and shows how much memory that database\'s engine holds; Free closes it and returns the memory.',
+  live: 'a button runs the three cells again at the size picked (the largest by default, the middle size on a narrow screen) on a separate in-memory database in your browser, apart from the page\'s database, and shows each cell\'s result and engine time; a second button runs the count and the walk again from a node you name; it shows how much memory that database\'s engine holds; Free closes it and returns the memory.',
   validate(input) {
     const out: string[] = [];
     const a = input.attributes;
@@ -90,8 +90,7 @@ export default {
     const intro = [
       `The scale demo runs cells ${cell(a.build)}, ${cell(a.count)} and ${cell(a.walk)} again with \`n\` set to ${choices}, on an in-memory database of its own in the browser tab: a second copy of the engine, so the page's database never holds the large graph.`,
       `${cell(a.build)} creates the tree, ${cell(a.count)} counts its nodes and relationships, and ${cell(a.walk)} follows every chain of relationships down from one node.`,
-      'The demo then reads the relationships back and draws the tree with the WebGL renderer: one dot per node and one line per relationship, laid out in rings around the root before anything is drawn, so nothing moves.',
-      'The renderer places at most 65,536 nodes, so a larger tree is drawn ring by ring from the root out to the last whole ring that fits, and the engine still holds every node.',
+      "It shows each cell's first row and the time the engine took, beside the cell's recording.",
       `It offers ${fmt(firstSize(sizes, true))} nodes first on a wide screen and ${fmt(middle)} on a narrow one, says how much memory the second engine holds, and closes that engine on Free, on the engine bar's Reset, and when the page is left.`,
     ].join(' ');
     const table = markdownTable(

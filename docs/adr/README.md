@@ -67,7 +67,7 @@ internal stays out.
 The site existed before this log: the Astro migration, the cookbook moving
 here from upstream, the playground being built here, the WASM copy under
 `public/`, and the brand and colour tokens were decided without ADRs. Those
-decisions are described in `CLAUDE.md`, `MAINTAINING.md`, and `LAUNCH.md`
+decisions are described in `AGENTS.md`, `MAINTAINING.md`, and `LAUNCH.md`
 and are not backfilled. Changing any of them is ADR-worthy from now on.
 
 ## Template

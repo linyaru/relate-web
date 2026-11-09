@@ -9,7 +9,7 @@ this site: `npm run build` at the repository root builds it into
 ## Stack
 
 - The site's WASM engine, `public/wasm/` (a copy of the Relate repository's
-  `surfaces/relate-wasm/pkg/`; see the root CLAUDE.md to refresh it)
+  `surfaces/relate-wasm/pkg/`; see the root AGENTS.md to refresh it)
 - Vite 5 + React 19 + TypeScript 5, kept as their own package (this
   directory's `package.json` and lockfile), separate from the Astro site's
   toolchain

@@ -320,3 +320,13 @@ header.nav {
 
 /* Focus ring (design system: 3px solid, 2px offset) */
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Footer play area (home only): a canvas the script sizes; stickers fall onto the relate arch and
+   can be grabbed and thrown. The canvas starts above the play box so stickers enter from the link grid. */
+.foot.has-play { position: relative; z-index: 1; margin-top: 0; overflow: hidden; background: var(--surface-0); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.foot.has-play a { user-select: text; }
+.foot.has-play.over, .foot.has-play.over * { cursor: grab !important; }
+.foot.has-play.grab, .foot.has-play.grab * { cursor: grabbing !important; }
+.play { position: relative; overflow: visible; cursor: default; }
+.play::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line); z-index: 2; pointer-events: none; }
+.play canvas { position: absolute; left: 0; right: 0; width: 100%; display: block; pointer-events: none; }

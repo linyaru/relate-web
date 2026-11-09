@@ -1,0 +1,63 @@
+---
+// Home closing band: the call to action beside the relate arch, which leaves three fading echoes.
+// The arch is drawn at build time from the same pixel cells the footer's play area uses.
+const TONE = {
+  hl: 'M3 0h6v1h-6zM2 1h1v1h-1zM1 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h1v1h-1zM8 8h1v1h-1zM0 9h1v1h-1zM8 9h1v1h-1z',
+  md: 'M3 1h6v1h-6zM2 2h3v1h-3zM7 2h3v1h-3zM2 3h2v1h-2zM8 3h2v1h-2zM2 4h1v1h-1zM9 4h1v1h-1zM2 5h1v1h-1zM9 5h1v1h-1zM2 6h1v1h-1zM9 6h1v1h-1zM1 7h2v1h-2zM9 7h2v1h-2zM1 8h2v1h-2zM9 8h2v1h-2z',
+  sh: 'M9 1h1v1h-1zM5 2h2v1h-2zM10 2h1v1h-1zM4 3h1v1h-1zM10 3h1v1h-1zM3 4h1v1h-1zM10 4h1v1h-1zM3 5h1v1h-1zM10 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM11 8h1v1h-1zM1 9h3v1h-3zM9 9h3v1h-3z',
+};
+const arch = Object.values(TONE).join('');
+---
+<section class="cta" aria-labelledby="h-cta">
+  <div class="cta-box">
+    <div class="cta-l">
+      <p class="eyebrow">Start building</p>
+      <h2 id="h-cta">Give your agent a graph it can think with.</h2>
+      <div class="btns">
+        <a class="btn btn-ink" href="/#quickstart">Get started</a>
+        <a class="btn btn-line" href="/playground/" target="_blank" rel="noopener">Open the playground<span class="sr-only"> (opens in new tab)</span></a>
+      </div>
+    </div>
+    <div class="cta-art" aria-hidden="true">
+      <svg viewBox="0 0 12 10" shape-rendering="crispEdges" focusable="false"><path d={arch} /></svg>
+      {[0, 1, 2].map((i) => (
+        <svg class="cta-echo" viewBox="0 0 12 10" shape-rendering="crispEdges" focusable="false" style={`animation-delay:${-i * 2}s;--k:${i}`}><path d={arch} /></svg>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta { margin-top: 96px; background: var(--sp-hib, #F96746); color: #17171B; overflow: hidden; }
+  .cta-box {
+    position: relative; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 0; align-items: stretch;
+    max-width: 1232px; margin: 0 auto; padding: 0 24px;
+  }
+  .cta-l { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 28px; padding: 120px 56px 96px 0; }
+  .eyebrow { margin: 0; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: #17171B; opacity: .75; }
+  h2 { margin: 0; max-width: 14ch; font: 600 clamp(32px, 3.8vw, 56px) / 1 var(--font); letter-spacing: -.045em; }
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 6px;
+    font: 500 15px/1 var(--font); text-decoration: none; color: #17171B; transition: background-color .15s, opacity .15s;
+  }
+  .btn-ink { background: #17171B; color: #fff; }
+  .btn-ink:hover { opacity: .88; }
+  .btn-line { background: rgba(23, 23, 27, .12); }
+  .btn-line:hover { background: rgba(23, 23, 27, .2); }
+  .btn:focus-visible { outline: 2px solid #17171B; outline-offset: 2px; }
+  .cta-art { position: relative; align-self: end; justify-self: end; width: min(100%, 380px); margin: 0 56px -1px 0; z-index: 0; }
+  .cta-art svg { display: block; width: 100%; height: auto; fill: #17171B; }
+  .cta-art .cta-echo { position: absolute; left: 0; bottom: 0; opacity: 0; animation: ctaecho 6s linear infinite; }
+  @keyframes ctaecho { 0% { transform: translateX(0); opacity: .5; } 100% { transform: translateX(-320px); opacity: 0; } }
+  @media (max-width: 900px) {
+    .cta { margin-top: 72px; }
+    .cta-box { grid-template-columns: minmax(0, 1fr); padding: 0 16px; }
+    .cta-l { padding: 72px 0 32px; }
+    .cta-art { width: min(60%, 260px); margin-right: 8px; }
+    @keyframes ctaecho { 0% { transform: translateX(0); opacity: .5; } 100% { transform: translateX(-160px); opacity: 0; } }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cta-art .cta-echo { animation: none; opacity: calc(.24 - var(--k) * .05); transform: translateX(calc(var(--k) * -110px - 110px)); }
+  }
+</style>

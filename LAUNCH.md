@@ -88,6 +88,7 @@ GitHub token.
 - [ ] `robots.txt` and `sitemap.xml` allow indexing; `noindex` removed; `llms.txt` served as text
 - [ ] Light/dark theme, mobile width, cli/agentic toggle, copy buttons all work
 - [ ] Version shown on the page matches the latest release tag
+- [ ] Home "Zero to querying" shows no TCK pass count: the design's "3,893 tests passed" figure is not published by any engine document (upstream `docs/tck/compliance.md`: the count retired 2026-11-05 with the move to the spec harness). Add a number only when the harness publishes one, with its link
 - [ ] The hero banner's Join link (`https://relate.devpost.com`) resolves; the banner runs one month, then remove it from `src/components/Hero.astro`
 
 **Install names** (the table under "Target names" is the source; the site must agree with it)

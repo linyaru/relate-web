@@ -2,6 +2,97 @@
   "format": 1,
   "verified": "0.16.1",
   "cells": {
+    "team": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "works-on": {
+      "kind": "table",
+      "text": "| name    | since |\n|---------|-------|\n| \"Grace\" | 2023  |\n| \"Ada\"   | 2024  |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "since"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "2023"
+          ],
+          [
+            "\"Ada\"",
+            "2024"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "name",
+          "since"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "name": "Grace",
+            "since": 2023
+          },
+          {
+            "name": "Ada",
+            "since": 2024
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
     "graph-tool": {
       "kind": "text",
       "text": "{\"columns\":[\"name\",\"since\"],\"rows\":[{\"name\":\"Grace\",\"since\":2023},{\"name\":\"Ada\",\"since\":2024}],\"truncated\":false}\n{\"error\":\"refused: the statement's query type is \\\"w\\\", and this tool runs only reads (\\\"r\\\")\"}\n42N18 semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.\npeople: 3",

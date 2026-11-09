@@ -102,6 +102,54 @@ The tool returns an engine error as data, `{ error, code }`, so the model reads 
 
 A narrower tool skips model-written Cypher altogether: a fixed statement whose `inputSchema` takes only the values, such as a project name for `$project`. Keep the read-only handle either way.
 
+## Replay the calls over MCP
+
+relate's MCP server offers the same kind of tool without code. `relate serve --mcp stdio --read-only` lists `read_cypher`, which plans each statement with `EXPLAIN` and refuses one whose plan writes, and `get_schema`, which reads the labels and relationship types from the store instead of from a description written by hand. [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk) registers that server with an agent framework.
+
+The trace below replays this page's read as the `tools/call` requests an agent host sends to that server. It is a replay of the calls, not a transcript of a model run: no model chose them. It runs in your browser, on an in-memory store holding the team graph from the setup block:
+
+```cypher run name=team
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+The program's first check call, with its statement and `params`, as a cell:
+
+```json data=project
+{"project": "relate"}
+```
+
+```cypher run name=works-on params=project
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since
+```
+
+The trace sends the schema request, then that read:
+
+```json data=mcp-calls
+{"steps": [
+  {"tool": "get_schema",
+   "note": "The labels, property keys and relationship types that `readGraph`'s description names by hand, read from the store.",
+   "arguments": {}},
+  {"tool": "read_cypher",
+   "note": "The statement and `params` of the program's first `readGraph.execute` call, sent as `read_cypher`.",
+   "arguments": {"statement": "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since",
+    "parameters": {"project": "relate"}}}
+]}
+```
+
+:::agent-trace{steps=mcp-calls from=team}
+:::
+
+The rows are the ones `readGraph` returned, in the server's reply instead of the tool's `{ columns, rows, truncated }`. The delete the program sends is refused by `read_cypher` too, with the server's own message; the [Claude Agent SDK page](/docs/guides/integrations/claude-agent-sdk#replay-the-agents-calls) replays that refusal.
+
 ## Give the tool to a model
 
 Add the model call to `graph-tool.mjs` in place of the check block. This part needs the provider credential:

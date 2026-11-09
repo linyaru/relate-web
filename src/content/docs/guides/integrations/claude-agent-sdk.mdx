@@ -202,6 +202,52 @@ Each query the agent makes is the `tools/call` request from [Call the query tool
 `--safe` on the same `relate serve` command refuses a read with no `LIMIT` and no aggregate, so an exploratory `MATCH (n) RETURN n` can't pull the whole graph into the model's context. The refusal comes back as a tool error that says to add `LIMIT <n>`.
 :::
 
+## Replay the agent's calls
+
+An agent run with these options touches the graph only through `tools/call` requests: the model picks one of the two tools and its arguments, the SDK sends the request to the server, and the reply goes back to the model as the tool's result. The trace below replays the calls this page's question needs, one at a time, in the order this page checks them: the schema, the query from [Call the query tool](#call-the-query-tool), the delete that tool refuses, and the count from [Verify](#verify). It is a replay of those calls, not a transcript of a model run. No model chose them, and a model given the same prompt may make fewer calls, or other ones.
+
+The trace runs in your browser, on an in-memory store holding the same graph as `./team`. This cell builds it with the statement from `team.cypher`:
+
+```cypher run name=team
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+Each step shows the request the SDK sends for `mcp__relate__<tool>` and what relate's tool returns for it, built from the engine's result:
+
+```json data=agent-calls
+{"steps": [
+  {"tool": "get_schema",
+   "note": "`mcp__relate__get_schema` with no arguments: the labels, their property keys and types, and the relationship types between them, which is what the agent can read about the graph before it writes a statement.",
+   "arguments": {}},
+  {"tool": "read_cypher",
+   "note": "`mcp__relate__read_cypher` with the statement and `$project` of the request in Call the query tool: who works on `relate`, and since when.",
+   "arguments": {"statement": "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since",
+    "parameters": {"project": "relate"}}},
+  {"tool": "read_cypher",
+   "note": "The delete sent to `read_cypher` in Call the query tool. The server's gate reads the statement's plan, finds a write, and answers with a tool error; the statement never runs.",
+   "arguments": {"statement": "MATCH (p:Person {name: $name}) DETACH DELETE p",
+    "parameters": {"name": "Ada"}},
+   "expect": "error"},
+  {"tool": "read_cypher",
+   "note": "The count from Verify, sent as a tool call: the three people are all still there after the refused delete.",
+   "arguments": {"statement": "MATCH (p:Person) RETURN count(p) AS people"}}
+]}
+```
+
+:::agent-trace{steps=agent-calls from=team}
+:::
+
+The second step's rows are the ones [Call the query tool](#call-the-query-tool) printed from the server, and the third step's error is the same text. A server opened with `--read-only` lists no `write_cypher`, so the trace has no write that succeeds.
+
 ## Verify
 
 The agent's calls leave the store as it was. A read-only count from the CLI shows all three people, Ada included, after the refused delete:

@@ -259,11 +259,11 @@ ORDER BY score DESC, id
 ```
 
 ```table
-| id   | score | text                           |
-|------|-------|--------------------------------|
-| "d6" | 2.0   | "cache order lookups in redis" |
-| "d1" | 1.0   | "orders uses postgres"         |
-| "d4" | 1.0   | "orders uses mysql"            |
+| id   | score              | text                           |
+|------|--------------------|--------------------------------|
+| "d6" | 1.4030438316063143 | "cache order lookups in redis" |
+| "d1" | 0.5959606622679284 | "orders uses postgres"         |
+| "d4" | 0.5959606622679284 | "orders uses mysql"            |
 3 rows
 ```
 

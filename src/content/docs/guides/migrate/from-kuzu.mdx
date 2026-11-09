@@ -1,0 +1,459 @@
+---
+title: Migrate from Kuzu
+label: From Kuzu
+description: Export a Kuzu database's node and relationship tables as JSON, declare its schema as a relate graph type, load the files, and translate the Cypher that differs.
+order: 35
+surfaces: [cli, cypher]
+prerequisites: [get-started/install]
+related: [reference/cypher/schema-clauses#graph-types, guides/cypher/indexes-and-constraints, guides/cypher/load-json-from-a-url, reference/cli/flags#fetch-params, guides/migrate/from-neo4j, guides/migrate/from-json-files, cookbook/migration-rehearsal]
+---
+
+This guide shows you how to move a graph from Kuzu, another embedded graph database that speaks a Cypher dialect, into a relate :term[store]{id=store}. A short Python script exports each node and relationship table as JSON. In relate, a :term[graph type]{id=graph-type} declares the same tables, keys and endpoints, and one script loads the files with `--fetch-params` and keyed `MERGE` statements. The last sections translate the statements that differ between the two dialects, each with the relate form runnable on this page.
+
+The Kuzu GitHub repository is archived, and its last release is 0.11.3, published 2025-10-10 ([kuzudb/kuzu](https://github.com/kuzudb/kuzu)); its README says earlier releases keep working without changes. The Kuzu steps here ran on 0.11.3, through the `kuzu` Python package. The relate steps run in a terminal and write to `./team.rl`; the cells run in page order on one in-memory store, in your browser and in the docs build.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- Python with the `kuzu` package at the version that opens your database, for the export.
+- Each table's JSON export at most 64 MiB, the `--fetch-params` limit per file.
+- The whole graph, its indexes included, fits in memory ([size a store and its memory](/docs/guides/operate/sizing-and-memory)).
+
+## Plan the mapping
+
+| In Kuzu | In relate |
+| --- | --- |
+| `CREATE NODE TABLE Person(...)` | A :term[label]{id=label}, declared in a graph type as `(:Person => {...})`. Outside a graph type, a label needs no declaration |
+| `PRIMARY KEY` | `IS KEY` on the property: a node key constraint, unique and required |
+| `CREATE REL TABLE WORKS_ON(FROM Person TO Project, ...)` | A :term[relationship type]{id=relationship-type} with its endpoints: `(:Person =>)-[:WORKS_ON => {...}]->(:Project =>)` |
+| A relationship table with several `FROM … TO` pairs | One relationship type. A graph type declares one endpoint pair per type, and a second fails with `semantic error: SyntaxError: duplicate identifying label`; leave that type out of the graph type, and relate accepts it between any labels |
+| `INT64`, `DOUBLE`, `STRING`, `BOOLEAN` | `INTEGER`, `FLOAT`, `STRING`, `BOOLEAN` |
+| `DATE`, `TIMESTAMP` | `DATE` with `date()`, `LOCAL DATETIME` with `localdatetime()`: the JSON export writes both as strings |
+| `STRING[]` | `LIST<STRING NOT NULL>` |
+| `SERIAL` | An `INTEGER` key. relate has no sequences: a statement assigns the next value ([Assign the next id](#assign-the-next-id)) |
+| One table per node | Any number of labels per node |
+
+## Export the tables from Kuzu
+
+The example is the team graph the Get started pages use, with issues filed against projects, in this Kuzu schema:
+
+```cypher
+CREATE NODE TABLE Person(name STRING PRIMARY KEY, role STRING);
+CREATE NODE TABLE Project(name STRING PRIMARY KEY, language STRING);
+CREATE NODE TABLE Issue(id SERIAL PRIMARY KEY, title STRING, opened DATE, labels STRING[]);
+CREATE REL TABLE WORKS_ON(FROM Person TO Project, since INT64);
+CREATE REL TABLE MAINTAINS(FROM Person TO Project);
+CREATE REL TABLE KNOWS(FROM Person TO Person);
+CREATE REL TABLE FILED_IN(FROM Issue TO Project);
+```
+
+Kuzu's `EXPORT DATABASE` writes CSV or Parquet. relate has no Parquet reader, and `LOAD CSV` reads Kuzu's CSV form of a list as one string: Kuzu writes the elements unquoted inside brackets, so an element that holds a comma can't be told apart from two. This script exports each table to JSON instead, which keeps numbers, booleans, lists and `NULL` as they are. It opens the database read-only, reads the tables from Kuzu's catalog, and writes one file per node table and one per relationship table and endpoint pair, with the endpoints' primary keys as `source` and `target`:
+
+```python title="export_kuzu.py"
+import os
+import kuzu
+
+conn = kuzu.Connection(kuzu.Database("team.kuzu", read_only=True))
+
+
+def rows(query):
+    result = conn.execute(query)
+    while result.has_next():
+        yield result.get_next()
+
+
+os.makedirs("export", exist_ok=True)
+for _, table, kind, *_ in rows("CALL show_tables() RETURN *"):
+    props = [row[1] for row in rows(f"CALL table_info('{table}') RETURN *")]
+    if kind == "NODE":
+        columns = ", ".join(f"n.{p} AS {p}" for p in props)
+        queries = {table: f"MATCH (n:{table}) RETURN {columns}"}
+    else:
+        queries = {}
+        for src, dst, src_key, dst_key in rows(f"CALL show_connection('{table}') RETURN *"):
+            columns = ", ".join([f"a.{src_key} AS source", f"b.{dst_key} AS target"] + [f"r.{p} AS {p}" for p in props])
+            queries[f"{table}_{src}_{dst}"] = f"MATCH (a:{src})-[r:{table}]->(b:{dst}) RETURN {columns}"
+    for name, query in queries.items():
+        conn.execute(f"COPY ({query}) TO 'export/{name}.json'")
+        print(f"export/{name}.json")
+```
+
+Run it in the directory that holds `team.kuzu`. With Kuzu 0.11.3 it prints the files it wrote:
+
+```bash
+python export_kuzu.py
+```
+
+```text
+export/FILED_IN_Issue_Project.json
+export/KNOWS_Person_Person.json
+export/MAINTAINS_Person_Project.json
+export/Project.json
+export/Person.json
+export/WORKS_ON_Person_Project.json
+export/Issue.json
+```
+
+## Write the export files
+
+These are the files the script wrote for the example, byte for byte, so the remaining steps run without Kuzu. With your own export, skip this step. This step writes the directory `./export`:
+
+```bash verify
+mkdir export
+cat > export/Person.json <<'JSON'
+[
+{"name":"Ada","role":"engineer"},
+{"name":"Grace","role":"engineer"},
+{"name":"Noor","role":"maintainer"}
+]
+JSON
+cat > export/Project.json <<'JSON'
+[
+{"name":"relate","language":"Rust"},
+{"name":"opencypher-tck","language":"Gherkin"}
+]
+JSON
+cat > export/Issue.json <<'JSON'
+[
+{"id":0,"title":"Plan cache misses on quoted labels","opened":"2026-10-02","labels":["bug","planner"]},
+{"id":1,"title":"Scenario for OPTIONAL MATCH ordering","opened":"2026-09-14","labels":[]},
+{"id":2,"title":"Add a Kuzu migration guide","opened":"2026-10-20","labels":["docs"]}
+]
+JSON
+cat > export/WORKS_ON_Person_Project.json <<'JSON'
+[
+{"source":"Ada","target":"relate","since":2024},
+{"source":"Grace","target":"opencypher-tck","since":2022},
+{"source":"Grace","target":"relate","since":2023}
+]
+JSON
+cat > export/MAINTAINS_Person_Project.json <<'JSON'
+[
+{"source":"Noor","target":"relate"}
+]
+JSON
+cat > export/KNOWS_Person_Person.json <<'JSON'
+[
+{"source":"Ada","target":"Grace"}
+]
+JSON
+cat > export/FILED_IN_Issue_Project.json <<'JSON'
+[
+{"source":0,"target":"relate"},
+{"source":1,"target":"opencypher-tck"},
+{"source":2,"target":"relate"}
+]
+JSON
+```
+
+## Declare the schema as a graph type
+
+A graph type holds what Kuzu's `CREATE NODE TABLE` and `CREATE REL TABLE` statements hold: each label's properties and their types, the primary keys as `IS KEY`, and each relationship type's endpoints. Setting it creates the constraints, so every later write is checked. This step writes the script and runs it on `./team.rl`, a single-file store it creates:
+
+```bash verify
+cat > schema.cypher <<'CYPHER'
+CREATE GRAPH TYPE team {
+  (person:Person => {name :: STRING NOT NULL IS KEY, role :: STRING}),
+  (project:Project => {name :: STRING NOT NULL IS KEY, language :: STRING}),
+  (issue:Issue => {id :: INTEGER NOT NULL IS KEY, title :: STRING, opened :: DATE, labels :: LIST<STRING NOT NULL>}),
+  (person)-[:WORKS_ON => {since :: INTEGER}]->(project),
+  (person)-[:MAINTAINS =>]->(project),
+  (person)-[:KNOWS =>]->(person),
+  (issue)-[:FILED_IN =>]->(project)
+};
+ALTER CURRENT GRAPH TYPE SET GRAPH TYPE team;
+CYPHER
+relate query --database ./team.rl < schema.cypher
+```
+
+The statements print nothing. A graph type is open where a Kuzu schema is closed: a label, a property or a relationship type it doesn't declare is accepted, not refused ([Translate the statements](#translate-the-statements) shows both).
+
+## Load the files
+
+The load script writes the nodes first, then the relationships, so every `MATCH` on a key finds a node that already exists. Each file arrives whole as a list, and `UNWIND` turns it into one row per record. `date(row.opened)` turns the exported string back into a `DATE`, which the graph type requires:
+
+```bash verify
+cat > load.cypher <<'CYPHER'
+UNWIND $person AS row
+MERGE (p:Person {name: row.name})
+SET p.role = row.role;
+
+UNWIND $project AS row
+MERGE (p:Project {name: row.name})
+SET p.language = row.language;
+
+UNWIND $issue AS row
+MERGE (i:Issue {id: row.id})
+SET i.title = row.title, i.opened = date(row.opened), i.labels = row.labels;
+
+UNWIND $works_on AS row
+MATCH (a:Person {name: row.source}), (b:Project {name: row.target})
+MERGE (a)-[r:WORKS_ON]->(b)
+SET r.since = row.since;
+
+UNWIND $maintains AS row
+MATCH (a:Person {name: row.source}), (b:Project {name: row.target})
+MERGE (a)-[:MAINTAINS]->(b);
+
+UNWIND $knows AS row
+MATCH (a:Person {name: row.source}), (b:Person {name: row.target})
+MERGE (a)-[:KNOWS]->(b);
+
+UNWIND $filed_in AS row
+MATCH (a:Issue {id: row.source}), (b:Project {name: row.target})
+MERGE (a)-[:FILED_IN]->(b);
+CYPHER
+```
+
+This command writes to `./team.rl`. Each `--fetch-params <name>=<file>` binds one export file as a :term[parameter]{id=parameter}. `MERGE` on each key makes a second run match instead of create:
+
+```bash verify
+relate query --database ./team.rl \
+  --fetch-params person=export/Person.json \
+  --fetch-params project=export/Project.json \
+  --fetch-params issue=export/Issue.json \
+  --fetch-params works_on=export/WORKS_ON_Person_Project.json \
+  --fetch-params maintains=export/MAINTAINS_Person_Project.json \
+  --fetch-params knows=export/KNOWS_Person_Person.json \
+  --fetch-params filed_in=export/FILED_IN_Issue_Project.json \
+  < load.cypher
+```
+
+The load prints nothing: no statement returns rows, and the exit code is 0. The issues arrived with their types intact. The store opens read-only:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (i:Issue)-[:FILED_IN]->(p:Project)
+RETURN i.id AS id, i.opened AS opened, valueType(i.opened) AS type, i.labels AS labels, p.name AS project
+ORDER BY id"
+```
+
+```text
++----+------------+-----------------+--------------------+------------------+
+| id | opened     | type            | labels             | project          |
++----+------------+-----------------+--------------------+------------------+
+| 0  | 2026-10-02 | "DATE NOT NULL" | ["bug", "planner"] | "relate"         |
+| 1  | 2026-09-14 | "DATE NOT NULL" | []                 | "opencypher-tck" |
+| 2  | 2026-10-20 | "DATE NOT NULL" | ["docs"]           | "relate"         |
++----+------------+-----------------+--------------------+------------------+
+```
+
+## Translate the statements
+
+Most of Kuzu's Cypher runs on relate unchanged: `MATCH`, `CREATE`, `MERGE`, `WHERE`, `WITH`, `UNWIND`, aggregation and `COUNT { }` subqueries. The table lists what differs, with what Kuzu 0.11.3 returned; the cells after it run the relate form. They start from the same graph type and rows, in an in-memory store:
+
+| Task | In Kuzu | In relate |
+| --- | --- | --- |
+| Declare the schema | `CREATE NODE TABLE`, `CREATE REL TABLE`, required before any write | `CREATE GRAPH TYPE`, optional |
+| A write to an undeclared label, property or relationship type | Refused: `Binder exception: Table Team does not exist.`, `Binder exception: Cannot find property email for a.` | Accepted, also under a graph type |
+| A second label on a node | Refused: `Binder exception: Table Maintainer does not exist.` | Accepted |
+| A value of another type | `CREATE (:Person {name: 'Zed', role: 7})` stores the string `'7'` | Refused under the graph type's type constraint |
+| A duplicate or missing primary key, a relationship between the wrong tables | Refused | Refused under the graph type |
+| Assign the next id | `SERIAL`, starting at 0 | `max(id) + 1` in the creating statement |
+| A shortest path | `-[* SHORTEST 1..5]-` | `SHORTEST 1 (…)-[*1..5]-(…)` |
+| A node's label | `label(n)` and `labels(n)` both return the string `'Person'` | `labels(n)` returns a list, `['Person']`; `labels(n)[0]` is the string |
+| Convert a string | `CAST('2024' AS INT64)`; `toInteger()` fails with `Catalog exception: function TOINTEGER does not exist.` | `toInteger('2024')`, `toFloat()`, `toBoolean()`, `date()`, `localdatetime()` |
+| Read a CSV file | `LOAD FROM 'people.csv' (header = true) RETURN *` | `LOAD CSV WITH HEADERS FROM 'file:///people.csv' AS row`, from the directory `--load-csv-dir` allows ([import a CSV](/docs/guides/cypher/import-csv)) |
+
+The graph type from [Declare the schema as a graph type](#declare-the-schema-as-a-graph-type):
+
+```cypher run name=graph-type
+CREATE GRAPH TYPE team {
+  (person:Person => {name :: STRING NOT NULL IS KEY, role :: STRING}),
+  (project:Project => {name :: STRING NOT NULL IS KEY, language :: STRING}),
+  (issue:Issue => {id :: INTEGER NOT NULL IS KEY, title :: STRING, opened :: DATE, labels :: LIST<STRING NOT NULL>}),
+  (person)-[:WORKS_ON => {since :: INTEGER}]->(project),
+  (person)-[:MAINTAINS =>]->(project),
+  (person)-[:KNOWS =>]->(person),
+  (issue)-[:FILED_IN =>]->(project)
+};
+ALTER CURRENT GRAPH TYPE SET GRAPH TYPE team
+```
+
+The rows the load wrote:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace),
+       (:Issue {id: 0, title: 'Plan cache misses on quoted labels', opened: date('2026-10-02'), labels: ['bug', 'planner']})-[:FILED_IN]->(relate),
+       (:Issue {id: 1, title: 'Scenario for OPTIONAL MATCH ordering', opened: date('2026-09-14'), labels: []})-[:FILED_IN]->(tck),
+       (:Issue {id: 2, title: 'Add a Kuzu migration guide', opened: date('2026-10-20'), labels: ['docs']})-[:FILED_IN]->(relate)
+```
+
+### Convert the exported values
+
+The JSON export keeps `INT64`, `DOUBLE`, `BOOLEAN` and lists as JSON values, which arrive as relate's types; `DATE` and `TIMESTAMP` arrive as strings and need a conversion. This row has the shape the export writes:
+
+```json data=exported
+{"row": {"since": 2024, "score": 1.5, "active": true, "opened": "2026-10-02", "updated": "2026-10-02 09:30:00", "labels": ["bug", "planner"]}}
+```
+
+```cypher run name=types params=exported
+RETURN valueType($row.since) AS int64, valueType($row.score) AS double,
+       valueType($row.active) AS boolean, valueType($row.labels) AS list,
+       date($row.opened) AS date, localdatetime($row.updated) AS timestamp
+```
+
+### Assign the next id
+
+A `SERIAL` column numbers new rows on its own. In relate, the statement that creates the node reads the largest id and adds one, and the node key refuses a duplicate if two writes ever pick the same number:
+
+```cypher run name=next-id
+MATCH (i:Issue)
+WITH coalesce(max(i.id), -1) + 1 AS next
+MATCH (p:Project {name: 'relate'})
+CREATE (:Issue {id: next, title: 'Document SERIAL columns', opened: date('2026-11-02'), labels: ['docs']})-[:FILED_IN]->(p)
+RETURN next AS id
+```
+
+`coalesce(…, -1) + 1` starts an empty label at 0, as `SERIAL` does. A key that need not be a number can come from `randomUUID()` instead.
+
+### Find a shortest path
+
+Kuzu writes the shortest-path keyword inside the relationship pattern; relate writes `SHORTEST` before the pattern, as GQL does. For this graph, Kuzu's `MATCH p = (a:Person {name: 'Ada'})-[* SHORTEST 1..5]-(b:Project {name: 'opencypher-tck'}) RETURN length(p) AS hops` returned 2:
+
+```cypher run name=shortest
+MATCH path = SHORTEST 1 (:Person {name: 'Ada'})-[*1..5]-(:Project {name: 'opencypher-tck'})
+RETURN [n IN nodes(path) | n.name] AS route, length(path) AS hops
+```
+
+### Read a node's label and convert strings
+
+`labels(n)` returns a list, because a node can carry several labels. `toInteger()` and the other conversion functions take the place of `CAST`:
+
+```cypher run name=labels
+MATCH (p:Person {name: 'Grace'})
+RETURN labels(p) AS labels, labels(p)[0] AS label, toInteger('2024') AS year, toFloat('1.5') AS score
+```
+
+### Writes the graph type refuses
+
+The three writes Kuzu refuses for its primary key and its relationship table, the graph type refuses too. A second person named Ada:
+
+```cypher run name=duplicate-key expect=error
+CREATE (:Person {name: 'Ada', role: 'designer'})
+```
+
+A person without a name:
+
+```cypher run name=missing-key expect=error
+CREATE (:Person {role: 'designer'})
+```
+
+A `WORKS_ON` from a project to a person:
+
+```cypher run name=wrong-endpoints expect=error
+MATCH (p:Project {name: 'relate'}), (a:Person {name: 'Noor'})
+CREATE (p)-[:WORKS_ON {since: 2020}]->(a)
+```
+
+A number where the graph type declares a string, which Kuzu stored as the string `'7'`:
+
+```cypher run name=wrong-type expect=error
+CREATE (:Person {name: 'Zed', role: 7})
+```
+
+### Writes the graph type accepts
+
+A second label, an undeclared property, an undeclared relationship type and an undeclared label, each of which Kuzu refuses, all succeed in one statement:
+
+```cypher run name=open-schema
+MATCH (ada:Person {name: 'Ada'})
+SET ada:Maintainer, ada.email = 'ada@example.com'
+CREATE (ada)-[:MEMBER_OF]->(team:Team {name: 'core'})
+RETURN labels(ada) AS labels, ada.email AS email, labels(team) AS team
+```
+
+To refuse these too, declare them: a property in the graph type with `NOT NULL` is required, and a constraint can require any property ([indexes and constraints](/docs/guides/cypher/indexes-and-constraints)).
+
+## Verify
+
+Count the records in each export file and the nodes and relationships in the store, then compare. The store opens read-only, and the files are bound as parameters again:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table \
+  --fetch-params person=export/Person.json \
+  --fetch-params project=export/Project.json \
+  --fetch-params issue=export/Issue.json \
+  --fetch-params works_on=export/WORKS_ON_Person_Project.json \
+  --fetch-params maintains=export/MAINTAINS_Person_Project.json \
+  --fetch-params knows=export/KNOWS_Person_Person.json \
+  --fetch-params filed_in=export/FILED_IN_Issue_Project.json \
+  'UNWIND [["Person", size($person)], ["Project", size($project)], ["Issue", size($issue)],
+         ["WORKS_ON", size($works_on)], ["MAINTAINS", size($maintains)],
+         ["KNOWS", size($knows)], ["FILED_IN", size($filed_in)]] AS t
+WITH t[0] AS name, t[1] AS in_export
+RETURN name, in_export,
+       COUNT { MATCH (n) WHERE name IN labels(n) } + COUNT { MATCH ()-[r]->() WHERE type(r) = name } AS in_relate
+ORDER BY name'
+```
+
+```text
++-------------+-----------+-----------+
+| name        | in_export | in_relate |
++-------------+-----------+-----------+
+| "FILED_IN"  | 3         | 3         |
+| "Issue"     | 3         | 3         |
+| "KNOWS"     | 1         | 1         |
+| "MAINTAINS" | 1         | 1         |
+| "Person"    | 3         | 3         |
+| "Project"   | 2         | 2         |
+| "WORKS_ON"  | 3         | 3         |
++-------------+-----------+-----------+
+```
+
+Equal columns mean every record arrived and every relationship found both of its endpoints. A relationship count lower than its file's is a `source` or `target` whose `MATCH` found no node, which drops the row without an error. Then run each statement the application sends with `EXPLAIN` in front: it plans without running, and a Kuzu-only form fails at planning.
+
+## If it goes wrong
+
+The Kuzu forms with no relate counterpart fail before they run. Kuzu's schema statements:
+
+```cypher run name=node-table expect=error
+CREATE NODE TABLE Person(name STRING PRIMARY KEY, role STRING)
+```
+
+Kuzu's shortest-path form:
+
+```cypher run name=kuzu-shortest expect=error
+MATCH p = (a:Person {name: 'Ada'})-[* SHORTEST 1..5]-(b:Project {name: 'opencypher-tck'})
+RETURN length(p) AS hops
+```
+
+`CAST`:
+
+```cypher run name=cast expect=error
+RETURN CAST('2024' AS INT64) AS year
+```
+
+`label()`:
+
+```cypher run name=label expect=error
+MATCH (p:Person {name: 'Grace'}) RETURN label(p) AS label
+```
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `syntax error: parse error: expected a pattern` | A `CREATE NODE TABLE` or `CREATE REL TABLE` statement | Declare the tables in a graph type, as in [Declare the schema as a graph type](#declare-the-schema-as-a-graph-type), or leave them undeclared. |
+| `syntax error: InvalidRelationshipPattern: parse error: expected RightBracket, got "SHORTEST" (Identifier)` | Kuzu's `-[* SHORTEST 1..5]-` | Write `SHORTEST 1` before the pattern: `MATCH path = SHORTEST 1 (a)-[*1..5]-(b)`. |
+| `syntax error: parse error: expected RightParen, got "AS" (AS)` | `CAST(<value> AS <type>)` | Use `toInteger()`, `toFloat()`, `toBoolean()`, `toString()`, `date()` or `localdatetime()`. |
+| `syntax error: UnknownFunction: unknown function label()` | Kuzu's `label(n)` | Use `labels(n)[0]`, or test a label with `n:Person`. |
+| ``semantic error: ConstraintValidationFailed: `<name>` property type`` | A `DATE` or `TIMESTAMP` written as the exported string | Wrap it in `date()` or `localdatetime()`. |
+| `ConstraintValidationFailed: endpoint label presence verification failed: expected Person` | A relationship whose endpoints the graph type doesn't declare for its type | Check the direction of the `MATCH` and `MERGE` against the relationship table's `FROM` and `TO`. |
+| `Error: --fetch-params <name>: invalid JSON: EOF while parsing a value at line 1 column 0` | An export file is empty | Check that the export script finished for that table, and run it again. |
+
+## Related
+
+- [Schema clauses](/docs/reference/cypher/schema-clauses#graph-types): every graph type statement, and the constraints a graph type creates.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): constraints one at a time, and the indexes a Kuzu schema doesn't carry.
+- [Load JSON from a URL or a file](/docs/guides/cypher/load-json-from-a-url): `--fetch-params` on its own, with its limits.
+- [Flags](/docs/reference/cli/flags#fetch-params): `--fetch-params` and `--param`, with their recorded runs.
+- [Migrate from Neo4j](/docs/guides/migrate/from-neo4j): the same move from a server database, with the Neo4j habits that differ.
+- [Migrate from JSON files](/docs/guides/migrate/from-json-files): keyed loads from files an application writes, rerun safely.
+- [Migration rehearsal](/cookbook/migration-rehearsal/): fingerprints before and after a change, for the first change to the migrated graph.

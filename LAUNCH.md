@@ -88,6 +88,7 @@ GitHub token.
 - [ ] `robots.txt` and `sitemap.xml` allow indexing; `noindex` removed; `llms.txt` served as text
 - [ ] Light/dark theme, mobile width, cli/agentic toggle, copy buttons all work
 - [ ] Version shown on the page matches the latest release tag
+- [ ] The hero banner's Join link (`https://relate.devpost.com`) resolves; the banner runs one month, then remove it from `src/components/Hero.astro`
 
 **Install names** (the table under "Target names" is the source; the site must agree with it)
 - [ ] Before the first publish, confirm each name is free or ours: `pip index versions relate-db`, `npm view @relate/relate` and `npm view @relate/relate-wasm` (the `@relate` scope is ours), Maven Central search for `com.relate:relate` (group ownership verified), `go list -m github.com/relatedb/relate/clients/go`

@@ -444,15 +444,24 @@ export async function mount(ctx: ElementContext) {
 
   // Full screen: the Fullscreen API where the browser has it for an element,
   // else a fixed overlay (iPhone Safari). Either way the root carries
-  // `is-full`, which the network view's wheel gate reads.
+  // `is-full`, which the network view's wheel gate reads. In element full
+  // screen the browser keeps Escape for itself: it leaves full screen and the
+  // page never sees the key, so the search's first Escape could not clear it.
+  // Where the browser has Keyboard Lock (Chromium), full screen locks Escape:
+  // a press then reaches the page (the search, then the root's handler below)
+  // and holding Escape still leaves, as the browser tells the reader. Other
+  // browsers keep their own Escape.
+  const keyboard = (navigator as Navigator & { keyboard?: { lock?: (keys?: string[]) => Promise<void>; unlock?: () => void } }).keyboard;
   let overlay = false;
   const isFull = () => document.fullscreenElement === root || overlay;
   const setFull = async (want: boolean) => {
     if (want === isFull()) return;
     if (document.fullscreenEnabled && root.requestFullscreen) {
       try {
-        if (want) await root.requestFullscreen();
-        else await document.exitFullscreen();
+        if (want) {
+          await root.requestFullscreen();
+          await keyboard?.lock?.(['Escape']).catch(() => {});
+        } else await document.exitFullscreen();
         return;
       } catch {
         // Refused (no user gesture, or an iframe without permission): the overlay instead.
@@ -463,6 +472,7 @@ export async function mount(ctx: ElementContext) {
     sync();
   };
   const sync = () => {
+    if (document.fullscreenElement !== root) keyboard?.unlock?.();
     root.classList.toggle('is-full', isFull());
     full.setAttribute('aria-pressed', String(isFull()));
     full.setAttribute('aria-label', isFull() ? 'Leave full screen' : 'Full screen');
@@ -489,6 +499,7 @@ export async function mount(ctx: ElementContext) {
     clearTimeout(typing);
     clearTimeout(quiet);
     delete probe.docsGraph;
+    keyboard?.unlock?.();
     if (document.fullscreenElement === root) void document.exitFullscreen().catch(() => {});
     document.documentElement.classList.remove('dg-no-scroll');
     nv.destroy();

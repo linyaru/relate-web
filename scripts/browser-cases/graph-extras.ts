@@ -319,12 +319,20 @@ export default {
           `),
         );
         if (on.failures.length) return on;
+        // Each stop is a control inside the view ('in'), the browser's own UI
+        // ('browser': past the page's last control, Chromium on Linux moves
+        // focus out of the document to its own UI, and the next Tab comes back
+        // to the first; Chrome on macOS goes straight back), or anything else
+        // ('OUT', a failure: the page behind the view took focus).
+        const controls = await tab.evaluate<string[]>(
+          `[...document.querySelector('cypher-cell[data-cell="dependency-tree"] .graph-view.is-full').querySelectorAll('button, select, input, a[href], [tabindex]')].filter((e) => e.tabIndex >= 0 && !e.disabled && e.checkVisibility()).map((e) => (e.getAttribute('aria-label') || e.textContent || e.tagName).trim().slice(0, 24))`,
+        );
         const visited: string[] = [];
         for (let i = 0; i < 12; i++) {
           await tab.press('Tab', 'Tab', 9);
           visited.push(
             await tab.evaluate<string>(
-              `(() => { const a = document.activeElement; const inside = !!a && !!a.closest('cypher-cell[data-cell="dependency-tree"] .graph-view.is-full'); return (inside ? 'in ' : 'OUT ') + (a ? (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 24) : 'none'); })()`,
+              `(() => { const a = document.activeElement; const inside = !!a && !!a.closest('cypher-cell[data-cell="dependency-tree"] .graph-view.is-full'); const browser = !document.hasFocus() && (!a || a === document.body); return (inside ? 'in ' : browser ? 'browser ' : 'OUT ') + (browser ? '' : a ? (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 24) : 'none'); })()`,
             ),
           );
         }
@@ -340,9 +348,12 @@ export default {
           `),
         );
         const out = visited.filter((v) => v.startsWith('OUT'));
+        const missed = controls.filter((c) => !visited.includes(`in ${c}`));
         const failures = [...off.failures];
         if (out.length) failures.push(`Tab left the full-screen view: ${visited.join(' | ')}`);
-        return { log: [`full screen on; Tab stayed inside over ${visited.length} presses (${[...new Set(visited)].length} stops); Escape off`], failures };
+        if (controls.length < 4 || missed.length) failures.push(`Tab did not reach every control of the view (${missed.join(', ') || controls.length + ' controls'}): ${visited.join(' | ')}`);
+        const browser = visited.filter((v) => v.startsWith('browser')).length;
+        return { log: [`full screen on; Tab stayed inside over ${visited.length} presses (${controls.length} controls${browser ? `, ${browser} in the browser's own UI` : ''}); Escape off`], failures };
       },
     },
     {

@@ -20,9 +20,15 @@ const UP = `
   const root = h.querySelector('.docs-graph');
   await until(() => root && root.dataset.drawnNodes && h.querySelector('.dg-stage canvas') && h.docsGraph, 15000);
   if (!h.docsGraph) return { log: [], failures: ['the view did not draw'] };
-  // The site scrolls smoothly (base.css), so live()'s scroll is still running: put the stage in view at once and let the page settle.
+  // The site scrolls smoothly (base.css), so live()'s scroll is still running,
+  // aimed at the centre of the taller static form. An instant scroll does not
+  // stop it in every Chrome (Linux Chromium carries it on to its old target,
+  // past the stage): let it finish, then put the stage in view at once and
+  // let the page settle again.
+  const still = async () => { for (let y = -1, i = 0; y !== scrollY && i < 40; i++) { y = scrollY; await wait(100); } };
+  await still();
   h.querySelector('.dg-stage').scrollIntoView({ block: 'center', behavior: 'instant' });
-  for (let y = -1, i = 0; y !== scrollY && i < 40; i++) { y = scrollY; await wait(100); }
+  await still();
 `;
 
 /** Where each drawn page node is on screen, and the one farthest from its neighbours inside the stage, clear of the toolbar and of anything drawn over the canvas (a sticky header). */
@@ -54,7 +60,7 @@ async function clickThrough(tab: BrowserTab): Promise<Outcome> {
       ${VIEW}
       await wait(300);
       ${ISOLATED}
-      if (!best) return { failure: 'no page node inside the view' };
+      if (!best) return { failure: 'no page node inside the view (stage at ' + Math.round(stage.top) + '..' + Math.round(stage.bottom) + ' of ' + innerHeight + ' px, ' + inside.length + ' of ' + pts.length + ' nodes inside)' };
       return { x: best.p.x, y: best.p.y, href: best.n.href, title: best.n.title };
     `),
   );

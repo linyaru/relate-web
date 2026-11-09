@@ -22,6 +22,8 @@ import { twinCells } from '../cookbook/cells.ts';
 import { loadEngine } from '../cookbook/run.ts';
 import { renderTwin, verifiedBy, type PageData } from './twin.ts';
 import { checkSamples } from './checks/samples.ts';
+import { twinDataProblems } from './checks/data.ts';
+import { dataBlockBytes, dataStub, describe as describeValue, INLINE_DATA_BYTES, sha256Hex, stubProblems } from './data-blocks.ts';
 
 const EXAMPLE = join(DOCS_DIR, '_example/example.mdx');
 const GOLDEN = join(DOCS_DIR, '_example/example.twin.md');
@@ -173,6 +175,43 @@ test('the playground hand-off reads the cells from the twin as the page numbers 
   // A fence inside a list item, and a longer fence holding a shorter one.
   const nested = twinCells('# T\n\n- step\n\n  ```cypher run name=x\n  RETURN 1\n  ```\n\n````text\n```cypher run name=no\n```\n````\n');
   assert.deepEqual(nested.cells.map((c) => [c.id, c.code]), [['x', 'RETURN 1']]);
+});
+
+test('a data block over 2 KiB is a stub in the twin, naming its file, size, SHA-256 and shape', () => {
+  const rows = Array.from({ length: 40 }, (_, i) => ({ id: `n${i + 1}`, tags: ['a'], e: Array.from({ length: 64 }, (_, j) => ((i * j) % 7) / 10) }));
+  const big = JSON.stringify({ k: 3, rows });
+  assert.ok(big.length > INLINE_DATA_BYTES);
+  const fence = '```';
+  const source = `# T\n\n${fence}json data=small\n{"x": 1}\n${fence}\n\n- in a list\n\n  ${fence}json data=rows\n  ${big}\n  ${fence}\n`;
+  const twin = parsePage(source);
+  renderConstructs(twin, 'markdown', ctx(EXAMPLE, source));
+  const markdown = stringifyMarkdown(twin);
+  assert.ok(markdown.includes(`${fence}json data=small\n{"x": 1}\n${fence}`), markdown);
+  const url = 'https://relatedb.ai/docs/_example/example/data/rows.json';
+  assert.ok(markdown.includes(`${fence}json data=rows src=${url}\n`), markdown);
+  assert.ok(!markdown.includes(big), 'the block itself is not in the twin');
+  const stub = dataStub('_example/example', 'rows', big);
+  assert.deepEqual(Object.keys(stub), ['data_block', 'inline', 'url', 'media_type', 'bytes', 'sha256', 'shape', 'first']);
+  assert.equal(stub.bytes, dataBlockBytes(big).length);
+  assert.equal(stub.sha256, sha256Hex(Buffer.from(big)));
+  assert.deepEqual(stub.shape, { k: 'number', rows: 'array of 40 objects' });
+  assert.deepEqual(stub.first, { rows: { id: 'n1', tags: ['a'], e: 'array of 64 numbers' } });
+  assert.equal(describeValue([1, 'a']), 'array of 2 items');
+  assert.equal(describeValue({}), 'empty object');
+  // The hand-off sees the stub as a linked block, with the stub's size and hash.
+  const handoff = twinCells(markdown);
+  assert.deepEqual(handoff.data, { small: '{"x": 1}' });
+  assert.deepEqual(handoff.refs, { rows: { src: url, bytes: stub.bytes, sha256: stub.sha256 } });
+  // The check: the stub agrees with the block; a changed block or a hand-edited stub does not.
+  const blocks = collectCells(parsePage(source)).data;
+  const twinTree = parsePage(markdown);
+  assert.deepEqual(twinDataProblems('_example/example', blocks, twinTree), { problems: [], linked: new Set(['rows']) });
+  const edited = new Map(blocks).set('rows', big.replace('"k":3', '"k":4'));
+  assert.match(twinDataProblems('_example/example', edited, twinTree).problems.join('\n'), /says sha256 [0-9a-f]{64}; the block's is/);
+  assert.deepEqual(stubProblems('_example/example', 'rows', `data=rows src=${url}`, JSON.stringify({ ...stub, bytes: 1 }), dataBlockBytes(big)), [
+    `the stub of \`rows\` says 1 bytes; the block is ${stub.bytes}`,
+  ]);
+  assert.match(twinDataProblems('_example/example', new Map([['small', '{"x": 1}']]), twinTree).problems.join('\n'), /a block the page does not have/);
 });
 
 test('the example page\'s recordings match a run on public/wasm, and its static graph forms are current', async () => {

@@ -674,6 +674,24 @@ async function smoke(): Promise<void> {
     if (diff) p.push(`markdown ${diff}`);
     return p;
   });
+  {
+    // Every page whose twin links a data block instead of carrying it (ADR-0048): the stub is in get_page's bytes.
+    const linking = readdirSync(join(DIST, 'docs'), { recursive: true, encoding: 'utf8' })
+      .filter((f) => f.endsWith('.md') && !f.endsWith('/index.md') && !f.endsWith('.graph.md'))
+      .sort()
+      .filter((f) => /^ {0,3}```json data=[A-Za-z0-9_-]+ src=https:\/\/relatedb\.ai\/docs\//m.test(readText(join(DIST, 'docs', f))));
+    for (const file of linking) {
+      const id = file.slice(0, -'.md'.length);
+      await attempt(`get_page ${id} with expand is the twin byte for byte, its large data block a stub, under the cap`, async () => {
+        const r = await callTool(base, 'get_page', { slug: id, expand: true });
+        const p = documentationProblems(r.sc);
+        if (r.sc.truncated !== false) p.push('truncated');
+        const diff = r.texts[1] === undefined ? 'no markdown block' : sameBytes(r.texts[1], readText(twinPath(id)));
+        if (diff) p.push(`markdown ${diff}`);
+        return p;
+      });
+    }
+  }
   await attempt('get_page get-started/install without expand is the opening, a prefix of the twin, with section anchors', async () => {
     const r = await callTool(base, 'get_page', { slug: 'get-started/install' });
     const p = documentationProblems(r.sc);

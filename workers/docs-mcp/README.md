@@ -169,7 +169,11 @@ the term as a word), capped at five, then `Full page: <url> (markdown: <md
 url>)`: the bytes `?section=<anchor>` returns, cut by the same function
 (`sliceSection` in `src/lib/docs/negotiation.ts`).
 With `expand: true`, the whole twin, byte for byte as `/docs/<id>.md`.
-Search hits' `anchor` is what `heading` takes.
+Search hits' `anchor` is what `heading` takes. A cell's parameters block
+over 2 KiB is a stub in the twin, so in every `get_page` answer: a
+```` ```json data=<name> src=<url> ```` fence naming the block's
+`https://relatedb.ai/docs/<id>/data/<name>.json` file, its size, SHA-256
+and shape (ADR-0048); the Worker serves no copy of the file.
 
 `search_docs` searches the `Section` nodes of the docs graph, which holds
 every authored page; the generated glossary, changelog and docs MCP usage
@@ -322,8 +326,10 @@ on a 429; `Cache-Control: no-store`.
   `explain_error` at most 10.
 - `validate_cypher`: statement and parameters each under 8 KiB (bytes);
   one statement; no `EXPLAIN` or `PROFILE` prefix.
-- Size: 96 KiB of text per tool result or resource (the largest twin today,
-  `guides/operate/troubleshooting`, is 57 KiB); longer text is cut at a line and says where the whole page is.
+- Size: 96 KiB of text per tool result or resource (the largest twin on
+  2026-11-09, `guides/operate/troubleshooting`, is 91,970 bytes; a data
+  block over 2 KiB is a stub in its twin, ADR-0048, which took
+  `guides/cypher/vector-search` from 99,818 bytes to 24,290); longer text is cut at a line and says where the whole page is.
   Requests over 64 KiB (bytes) are refused: a larger `Content-Length` before
   anything is read, a chunked body as soon as the counting reader passes the
   cap.

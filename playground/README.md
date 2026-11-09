@@ -80,7 +80,12 @@ and leaves the editor empty. Once a recipe is loaded, the sample-query list
 holds its steps instead of the sample data's queries (setup steps left out),
 labelled by the heading each sits under (`title` in recipe.json); a step's
 button runs it with its own parameter file, which also becomes the editor's.
-**Reset** brings the sample data's queries back. See `src/lib/recipe-link.ts`,
+**Reset** brings the sample data's queries back. Docs pages link the same
+way as `#docs=<page>[&cell=<id>]`: the playground reads the page's markdown
+twin, `../docs/<page>.md`, for its cells and parameters blocks; a block the
+twin links instead of carrying (a ```` ```json data=<name> src=<url> ````
+stub, ADR-0048) is fetched from `../docs/<page>/data/<name>.json` on this
+site and checked against the stub's size and SHA-256 before it runs. See `src/lib/recipe-link.ts`,
 `src/hooks/useRecipeSession.ts`, and `src/components/RecipeDialog.tsx`.
 
 ## Layout

@@ -6,6 +6,8 @@
 import MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 
+import { ELEMENT_OPEN, isElementClose } from './recipe.ts';
+
 /** `text` as a heading id, unique within `used`. */
 export function slugify(text: string, used: Set<string>): string {
   const base =
@@ -39,6 +41,8 @@ export interface MarkdownEnv {
   toc?: { id: string; label: string }[];
   /** Renders a fence; `line` is its 0-based line in the narrative. */
   fence?: (token: Token, line: number) => string;
+  /** Renders an element directive (`:::<name>{…}` … `:::`); `line` is its opening line, 0-based in the narrative. */
+  element?: (token: Token, line: number) => string;
 }
 
 /**
@@ -145,6 +149,33 @@ export function createMarkdown({ rewriteHref }: { rewriteHref: (href: string) =>
     }
   });
 
+  // An element directive at column 0, as the recipe parser finds it (recipe.ts
+  // ELEMENT_OPEN): one block token over its lines, which `env.element`
+  // renders from the parser's record. It may interrupt a paragraph, as the
+  // parser reads it line by line.
+  md.block.ruler.before(
+    'fence',
+    'cookbook_element',
+    (state, startLine, endLine, silent) => {
+      if (state.blkIndent !== 0 || state.sCount[startLine] !== 0) return false;
+      const text = (n: number) => state.src.slice(state.bMarks[n] + state.tShift[n], state.eMarks[n]);
+      if (!ELEMENT_OPEN.test(text(startLine))) return false;
+      if (silent) return true;
+      let close = startLine + 1;
+      while (close < endLine && !(state.sCount[close] === 0 && isElementClose(text(close)))) close++;
+      const token = state.push('cookbook_element', '', 0);
+      token.map = [startLine, Math.min(close + 1, endLine)];
+      token.block = true;
+      state.line = Math.min(close + 1, endLine);
+      return true;
+    },
+    { alt: ['paragraph', 'reference', 'blockquote', 'list'] },
+  );
+
   md.renderer.rules.fence = (tokens, idx, _options, env: MarkdownEnv) => env.fence!(tokens[idx], tokens[idx].map![0]);
+  md.renderer.rules.cookbook_element = (tokens, idx, _options, env: MarkdownEnv) => {
+    if (!env.element) throw new Error(`an element directive at line ${tokens[idx].map![0] + 1} where none is rendered`);
+    return env.element(tokens[idx], tokens[idx].map![0]);
+  };
   return md;
 }

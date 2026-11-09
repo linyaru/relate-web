@@ -216,7 +216,7 @@ import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
 import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
 import { checkElements, recordElements } from '../src/lib/docs/checks/elements.ts';
-import { kb, measureDocs, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
+import { kb, measurePages, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
 import { elementFileId } from '../src/lib/docs/elements.ts';
 import { cliCheck } from '../src/lib/docs/checks/cli.ts';
 import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
@@ -1219,9 +1219,9 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
   return out;
 }
 
-/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs page's eager JavaScript, and the three largest printed. */
+/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs and cookbook page's eager JavaScript, and the three largest printed. */
 function checkBudget() {
-  const rows = measureDocs(DIST);
+  const rows = measurePages(DIST);
   for (const { page, scripts } of rows) {
     const file = join(DIST, page, 'index.html');
     if (scripts.bytes > PAGE_JS_BUDGET) {
@@ -1231,7 +1231,7 @@ function checkBudget() {
     for (const m of scripts.missing) report(file, null, 'error', 'js-budget', `${page} loads ${m}, which is not in the build`);
   }
   if (rows.length) {
-    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs page(s):`);
+    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs and cookbook page(s):`);
     for (const { page, scripts } of rows.slice(0, 3)) console.log(`  ${kb(scripts.bytes).padStart(9)}  ${page}  (${scripts.files.length} file(s), inline ${kb(scripts.inline)})`);
   }
 }

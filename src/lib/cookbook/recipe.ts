@@ -14,6 +14,13 @@
 //   is that cell's recorded result;
 // - a fence whose language is `mermaid` is a diagram (ADR-0135).
 //
+// A line `:::<name>{attrs}` at column 0, up to a line `:::`, is an
+// interactive element of the docs framework (ADR-0035, ADR-0045): the docs'
+// container directive, with the same attribute syntax. Its children are
+// plain markdown (no fences). Which names exist, and what each element
+// makes of the recipe, is src/lib/cookbook/elements.ts's to say (it needs
+// the file system); this parser only finds the blocks.
+//
 // Every other fence is code. The only raw HTML allowed is a line holding
 // `<details>`, `</details>`, or `<summary>…</summary>`, which collapses the
 // data section on GitHub.
@@ -87,6 +94,54 @@ export interface Diagram {
   line: number;
 }
 
+/** An element directive (`:::<name>{attrs}` … `:::`), found at column 0 outside fences. */
+export interface ElementBlock {
+  name: string;
+  /** Its attributes, parsed as the docs' directives are (remark-directive's syntax). */
+  attributes: Record<string, string>;
+  /** The authored markdown between the two lines, trimmed. */
+  children: string;
+  /** 1-based lines of the opening and the closing `:::`. */
+  line: number;
+  endLine: number;
+  /** Offsets: the start of the opening line, and just past the closing line. */
+  start: number;
+  end: number;
+}
+
+/** An element directive's opening line: `:::` and a name (lower-case words joined by `-`), then its `{attributes}`. */
+export const ELEMENT_OPEN = /^:::([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(\{.*\})?[ \t]*$/;
+/** The line that closes an element directive. */
+export const isElementClose = (line: string) => /^:::[ \t]*$/.test(line);
+
+/**
+ * A directive's `{…}` attributes as remark-directive reads them: `key=value`,
+ * `key="value"`, `key='value'`, a bare `key` (''), `#id` (`id`) and `.class`
+ * (`class`, space-separated when repeated). Throws on anything else.
+ */
+export function parseDirectiveAttributes(source: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  const s = (source ?? '').trim();
+  if (!s) return out;
+  if (!s.startsWith('{') || !s.endsWith('}')) throw new Error(`\`${s}\` is not a directive's \`{attributes}\``);
+  const body = s.slice(1, -1);
+  const token = /\s*(?:([#.])([^\s"'=#.{}]+)|([A-Za-z_:][\w:.-]*)(?:=(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`{}]+)))?)\s*/y;
+  let at = 0;
+  while (at < body.length) {
+    token.lastIndex = at;
+    const m = token.exec(body);
+    if (!m || m[0].length === 0) {
+      if (!body.slice(at).trim()) break;
+      throw new Error(`cannot read the attributes \`${s}\` from \`${body.slice(at).trim()}\``);
+    }
+    if (m[1] === '#') out.id = m[2];
+    else if (m[1] === '.') out.class = out.class ? `${out.class} ${m[2]}` : m[2];
+    else out[m[3]] = m[4] ?? m[5] ?? m[6] ?? '';
+    at = token.lastIndex;
+  }
+  return out;
+}
+
 /** What a fence is, by the 1-based line of its opening. */
 export type FenceRef =
   | { line: number; kind: 'cell' | 'result' | 'data'; name: string }
@@ -109,6 +164,8 @@ export interface Recipe {
   data: DataBlock[];
   /** The ```mermaid blocks, in order. */
   diagrams: Diagram[];
+  /** The element directives, in order. */
+  elements: ElementBlock[];
   /** Every fence, in order, with what it is. */
   fences: FenceRef[];
   /** 1-based lines of raw HTML other than the allowed `<details>` wrappers. */
@@ -248,7 +305,10 @@ export function parseRecipe(slug: string, source: string): Recipe {
   const cells: Cell[] = [];
   const data: DataBlock[] = [];
   const diagrams: Diagram[] = [];
+  const elements: ElementBlock[] = [];
   const fences: FenceRef[] = [];
+  // The element directive being read: its opening line's index, name and attributes.
+  let element: { at: number; name: string; attributes: Record<string, string> } | null = null;
   const strayHtml: number[] = [];
   let narrativeLines = lines.length;
   // Index of the last cell, while nothing but blank lines follows it.
@@ -258,6 +318,26 @@ export function parseRecipe(slug: string, source: string): Recipe {
     const line = lines[i];
     const opened = fenceOpen(line.text);
     if (!opened) {
+      const directive = ELEMENT_OPEN.exec(line.text);
+      if (directive) {
+        if (element) throw new Error(`line ${i + 1}: \`:::${directive[1]}\` opens inside \`:::${element.name}\` (line ${element.at + 1}); elements do not nest`);
+        let attributes: Record<string, string>;
+        try {
+          attributes = parseDirectiveAttributes(directive[2]);
+        } catch (e) {
+          throw new Error(`line ${i + 1}: ${(e as Error).message}`);
+        }
+        element = { at: i, name: directive[1], attributes };
+      } else if (isElementClose(line.text)) {
+        if (!element) throw new Error(`line ${i + 1}: this \`:::\` closes no element directive`);
+        const children = lines
+          .slice(element.at + 1, i)
+          .map((l) => l.text)
+          .join('\n')
+          .trim();
+        elements.push({ name: element.name, attributes: element.attributes, children, line: element.at + 1, endLine: i + 1, start: lines[element.at].start, end: line.end });
+        element = null;
+      }
       if (heading === null && line.text.startsWith('# ')) heading = line.text.slice(2).trim();
       if (line.text === '## Data' && narrativeLines === lines.length) narrativeLines = i;
       if (isStrayHtml(line.text)) strayHtml.push(i + 1);
@@ -267,6 +347,7 @@ export function parseRecipe(slug: string, source: string): Recipe {
     }
     const [ch, len, info] = opened;
     const open = i + 1;
+    if (element) throw new Error(`line ${open}: a fence inside \`:::${element.name}\` (line ${element.at + 1}); an element's children are plain markdown`);
     let j = i + 1;
     while (j < lines.length && !isFenceClose(lines[j].text, ch, len)) j++;
     if (j === lines.length) throw new Error(`line ${open}: unclosed code fence`);
@@ -324,6 +405,7 @@ export function parseRecipe(slug: string, source: string): Recipe {
     openCell = nextOpen;
     i = j + 1;
   }
+  if (element) throw new Error(`line ${element.at + 1}: \`:::${element.name}\` is not closed with a \`:::\` line`);
 
   return {
     slug,
@@ -335,6 +417,7 @@ export function parseRecipe(slug: string, source: string): Recipe {
     cells,
     data,
     diagrams,
+    elements,
     fences,
     strayHtml,
     narrativeLines,
@@ -481,8 +564,13 @@ export function validateRecipe(r: Recipe): string[] {
       }
     });
   }
+  for (const e of r.elements) {
+    if (e.line > r.narrativeLines) errs.push(`line ${e.line}: \`:::${e.name}\` sits in the \`## Data\` section; elements go in the narrative`);
+  }
   for (const d of r.data) {
-    if (!r.cells.some((c) => c.params === d.name)) errs.push(`data block \`${d.name}\` is not used by any cell`);
+    // A block an element names (`steps=<name>`, `data=<name>`) is used by it.
+    const used = r.cells.some((c) => c.params === d.name) || r.elements.some((e) => Object.values(e.attributes).includes(d.name));
+    if (!used) errs.push(`data block \`${d.name}\` is not used by any cell or element`);
     // Parameter blocks sit beside their step and count toward the
     // narrative; only datasets go in the `## Data` section.
     const bytes = byteLength(d.text);

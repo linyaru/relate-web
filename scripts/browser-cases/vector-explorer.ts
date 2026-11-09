@@ -5,20 +5,34 @@
 // the engine, and the cases check them two ways that do not go through the
 // element: the ranking cell's own Run (its live table), and the similarity
 // computed here from the page's own data block and question vector. Nothing
-// is checked against numbers typed here.
+// is checked against numbers typed here. On a recipe placement (ADR-0045:
+// hybrid-recall carries the hybrid view) the cases run on the views the
+// recipe has; the scatter cases pass with a note there, since they run on
+// the docs page that has the scatter.
 
 import { scenario, type BrowserCases, type BrowserTab, type Outcome } from './_kit.ts';
 
 const SCATTER_PAGE = '/docs/guides/cypher/vector-search/';
 const HYBRID_PAGE = '/docs/guides/cypher/full-text-and-hybrid-search/';
 
-/** Go to `path` unless the tab's page already carries the view (`hybrid`: a host with `lists`). */
-async function onView(tab: BrowserTab, hybrid: boolean, path: string) {
+/**
+ * Go to `path` unless the tab's page already carries the view (`hybrid`: a
+ * host with `lists`). On a recipe page without the view, stay: the case is
+ * for the docs page, which runs it at its own placement. Resolves whether
+ * the tab now shows the view.
+ */
+async function onView(tab: BrowserTab, hybrid: boolean, path: string): Promise<boolean> {
   const here = await tab.evaluate<boolean>(
     `[...document.querySelectorAll('docs-element[data-element="vector-explorer"]')].some((h) => 'lists' in JSON.parse(h.dataset.attrs || '{}') === ${hybrid})`,
   );
-  if (!here) await tab.navigate(path);
+  if (here) return true;
+  if (await tab.evaluate<boolean>(`location.pathname.startsWith('/cookbook/')`)) return false;
+  await tab.navigate(path);
+  return true;
 }
+
+/** What a scatter case says on a recipe placement without a scatter. */
+const NO_SCATTER: Outcome = { log: ['this recipe has no scatter; the scatter cases run on the docs page that has one'], failures: [] };
 
 /** In the page: the scatter host live, its pieces, and a way to move k. */
 const SCATTER = `
@@ -82,7 +96,7 @@ export default {
       name: 'the hybrid lists fuse into one, and the engine agrees as k moves',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
         // Whichever page the runner opened, this case runs on the hybrid view (it is the one repeated at 390 px and under reduced motion).
-        await onView(tab, true, HYBRID_PAGE);
+        if (!(await onView(tab, true, HYBRID_PAGE))) return { log: [], failures: ['no hybrid view on this placement'] };
         return tab.evaluate<Outcome>(scenario(`
         const log = [], failures = [];
   // Whether the engine started: the page fetches the engine's worker script, and the bar records the version it reports.
@@ -112,16 +126,19 @@ export default {
         const rows = fusedRows();
         expect(log, failures, 'the lists fuse into one list of every id they hold', rows.length === ids.size, rows.length + ' fused, ' + ids.size + ' ids');
         const engine = rows.map((r) => r.lastElementChild.textContent).filter(Boolean);
-        expect(log, failures, "every score of the engine's fused statement equals the arithmetic", engine.length > 0 && engine.every((t) => /\\(same\\)/.test(t)), engine.join(' | '));
+        // With a fused statement (fuse=) the engine's score sits beside each row's arithmetic; without one the arithmetic stands alone.
+        if (JSON.parse(h.dataset.attrs).fuse) expect(log, failures, "every score of the engine's fused statement equals the arithmetic", engine.length > 0 && engine.every((t) => /\\(same\\)/.test(t)), engine.join(' | '));
+        else expect(log, failures, 'without a fused statement no engine column is shown', ![...L.querySelectorAll('.vx-fused th')].some((th) => /\\(engine\\)/.test(th.textContent)));
         const first = rows[0]?.querySelector('code')?.textContent;
-        return { log: [items.join('+') + ' ranked, ' + rows.length + ' fused, first ' + first + '; ' + engine.length + ' engine scores agree'], failures };
+        const said = JSON.parse(h.dataset.attrs).fuse ? engine.length + ' engine scores agree' : 'no fused statement on this page, so the arithmetic stands alone';
+        return { log: [items.join('+') + ' ranked, ' + rows.length + ' fused, first ' + first + '; ' + said], failures };
       `));
       },
     },
     {
       name: 'the scatter renders N points and rings the recorded top k',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        await onView(tab, false, SCATTER_PAGE);
+        if (!(await onView(tab, false, SCATTER_PAGE))) return NO_SCATTER;
         return tab.evaluate<Outcome>(
           scenario(`
             const log = [], failures = [];
@@ -141,7 +158,7 @@ export default {
     {
       name: 'moving k changes how many points the engine returns',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        await onView(tab, false, SCATTER_PAGE);
+        if (!(await onView(tab, false, SCATTER_PAGE))) return NO_SCATTER;
         return tab.evaluate<Outcome>(
           scenario(`
             const log = [], failures = [];
@@ -168,7 +185,7 @@ export default {
     {
       name: 'the pre-filter greys the points it removes, and the top k stays k',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        await onView(tab, false, SCATTER_PAGE);
+        if (!(await onView(tab, false, SCATTER_PAGE))) return NO_SCATTER;
         return tab.evaluate<Outcome>(
           scenario(`
             const log = [], failures = [];
@@ -205,7 +222,7 @@ export default {
     {
       name: 'the keyboard moves k, and the view fits a phone without motion',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        await onView(tab, false, SCATTER_PAGE);
+        if (!(await onView(tab, false, SCATTER_PAGE))) return NO_SCATTER;
         await tab.viewport(390, 844, { mobile: true });
         await tab.emulateMedia({ reducedMotion: true });
         const up = await tab.evaluate<Outcome>(
@@ -241,7 +258,7 @@ export default {
     {
       name: 'Reset brings the scatter back to the recording',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        await onView(tab, false, SCATTER_PAGE);
+        if (!(await onView(tab, false, SCATTER_PAGE))) return NO_SCATTER;
         return tab.evaluate<Outcome>(
           scenario(`
             const log = [], failures = [];

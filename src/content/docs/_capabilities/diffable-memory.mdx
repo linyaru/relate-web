@@ -1,0 +1,23 @@
+---
+id: diffable-memory
+title: Diffable memory
+order: 150
+problem: "Keep an agent's memory in the repository, so each session's changes show up in a pull request as a diff a person can review."
+capability: "A directory store whose checkpoint writes the graph as text, one `graph.json` with the `json` codec or one note per node with `markdown`, and `MERGE` writes that replay to no change."
+intents:
+  - review agent memory changes in a pull request
+  - keep agent memory in git
+  - diff a graph between commits
+  - human-readable graph storage format
+  - store a graph as markdown notes
+surfaces: [cli, agents]
+guides: [guides/agents/diffable-memory, guides/storage/choose-a-store-layout, guides/storage/obsidian-vault]
+recipes: [bitemporal-decisions]
+reference: [reference/storage/formats#codecs, reference/storage/wal-and-checkpoints]
+schema: null
+verify: bitemporal-decisions#retry
+---
+
+An agent that changes its memory during a task makes a change nobody reviews. Kept in the repository as readable text, the same memory goes through review like code: each session's writes appear in a pull request, and a bad fact is caught, reverted or corrected before it is merged.
+
+A directory store created with `--snapshot-format json` writes its checkpoint as one readable `graph.json`, every node and relationship with its labels or type and properties, then the index and constraint catalog, so a code review can diff it. The `markdown` codec writes one note per node, with properties and outgoing relationships in YAML frontmatter. Each checkpoint also rewrites the schema as text under `.cypherlite/schema/` ([Schema as files](/docs/concepts/problems-relate-solves#schema-as-files)), and `relate clone --to-snapshot-format json` converts an existing store. Writes built on `MERGE` keep the diff to real changes: in the [bi-temporal decisions recipe](/cookbook/bitemporal-decisions/) a retried session matches every node and relationship and writes nothing.

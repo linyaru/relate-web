@@ -1,0 +1,19 @@
+---
+id: mcp
+term: "MCP"
+short: "The Model Context Protocol, which agent hosts use to call tools; `relate serve --mcp` exposes a store as `read_cypher`, `get_schema` and `write_cypher`."
+aliases: []
+context: agents
+see: guides/agents/connect-over-mcp
+related: ["read-only", "surface", "agent-harness"]
+---
+
+MCP is a protocol between an agent host, such as Claude Code, Cursor or Codex, and the servers that give it tools. `relate serve --mcp stdio` serves a store on stdin and stdout, started by the host as a child process and stopped when the host closes stdin; `--mcp <port>` serves the streamable HTTP transport on a port instead.
+
+The server lists `read_cypher` and `get_schema`, and `write_cypher` only when the store is writable. Opened with `--read-only`, it takes no writer lease and can run beside a process that writes a directory store. Over stdio there is no authentication, because the host spawned the process; on a port, one basic-auth credential from `--auth` or `RELATE_AUTH` guards it, or a generated token printed at startup.
+
+```bash
+claude mcp add relate -- relate serve --mcp stdio --database ./graph.rl --read-only
+```
+
+Removing `--read-only` allows writes. The relate docs have their own read-only MCP server at `https://relatedb.ai/mcp`, which searches the documentation and opens no store.

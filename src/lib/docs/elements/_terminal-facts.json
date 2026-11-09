@@ -1,0 +1,892 @@
+{
+  "version": "0.16.1",
+  "recordedWith": "relate 0.16.1 (ac441ec), source build",
+  "agentCap": 100,
+  "harnessVariable": "CLAUDECODE",
+  "harnessVariables": [
+    "AI_AGENT",
+    "AGENT",
+    "CLAUDECODE",
+    "CLAUDE_CODE",
+    "COPILOT_AGENT",
+    "COPILOT_CLI",
+    "COPILOT_AGENT_SESSION_ID",
+    "REPL_ID",
+    "GEMINI_CLI",
+    "CODEX_SANDBOX",
+    "CODEX_THREAD_ID",
+    "OPENCODE",
+    "AUGMENT_AGENT",
+    "GOOSE_PROVIDER",
+    "CURSOR_AGENT"
+  ],
+  "capWarning": "warning: result truncated to {kept} rows (the statement returned {total}); pass --max-rows 0 for all rows",
+  "exitCodes": [
+    {
+      "exit": 0,
+      "code": "success",
+      "meaning": "Success, including an empty result. `--help` and `--version` also exit 0."
+    },
+    {
+      "exit": 1,
+      "code": "fatal_error",
+      "meaning": "Runtime failure: store open or I/O error, capacity limit, query execution failure, internal error, failed final checkpoint."
+    },
+    {
+      "exit": 2,
+      "code": "usage_error",
+      "meaning": "Unknown flag, bad or missing value, extra positional."
+    },
+    {
+      "exit": 5,
+      "code": "conflict",
+      "meaning": "Write-write conflict, or the store is locked by another opener."
+    },
+    {
+      "exit": 6,
+      "code": "validation_error",
+      "meaning": "The statement is rejected: syntax, semantic, argument or type error, including a write on a `--read-only` database."
+    },
+    {
+      "exit": 7,
+      "code": "timeout",
+      "meaning": "A statement exceeded `--timeout`."
+    }
+  ],
+  "kinds": {
+    "syntax": {
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false,
+      "id": "cli-validation-error-syntax"
+    },
+    "semantic": {
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false,
+      "id": "cli-validation-error-semantic"
+    },
+    "argument": {
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false,
+      "id": "cli-validation-error-argument"
+    },
+    "type": {
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false,
+      "id": "cli-validation-error-type"
+    },
+    "execution": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-execution"
+    },
+    "conflict": {
+      "code": "conflict",
+      "exit": 5,
+      "retryable": true,
+      "id": "cli-conflict-conflict"
+    },
+    "locked": {
+      "code": "conflict",
+      "exit": 5,
+      "retryable": false,
+      "id": "cli-conflict-locked"
+    },
+    "capacity": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-capacity"
+    },
+    "resource": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-resource"
+    },
+    "storage": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-storage"
+    },
+    "io": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-io"
+    },
+    "internal": {
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false,
+      "id": "cli-fatal-error-internal"
+    }
+  },
+  "messages": [
+    {
+      "id": "engine-nesting-depth-exceeded",
+      "pattern": "^syntax error: parse error: maximum nesting depth of 500 exceeded   [\\s\\S]+?\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(\\(1\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)\\)[\\s\\S]+?                                                                                                                            \\^$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-safe-mode-violation",
+      "pattern": "^syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read \\(`MATCH [\\s\\S]+? RETURN` or `MATCH [\\s\\S]+? WITH` without `LIMIT`\\)\\. Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT [\\s\\S]+?`, or return an aggregate such as `count\\(\\*\\)`, so the read has a bounded result\\. This is a policy, not a database limit; reopen without --safe to allow it\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-safe-mode-violation",
+      "pattern": "^syntax error: SafeModeViolation: This statement is not allowed in safe mode: CREATE or MERGE of a new node `n` without a label\\. Safe mode refuses shapes an agent commonly gets wrong — give the node a label, e\\.g\\. `CREATE \\(n:Person\\)`, so the write is self-describing\\. This is a policy, not a database limit; reopen without --safe to allow it\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-system-restricted-clauses",
+      "pattern": "^semantic error: SemanticError: The following unsupported clauses were used: MATCH\\.  The system database supports a restricted set of Cypher clauses\\. The supported clause structure for procedure calls is: CALL, YIELD, RETURN\\. YIELD and RETURN clauses are optional\\. The order of the clauses is fixed and each can only occur once\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-system-restricted-clauses",
+      "pattern": "^semantic error: SemanticError: The following unsupported clauses were used: [\\s\\S]+?\\.  The system database supports a restricted set of Cypher clauses\\. The supported clause structure for procedure calls is: CALL, YIELD, RETURN\\. YIELD and RETURN clauses are optional\\. The order of the clauses is fixed and each can only occur once\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-traversal-depth-exceeded",
+      "pattern": "^syntax error: TraversalDepthExceeded: This query allows paths up to 600 hops\\. This is a safety limit protecting against excessive traversal \\(not a database limit\\) — lower the path bound, or raise it with --max-traversal-depth \\(up to 2000\\)\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-traversal-depth-exceeded",
+      "pattern": "^syntax error: TraversalDepthExceeded: This query allows paths up to [\\s\\S]+? hops\\. This is a safety limit protecting against excessive traversal \\(not a database limit\\) — lower the path bound, or raise it with --max-traversal-depth \\(up to 2000\\)\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-expression-memory-cap",
+      "pattern": "^This statement tried to build a single value of 48 MB\\. This is a safety limit protecting against memory exhaustion \\(not a database limit\\) — build the value in smaller pieces, or raise it with --expression-memory-limit\\.$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-ontology-unsupported-version",
+      "pattern": "^semantic error: Unsupported ontology spec version: 'https://example\\.com/schema\\.json'\\. This version of Relate supports up to Ontology Graph Spec 1\\.1\\.0 \\('https://neo4j\\.com/docs/ontology-graph-spec/1\\.1\\.0/schema\\.json'\\)\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-expression-memory-cap",
+      "pattern": "^This statement tried to build a single value of [\\s\\S]+?\\. This is a safety limit protecting against memory exhaustion \\(not a database limit\\) — build the value in smaller pieces, or raise it with --expression-memory-limit\\.$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-wal-payload-cap",
+      "pattern": "^This statement tried to commit a single WAL record of at least 64 MB\\. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is 64 MB; commit the data in smaller transactions\\.$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-wal-payload-cap",
+      "pattern": "^This statement tried to commit a single WAL record of at least [\\s\\S]+?\\. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is [\\s\\S]+?; commit the data in smaller transactions\\.$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-use-on-administration-command",
+      "pattern": "^syntax error: UseClauseWithAdministrationCommand: The `USE` clause is not required for administration commands\\. Retry your query without the `USE` clause, and it will be routed automatically\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-ontology-unsupported-version",
+      "pattern": "^semantic error: Unsupported ontology spec version: '[\\s\\S]+?'\\. This version of Relate supports up to Ontology Graph Spec 1\\.1\\.0 \\('https://neo4j\\.com/docs/ontology-graph-spec/1\\.1\\.0/schema\\.json'\\)\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-use-on-administration-command",
+      "pattern": "^UseClauseWithAdministrationCommand: The `USE` clause is not required for administration commands\\. Retry your query without the `USE` clause, and it will be routed automatically\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-multiple-use-targets",
+      "pattern": "^semantic error: SemanticError: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph system$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-composite-only-function",
+      "pattern": "^semantic error: SemanticError: Dynamic graph lookup not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph graph\\.names\\(\\)$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-multiple-use-targets",
+      "pattern": "^semantic error: SemanticError: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-write-on-read-only",
+      "pattern": "^semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database\\. The database is in read-only mode on this Neo4j instance\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-composite-only-function",
+      "pattern": "^semantic error: SemanticError: Dynamic graph lookup not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-index-already-exists",
+      "pattern": "^semantic error: AlreadyExists: there already exists an index \\(:Person \\{role\\}\\)\\. A constraint cannot be created until the index has been dropped\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-nested-evaluation-budget",
+      "pattern": "^NestedEvaluationBudgetExceeded: nested evaluation exceeds 100000 passes per statement; nested subqueries compound per level \\(security budget\\)\\.$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-system-ontologies-not-queryable",
+      "pattern": "^semantic error: SemanticError: This database is not queryable\\. Use the db\\.ontology\\.\\* procedures on the user database 'neo4j' instead\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-index-already-exists",
+      "pattern": "^semantic error: AlreadyExists: there already exists an index \\([\\s\\S]+?\\)\\. A constraint cannot be created until the index has been dropped\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-invalid-env-preview",
+      "pattern": "^Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature '[\\s\\S]+?' \\(known features: [\\s\\S]+?\\)$",
+      "kind": "semantic",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-invalid-env-pattern-engine",
+      "pattern": "^semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine \"[\\s\\S]+?\"; expected auto, nfa, or walk$",
+      "kind": "semantic",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-unsupported-administration-command",
+      "pattern": "^semantic error: UnsupportedAdministrationCommand: Unsupported administration command: CREATE DATABASE archive$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-value-depth-exceeded",
+      "pattern": "^ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level \\(security limit\\)\\.$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-system-ontologies-not-queryable",
+      "pattern": "^This database is not queryable\\. Use the db\\.ontology\\.\\* procedures on the user database 'neo4j' instead\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-syntax",
+      "pattern": "^syntax error: parse error: expected RightParen, got \"RETURN\" \\(RETURN\\)   MATCH \\(n RETURN n            \\^$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-unsupported-uri-scheme",
+      "pattern": "^storage error: unsupported URI scheme [\\s\\S]+?:// \\(engine URIs are :memory:, a filesystem path, or file://\\)$",
+      "kind": "storage",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-syntax",
+      "pattern": "^syntax error: parse error: unexpected token \"\\)\" \\(RightParen\\) at line 1, col 8   RETURN \\)          \\^$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-with-on-system",
+      "pattern": "^semantic error: SemanticError: The following clauses are not allowed on a system database: WITH\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-live-freshness-unsupported",
+      "pattern": "^semantic error: live freshness \\(WAL follow\\) is only supported for native directory databases$",
+      "kind": "semantic",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-ontology-user-database-only",
+      "pattern": "^semantic error: SemanticError: Ontologies can only be stored for the user database 'neo4j'\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-query-too-large",
+      "pattern": "^syntax error: query text of 4194318 bytes exceeds the maximum query size of 4194304 bytes$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-write-before-call-in-transactions",
+      "pattern": "^syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-point-latitude-range",
+      "pattern": "^semantic error: InvalidArgumentValue: point\\(\\) latitude must be in the range \\[-90, 90\\]$",
+      "kind": "argument",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-ontology-argument-type",
+      "pattern": "^type error: InvalidArgumentType: db\\.ontology\\.set argument `ontology` expects STRING$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-query-too-large",
+      "pattern": "^syntax error: query text of [\\s\\S]+? bytes exceeds the maximum query size of 4194304 bytes$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-requires-properties",
+      "pattern": "^semantic error: ConstraintValidationFailed: `person_role` requires properties$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-invalid-env-snapshot-format",
+      "pattern": "^storage error: unknown snapshot codec '[\\s\\S]+?' \\(expected parquet, json or markdown\\)$",
+      "kind": "storage",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-property-type",
+      "pattern": "^semantic error: ConstraintValidationFailed: `works_on_since` property type$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-delete-connected-node",
+      "pattern": "^DeleteConnectedNode: Cannot delete node with relationships unless DETACH$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-point-latitude-range",
+      "pattern": "^InvalidArgumentValue: point\\(\\) latitude must be in the range \\[-90, 90\\]$",
+      "kind": "argument",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-uniqueness-violation",
+      "pattern": "^semantic error: ConstraintValidationFailed: `entity_key` uniqueness$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-fatal-error-resource",
+      "pattern": "^resource limit exceeded: concurrent-logical-workspace-limit limit=1$",
+      "kind": "resource",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-requires-properties",
+      "pattern": "^semantic error: ConstraintValidationFailed: `[\\s\\S]+?` requires properties$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-fatal-error-resource",
+      "pattern": "^resource limit exceeded: concurrent-logical-workspace-limit limit=[\\s\\S]+?$",
+      "kind": "resource",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-index-belongs-to-constraint",
+      "pattern": "^Unable to drop 'project_name': the index belongs to a constraint\\.$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-with-on-system",
+      "pattern": "^The following clauses are not allowed on a system database: WITH\\.$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-nesting-depth-exceeded",
+      "pattern": "^syntax error: parse error: maximum nesting depth of 500 exceeded$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-parameter-missing",
+      "pattern": "^semantic error: ParameterMissing: Expected parameter\\(s\\): name$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-property-type",
+      "pattern": "^semantic error: ConstraintValidationFailed: `[\\s\\S]+?` property type$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-database-not-found",
+      "pattern": "^semantic error: DatabaseNotFound: Graph not found: archive$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-semantic",
+      "pattern": "^semantic error: ParameterMissing: Expected parameter\\(s\\): x$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-parameter-missing",
+      "pattern": "^semantic error: ParameterMissing: Expected parameter\\(s\\): [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-undefined-variable",
+      "pattern": "^syntax error: UndefinedVariable: variable 'y' not defined$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-uniqueness-violation",
+      "pattern": "^semantic error: ConstraintValidationFailed: `[\\s\\S]+?` uniqueness$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-undefined-variable",
+      "pattern": "^syntax error: UndefinedVariable: variable '[\\s\\S]+?' not defined$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-unknown-function",
+      "pattern": "^syntax error: UnknownFunction: unknown function shout\\(\\)$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-preview-feature-not-enabled",
+      "pattern": "^preview feature '[\\s\\S]+?' is not enabled: set RELATE_PREVIEW=[\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-invalid-env-bulk-batch-threshold",
+      "pattern": "^semantic error: invalid RELATE_BULK_BATCH_THRESHOLD '[\\s\\S]+?'$",
+      "kind": "semantic",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-index-belongs-to-constraint",
+      "pattern": "^Unable to drop '[\\s\\S]+?': the index belongs to a constraint\\.$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-merge-null-property",
+      "pattern": "^MergeReadOwnWrites: cannot MERGE with null properties$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-database-not-found",
+      "pattern": "^semantic error: DatabaseNotFound: Graph not found: [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-vector-dimension-mismatch",
+      "pattern": "^type error: vector\\(\\) dimension does not match list$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-equivalent-schema-rule-already-exists",
+      "pattern": "^semantic error: EquivalentSchemaRuleAlreadyExists$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-procedure-not-found",
+      "pattern": "^syntax error: ProcedureNotFound: apoc\\.meta\\.schema$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-load-csv-invalid-configuration",
+      "pattern": "^semantic error: LOAD CSV invalid configuration$",
+      "kind": "semantic",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-syntax",
+      "pattern": "^syntax error: parse error: unexpected token \"[\\s\\S]+?\"$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-vector-index-dimensionality-mismatch",
+      "pattern": "^type error: VectorIndexDimensionalityMismatch$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-no-such-index",
+      "pattern": "^semantic error: NoSuchIndex: `missing_index`$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-graph-size-cap",
+      "pattern": "^capacity exceeded: used=258 limit=1000000$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-already-exists",
+      "pattern": "^semantic error: ConstraintAlreadyExists$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-unknown-function",
+      "pattern": "^UnknownFunction: unknown function [\\s\\S]+?\\(\\)$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-unsupported-administration-command",
+      "pattern": "^Unsupported administration command: [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-rounding-necessary",
+      "pattern": "^ArithmeticError: rounding necessary$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-constraint-not-found",
+      "pattern": "^semantic error: ConstraintNotFound$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-index-already-exists",
+      "pattern": "^semantic error: IndexAlreadyExists$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-procedure-not-found",
+      "pattern": "^syntax error: ProcedureNotFound: [\\s\\S]+?$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-invalid-index-option",
+      "pattern": "^syntax error: InvalidIndexOption$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-load-csv-byte-limit",
+      "pattern": "^LOAD CSV file exceeds byte limit$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-argument",
+      "pattern": "^semantic error: NumberOutOfRange$",
+      "kind": "argument",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-graph-size-cap",
+      "pattern": "^capacity exceeded: used=[\\s\\S]+? limit=[\\s\\S]+?$",
+      "kind": "capacity",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-invalid-property-type",
+      "pattern": "^type error: InvalidPropertyType$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-no-such-index",
+      "pattern": "^semantic error: NoSuchIndex: `[\\s\\S]+?`$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-load-csv-unavailable",
+      "pattern": "^LOAD CSV file unavailable$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-division-by-zero",
+      "pattern": "^type error: / by zero$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-conflict-conflict",
+      "pattern": "^write-write conflict$",
+      "kind": "conflict",
+      "code": "conflict",
+      "exit": 5,
+      "retryable": true
+    },
+    {
+      "id": "cli-conflict-locked",
+      "pattern": "^storage locked: [\\s\\S]+?$",
+      "kind": "locked",
+      "code": "conflict",
+      "exit": 5,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-semantic",
+      "pattern": "^semantic error: [\\s\\S]+?$",
+      "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "cli-fatal-error-storage",
+      "pattern": "^storage error: [\\s\\S]+?$",
+      "kind": "storage",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-fatal-error-internal",
+      "pattern": "^internal error$",
+      "kind": "internal",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "cli-validation-error-type",
+      "pattern": "^type error: [\\s\\S]+?$",
+      "kind": "type",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    }
+  ]
+}

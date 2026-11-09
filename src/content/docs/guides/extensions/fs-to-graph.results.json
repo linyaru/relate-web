@@ -1,0 +1,718 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 7, relationships created: 6, properties set: 28, labels added: 7",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 7,
+          "labels_removed": 0,
+          "nodes_created": 7,
+          "nodes_deleted": 0,
+          "properties_set": 28,
+          "relationships_created": 6,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "index": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "tree": {
+      "kind": "gram",
+      "text": "// 6 rows\n[ | (n0:Folder {depth: 0, name: \"team\", path: \"team\"}), (n0)-[r3:`CONTAINS`]->(n2), (n2:Folder {depth: 1, name: \"src\", path: \"team/src\"})]\n[ | (n0), (n0)-[r2:`CONTAINS`]->(n6), (n6:File {extension: \"bin\", name: \"logo.bin\", path: \"team/logo.bin\", size_bytes: 3})]\n[ | (n0), (n0)-[r1:`CONTAINS`]->(n1), (n1:Folder {depth: 1, name: \"docs\", path: \"team/docs\"})]\n[ | (n0), (n0)-[r0:`CONTAINS`]->(n3), (n3:File {content: \"# team\\nAda, Grace and Noor work on relate.\\n\", extension: \"md\", name: \"README.md\", path: \"team/README.md\", size_bytes: 43})]\n[ | (n1), (n1)-[r4:`CONTAINS`]->(n4), (n4:File {content: \"The planner rewrite lands in the next release.\\n\", extension: \"md\", name: \"roadmap.md\", path: \"team/docs/roadmap.md\", size_bytes: 47})]\n[ | (n2), (n2)-[r5:`CONTAINS`]->(n5), (n5:File {content: \"fn main() {\\n    println!(\\\"hello\\\");\\n}\\n\", extension: \"rs\", name: \"main.rs\", path: \"team/src/main.rs\", size_bytes: 37})]",
+      "table": null,
+      "graph": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": "node",
+            "labels": [
+              "Folder"
+            ],
+            "properties": {
+              "depth": 0,
+              "name": "team",
+              "path": "team"
+            }
+          },
+          {
+            "id": 2,
+            "kind": "node",
+            "labels": [
+              "Folder"
+            ],
+            "properties": {
+              "depth": 1,
+              "name": "src",
+              "path": "team/src"
+            }
+          },
+          {
+            "id": 6,
+            "kind": "node",
+            "labels": [
+              "File"
+            ],
+            "properties": {
+              "extension": "bin",
+              "name": "logo.bin",
+              "path": "team/logo.bin",
+              "size_bytes": 3
+            }
+          },
+          {
+            "id": 1,
+            "kind": "node",
+            "labels": [
+              "Folder"
+            ],
+            "properties": {
+              "depth": 1,
+              "name": "docs",
+              "path": "team/docs"
+            }
+          },
+          {
+            "id": 3,
+            "kind": "node",
+            "labels": [
+              "File"
+            ],
+            "properties": {
+              "content": "# team\nAda, Grace and Noor work on relate.\n",
+              "extension": "md",
+              "name": "README.md",
+              "path": "team/README.md",
+              "size_bytes": 43
+            }
+          },
+          {
+            "id": 4,
+            "kind": "node",
+            "labels": [
+              "File"
+            ],
+            "properties": {
+              "content": "The planner rewrite lands in the next release.\n",
+              "extension": "md",
+              "name": "roadmap.md",
+              "path": "team/docs/roadmap.md",
+              "size_bytes": 47
+            }
+          },
+          {
+            "id": 5,
+            "kind": "node",
+            "labels": [
+              "File"
+            ],
+            "properties": {
+              "content": "fn main() {\n    println!(\"hello\");\n}\n",
+              "extension": "rs",
+              "name": "main.rs",
+              "path": "team/src/main.rs",
+              "size_bytes": 37
+            }
+          }
+        ],
+        "rels": [
+          {
+            "end_node": 2,
+            "id": 3,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "CONTAINS"
+          },
+          {
+            "end_node": 6,
+            "id": 2,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "CONTAINS"
+          },
+          {
+            "end_node": 1,
+            "id": 1,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "CONTAINS"
+          },
+          {
+            "end_node": 3,
+            "id": 0,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 0,
+            "type": "CONTAINS"
+          },
+          {
+            "end_node": 4,
+            "id": 4,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 1,
+            "type": "CONTAINS"
+          },
+          {
+            "end_node": 5,
+            "id": 5,
+            "kind": "relationship",
+            "properties": {},
+            "start_node": 2,
+            "type": "CONTAINS"
+          }
+        ]
+      },
+      "envelope": {
+        "columnTypes": [
+          "NODE",
+          "RELATIONSHIP",
+          "NODE"
+        ],
+        "columns": [
+          "folder",
+          "c",
+          "child"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "c": {
+              "end_node": 2,
+              "id": 3,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 0,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 2,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 1,
+                "name": "src",
+                "path": "team/src"
+              }
+            },
+            "folder": {
+              "id": 0,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 0,
+                "name": "team",
+                "path": "team"
+              }
+            }
+          },
+          {
+            "c": {
+              "end_node": 6,
+              "id": 2,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 0,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 6,
+              "kind": "node",
+              "labels": [
+                "File"
+              ],
+              "properties": {
+                "extension": "bin",
+                "name": "logo.bin",
+                "path": "team/logo.bin",
+                "size_bytes": 3
+              }
+            },
+            "folder": {
+              "id": 0,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 0,
+                "name": "team",
+                "path": "team"
+              }
+            }
+          },
+          {
+            "c": {
+              "end_node": 1,
+              "id": 1,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 0,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 1,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 1,
+                "name": "docs",
+                "path": "team/docs"
+              }
+            },
+            "folder": {
+              "id": 0,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 0,
+                "name": "team",
+                "path": "team"
+              }
+            }
+          },
+          {
+            "c": {
+              "end_node": 3,
+              "id": 0,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 0,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 3,
+              "kind": "node",
+              "labels": [
+                "File"
+              ],
+              "properties": {
+                "content": "# team\nAda, Grace and Noor work on relate.\n",
+                "extension": "md",
+                "name": "README.md",
+                "path": "team/README.md",
+                "size_bytes": 43
+              }
+            },
+            "folder": {
+              "id": 0,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 0,
+                "name": "team",
+                "path": "team"
+              }
+            }
+          },
+          {
+            "c": {
+              "end_node": 4,
+              "id": 4,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 1,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 4,
+              "kind": "node",
+              "labels": [
+                "File"
+              ],
+              "properties": {
+                "content": "The planner rewrite lands in the next release.\n",
+                "extension": "md",
+                "name": "roadmap.md",
+                "path": "team/docs/roadmap.md",
+                "size_bytes": 47
+              }
+            },
+            "folder": {
+              "id": 1,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 1,
+                "name": "docs",
+                "path": "team/docs"
+              }
+            }
+          },
+          {
+            "c": {
+              "end_node": 5,
+              "id": 5,
+              "kind": "relationship",
+              "properties": {},
+              "start_node": 2,
+              "type": "CONTAINS"
+            },
+            "child": {
+              "id": 5,
+              "kind": "node",
+              "labels": [
+                "File"
+              ],
+              "properties": {
+                "content": "fn main() {\n    println!(\"hello\");\n}\n",
+                "extension": "rs",
+                "name": "main.rs",
+                "path": "team/src/main.rs",
+                "size_bytes": 37
+              }
+            },
+            "folder": {
+              "id": 2,
+              "kind": "node",
+              "labels": [
+                "Folder"
+              ],
+              "properties": {
+                "depth": 1,
+                "name": "src",
+                "path": "team/src"
+              }
+            }
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "search": {
+      "kind": "table",
+      "text": "| file                   |\n|------------------------|\n| \"team/docs/roadmap.md\" |\n1 row",
+      "table": {
+        "columns": [
+          "file"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"team/docs/roadmap.md\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "file"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "file": "team/docs/roadmap.md"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "by-extension": {
+      "kind": "table",
+      "text": "| extension | files | bytes |\n|-----------|-------|-------|\n| \"md\"      | 2     | 90    |\n| \"bin\"     | 1     | 3     |\n| \"rs\"      | 1     | 37    |\n3 rows",
+      "table": {
+        "columns": [
+          "extension",
+          "files",
+          "bytes"
+        ],
+        "numeric": [
+          false,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "\"md\"",
+            "2",
+            "90"
+          ],
+          [
+            "\"bin\"",
+            "1",
+            "3"
+          ],
+          [
+            "\"rs\"",
+            "1",
+            "37"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "extension",
+          "files",
+          "bytes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "bytes": 90,
+            "extension": "md",
+            "files": 2
+          },
+          {
+            "bytes": 3,
+            "extension": "bin",
+            "files": 1
+          },
+          {
+            "bytes": 37,
+            "extension": "rs",
+            "files": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "under-folder": {
+      "kind": "table",
+      "text": "| file                   | levels |\n|------------------------|--------|\n| \"team/README.md\"       | 1      |\n| \"team/docs/roadmap.md\" | 2      |\n| \"team/logo.bin\"        | 1      |\n| \"team/src/main.rs\"     | 2      |\n4 rows",
+      "table": {
+        "columns": [
+          "file",
+          "levels"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"team/README.md\"",
+            "1"
+          ],
+          [
+            "\"team/docs/roadmap.md\"",
+            "2"
+          ],
+          [
+            "\"team/logo.bin\"",
+            "1"
+          ],
+          [
+            "\"team/src/main.rs\"",
+            "2"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "file",
+          "levels"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "file": "team/README.md",
+            "levels": 1
+          },
+          {
+            "file": "team/docs/roadmap.md",
+            "levels": 2
+          },
+          {
+            "file": "team/logo.bin",
+            "levels": 1
+          },
+          {
+            "file": "team/src/main.rs",
+            "levels": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "no-content": {
+      "kind": "table",
+      "text": "| file            | bytes |\n|-----------------|-------|\n| \"team/logo.bin\" | 3     |\n1 row",
+      "table": {
+        "columns": [
+          "file",
+          "bytes"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"team/logo.bin\"",
+            "3"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "file",
+          "bytes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "bytes": 3,
+            "file": "team/logo.bin"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

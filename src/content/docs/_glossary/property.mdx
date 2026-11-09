@@ -1,0 +1,19 @@
+---
+id: property
+term: "property"
+short: "A named value stored on a node or relationship, such as `name: 'Ada'`; values are scalars, temporal and spatial values, vectors, or lists of them."
+aliases: []
+context: cypher
+see: reference/cypher/types-and-values
+related: ["node", "relationship", "index", "constraint"]
+---
+
+Properties are a node's or relationship's key-value pairs: `{name: 'Ada', since: 2024}`. A value is a string, a number, a boolean, a temporal value such as a `date`, a `point`, a vector, or a list of one of these. A map is not a property value: storing one fails with `type error: InvalidPropertyType`.
+
+`SET n.role = 'maintainer'` sets one, `SET n += {…}` merges several, and setting a property to `null` removes it, so a property is either present with a value or absent. `keys(n)` lists the keys and `properties(n)` returns them as a map.
+
+```cypher
+CREATE (n:Person {name: 'Ada', age: 36}) SET n.age = null RETURN keys(n) AS keys
+```
+
+The statement returns `["name"]`. Indexes and constraints are declared on one label's or type's property.

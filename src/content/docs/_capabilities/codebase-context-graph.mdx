@@ -1,0 +1,39 @@
+---
+id: codebase-context-graph
+title: Codebase context graph
+order: 80
+problem: "Give a coding agent answers to multi-hop questions about a codebase, such as what replaced a design decision or what builds on a module."
+capability: "Crates, design records and their sections as one graph, IDF-weighted full-text `SEARCH` to find where to start, and bounded quantified path patterns to follow the links."
+intents:
+  - context graph for a coding agent
+  - which modules depend on this crate
+  - what replaced this design decision
+  - search a codebase's architecture records
+  - multi-hop questions about a repository
+surfaces: [cypher, agents, mcp]
+guides: [guides/agents/connect-over-mcp, guides/extensions/git-to-graph, guides/extensions/fs-to-graph]
+recipes: [codebase-context-graph]
+reference: [reference/cypher/search, reference/cypher/patterns#quantified-path-patterns]
+schema: |
+  flowchart TB
+    accTitle: Recommended data model for a codebase context graph: crates, design records and their sections
+    accDescr {
+      A Crate DEPENDS_ON other crates and CITES design records (Doc). Each Doc
+      HAS_CHUNK sections; a Chunk MENTIONS crates and CITES docs, and a Doc
+      SUPERSEDES an earlier one.
+    }
+    Crate(("<b>Crate</b><br/>name · description")) -- "<b>DEPENDS_ON</b>" --> Crate
+    Crate -- "<b>CITES</b>" --> Doc(("<b>Doc</b><br/>path · title · status"))
+    Doc -- "<b>HAS_CHUNK</b>" --> Chunk(("<b>Chunk</b><br/>id · heading · text"))
+    Chunk -- "<b>MENTIONS</b>" --> Crate
+    Chunk -- "<b>CITES</b>" --> Doc
+    Doc -- "<b>SUPERSEDES</b>" --> Doc
+    class Crate l1
+    class Doc l2
+    class Chunk l3
+verify: codebase-context-graph#storage
+---
+
+A coding agent asks what replaced a design decision, or which modules build on the parser. The paragraph that best matches the question rarely holds the answer; the links between documents and modules do. Text search alone returns the paragraph and stops there.
+
+The [codebase context graph recipe](/cookbook/codebase-context-graph/) loads a snapshot of a real repository, its crates and their dependencies, its README and its design records split into sections, into one graph. IDF-weighted full-text `SEARCH` picks where each question starts, and short, bounded graph hops bring in the rest: supersessions between records, dependencies between crates, and the citations that connect them. Served over MCP with `--read-only`, the same graph is a tool the agent queries while it works ([Connect over MCP](/docs/guides/agents/connect-over-mcp)).

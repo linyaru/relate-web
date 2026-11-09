@@ -6,7 +6,7 @@ import { resultHasGraph } from './lib/extract-graph';
 import { PREVIEW_QUERY, SEED_DISPLAY_SCRIPT, SEED_PARAMS, SEED_SCRIPT } from './lib/seed';
 import { canRunQuery } from './lib/query-eligibility';
 import { templates } from './lib/query-templates';
-import { fetchParams, type Recipe } from './lib/recipe-link';
+import { NOUNS, recipeParams, type Recipe } from './lib/recipe-link';
 import { SAMPLES, type Sample } from './lib/samples';
 import type { QueryStats } from './lib/wire';
 import { CliSidebar, type CliEntry } from './components/CliSidebar';
@@ -162,7 +162,7 @@ export function App() {
     const { title, recipe, replayed, step } = loaded;
     setLoadedRecipe(recipe);
     setCliHistory([
-      { kind: 'output', text: `Loaded ${replayed} step${replayed === 1 ? '' : 's'} of "${title}".` },
+      { kind: 'output', text: `Loaded ${replayed} ${replayed === 1 ? NOUNS[recipe.source].part : NOUNS[recipe.source].parts} of "${title}".` },
       { kind: 'output', text: '' },
     ]);
     setQuery(step?.code ?? '');
@@ -261,7 +261,7 @@ export function App() {
       let text: string | null = null;
       if (s.paramsPath) {
         try {
-          text = await fetchParams(recipe.slug, s.paramsPath);
+          text = await recipeParams(recipe, s.paramsPath);
         } catch (e) {
           setError(`Could not load ${s.paramsPath}: ${(e as Error).message}`);
           return;

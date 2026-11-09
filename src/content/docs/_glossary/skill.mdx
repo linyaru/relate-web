@@ -1,0 +1,15 @@
+---
+id: skill
+term: "skill"
+short: "The `SKILL.md` cheat sheet and reference files a coding agent reads before it uses relate; `relate skill install` writes them."
+aliases: []
+context: agents
+see: guides/agents/install-the-skill
+related: ["skill-bundle", "agent-harness", "agent-mode"]
+---
+
+A skill is a folder an agent harness loads on demand: a `SKILL.md` file whose short description tells the agent when to read it, and reference files it reads as the task needs them. The relate skill covers the CLI and its flags, output modes, exit codes, Cypher, the clients and the rules for driving relate safely.
+
+The skill ships inside the `relate` binary as the :term[skill bundle]{id=skill-bundle}, so `relate skill install` writes it with no network, into the skills folder of every agent it detects, or one agent with `--agent`. `relate skill check` compares an installed copy with the binary's bundle and exits 1 on any drift. The site also serves the files, with their SHA-256 sums in `/docs/docs-artifacts.json`.
+
+The word skill is reserved for this. An installable package that adds a `relate run` action is an :term[extension]{id=extension}.

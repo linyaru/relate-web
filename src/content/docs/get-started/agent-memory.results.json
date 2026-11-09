@@ -1,0 +1,241 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "memory": {
+      "kind": "table",
+      "text": "| key              |\n|------------------|\n| \"ada\"            |\n| \"grace\"          |\n| \"noor\"           |\n| \"opencypher-tck\" |\n| \"relate\"         |\n5 rows · nodes created: 5, relationships created: 5, properties set: 18, labels added: 10, indexes added: 2, constraints added: 3",
+      "table": {
+        "columns": [
+          "key"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"ada\""
+          ],
+          [
+            "\"grace\""
+          ],
+          [
+            "\"noor\""
+          ],
+          [
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"relate\""
+          ]
+        ],
+        "summary": "5 rows · nodes created: 5, relationships created: 5, properties set: 18, labels added: 10, indexes added: 2, constraints added: 3"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "key"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "key": "ada"
+          },
+          {
+            "key": "grace"
+          },
+          {
+            "key": "noor"
+          },
+          {
+            "key": "opencypher-tck"
+          },
+          {
+            "key": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "remember": {
+      "kind": "table",
+      "text": "| episode | fact                                         | replaced |\n|---------|----------------------------------------------|----------|\n| \"e1\"    | \"Grace reviews each relate release.\"         | 0        |\n| \"e2\"    | \"Noor triages new relate issues on Mondays.\" | 0        |\n| \"e3\"    | \"Ada reviews each relate release.\"           | 1        |\n3 rows · nodes created: 6, relationships created: 16, properties set: 35, labels added: 6",
+      "table": {
+        "columns": [
+          "episode",
+          "fact",
+          "replaced"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"e1\"",
+            "\"Grace reviews each relate release.\"",
+            "0"
+          ],
+          [
+            "\"e2\"",
+            "\"Noor triages new relate issues on Mondays.\"",
+            "0"
+          ],
+          [
+            "\"e3\"",
+            "\"Ada reviews each relate release.\"",
+            "1"
+          ]
+        ],
+        "summary": "3 rows · nodes created: 6, relationships created: 16, properties set: 35, labels added: 6"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "episode",
+          "fact",
+          "replaced"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "episode": "e1",
+            "fact": "Grace reviews each relate release.",
+            "replaced": 0
+          },
+          {
+            "episode": "e2",
+            "fact": "Noor triages new relate issues on Mondays.",
+            "replaced": 0
+          },
+          {
+            "episode": "e3",
+            "fact": "Ada reviews each relate release.",
+            "replaced": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 6,
+          "labels_removed": 0,
+          "nodes_created": 6,
+          "nodes_deleted": 0,
+          "properties_set": 35,
+          "relationships_created": 16,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "recall": {
+      "kind": "table",
+      "text": "| memory                                       | score  | evidence                                            | replaced                               |\n|----------------------------------------------|--------|-----------------------------------------------------|----------------------------------------|\n| \"Ada reviews each relate release.\"           | 0.999  | \"read_file CODEOWNERS: release/ @ada\"               | [\"Grace reviews each relate release.\"] |\n| \"Noor triages new relate issues on Mondays.\" | 0.6178 | \"Noor goes through new relate issues every Monday.\" | []                                     |\n2 rows",
+      "table": {
+        "columns": [
+          "memory",
+          "score",
+          "evidence",
+          "replaced"
+        ],
+        "numeric": [
+          false,
+          true,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada reviews each relate release.\"",
+            "0.999",
+            "\"read_file CODEOWNERS: release/ @ada\"",
+            "[\"Grace reviews each relate release.\"]"
+          ],
+          [
+            "\"Noor triages new relate issues on Mondays.\"",
+            "0.6178",
+            "\"Noor goes through new relate issues every Monday.\"",
+            "[]"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "memory",
+          "score",
+          "evidence",
+          "replaced"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "evidence": "read_file CODEOWNERS: release/ @ada",
+            "memory": "Ada reviews each relate release.",
+            "replaced": [
+              "Grace reviews each relate release."
+            ],
+            "score": 0.999
+          },
+          {
+            "evidence": "Noor goes through new relate issues every Monday.",
+            "memory": "Noor triages new relate issues on Mondays.",
+            "replaced": [],
+            "score": 0.6178
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

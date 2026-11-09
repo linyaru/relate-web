@@ -1,0 +1,23 @@
+---
+id: offline-and-sandboxed-use
+title: Offline and sandboxed use
+order: 130
+problem: "Run a graph database where an agent works isolated, with no network after setup and nothing sent anywhere."
+capability: "A single binary that needs no network once installed with usage metrics off (`DO_NOT_TRACK=1`), stores that are files in the workspace, and network access visible on the command line."
+intents:
+  - graph database in an agent sandbox
+  - run without network access
+  - air-gapped graph database
+  - use relate in Docker with no egress
+  - turn off telemetry for an agent
+surfaces: [cli, docker, agents]
+guides: [guides/agents/run-in-a-sandbox, guides/agents/agent-safety]
+recipes: []
+reference: [reference/privacy-and-telemetry, reference/security, reference/cli/telemetry, reference/cli/upgrade, reference/cli/extension]
+schema: null
+verify: guides/agents/run-in-a-sandbox#step-1
+---
+
+Agents increasingly run in sandboxes: Claude Code's sandbox, Codex, Cursor cloud agents, E2B, Vercel Sandbox, Daytona or a plain container, each limiting what a command may write and which hosts it may reach. A database that needs a server process or a network connection does not fit there.
+
+Once relate is installed and usage metrics are off, it needs no network, so most sandboxes need egress only while the image is built. `DO_NOT_TRACK=1` sends nothing and prints no first-run notice. A store is a file in the workspace, such as `--database ./work.rl`, that can be committed with the change and opened `--read-only` for reads. The commands and flags that do reach the network, `--load` from a URL, `--fetch-params`, `pull`, `push`, `upgrade` and extension installs, each appear on the command line the agent runs. The guide [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox) lists the hosts to allow and the setup for each harness. The step that verifies this entry shows `relate telemetry status` reporting usage metrics disabled by `DO_NOT_TRACK`; that no network is needed after installation rests on the sandbox guide and the privacy reference, not on a recorded run.

@@ -1,0 +1,32 @@
+{
+  "name": "relate-docs-mcp",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The hosted docs MCP server for relate, the embedded Cypher graph database (relatedb.ai), served at https://relatedb.ai/mcp.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "bundle": "node scripts/bundle.ts",
+    "dev": "wrangler dev --local",
+    "check": "tsc -p tsconfig.json",
+    "dry-run": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "deploy": "wrangler deploy",
+    "coldstart": "node scripts/coldstart.ts",
+    "test": "node --test \"src/*.test.ts\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "agents": "0.33.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261108.1",
+    "@types/node": "24.19.2",
+    "github-slugger": "2.0.0",
+    "typescript": "5.9.3",
+    "wrangler": "4.158.0",
+    "yaml": "2.9.1"
+  }
+}

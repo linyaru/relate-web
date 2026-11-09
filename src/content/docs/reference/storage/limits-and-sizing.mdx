@@ -1,0 +1,158 @@
+---
+title: Limits and sizing
+description: Every limit relate enforces on graph size, commits, values, statements and parameters, with its default, the flag that sets it, and the error it raises.
+order: 20
+surfaces: [cli, node, cypher]
+related: [reference/errors, reference/storage/formats, reference/storage/wal-and-checkpoints, guides/operate/sizing-and-memory, reference/limitations]
+---
+
+relate holds the whole graph of an open :term[store]{id=store} in memory, so the first limit is the machine's memory. On top of that, relate enforces the limits on this page. Most protect the process from one statement exhausting memory or the stack, and each refusal names what it protected and how to clear it. The graph's size has no limit unless one is set.
+
+## Synopsis
+
+```text
+relate [--logical-graph-size-limit <size>] [--expression-memory-limit <size>|none]
+       [--concurrent-logical-workspace-limit <size>] [--max-traversal-depth <n>]
+       [--checkpoint-interval-secs <n>] [--database <path> [--read-only]] [<statement>]
+```
+
+Each flag has an environment variable that sets its default; the flag wins over the variable. A `<size>` is a whole number, optionally followed by a unit:
+
+| Unit | Bytes |
+| --- | --- |
+| No unit, `b`, `bytes` | 1 |
+| `mb` | 1,000,000 |
+| `mib` | 1,048,576 |
+| `gb` | 1,000,000,000 |
+| `gib` | 1,073,741,824 |
+
+Units are case-insensitive and may follow the number with or without a space. Any other unit, `kb` included, is a usage error (:term[exit code]{id=exit-code} 2).
+
+## Limits you can set
+
+| Limit | Default | Set with | Range | Met as |
+| --- | --- | --- | --- | --- |
+| Live graph and index size, in logical bytes (not process memory) | Unlimited | `--logical-graph-size-limit`, `RELATE_LOGICAL_GRAPH_SIZE_LIMIT` | A size; `0` is unlimited | [`capacity exceeded: used=… limit=…`](/docs/reference/errors#engine-graph-size-cap), exit code 1 |
+| One value an expression builds: a list, string or map from `range`, concatenation, `collect`, a comprehension or an `UNWIND` | 256 MiB | `--expression-memory-limit`, `RELATE_EXPRESSION_MEMORY_LIMIT` | A size; `none` or `0` turns the limit off | [`This statement tried to build a single value of <size>. …`](/docs/reference/errors#engine-expression-memory-cap), exit code 1 |
+| Workspace shared by the statements running at once | Off | `--concurrent-logical-workspace-limit`, `RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT` | A positive size; `0` is a usage error | `resource limit exceeded: concurrent-logical-workspace-limit limit=<bytes>`, exit code 1 |
+| Explicit upper bound of a variable-length path (`*1..N`, `{1,N}`) | 500 hops | `--max-traversal-depth`, `RELATE_MAX_TRAVERSAL_DEPTH` | 1 to 2000 | [`syntax error: TraversalDepthExceeded: …`](/docs/reference/errors#engine-traversal-depth-exceeded), exit code 6 |
+
+The graph size limit refuses only writes that grow the graph, when they reach the WAL. `DELETE` and a `SET` that shrinks a value still run, and opening a store and replaying its WAL always succeed, even over the limit.
+
+The expression limit applies to each value on its own, not to a statement's total, so a long statement that builds many small values never accumulates against it.
+
+The traversal depth limit applies to an explicit upper bound. A path pattern with no upper bound (`*`, `*1..`) is not checked against it, and neither is `shortestPath`.
+
+## Fixed limits
+
+These limits have no flag or environment variable.
+
+| Limit | Value | Met as |
+| --- | --- | --- |
+| One commit's record in the :term[write-ahead log]{id=wal} (WAL) | 64 MiB (67,108,864 bytes) | [`This statement tried to commit a single WAL record of at least <size>. …`](/docs/reference/errors#engine-wal-payload-cap), exit code 1; nothing is written |
+| Statement text | 4 MiB (4,194,304 bytes) | `syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`, exit code 6 |
+| Nesting of a statement's expressions and clauses | 500 levels | `syntax error: parse error: maximum nesting depth of 500 exceeded`, exit code 6 |
+| Nesting of a list or map a statement builds at run time | 500 levels | `ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level (security limit).`, exit code 1 |
+| Evaluation passes of nested subqueries, `EXISTS` and `FOREACH` in one statement | 100,000 | [`NestedEvaluationBudgetExceeded: …`](/docs/reference/errors#engine-nested-evaluation-budget) |
+| One file read by `LOAD CSV` | 8 MiB (8,388,608 bytes) | [`LOAD CSV file exceeds byte limit`](/docs/reference/errors#cli-load-csv-byte-limit), exit code 1 |
+| A store downloaded by `--load <url>` | 1 GiB, and 300 seconds | A message containing `the remote database exceeded the 1 GiB cap` |
+| One source fetched by `--fetch-params` | 64 MiB, and 60 seconds | A message containing `source exceeded the 64 MiB cap` |
+| Graphs in a store | 3 fixed namespaces: `neo4j`, `system`, `system_ontologies`; a statement runs against one | [`semantic error: DatabaseNotFound: Graph not found: <name>`](/docs/reference/errors#engine-database-not-found), exit code 6 |
+
+Every property value is subject to two limits on this page: the expression limit while a statement builds it, and the 64 MiB WAL record limit when it is committed, together with everything else in the same commit. A commit over 64 MiB is refused whole; splitting the write into smaller transactions clears it.
+
+## Parameters in the Node.js client
+
+The Node.js client passes :term[parameters]{id=parameter} to the engine through a bounded builder:
+
+| Limit | Value | Met as |
+| --- | --- | --- |
+| Entries in one list or map | 100,000 | `parameter container exceeds the entry limit of 100000` |
+| Length of one parameter name | 4,096 bytes | `parameter name exceeds the 4096-byte limit` |
+| All parameters of one statement | 16 MiB (16,777,216 bytes) | `string parameter exceeds the builder's total byte budget of 16777216` (for a string) |
+
+This program trips each one:
+
+```js run name=node-parameter-limits title="limits.cjs"
+const { Database } = require("@relate/relate");
+
+const conn = Database.open(":memory:").connect();
+const cases = {
+  "100,001 list entries": { xs: Array.from({ length: 100001 }, (_, i) => i) },
+  "a 4,097-byte name": { ["n".repeat(4097)]: 1 },
+  "a 17 MiB string": { s: "a".repeat(17 * 1024 * 1024) },
+};
+for (const [what, params] of Object.entries(cases)) {
+  try {
+    conn.query("RETURN 1 AS ok", params);
+    console.log(`${what}: accepted`);
+  } catch (e) {
+    console.log(`${what}: ${e.message}`);
+  }
+}
+```
+
+## Sizing
+
+| What | Size |
+| --- | --- |
+| Memory while a store is open | The whole graph and its indexes, held in memory; relate has no buffer pool and does not page to disk. [Size a store and its memory](/docs/guides/operate/sizing-and-memory) has a worked sizing |
+| Snapshot on disk | Depends on the codec; the [storage formats reference](/docs/reference/storage/formats#size-on-disk) has measured sizes |
+| WAL on disk | The commits since the last :term[checkpoint]{id=checkpoint}. The current WAL segment closes, and a checkpoint runs, at 64 MiB, at 10,000 commits, or when the checkpoint timer fires ([when a checkpoint runs](/docs/reference/storage/wal-and-checkpoints#when-a-checkpoint-runs)) |
+| Checkpoint timer | 300 seconds by default; `--checkpoint-interval-secs`, `RELATE_CHECKPOINT_INTERVAL_SECS`; `0` turns off the timer only; `relate serve` takes only `RELATE_CHECKPOINT_INTERVAL_SECS` |
+
+## Examples
+
+A graph size limit of `1mb` is 1,000,000 bytes, and `1mib` is 1,048,576; the limit appears in the message:
+
+```bash verify
+relate --mode envelope --logical-graph-size-limit 1mb "UNWIND range(1, 20000) AS i CREATE (:Item {i: i})"
+relate --mode envelope --logical-graph-size-limit 1mib "UNWIND range(1, 20000) AS i CREATE (:Item {i: i})"
+```
+
+The output alternates stderr and stdout:
+
+```text
+capacity exceeded: used=258 limit=1000000
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=258 limit=1000000","retryable":false}}
+capacity exceeded: used=258 limit=1048576
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=258 limit=1048576","retryable":false}}
+```
+
+`kb` is not a unit:
+
+```bash verify
+relate --logical-graph-size-limit 64kb "RETURN 1 AS ok"
+```
+
+```text
+Error: invalid --logical-graph-size-limit: semantic error: invalid memory limit unit 'kb'; use bytes, mb, mib, gb, or gib
+```
+
+A single string property of 67,108,864 characters makes a commit record over 64 MiB, so the commit is refused:
+
+```bash verify
+relate --mode envelope "WITH reduce(s = 'a', i IN range(1, 26) | s + s) AS s CREATE (:Blob {s: s})"
+```
+
+```text
+This statement tried to commit a single WAL record of at least 64 MB. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is 64 MB; commit the data in smaller transactions.
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"This statement tried to commit a single WAL record of at least 64 MB. This is a safety limit protecting against memory exhaustion — the per-record WAL payload cap is 64 MB; commit the data in smaller transactions.","retryable":false}}
+```
+
+The message writes the 64 MiB limit as `64 MB`. A string of half that length commits:
+
+```bash verify
+relate --mode envelope "WITH reduce(s = 'a', i IN range(1, 25) | s + s) AS s CREATE (:Blob {s: s}) RETURN size(s) AS characters"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["characters"],"notifications":[],"rows":[{"characters":33554432}],"truncated":false}
+```
+
+## See also
+
+- [Errors](/docs/reference/errors): every message on this page with its cause, remedy, and exit code.
+- [Storage formats](/docs/reference/storage/formats): the files each layout writes, with measured sizes.
+- [Size a store and its memory](/docs/guides/operate/sizing-and-memory): how much memory a graph needs.
+- [Limitations](/docs/reference/limitations): what relate does not do, next to what to use instead.

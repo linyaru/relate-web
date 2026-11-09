@@ -1,0 +1,15 @@
+---
+id: agent-harness
+term: "agent harness"
+short: "The program that runs a model and executes the commands it chooses, such as Claude Code, Codex or Cursor; relate detects one from its environment variables."
+aliases: []
+context: agents
+see: reference/cli/agent-mode
+related: ["agent-mode", "row-cap", "skill"]
+---
+
+An agent harness is the tool around the model: it gives the model a shell or tools, runs what the model asks for, and feeds the output back. The docs say agent harness, or agent, for that tool, and keep "model" for the model itself.
+
+relate detects a harness from the environment the CLI runs in. Any of these variables set to a non-empty value counts, whatever the value: `AI_AGENT`, `AGENT`, `CLAUDECODE`, `CLAUDE_CODE`, `COPILOT_AGENT`, `COPILOT_CLI`, `COPILOT_AGENT_SESSION_ID`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `CURSOR_AGENT`, `GEMINI_CLI`, `OPENCODE`, `AUGMENT_AGENT`, `GOOSE_PROVIDER` and `REPL_ID`. So do `EDITOR` containing `devin`, `TERM_PROGRAM` containing `kiro`, and `PATH` containing `.pi/agent`, matched in any case.
+
+Detection turns on :term[agent mode]{id=agent-mode} only when stdout is not a terminal. `relate skill install` uses its own list of agents to decide where to write the skill.

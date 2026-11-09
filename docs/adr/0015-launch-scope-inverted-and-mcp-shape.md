@@ -82,3 +82,16 @@ security reviewer) agreed on four structural findings:
   `capabilities.json` and `discover_capabilities` in phase 2; the
   `agent-capabilities.json` manifest and per-result content hashes are
   dropped.
+
+## Later references
+
+- Amended by ADR-0031 (phase 2 constructs): `<Matrix />` is a sixth JSX
+  component, generated from data; the cap is six, and `<Agentic>` is the
+  `::::agentic` directive.
+- ADR-0028 builds the committed embeddings artifact that hybrid
+  `search_docs` waits for.
+- ADR-0033 builds the phase 2 surface: `validate_cypher` and
+  `discover_capabilities` bring the tools to the ceiling of five, with the
+  `text-to-cypher` prompt, the capability, example and task-skill
+  resources, and hybrid `search_docs`; `query_docs_graph` stays gated and
+  there is no `run_recipe`.

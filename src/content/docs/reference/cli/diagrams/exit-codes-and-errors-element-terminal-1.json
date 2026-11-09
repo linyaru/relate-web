@@ -1,0 +1,17 @@
+{
+  "format": 2,
+  "element": "terminal",
+  "hash": "69b26e8049e29a0ecfe0ff1313776e99750b03677477175107e68d12233dc279",
+  "inputs": [
+    "src/content/docs/_data/cli.json",
+    "src/content/docs/_data/errors.json",
+    "src/lib/docs/elements/_terminal-facts.json"
+  ],
+  "live": "the statement runs in your browser on an empty read-only database, as `relate --read-only` opens one, and the pane shows what relate prints in the mode you pick, with the exit code and, under \"Run as an agent harness\", the row cap; the statement can be edited or swapped for a preset.",
+  "engine": true,
+  "text": "The statement as relate 0.16.1 prints it in four of its output modes, rendered from this page's recorded result by the terminal's renderers, which match the relate 0.16.1 binary byte for byte on the recorded runs. Exit code 6, as relate 0.16.1 returns it.\n\nrelate classes this failure as `validation_error`, kind `type`, retryable `false` ([engine-division-by-zero](/docs/reference/errors#engine-division-by-zero)).\n\n`--mode table` prints one line on stderr:\n\n```bash\nrelate --read-only --mode table 'RETURN 1/0 AS x'\n```\n\n```text\ntype error: / by zero\n```\n\n`--mode envelope` prints one line on stderr, then one on stdout:\n\n```bash\nrelate --read-only --mode envelope 'RETURN 1/0 AS x'\n```\n\n```text\ntype error: / by zero\n{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: / by zero\",\"retryable\":false}}\n```\n\n`--mode jsonl` prints one line on stderr, then one on stdout:\n\n```bash\nrelate --read-only --mode jsonl 'RETURN 1/0 AS x'\n```\n\n```text\ntype error: / by zero\n{\"error\":{\"code\":\"validation_error\",\"exit_code\":6,\"kind\":\"type\",\"message\":\"type error: / by zero\",\"retryable\":false}}\n```\n\n`--mode toon` prints one line on stderr:\n\n```bash\nrelate --read-only --mode toon 'RETURN 1/0 AS x'\n```\n\n```text\ntype error: / by zero\n```",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "a323b006ce5f9765aec3add409c1d7e4498eaf6329427b230be791cdb17d4aa6"
+}

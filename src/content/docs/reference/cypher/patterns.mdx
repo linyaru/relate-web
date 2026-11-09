@@ -1,0 +1,314 @@
+---
+title: Patterns
+description: Node and relationship patterns, label expressions, variable-length and quantified paths, path selectors and modes, and the hop bound limit in relate.
+order: 80
+surfaces: [cypher, cli]
+related: [reference/cypher/reading-clauses, reference/cypher/writing-clauses, reference/cli/flags#max-traversal-depth, reference/limitations, concepts/cypher-dialect, concepts/problems-relate-solves#dependency-analysis, concepts/problems-relate-solves#codebase-context-graph]
+---
+
+A pattern is the shape a statement looks for or creates. A :term[node]{id=node} pattern sits in parentheses, a :term[relationship]{id=relationship} pattern in brackets between two nodes, and a chain of them is a :term[path]{id=path} pattern. `MATCH`, `OPTIONAL MATCH`, `MERGE`, `CREATE`, pattern predicates and `EXISTS` and `COUNT` subqueries all take patterns; `CREATE` and `MERGE` accept only fixed-length ones. relate accepts the GQL forms of Cypher 25: label expressions, quantified path patterns, path selectors and path modes, with no preview opt-in.
+
+## Synopsis
+
+```text
+Node:          (<variable> <label expression> {<key>: <value>, …} WHERE <predicate>)
+Relationship:  -[<variable> <type expression> <length> {<key>: <value>, …} WHERE <predicate>]->
+               <-[…]-   -[…]-   <-[…]->   -->   <--   --
+Length:        *   *<n>   *<n>..<m>   *<n>..   *..<m>
+Quantified:    (<path pattern>)<quantifier>     -[…]-><quantifier>
+Quantifier:    {<n>}   {<n>,<m>}   {<n>,}   {,<m>}   +   *
+Path:          <path variable> = [<selector>] [<path mode>] <path pattern>
+Match mode:    MATCH [DIFFERENT RELATIONSHIPS | REPEATABLE ELEMENTS] <path pattern>, …
+Selector:      ANY SHORTEST | ALL SHORTEST | SHORTEST <k> | SHORTEST <k> GROUPS | ANY | ANY <k>
+Path mode:     WALK | TRAIL | ACYCLIC
+Functions:     shortestPath(<pattern>)   allShortestPaths(<pattern>)
+```
+
+Every part inside the parentheses and brackets is optional.
+
+## Node and relationship patterns
+
+| Part | Node | Relationship |
+| --- | --- | --- |
+| Variable | `(p)` binds the node to `p` | `[r]` binds the relationship to `r`; with a length, `r` is a list |
+| Labels or type | `(p:Person)`, or a [label expression](#label-expressions) | `[:WORKS_ON]`, or a [type expression](#label-expressions) |
+| Property map | `(p {name: 'Ada'})`: equality on each key | `[w {since: 2024}]`: the same |
+| Inline `WHERE` | `(p:Person WHERE p.role = 'engineer')` | `[w:WORKS_ON WHERE w.since < 2024]` |
+| Parameters | `(p {name: $name})` | `[w {since: $year}]` |
+
+| Direction | Matches |
+| --- | --- |
+| `-[…]->`, `-->` | Left to right |
+| `<-[…]-`, `<--` | Right to left |
+| `-[…]-`, `--`, `<-[…]->`, `<-->` | Either direction |
+
+In `CREATE`, a relationship needs a direction and exactly one type ([writing clauses](/docs/reference/cypher/writing-clauses#errors)). In `CREATE` and `MERGE`, a variable-length or quantified relationship fails with `syntax error: CreatingVarLength: variable length relationships cannot be used in CREATE`; the `MERGE` form names `MERGE`.
+
+### Uniqueness
+
+Within one `MATCH`, a relationship appears at most once per row: two relationship patterns never bind the same relationship. This is the `DIFFERENT RELATIONSHIPS` match mode, the default. Separate `MATCH` clauses do not share the rule. `REPEATABLE ELEMENTS` lets one relationship appear several times in a row; it needs every quantifier bounded, otherwise `syntax error: parse error: UnsafeRepeatableElements: REPEATABLE ELEMENTS cannot be combined with an unbounded quantified path pattern`.
+
+## Label expressions
+
+A label expression tests a node's :term[labels]{id=label}; the same operators on a relationship test its type.
+
+| Form | Node matches when | On a relationship |
+| --- | --- | --- |
+| `:A:B` | It has `A` and `B` | — |
+| `:A&B` | It has `A` and `B` | Never matches: a relationship has one type |
+| `:A\|B` | It has `A` or `B` | The type is `A` or `B` |
+| `:!A` | It does not have `A` | The type is not `A` |
+| `:%` | It has at least one label | Any type |
+| `:!%` | It has no label | — |
+| `:(A\|B)&!C` | Parentheses group | The same |
+| `IS A`, `IS A\|B` | The same as `:` | The same |
+| `:$(<expression>)`, `:$all(<expression>)` | It has every label the string or list names | The type is the one named |
+| `:$any(<expression>)` | It has any label the list names | The type is one of those named |
+| `n:A\|B`, `n IS LABELED A` in `WHERE` | The same test as a predicate | — |
+
+| Mixing rule | Result |
+| --- | --- |
+| `:A:B` and a symbol (`\|`, `&`, `!`, `%`) in one label expression | `syntax error: parse error: InvalidLabelExpression: cannot mix colon-conjunction with label expression symbols`; with `RELATE_PREVIEW=mixed-label-syntax` it still fails, and the message ends `… within one label expression` |
+| `:A:B` in one pattern and a symbol in another pattern of the same clause | `syntax error: parse error: InvalidLabelExpression: mixing label expression symbols (\|, &, !, and %) with colon (:) between labels is not allowed`; `RELATE_PREVIEW=mixed-label-syntax` allows it |
+| `IS` and `:A:B` in one clause | `syntax error: parse error: MixedIsAndColonConjunction: cannot mix the IS introducer with colon-conjunction within the same clause`; `RELATE_PREVIEW=mixed-label-syntax` allows it |
+
+## Variable-length relationships
+
+The classic form puts a length after the type.
+
+| Length | Hops |
+| --- | --- |
+| `*` | 1 or more |
+| `*<n>` | Exactly `n` |
+| `*<n>..<m>` | `n` to `m` |
+| `*<n>..` | `n` or more |
+| `*..<m>` | 1 to `m` |
+| `*0..<m>` | 0 to `m`: the start node itself is a match |
+
+The relationship variable of a variable-length pattern is a list of relationships. A property map applies to every relationship in the list.
+
+## Quantified path patterns
+
+A :term[quantified path pattern]{id=quantified-path-pattern} repeats a parenthesized pattern, `((a)-[r:KNOWS]->(b)){1,3}`, or a single relationship, `-[:KNOWS]->{1,3}`.
+
+| Quantifier | Repetitions |
+| --- | --- |
+| `{<n>}` | Exactly `n` |
+| `{<n>,<m>}` | `n` to `m` |
+| `{<n>,}` | `n` or more |
+| `{,<m>}` | 0 to `m` |
+| `+` | 1 or more |
+| `*` | 0 or more |
+
+Variables inside the repeated part are group variables: after the match, each is a list with one entry per repetition. An inline `WHERE` inside the repeated part applies to every repetition.
+
+## Path selectors and modes
+
+A selector keeps some of the paths between each pair of end nodes; a mode restricts what one path may repeat.
+
+| Selector | Keeps, per pair of end nodes |
+| --- | --- |
+| `ANY SHORTEST` | One shortest path |
+| `ALL SHORTEST` | Every path of the shortest length |
+| `SHORTEST <k>` | The `k` shortest paths |
+| `SHORTEST <k> GROUPS` | Every path in each of the `k` shortest lengths |
+| `ANY` | One path |
+| `ANY <k>` | `k` paths |
+
+| Mode | A path may not repeat |
+| --- | --- |
+| `WALK` | Anything beyond what the match mode forbids |
+| `TRAIL` | A relationship |
+| `ACYCLIC` | A node, so it never returns to its start |
+
+`shortestPath(<pattern>)` and `allShortestPaths(<pattern>)` are the older forms. In `MATCH p = shortestPath(…)` with no upper bound, the search has no hop cap. As an expression, `shortestPath(…)` with no upper bound finds paths of up to 32 hops and returns `null` for a longer one.
+
+## Path variables
+
+`p = <pattern>` binds the matched path. `nodes(p)` and `relationships(p)` return its parts as lists and `length(p)` its number of relationships; the [functions](/docs/reference/cypher/functions) page has the rest.
+
+## Hop bound limit
+
+An explicit upper bound greater than the traversal-depth limit fails before the statement runs. The limit is a safety limit that protects the process stack, not a database limit.
+
+| Setting | Value |
+| --- | --- |
+| Default limit | 500 hops |
+| Applies to | An explicit upper bound: `*1..<n>`, `*..<n>`, `*<n>`, `{1,<n>}`, `{<n>}` |
+| Exempt | An unbounded upper bound (`*`, `*1..`, `+`, `{1,}`), including inside `shortestPath(…)` and `allShortestPaths(…)`. An explicit bound inside them, or under a `SHORTEST` selector, is checked like any other |
+| Raised by | `--max-traversal-depth <n>` or `RELATE_MAX_TRAVERSAL_DEPTH`, from 1 to 2000 ([flags](/docs/reference/cli/flags#max-traversal-depth)) |
+| Over the limit | `syntax error: TraversalDepthExceeded: This query allows paths up to <n> hops. This is a safety limit protecting against excessive traversal (not a database limit) — lower the path bound, or raise it with --max-traversal-depth (up to 2000).`, where `<n>` is the statement's own bound; CLI exit code 6 |
+| Flag out of range | `Error: invalid --max-traversal-depth: must be between 1 and 2000` (exit code 2) |
+
+## Examples
+
+The cells run in page order on one in-memory store, starting from the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+Four label expressions, counted:
+
+```cypher run name=label-expressions
+RETURN COUNT { (n:Person|Project) } AS personOrProject,
+       COUNT { (n:!Person) } AS notPerson,
+       COUNT { (n:%) } AS anyLabel,
+       COUNT { (n IS Person) } AS isPerson
+```
+
+A type expression: every relationship from Grace except `KNOWS`:
+
+```cypher run name=type-expression
+MATCH (:Person {name: 'Grace'})-[r:!KNOWS]->(x)
+RETURN type(r) AS type, x.name AS target ORDER BY target
+```
+
+Labels from a parameter; `$any` matches either label:
+
+```json data=labels
+{"labels": ["Person", "Project"]}
+```
+
+```cypher run name=dynamic-labels params=labels
+MATCH (n:$any($labels)) RETURN count(n) AS nodes
+```
+
+Colon conjunction and a symbol in one label expression:
+
+```cypher run name=mixed-labels expect=error
+MATCH (n:Person:Project|Bot) RETURN count(n) AS nodes
+```
+
+Inline `WHERE` on a node and on a relationship:
+
+```cypher run name=inline-where
+MATCH (p:Person WHERE p.role = 'engineer')-[w:WORKS_ON WHERE w.since < 2024]->(r:Project)
+RETURN p.name AS person, r.name AS project ORDER BY project
+```
+
+A variable-length relationship binds a list:
+
+```cypher run name=variable-length
+MATCH (:Person {name: 'Ada'})-[r:KNOWS|WORKS_ON*1..2]->(x)
+RETURN [rel IN r | type(rel)] AS types, x.name AS reached
+ORDER BY size(types), reached
+```
+
+A variable-length pattern follows a hierarchy to any depth. This cell writes a small package tree and returns every dependency path from `app`. The graph view draws the result in layers, `app` at the top and each package one layer below the deepest package that depends on it; its Layout menu switches to the force and circular layouts:
+
+```cypher run name=dependency-tree layout=hierarchical
+CREATE (app:Package {name: 'app'}),
+       (cli:Package {name: 'cli'}),
+       (engine:Package {name: 'engine'}),
+       (parser:Package {name: 'parser'}),
+       (storage:Package {name: 'storage'}),
+       (lexer:Package {name: 'lexer'}),
+       (app)-[:DEPENDS_ON]->(cli),
+       (app)-[:DEPENDS_ON]->(engine),
+       (cli)-[:DEPENDS_ON]->(parser),
+       (engine)-[:DEPENDS_ON]->(parser),
+       (engine)-[:DEPENDS_ON]->(storage),
+       (parser)-[:DEPENDS_ON]->(lexer);
+MATCH p = (:Package {name: 'app'})-[:DEPENDS_ON*]->(:Package)
+RETURN p
+```
+
+The seven rows are seven paths. `parser` and `lexer` are reached two ways, through `cli` and through `engine`, so they appear in more than one path but once in the graph.
+
+Group variables of a quantified path pattern are lists, one entry per repetition:
+
+```cypher run name=group-variables
+MATCH (:Person {name: 'Ada'}) ((a)-[r]->(b)){2} (end)
+RETURN [x IN a | x.name] AS from, [rel IN r | type(rel)] AS via, end.name AS reached
+ORDER BY reached
+```
+
+The two shortest routes from Noor to Grace, in either direction:
+
+```cypher run name=shortest
+MATCH p = SHORTEST 2 (:Person {name: 'Noor'})-[]-+(:Person {name: 'Grace'})
+RETURN [n IN nodes(p) | n.name] AS route, length(p) AS hops
+ORDER BY hops
+```
+
+A path variable binds what the pattern matched. This cell returns the path from Ada through Grace to `opencypher-tck` as `p`, and the people graph beside it as `people`. The graph view draws the path's three nodes and two relationships on top and dims the rest, and its legend names the path:
+
+```cypher run name=named-path highlight=path
+MATCH p = (:Person {name: 'Ada'})-[:KNOWS]->(:Person)-[:WORKS_ON]->(:Project {name: 'opencypher-tck'})
+MATCH g = (:Person)-->()
+RETURN p, collect(g) AS people
+```
+
+`shortestPath` binds one shortest path. From Noor to Grace in either direction it runs through `relate`, two hops; the route through Ada takes three:
+
+```cypher run name=shortest-path highlight=path
+MATCH p = shortestPath((:Person {name: 'Noor'})-[*]-(:Person {name: 'Grace'}))
+MATCH g = (:Person)-->()
+RETURN p, length(p) AS hops, collect(g) AS people
+```
+
+Only a column of type `PATH` is highlighted: `people` is a list of paths too, and stays dimmed. Without a `PATH` column, every path in the rows is highlighted. Every graph view with a path in its result has the Highlight path button; these two cells start with it on.
+
+`TRAIL` allows a path back to Ada around the Ada, Grace and relate triangle; `ACYCLIC` does not:
+
+```cypher run name=path-modes
+RETURN COUNT { MATCH p = TRAIL (a:Person {name: 'Ada'})-[]-+(a) RETURN p } AS trail,
+       COUNT { MATCH p = ACYCLIC (a:Person {name: 'Ada'})-[]-+(a) RETURN p } AS acyclic
+```
+
+`REPEATABLE ELEMENTS` lets a path reuse a relationship, so more paths of up to four hops connect Noor and Grace:
+
+```cypher run name=match-modes
+RETURN COUNT { MATCH p = (:Person {name: 'Noor'})-[]-{1,4}(:Person {name: 'Grace'}) RETURN p } AS differentRelationships,
+       COUNT { MATCH REPEATABLE ELEMENTS p = (:Person {name: 'Noor'})-[]-{1,4}(:Person {name: 'Grace'}) RETURN p } AS repeatableElements
+```
+
+An explicit bound over the default limit of 500 hops fails before the statement runs:
+
+```cypher run name=hop-bound expect=error
+MATCH (:Person)-[:KNOWS*1..1000]->(b) RETURN count(b) AS reached
+```
+
+A line of 40 stops shows the two unbounded cases: `MATCH` walks all 39 hops, and the `shortestPath` expression stops at 32. This cell writes 40 `Stop` nodes and the 39 `NEXT` relationships between them:
+
+```cypher run name=unbounded
+UNWIND range(1, 40) AS i CREATE (:Stop {i: i});
+MATCH (a:Stop), (b:Stop) WHERE b.i = a.i + 1 CREATE (a)-[:NEXT]->(b);
+MATCH (first:Stop {i: 1})
+OPTIONAL MATCH p = (first)-[:NEXT*]->(:Stop)
+RETURN max(length(p)) AS longestWalk,
+       length(shortestPath((first)-[:NEXT*]->(:Stop {i: 33}))) AS hopsTo33,
+       length(shortestPath((first)-[:NEXT*]->(:Stop {i: 34}))) AS hopsTo34
+```
+
+On the CLI, `--max-traversal-depth` raises the limit for one run. The store is in memory and empty, so no path matches:
+
+```bash verify
+relate --max-traversal-depth 1000 --mode table "MATCH (:Person)-[:KNOWS*1..1000]->(b) RETURN count(b) AS reached"
+```
+
+```text
++---------+
+| reached |
++---------+
+| 0       |
++---------+
+```
+
+## See also
+
+- [Reading clauses](/docs/reference/cypher/reading-clauses): `MATCH`, `OPTIONAL MATCH` and `WHERE`, which take patterns.
+- [Writing clauses](/docs/reference/cypher/writing-clauses): the patterns `CREATE` and `MERGE` accept.
+- [Flags](/docs/reference/cli/flags#max-traversal-depth): `--max-traversal-depth` and its environment variable.
+- [Limitations](/docs/reference/limitations): the traversal-depth limit and the reason for it.
+- [The Cypher dialect](/docs/concepts/cypher-dialect): where the GQL pattern forms come from.

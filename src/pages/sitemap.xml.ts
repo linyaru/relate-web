@@ -17,6 +17,7 @@ export const GET: APIRoute = async () => {
     ...pages.map((p) => `/cookbook/${p.recipe.slug}/`),
     '/docs/',
     ...docs.pages.filter((p) => p.section !== null).map((p) => p.url),
+    ...docs.generated.map((g) => g.url),
   ];
   const urls = paths.map((p) => `  <url><loc>${CANONICAL_ORIGIN}${p}</loc></url>`).join('\n');
   return new Response(

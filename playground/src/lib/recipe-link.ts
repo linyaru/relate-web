@@ -7,6 +7,15 @@
 // the steps before the target cell, and puts the target cell in the editor
 // unrun. A recipe page's "Open in playground" links to `#recipe=<slug>` with no
 // cell: the playground runs every step and leaves the editor empty.
+//
+// A docs page's cells link the same way, `#docs=<page>&cell=<id>` (the page id,
+// `get-started/first-graph`), and its engine bar `#docs=<page>`. The playground
+// reads the page's markdown twin, `../docs/<page>.md`, whose ```cypher run
+// fences are the cells and whose ```json data=<name> blocks their parameters
+// (src/lib/cookbook/cells.ts, shared with the docs build), so the hand-off is
+// the same text an agent reads.
+
+import { twinCells } from '../../../src/lib/cookbook/cells.ts';
 
 /** The recipe.json format this reads. */
 export const RECIPE_FORMAT = 1;
@@ -16,23 +25,37 @@ export interface RecipeCell {
   /** The heading the step sits under in the recipe; optional in format 1. */
   title?: string;
   code: string;
-  /** Path of the step's JSON parameter file, relative to the recipe page. */
+  /** Path of the step's JSON parameter file, relative to the recipe page; for a docs cell, its parameters block's name. */
   paramsPath: string | null;
   setup: boolean;
   expectError: boolean;
 }
 
+/** Where a hand-off comes from: a cookbook recipe, or a docs page. */
+export type RecipeSource = 'recipe' | 'docs';
+
 export interface Recipe {
+  source: RecipeSource;
   slug: string;
   title: string;
   cells: RecipeCell[];
+  /** A docs page's parameters blocks by name (JSON text); a recipe fetches its files instead. */
+  params?: Record<string, string>;
 }
 
 export interface RecipeLink {
+  source: RecipeSource;
+  /** The recipe's slug, or the docs page's id. */
   slug: string;
   /** The step to open; null opens the whole recipe. */
   cell: string | null;
 }
+
+/** What the dialog and messages call a source and its parts. */
+export const NOUNS: Record<RecipeSource, { whole: string; part: string; parts: string }> = {
+  recipe: { whole: 'recipe', part: 'step', parts: 'steps' },
+  docs: { whole: 'page', part: 'cell', parts: 'cells' },
+};
 
 /**
  * What loading a link does: replay `replay` in order, then, for a step link,
@@ -43,15 +66,24 @@ export type RecipePlan =
   | { kind: 'step'; recipe: Recipe; replay: RecipeCell[]; target: RecipeCell };
 
 const ID = /^[a-z0-9-]+$/;
+/** A docs page id: lowercase path segments (`_example/example`, `get-started/first-graph`). */
+const PAGE_ID = /^[a-z0-9_][a-z0-9_-]*(?:\/[a-z0-9_][a-z0-9_-]*)*$/;
+const CELL_ID = /^[A-Za-z0-9_-]+$/;
 
-/** `#recipe=<slug>[&cell=<id>]` → the link, or null for any other hash. */
+/** `#recipe=<slug>[&cell=<id>]` or `#docs=<page>[&cell=<id>]` → the link, or null for any other hash. */
 export function parseRecipeLink(hash: string): RecipeLink | null {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
-  const slug = params.get('recipe');
   const cell = params.get('cell');
-  if (!slug || !ID.test(slug)) return null;
-  if (cell !== null && !ID.test(cell)) return null;
-  return { slug, cell };
+  const slug = params.get('recipe');
+  if (slug !== null) {
+    if (!ID.test(slug)) return null;
+    if (cell !== null && !ID.test(cell)) return null;
+    return { source: 'recipe', slug, cell };
+  }
+  const page = params.get('docs');
+  if (page === null || !PAGE_ID.test(page)) return null;
+  if (cell !== null && !CELL_ID.test(cell)) return null;
+  return { source: 'docs', slug: page, cell };
 }
 
 /** The plan for `link`, or null when the recipe has no step with its id. */
@@ -86,7 +118,27 @@ export function toRecipe(json: unknown): Recipe {
   if (typeof slug !== 'string' || typeof title !== 'string' || !Array.isArray(cells) || !cells.every(isRecipeCell)) {
     throw new Error('recipe.json is not a recipe (format 1)');
   }
-  return { slug, title, cells };
+  return { source: 'recipe', slug, title, cells };
+}
+
+/** A docs page's twin as a Recipe: its cells in page order, with their parameters blocks. */
+export function docsRecipe(page: string, markdown: string): Recipe {
+  const { title, cells, data } = twinCells(markdown);
+  if (cells.length === 0) throw new Error(`/docs/${page}.md has no runnable cells`);
+  return {
+    source: 'docs',
+    slug: page,
+    title: title ?? page,
+    cells: cells.map((c) => ({
+      id: c.id,
+      title: c.title ?? c.id,
+      code: c.code,
+      paramsPath: c.params,
+      setup: false,
+      expectError: c.expectError,
+    })),
+    params: data,
+  };
 }
 
 /** The cookbook's root URL: a sibling of the playground on the site. */
@@ -94,7 +146,17 @@ function cookbookBase(): URL {
   return new URL('../cookbook/', document.baseURI);
 }
 
+/** The docs' root URL: a sibling of the playground on the site. */
+function docsBase(): URL {
+  return new URL('../docs/', document.baseURI);
+}
+
 export function recipePageUrl(link: RecipeLink): string {
+  if (link.source === 'docs') {
+    // A docs cell's element id is its own when it starts with `cell-` (src/lib/docs/constructs.ts).
+    const hash = link.cell ? `#${link.cell.startsWith('cell-') ? link.cell : `cell-${link.cell}`}` : '';
+    return new URL(`${link.slug}/${hash}`, docsBase()).href;
+  }
   const hash = link.cell ? `#cell-${link.cell}` : '';
   return new URL(`${link.slug}/${hash}`, cookbookBase()).href;
 }
@@ -105,8 +167,12 @@ async function fetchOk(url: URL): Promise<Response> {
   return res;
 }
 
-export async function fetchRecipe(slug: string): Promise<Recipe> {
-  const res = await fetchOk(new URL(`${slug}/recipe.json`, cookbookBase()));
+export async function fetchRecipe(link: RecipeLink): Promise<Recipe> {
+  if (link.source === 'docs') {
+    const res = await fetchOk(new URL(`${link.slug}.md`, docsBase()));
+    return docsRecipe(link.slug, await res.text());
+  }
+  const res = await fetchOk(new URL(`${link.slug}/recipe.json`, cookbookBase()));
   return toRecipe(await res.json());
 }
 
@@ -114,4 +180,14 @@ export async function fetchRecipe(slug: string): Promise<Recipe> {
 export async function fetchParams(slug: string, path: string): Promise<string> {
   const res = await fetchOk(new URL(`${slug}/${path}`, cookbookBase()));
   return res.text();
+}
+
+/** A step's parameters as text: a docs page's block, or a recipe's file, fetched. */
+export async function recipeParams(recipe: Recipe, path: string): Promise<string> {
+  if (recipe.source === 'docs') {
+    const text = recipe.params?.[path];
+    if (text === undefined) throw new Error(`the page has no \`json data=${path}\` block`);
+    return text;
+  }
+  return fetchParams(recipe.slug, path);
 }

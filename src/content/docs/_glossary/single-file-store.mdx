@@ -1,0 +1,21 @@
+---
+id: single-file-store
+term: "single-file store"
+short: "A store kept in one `.rl` file that holds the snapshot and the WAL together; the layout for a `--database` path ending in `.rl`."
+aliases: []
+context: storage
+see: guides/storage/choose-a-store-layout
+related: ["rl", "store", "directory-store", "clone"]
+---
+
+A single-file store packs the tree a :term[directory store]{id=directory-store} would write, WAL included, into one :term[`.rl` file]{id=rl}. It is the layout to copy, attach or hand to someone: one file, and `relate clone` writes a compact copy of it. `relate info` prints the layout as `.rl bundle`.
+
+One process owns the file at a time. A `--read-only` open is refused while a writer holds it, and `--read-only=live` and `--wal-dir` are refused for it altogether. The file grows to the most space the store has needed and reuses that space; it does not shrink on its own.
+
+The same three codecs apply as for a directory store: `parquet`, the default, `json` and `markdown`.
+
+```bash
+relate --database ./team.rl "CREATE (:Person {name: 'Ada'})"
+```
+
+The command writes, so it opens the file without `--read-only`.

@@ -1,0 +1,18 @@
+---
+id: label-expression
+term: "label expression"
+short: "A test on a node's labels or a relationship's type built with `&`, `|`, `!` and `%`, such as `(n:Person|Project)` or `(n IS Person)`."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["label", "relationship-type", "gql"]
+---
+
+A label expression generalizes `(n:Person)`. `|` matches either label, `&` both, `!` excludes a label, and `%` matches any label at all; parentheses group. `IS` can replace the colon, as GQL writes it. The same operators apply to relationship types: `-[:KNOWS|WORKS_ON]->` matches either type.
+
+```cypher
+MATCH (p:Person&!Project WHERE p.role = 'engineer')
+RETURN p.name AS name
+```
+
+One clause may not mix the colon-chained form `:A:B` with the new symbols, or `IS` with a colon conjunction; the parser rejects the mix with an `InvalidLabelExpression` or `MixedIsAndColonConjunction` error. The `mixed-label-syntax` preview feature allows it.

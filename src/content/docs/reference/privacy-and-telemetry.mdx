@@ -1,0 +1,134 @@
+---
+title: Privacy and telemetry
+description: The anonymous usage events the relate CLI sends and how to turn them off, the surfaces that never send anything, and what the relatedb.ai site loads and logs.
+order: 100
+surfaces: [cli, python, node, browser, bolt, http, mcp, agents]
+related: [reference/security, reference/project, reference/cli/flags, guides/agents/run-in-a-sandbox, concepts/security-and-trust]
+---
+
+The `relate` CLI binary sends anonymous usage metrics to Mixpanel. They are on by default, and `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0`, or `relate telemetry off` turns them off. The events carry command shapes and a random install ID; query text, :term[store]{id=store} paths, and :term[parameter]{id=parameter} values are never collected, because the code that builds an event has no field to hold them. The client libraries, the WebAssembly build, the C library, and the served :term[surfaces]{id=surface} never send usage metrics. Today the docs, cookbook, and playground pages load nothing from a third party.
+
+## Synopsis
+
+| Surface | Sends usage metrics | Network access it starts on its own |
+| --- | --- | --- |
+| `relate` CLI (release binary) | Yes, unless turned off | Only the usage metrics. `relate upgrade`, `relate extension install`, `--load <url>`, `--fetch-params`, `pull`, and `push` reach the addresses they are given or document, and only when run |
+| `relate serve` (HTTP, :term[MCP]{id=mcp}, Bolt) | One `RELATE-CLI_COMMAND` event when the server exits; statements it serves send nothing | Only that one usage metrics event, unless turned off |
+| Python, Node.js, Java, Go, Swift, and Rust clients, and the C library | Never | None |
+| WebAssembly (WASM) build | Never | None |
+| `agent` and `minimal` CLI builds, from source | Never; the usage metrics code is not compiled in | `agent`: only `pull`, `push`, `--fetch-params`, `--load <url>`, and `extension install`, when run. `minimal`: none |
+
+## The first-run notice
+
+The first statement run with usage metrics on, whether a one-shot statement, piped stdin, or the REPL, prints one line to stderr, whether or not stdin is a terminal:
+
+```text
+relate collects anonymous usage metrics; disable anytime: relate telemetry off
+```
+
+It prints once per install: a `notice_shown` flag in `state.json` stops it repeating. `--version`, `--help`, and the commands (`serve`, `skill`, `upgrade`, `telemetry`, `extension`, `run`, and the rest) never print it, and they send their events whether or not it has been shown. So a first command on a new install, such as `relate --version`, sends an event before any notice has appeared. A run with usage metrics turned off never prints it and sends nothing.
+
+## Events
+
+The CLI sends four events. This table is the disclosure:
+
+| Event | Event-specific properties |
+| --- | --- |
+| `RELATE-CLI_STARTUP` | `kind`: `oneshot`, `stdin`, `repl`, `version` or `help` |
+| `RELATE-CLI_QUERY` | `success` (true or false); `source`: `oneshot`, `stdin` or `repl`; `storage`: `memory` or `persistent`; `output_mode`: `table`, `csv`, `json`, `jsonl`, `toon`, `markdown` or `cypher`, the mode actually used (`--mode envelope` and `--mode speedscope` report `json`) |
+| `RELATE-CLI_COMMAND` | `command`: the command word, such as `skill`, `upgrade`, `telemetry`, `pull`, `serve` or `run`; `action`: the sub-action, such as `install` (`run` reports `extension`, never the extension's name; left out for a command with no action); `success` (true or false) |
+| `RELATE-CLI_HELP` | None beyond the base properties |
+
+Every event also carries these properties:
+
+| Property | Meaning |
+| --- | --- |
+| `token` | The Mixpanel project token compiled into the binary |
+| `time` | The event time, in milliseconds since the Unix epoch |
+| `distinct_id` | The random install ID |
+| `$insert_id` | A random UUID per event, to drop duplicates |
+| `$os` | The operating system |
+| `arch` | The CPU architecture |
+| `version` | The CLI version |
+| `uptime` | Seconds since the CLI started |
+| `invoker` | `agent` when a known agent-harness environment variable is set, else `ci` when `CI` is set to a true value, else `human` |
+
+| Topic | Behavior |
+| --- | --- |
+| Never collected | Query text, store paths, and parameter values. The event types have no fields for them, so adding one would be a compile error, not a policy change. |
+| Install ID | A random UUID, generated once and kept in `state.json` in the config directory. No hardware or operating-system identifier is read. |
+| Files | `state.json` (the install ID and the notice flag) and `config.json` (the setting `relate telemetry` writes), both mode `0600` on Unix, in `$XDG_CONFIG_HOME/relate/` when that is set to an absolute path, else `~/.config/relate/` |
+| Delivery | `POST https://api.mixpanel.com/track`, from a background thread with a 2-second HTTP timeout. At exit the CLI waits at most 250 ms by default (`RELATE_TELEMETRY_FLUSH_MS` changes it; `0` waits for nothing) for delivery, then drops what is left. |
+| Failure | Every :term[telemetry]{id=telemetry} error is ignored: nothing is printed, and exit codes do not change. |
+| Recipient | A Mixpanel project shared with another command-line tool; its operator is to be named here at launch. The `RELATE-CLI_` prefix keeps relate's events apart. The CLI does not set Mixpanel's `ip` parameter, so Mixpanel's own handling of the request's IP address applies. |
+
+## Turning usage metrics off
+
+Usage metrics are on unless a layer turns them off. The first layer that matches decides:
+
+| Order | Layer | Off | On |
+| --- | --- | --- | --- |
+| 1 | `DO_NOT_TRACK` | `1` or `true` | — |
+| 2 | `RELATE_TELEMETRY` | `0`, `false`, or `off` | `1`, `true`, or `on` |
+| 3 | `"telemetry"` in `config.json`, written by `relate telemetry off` and `on` | `false` | `true` |
+| 4 | Default | — | On |
+
+`relate telemetry status` prints the effective state and the layer that decided it: `default`, `config file`, `RELATE_TELEMETRY`, or `DO_NOT_TRACK`. `relate telemetry off` and `on` write the setting and print the file they wrote. The commands exit 0 on success, 1 when no config directory resolves or the write fails, and 2 for a missing action, an unknown action, or an extra argument.
+
+The commands on this page run with `DO_NOT_TRACK=1` set, so `status` names that layer. `off` writes the config file, and `DO_NOT_TRACK` still decides:
+
+```bash verify
+relate telemetry status
+relate telemetry off
+relate telemetry status
+```
+
+The home directory is shown as `<home>`:
+
+```text
+disabled (DO_NOT_TRACK)
+telemetry disabled (<home>/.config/relate/config.json)
+disabled (DO_NOT_TRACK)
+```
+
+The environment variables that control usage metrics, including the ones for development and testing:
+
+<EnvVars usedBy="usage metrics" />
+
+`RELATE_MIXPANEL_ENDPOINT` accepts an `https://` URL, or an `http://` URL on a loopback host; any other value turns usage metrics off for that run, with one warning on stderr. Unset, the endpoint is `https://api.mixpanel.com/track`.
+
+## What never phones home
+
+| Surface | Why |
+| --- | --- |
+| The embedded engine, as used by the Python, Node.js, Java, Go, Swift, and Rust clients | Usage metrics live in the CLI binary only |
+| The C library (`relate-ffi`) | Same |
+| The WASM build (`@relate/relate-wasm`, and the engine on these pages) | Same |
+| Statements served by `relate serve` over HTTP, MCP, or Bolt | The server process sends one `RELATE-CLI_COMMAND` event when it exits, unless usage metrics are off; no event is sent per connection or statement |
+| `agent` and `minimal` CLI builds | Built without the usage metrics code: no events, no notice, no telemetry config or state files. The `agent` build still reaches the network when `pull`, `push`, `--fetch-params`, `--load <url>`, or `extension install` is run; `minimal` has none of these |
+
+## What the relatedb.ai site loads
+
+| Page | What the browser fetches |
+| --- | --- |
+| Docs, cookbook, and playground pages | Files from `relatedb.ai` only: the pages, self-hosted fonts, the search index, the engine from `/wasm/` (on the first Run of a cell, never with the page), and the graph view (when a graph result comes into view) |
+| The home page | The same, plus the console's graph view: the first time the console draws a graph, it loads the Neo4j Visualization Library (NVL) 2.0.0 from `esm.sh`, a third-party CDN, with NVL's telemetry turned off |
+
+NVL, the graph view, includes a telemetry module. The cookbook and docs pages replace it with an empty module at build time (`astro.config.mjs` aliases `@segment/analytics-next`), so none of its code ships. The playground and the home page run NVL with `disableTelemetry: true`. Today the site's own code sets no cookies, runs no analytics script, and downloads no model. It stores two values in the browser's `localStorage`: the light or dark theme (`theme`) and the docs tab choice (`docs-tab`), so a tab picked on one page stays picked on the next.
+
+## Hosting and logs
+
+| Item | Status |
+| --- | --- |
+| Host | Decided: Cloudflare Pages serves `relatedb.ai`, and a Cloudflare Worker serves the docs MCP endpoint at `/mcp`. Neither is deployed yet; until then a preview of the site is served by GitHub Pages. |
+| Docs MCP logs | Decided: calls counted per tool and per client user agent, searches with no result counted, and nothing else; no query text is kept. The fields are listed on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged); the counts (calls, refusals, failures and completion rate per tool) are published on [Hosted docs MCP usage](/docs/reference/server/docs-mcp-usage), with the period they cover. With Workers AI, the text of a `search_docs` query is sent to Cloudflare Workers AI to compute its vector; the Worker does not log it, and what Workers AI records is to be published at launch ([threat model](/docs/reference/server/docs-mcp#threat-model)). |
+| Docs page analytics | Decided, not deployed: Cloudflare Web Analytics on the docs pages, with no cookies and no script beyond Cloudflare's own |
+| Agent-path hits | Decided, not deployed: one Worker log line per request for a `.md` twin, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, the skill, or `/mcp`, keyed by user agent and tool; searches with no result counted; no query text |
+| What Cloudflare logs, and for how long | Not published yet; to be published at launch, when the Cloudflare account exists, on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged) |
+
+## See also
+
+- [Security](/docs/reference/security): release signing, verification and the served surfaces' defaults
+- [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): running relate for an agent with usage metrics off
+- [CLI flags](/docs/reference/cli/flags): the flags and environment variables the CLI reads
+- [Project](/docs/reference/project): license, versioning and how releases are cut

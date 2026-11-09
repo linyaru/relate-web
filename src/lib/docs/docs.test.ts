@@ -16,8 +16,12 @@ import { docsIdOf, resolveHref } from './links.ts';
 import { idFromPath, sectionOf, tokenLabel, twinUrl, typeOf } from './model.ts';
 import { breadcrumb, buildNav, prevNext, readingOrder } from './nav.ts';
 import { parsePage, stringifyMarkdown } from './parse.ts';
-import { parseRunInfo } from './results.ts';
-import { renderTwin, type PageData } from './twin.ts';
+import { collectCells, drawsStatic, parseRunInfo, readResultGraph, readResults, resultGraphCell } from './results.ts';
+import { cellDrift, canonical, engineVersion, recordedEnvelope, runCells } from './checks/cells.ts';
+import { twinCells } from '../cookbook/cells.ts';
+import { loadEngine } from '../cookbook/run.ts';
+import { renderTwin, verifiedBy, type PageData } from './twin.ts';
+import { checkSamples } from './checks/samples.ts';
 
 const EXAMPLE = join(DOCS_DIR, '_example/example.mdx');
 const GOLDEN = join(DOCS_DIR, '_example/example.twin.md');
@@ -52,9 +56,11 @@ test('the twin opens with the frontmatter agents parse, in order', () => {
   assert.ok(m, 'frontmatter block');
   const front = parseYaml(m[1]);
   assert.deepEqual(Object.keys(front), [
-    'title', 'description', 'surfaces', 'status', 'since', 'verified', 'canonical_url', 'prerequisites', 'related', 'last_updated',
+    'title', 'description', 'surfaces', 'status', 'since', 'verified', 'verified_by', 'canonical_url', 'prerequisites', 'related', 'last_updated',
   ]);
   assert.equal(front.verified, '0.16.1');
+  // Cells recorded on the engine, and samples recorded by both clients at that version.
+  assert.deepEqual(front.verified_by, ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   assert.equal(front.canonical_url, 'https://relatedb.ai/docs/_example/example/');
 });
 
@@ -70,6 +76,9 @@ test('the twin carries no directive or JSX syntax, and ends with the terms', () 
   // Each run cell is followed by its recorded result; the mermaid fence by its words.
   assert.match(markdown, /```cypher run name=create\n[^`]+```\n\n```table\n\(no rows\)/);
   assert.match(markdown, /```\n\nA statement is appended to the write-ahead log first\. Then/);
+  // A verified sample keeps its fence, then its recorded output as a text block.
+  assert.match(markdown, /```python run\nimport relate\n[^`]+```\n\n```text\nAda\nGrace\n```/);
+  assert.match(markdown, /```js run title="count\.cjs"\n[^`]+```\n\n```text\n1\n```/);
   // Links whose targets do not exist keep their text only.
   assert.match(markdown, /A planned page: import a CSV\./);
   assert.match(markdown, /Not public yet: the repository\./);
@@ -93,8 +102,16 @@ test('the page rendering turns constructs into their HTML forms', () => {
   const html = JSON.stringify(tree);
   assert.match(html, /"hName":"aside","hProperties":\{"className":\["callout","callout-warning"\]/);
   assert.match(html, /"className":\["tab-panel"\],"dataTabKey":"python"/);
-  assert.match(html, /<cypher-cell id=\\"cell-create\\" data-cell=\\"create\\"/);
-  assert.match(html, /<cypher-cell id=\\"cell-2\\" data-cell=\\"cell-2\\"/);
+  assert.match(html, /<cypher-cell id=\\"cell-create\\" data-cell=\\"create\\" data-step=\\"1\\"/);
+  assert.match(html, /<cypher-cell id=\\"cell-2\\" data-cell=\\"cell-2\\" data-step=\\"2\\"/);
+  // A graph result: its recording for the views, its static form, the playground link, its parameters.
+  assert.match(html, /data-cell=\\"ada\\"[^>]*data-has-graph data-graph-nodes=\\"1\\" data-recorded=\\"\{&quot;envelope&quot;:/);
+  assert.match(html, /<figure class=\\"diagram out-static\\"><div class=\\"diagram-art diagram-light\\"><svg id=\\"result-path-light\\"/);
+  assert.match(html, /href=\\"\/playground\/#docs=_example%2Fexample&amp;cell=ada\\"/);
+  assert.match(html, /<textarea class=\\"params-editor\\"[^>]*>\{&quot;name&quot;: &quot;Ada&quot;\}<\/textarea>/);
+  assert.match(html, /data-cell=\\"fails\\"[^>]*data-expect-error/);
+  // A parameters block shows inside its cell, not on its own.
+  assert.doesNotMatch(html, /"lang":"json","meta":"data=who"/);
   assert.match(html, /<figure class=\\"diagram\\"><div class=\\"diagram-art diagram-light\\"><svg/);
   assert.match(html, /In words:/);
   assert.match(html, /<span class=\\"badge badge-since\\">since 0.16<\/span>/);
@@ -119,7 +136,9 @@ test('malformed constructs fail with the line', () => {
   assert.match(problemsOf(':status[beta]\n'), /is not one of preview, deprecated/);
   assert.match(problemsOf('<Unknown />\n'), /<Unknown> is not a docs component/);
   assert.match(problemsOf('{1 + 1}\n'), /has no markdown form/);
-  assert.match(problemsOf('```cypher run name=a b\nRETURN 1\n```\n'), /takes only `name=<id>`/);
+  assert.match(problemsOf('```cypher run name=a b\nRETURN 1\n```\n'), /takes `name=<id>`, `params=<name>`.*not `b`/);
+  assert.match(problemsOf('```cypher run params=nope\nRETURN $x\n```\n'), /takes `params=nope`, but the page has no `json data=nope` block/);
+  assert.match(problemsOf('```json data=p\n[1]\n```\n'), /is not a JSON object/);
   assert.match(problemsOf('```cypher run name=missing\nRETURN 1\n```\n'), /cell `missing` has no recorded result/);
   assert.match(problemsOf('```mermaid\nflowchart LR\n  A --> B\n```\n'), /no `accTitle:` line/);
   assert.match(problemsOf('::figure{src=/nope.svg alt="x"}\n'), /is not in public\//);
@@ -130,10 +149,64 @@ test('a page with no cells and no diagrams needs no sidecars', () => {
 });
 
 test('run cells: info strings and ids', () => {
-  assert.deepEqual(parseRunInfo('cypher', 'run'), { name: null });
-  assert.deepEqual(parseRunInfo('cypher', 'run name=count-1'), { name: 'count-1' });
+  assert.deepEqual(parseRunInfo('cypher', 'run'), { name: null, params: null, expectError: false });
+  assert.deepEqual(parseRunInfo('cypher', 'run name=count-1'), { name: 'count-1', params: null, expectError: false });
+  assert.deepEqual(parseRunInfo('cypher', 'run params=who expect=error'), { name: null, params: 'who', expectError: true });
+  assert.throws(() => parseRunInfo('cypher', 'run expect=success'), /not `expect=success`/);
   assert.equal(parseRunInfo('cypher', null), null);
   assert.equal(parseRunInfo('python', 'run'), null);
+  const { cells, data, problems } = collectCells(parsePage('## A\n\n```cypher run\nRETURN 1\n```\n\n```json data=p\n{"x": 1}\n```\n\n## B\n\n```cypher run name=b params=p\nRETURN $x\n```\n\n```cypher run name=b\nRETURN 2\n```\n'));
+  assert.deepEqual(cells.map((c) => [c.id, c.index, c.title, c.params]), [['cell-1', 1, 'A', null], ['b', 2, 'B', 'p'], ['b', 3, 'B', null]]);
+  assert.equal(data.get('p'), '{"x": 1}');
+  assert.deepEqual(problems, ['line 17: a second cell `b`']);
+});
+
+test('the playground hand-off reads the cells from the twin as the page numbers them', () => {
+  const { title, cells, data } = twinCells(exampleTwin().markdown);
+  assert.equal(title, 'Every construct');
+  assert.deepEqual(cells.map((c) => c.id), ['create', 'cell-2', 'ada', 'path', 'fails']);
+  assert.deepEqual(cells.map((c) => c.title), ['Code and cells', 'Code and cells', 'Code and cells', 'Graph results', 'Graph results']);
+  assert.equal(cells[2].params, 'who');
+  assert.equal(cells[4].expectError, true);
+  assert.match(cells[0].code, /^CREATE \(:Person \{name: 'Ada'\}\)/);
+  assert.deepEqual(data, { who: '{"name": "Ada"}' });
+  // A fence inside a list item, and a longer fence holding a shorter one.
+  const nested = twinCells('# T\n\n- step\n\n  ```cypher run name=x\n  RETURN 1\n  ```\n\n````text\n```cypher run name=no\n```\n````\n');
+  assert.deepEqual(nested.cells.map((c) => [c.id, c.code]), [['x', 'RETURN 1']]);
+});
+
+test('the example page\'s recordings match a run on public/wasm, and its static graph forms are current', async () => {
+  const source = splitFrontmatter(readFileSync(EXAMPLE, 'utf8'), EXAMPLE).body;
+  const { cells, data } = collectCells(parsePage(source));
+  const wasm = await loadEngine();
+  const recorded = readResults(EXAMPLE)!;
+  const run = await runCells(wasm, cells, data, engineVersion(wasm));
+  assert.equal(run.stopped, null);
+  assert.deepEqual(run.problems, []);
+  for (const [id, actual] of Object.entries(run.results.cells)) assert.equal(cellDrift(id, recorded.cells[id], actual), null, id);
+  assert.equal(recorded.cells.fails.expectError, true);
+  assert.match(String((recorded.cells.fails.envelope as { error?: string }).error), /by zero/);
+  const drawn = cells.filter((c) => drawsStatic(recorded.cells[c.id].graph)).map((c) => c.id);
+  assert.deepEqual(drawn, ['ada', 'path']);
+  for (const id of drawn) {
+    const svg = readResultGraph(EXAMPLE, id, recorded.cells[id].graph!);
+    assert.match(svg.light, /^<svg id="result-[a-z]+-light"/);
+    assert.match(svg.dark, /<title id="result-[a-z]+-dark-title">The graph this cell returns/);
+  }
+  // A changed graph makes its static form stale.
+  assert.throws(() => readResultGraph(EXAMPLE, 'path', { nodes: [], rels: [] }), /changed since its static form was drawn/);
+  assert.equal(resultGraphCell('example', 'example-result-path-dark.svg'), 'path');
+  assert.equal(resultGraphCell('example', 'example-1-dark.svg'), null);
+});
+
+test('drift: what counts and what does not', () => {
+  const cell = { kind: 'table' as const, text: '1 row', table: null, graph: null, envelope: { rows: [{ a: 1 }], columns: ['a'] }, expectError: false };
+  assert.equal(cellDrift('x', cell, { ...cell, envelope: { columns: ['a'], rows: [{ a: 1 }] } }), null);
+  assert.match(cellDrift('x', cell, { ...cell, text: '2 rows' })!, /result differs from its recording/);
+  assert.match(cellDrift('x', cell, { ...cell, envelope: { rows: [], columns: ['a'] } })!, /recorded envelope differs/);
+  assert.match(cellDrift('x', undefined, cell)!, /has no recorded result/);
+  assert.equal(canonical({ b: 1, a: [{ d: 1, c: 2 }] }), '{"a":[{"c":2,"d":1}],"b":1}');
+  assert.deepEqual(recordedEnvelope({ rows: [], elapsed_ms: 1.2, parse_ms: 0.1, error: null }), { error: null, rows: [] });
 });
 
 test('links render only when their target exists', () => {
@@ -233,4 +306,43 @@ test('a code block with title="…" names its file on the page and keeps the met
   const twin = parsePage(source);
   renderConstructs(twin, 'markdown', ctx(EXAMPLE, source));
   assert.match(stringifyMarkdown(twin), /```python title="app.py"/);
+});
+
+test('a verified sample renders as its code block and its recorded output; a missing record fails the render', () => {
+  const source = splitFrontmatter(readFileSync(EXAMPLE, 'utf8'), EXAMPLE).body;
+  const tree = parsePage(source);
+  renderConstructs(tree, 'html', ctx(EXAMPLE, source));
+  const html = JSON.stringify(tree);
+  assert.match(html, /<div class=\\"cell-output sample-output\\"><div class=\\"out-head\\"><span class=\\"out-label\\">Output<\/span><\/div><pre class=\\"out-text\\" id=\\"out-python-1\\">Ada\\nGrace<\/pre><\/div>/);
+  assert.match(html, /<div class=\\"code-title\\">count.cjs<\/div>/);
+  assert.match(html, /id=\\"out-js-1\\">1<\/pre>/);
+  // The example's sidecar has no `python-3`, so a third Python sample cannot render.
+  const missing = `${source}\n\`\`\`python run\nprint(1)\n\`\`\`\n\n\`\`\`python run\nprint(2)\n\`\`\`\n`;
+  assert.match(problemsOf(missing), /sample `python-3` has no recorded output/);
+});
+
+test('verified_by names the checks a page passed at the docs version, in order', () => {
+  const source = splitFrontmatter(readFileSync(EXAMPLE, 'utf8'), EXAMPLE).body;
+  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.16.1'), ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
+  // Recorded on another version: nothing is claimed.
+  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.99.0'), []);
+  // `bash verify` fences count when every one is the step docs:cli-check replayed at that version.
+  const install = join(DOCS_DIR, 'get-started/install.mdx');
+  const installBody = splitFrontmatter(readFileSync(install, 'utf8'), install).body;
+  assert.ok(verifiedBy(install, installBody, parsePage(installBody), engine().verified).includes('cli'));
+  assert.ok(!verifiedBy(install, installBody, parsePage(installBody), '0.99.0').includes('cli'));
+  // A verify fence on a page whose steps were never replayed claims nothing.
+  const cli = '```bash verify\nrelate --version\n```\n';
+  assert.deepEqual(verifiedBy(join(DOCS_DIR, 'nowhere.mdx'), cli, parsePage(cli), engine().verified), []);
+});
+
+test('the static samples check: every sample recorded, no stale entry', () => {
+  const findings: string[] = [];
+  const report = (_f: string, _l: number | null, severity: string, rule: string, message: string) => findings.push(`${severity} ${rule} ${message}`);
+  const page = { id: '_example/example', file: EXAMPLE, data: {} };
+  checkSamples({ engine: { ...ENGINE }, published: new Map([[page.id, page]]) }, report);
+  assert.equal(findings.length, 0, findings.join('\n'));
+  checkSamples({ engine: { ...ENGINE, verified: '0.99.0' }, published: new Map([[page.id, page]]) }, report);
+  assert.equal(findings.length, 8, 'one per sample on the example page: python (2, one env=crewai), js, rust, java, go, swift, c');
+  assert.ok(findings.every((f) => f.startsWith('warning samples ') && /recorded by client 0\.16\.1, not 0\.99\.0/.test(f)), findings.join('\n'));
 });

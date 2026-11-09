@@ -63,3 +63,10 @@ only on hover.
   first-use link a link.
 - The hosted MCP's `get_page` returns the Terms section, so a page is
   self-contained over MCP too.
+
+## Later references
+
+- Extended by ADR-0030 (glossary bodies, the §4.11 checks as built, and
+  the toggletip's markup): full definitions in each term's body, the
+  toggletip panel as a `<span popover="auto">` inside the paragraph, and
+  `/docs/glossary.json`; nothing here is reversed.

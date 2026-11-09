@@ -91,3 +91,38 @@ and structurally query-free telemetry.
   holds.
 - Upstream asks: a `SECURITY.md`, statement deadline and memory caps in the
   WASM build, and the `docs` URL in the error object.
+
+## Later references
+
+- Imperative rule, scope (phase 0, 2026-11-07): `docs:check` applies the
+  "no second-person imperative outside prompt fences" rule of decision 2
+  to twins and tool results of `reference` and `explanation` pages, and
+  to every page's prose outside tables and headings. Steps of a
+  `tutorial` or `how-to` are imperative by design, a table's remedy
+  column is imperative by nature, and headings are phrased as intents
+  (STYLE.md §4.5), so those are exempt; the injection patterns apply
+  everywhere. The intent of decision 2 is unchanged: an agent reading a
+  reference page or a tool result is never addressed as the actor.
+- Skills index digest (phase 0 spike, 2026-11-07, DOCS-PLAN.md §9): the
+  discovery format carries one `sha256:` digest per entry over the
+  artifact's bytes, not one per file as decision 3 says; the CLI verifies
+  that digest and no signature, so the signed `docs-artifacts.json` is
+  the only signature over the index.
+- Read-only open, amended by ADR-0023 (Proposed; phase 1 part C,
+  2026-11-07): the WASM build cannot hold content in a read-only in-memory
+  store (`new RelateDb(true)` refuses the seed; upstream ADR-0136) and
+  cannot open a `.rl` or a snapshot, so the docs MCP Worker replays the
+  seed into a writable in-memory handle. The fence of decision 4 is
+  structural: no tool accepts Cypher, and the only statement after the
+  seed is one constant read with the caller's words bound as a parameter.
+  `reference/server/docs-mcp` states this. Upstream ask: a way to freeze a
+  seeded handle, or to open a snapshot read-only, in the WASM.
+- ADR-0026 (capability catalog): a capability's `intents` are quoted user
+  requests, exempt from the imperative rule and checked for injection
+  phrasing like every other catalog field.
+- ADR-0032 (task skills): the read-only rule covers client fences in a
+  task skill (`read_only=True` in Python, `readOnly: true` in
+  JavaScript), and a skill fence in another language is refused.
+- ADR-0031 (phase 2 constructs): a host deeplink is generated from the
+  JSON shown beside it, needs `--read-only` on a command entry, and
+  refuses `env` and `headers`.

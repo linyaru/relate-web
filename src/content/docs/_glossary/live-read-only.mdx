@@ -1,0 +1,19 @@
+---
+id: live-read-only
+term: "live read-only"
+short: "A read-only open of a directory store, `--read-only=live`, that tails the WAL and follows the writer's commits as they land."
+aliases: []
+context: storage
+see: guides/storage/read-only-and-follow
+related: ["read-only", "directory-store", "wal"]
+---
+
+A plain `--read-only` open freezes its view at open: later commits by the writer stay invisible until the reader reopens. The live form, `--read-only=live`, instead tails the writer's :term[WAL]{id=wal}, so each statement reads the store as of the writer's latest commit it has seen. The value attaches to the flag (`--read-only=live`) and is given once per run.
+
+It works only for a :term[directory store]{id=directory-store}. It is refused for a `.rl` file, for `:memory:`, and together with `--load`. Like any read-only open, it never writes or checkpoints.
+
+```bash
+relate serve --mcp stdio --database ./team --read-only=live
+```
+
+The server reads `./team` beside its writer; removing `--read-only=live` lets it write, and it then needs the writer to have exited.

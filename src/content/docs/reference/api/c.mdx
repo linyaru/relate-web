@@ -1,0 +1,314 @@
+---
+title: C ABI
+label: C
+description: Every function in relate.h, grouped, with the handle types, value kinds, params builder, error shape, ownership and threading rules, and limits.
+order: 50
+surfaces: [c]
+related: [get-started/c, guides/embed/c, reference/api/rust, reference/errors, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app, reference/api/java, reference/api/go, reference/api/swift]
+---
+
+The C application binary interface (ABI) is the header `relate.h` and the library `librelate_ffi`: opaque handles for a database, a connection, a result, a value and a parameter builder, and 81 functions over them. The ABI version is 2, and `relate_abi_version()` returns it. The Node.js, Java, Go and Swift :term[clients]{id=client} wrap this library, and the library wraps the Rust crate's `Database`. The header is the contract; this page groups its declarations as of the source build the docs are verified against. The guide [Use the C ABI](/docs/guides/embed/c) covers the same calls with runnable programs.
+
+## Synopsis
+
+```text
+#include "relate.h"
+
+relate_database_open(uri, &db, &err)              -> relate_status
+relate_connect_namespace(db, NULL, &conn, &err)   -> relate_status
+relate_query_params(conn, cypher, params, &r, &err) -> relate_status
+  relate_result_is_error(r) ? relate_result_error_json(r)
+                            : relate_value_at(r, row, col) -> relate_value
+relate_destroy_result(r)
+relate_disconnect(conn)
+relate_database_close(db)
+```
+
+Each release attaches a `relate-ffi-<target>.tar.gz` archive (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`) per platform (`aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`) holding `include/relate.h` and the static and shared libraries. A program links with `-lrelate_ffi`. After the first public release the ABI changes only by addition; a version bump means symbols were removed or signatures changed.
+
+## Types
+
+| Type | Kind | Meaning |
+| --- | --- | --- |
+| `relate_database` | Opaque handle | An open store; may be shared across threads |
+| `relate_connection` | Opaque handle | One session on a database, with a session namespace; never used from two threads at once |
+| `relate_query_result` | Opaque handle | One statement's result or error |
+| `relate_value` | Opaque handle | One value inside a result, owned by that result |
+| `relate_params` | Opaque handle | A params builder: a root or a nested list or map |
+| `relate_status` | Enum | `RELATE_OK = 0`, `RELATE_ERROR = 1` |
+| `enum relate_value_kind` | Enum | The 18 value kinds in [Value kinds](#value-kinds) |
+
+## Error shape
+
+Every failure carries one JSON object, delivered with the call that failed. There is no thread-local error slot, so a call on a worker thread reports its own error.
+
+```json
+{"code":"Neo.ClientError.Statement.ArithmeticError","gql_status":"22G03","stage":"runtime","retryable":false,"message":"type error: / by zero"}
+```
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `code` | string | The Neo4j status code |
+| `gql_status` | string | The five-character GQLSTATUS code |
+| `stage` | string | `compile` (rejected before any work), `runtime` (found while executing) or `internal` (not the statement's fault: a storage, I/O or engine failure, a `NULL` or poisoned handle, a refused argument) |
+| `retryable` | boolean | `true` only when running the same work again can succeed, such as after a write-write conflict |
+| `message` | string | The engine's message for a `compile` or `runtime` failure; the boundary's own text for a refused argument or handle; the fixed `internal error` for storage, I/O, lock and engine-internal failures and caught panics |
+
+| Failure | Status | Where the shape is | Owner |
+| --- | --- | --- | --- |
+| A statement fails | `relate_query_params` returns `RELATE_OK` | `relate_result_error_json(r)`, with `relate_result_is_error(r)` = `1` | The result |
+| `relate_query_params` itself fails (a `NULL` or poisoned connection, invalid UTF-8, a list builder as `params`) | `RELATE_ERROR`, `*out` = `NULL` | The `char **error_json` out-param | Caller: `relate_free_string` |
+| Any other fallible call: open, connect, set namespace, begin, commit, rollback, checkpoint, every putter | `RELATE_ERROR` | The `char **error_json` out-param | Caller: `relate_free_string` |
+| A value accessor refuses | `NULL`, `-1` or `RELATE_ERROR` | None: the accessor's result is the whole report | — |
+| `relate_database_close(NULL)`, `relate_disconnect(NULL)` | `RELATE_ERROR` | None | — |
+
+An `error_json` out-param is written only on failure; `NULL` in its place drops the detail, and the status alone reports the failure. The classification comes from the engine's one table, the same one the CLI, the clients, Bolt, and HTTP use. With `RELATE_FFI_LOG=1` set in the environment (read once per process), the original message of an internal failure goes to the host's stderr, prefixed `ffi internal error: `.
+
+## Lifecycle
+
+| Function | Returns | Contract |
+| --- | --- | --- |
+| `int relate_abi_version(void)` | `2` | The ABI version |
+| `relate_database_open(const char *uri, relate_database *out, char **error_json)` | status | Opens `":memory:"`, a `.rl` path (a :term[single-file store]{id=single-file-store}; the legacy `.cl` too), any other path or `file://` URI (a directory store); creates a missing store. On failure `*out` is `NULL`. |
+| `relate_database_open_read_only(const char *uri, relate_database *out, char **error_json)` | status | Opens an existing store without writing, checkpointing or creating it; writes and checkpoints then fail with `WriteOnReadOnlyAccessDatabase` |
+| `relate_database_close(relate_database db)` | status | Frees the handle, poisoned or not; `NULL` gives `RELATE_ERROR` |
+| `relate_connect_namespace(relate_database db, const char *name, relate_connection *out, char **error_json)` | status | Opens a connection whose session namespace is `name`: `neo4j`, `system` or `system_ontologies`, matched case-insensitively; `NULL` selects `neo4j`. Another name fails with a message ending `Graph not found: <name>`. |
+| `relate_conn_set_namespace(relate_connection conn, const char *name, char **error_json)` | status | Changes the session namespace between transactions; inside one, fails with a message ending `Cannot change the namespace while a transaction is open.`; a `NULL` name is refused |
+| `relate_disconnect(relate_connection conn)` | status | Frees the connection, poisoned or not; `NULL` gives `RELATE_ERROR` |
+| `relate_checkpoint(relate_database db, char **error_json)` | status | Writes a snapshot and recycles closed WAL segments; not the commit durability boundary |
+| `void relate_free_string(char *s)` | — | Frees a caller-owned string; `NULL` is a no-op |
+
+## Statements and transactions
+
+| Function | Returns | Contract |
+| --- | --- | --- |
+| `relate_query_params(relate_connection conn, const char *cypher, const relate_params params, relate_query_result *out, char **error_json)` | status | Runs one statement. `params` is a builder root, a `put_map` child, or `NULL` for none; it is read, never changed, and can back later statements. A list builder is refused. A statement failure returns `RELATE_OK` with an error result. |
+| `void relate_destroy_result(relate_query_result result)` | — | Frees the result and every value handle and string it owns; `NULL` is a no-op |
+| `relate_conn_begin(relate_connection conn, char **error_json)` | status | Starts an explicit transaction; one per connection, and a second fails with `semantic error: already in a transaction` |
+| `relate_conn_commit(relate_connection conn, char **bookmark_out, char **error_json)` | status | Commits. `RELATE_OK`: `*bookmark_out` is the bookmark, caller-owned, or `NULL` when the transaction wrote nothing. `RELATE_ERROR`: the commit failed and `*bookmark_out` is `NULL`. A `NULL` `bookmark_out` is refused with `null out pointer` and the transaction is not committed. |
+| `relate_conn_rollback(relate_connection conn, char **error_json)` | status | Discards the transaction; with none open, fails with `semantic error: no transaction` |
+
+A :term[bookmark]{id=bookmark} is `relate:<n>`, `n` being the store's commit sequence across every connection and surface. Bookmarks order by the parsed `n`, not as strings: as strings, `relate:10` sorts before `relate:9`.
+
+## Results
+
+Every string a result or value accessor returns belongs to the result and lives until `relate_destroy_result`. A `NULL` result gives `0`, `0.0` or `NULL`; an error result gives `NULL` from the string accessors, `0.0` from the timings and `0` rows.
+
+| Function | Returns | Contract |
+| --- | --- | --- |
+| `relate_column_count(result)` | `long long` | The number of columns |
+| `relate_row_count(result)` | `long long` | The number of rows |
+| `relate_column_name(result, long long col)` | `const char *` | Column `col`'s name; `NULL` out of range |
+| `relate_result_is_error(result)` | `uint8_t` | `1` for an error result, else `0` |
+| `relate_result_error_json(result)` | `const char *` | The [error shape](#error-shape) of an error result; `NULL` on a good result |
+| `relate_result_bookmark(result)` | `const char *` | An auto-commit write's bookmark, `relate:<n>`; `NULL` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction, and an error result |
+| `relate_result_query_type(result)` | `const char *` | `r`, `w` (a write returning no columns), `rw` (a write returning columns) or `s` (schema), from the plan; `EXPLAIN` and `PROFILE` report the statement they wrap |
+| `relate_result_namespace(result)` | `const char *` | The namespace the statement ran in: its `USE` target, else the session namespace |
+| `relate_result_stats(result)` | `const char *` | A JSON object of 11 counters, zeros included: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed` |
+| `relate_result_notifications(result)` | `const char *` | A JSON array of :term[notifications]{id=notification}, each with `code`, `gql_status`, `severity`, `category`, `title`, `description` and `remedy`, plus `operator_id` for an operator's own; `[]` on a plain run, filled by `EXPLAIN` and `PROFILE` |
+| `relate_result_plan_json(result)` | `const char *` | The plan as a `relate.plan/v1` document after `EXPLAIN` or `PROFILE`; `NULL` on a plain run |
+| `relate_result_elapsed_ms(result)` | `double` | The engine's wall-clock time for the statement: parse, plan and run, excluding row handling |
+| `relate_result_parse_ms(result)`, `relate_result_plan_ms(result)`, `relate_result_execute_ms(result)` | `double` | Three disjoint parts of the elapsed time; their sum never exceeds it |
+
+The plan document is `{schema, profiled, statement, root}`. Each node holds `operator`, `details`, `identifiers`, `estimated_rows` (or `null`), `actual` (`null` under `EXPLAIN`; rows, time, database hits and memory under `PROFILE`), `children` and `warnings` (the remedy-bearing notifications raised for that operator). Keys are `snake_case`, and a breaking change bumps the `schema` version.
+
+## Value kinds
+
+| Enumerator | Value | Read with |
+| --- | --- | --- |
+| `RELATE_V_NULL` | 0 | Nothing: a Cypher `null` is a handle of this kind, never a `NULL` handle |
+| `RELATE_V_BOOL` | 1 | `relate_value_bool` |
+| `RELATE_V_INT` | 2 | `relate_value_int` |
+| `RELATE_V_FLOAT` | 3 | `relate_value_float`, `relate_value_is_nan`, `relate_value_is_inf` |
+| `RELATE_V_STRING` | 4 | `relate_value_string`; a UUID reads as a string |
+| `RELATE_V_NODE` | 5 | `relate_value_element_id`, `relate_value_id`; labels through the list accessors, properties through the map accessors |
+| `RELATE_V_RELATIONSHIP` | 6 | `relate_value_element_id`, `_start_element_id`, `_end_element_id`, `relate_value_id`, `_start_id`, `_end_id`; type through `relate_value_string`, properties through the map accessors |
+| `RELATE_V_PATH` | 7 | The list accessors: 2n + 1 elements for n hops, node, relationship, …, node |
+| `RELATE_V_LIST` | 8 | `relate_value_list_len`, `relate_value_list_get`; a byte array reads as a list of `INT` |
+| `RELATE_V_MAP` | 9 | `relate_value_map_len`, `relate_value_map_key`, `relate_value_map_get`; always a map, even when shaped like a node |
+| `RELATE_V_POINT` | 10 | `relate_value_point` |
+| `RELATE_V_DATE` | 11 | `relate_value_year`, `_month`, `_day` |
+| `RELATE_V_TIME` | 12 | `relate_value_hour`, `_minute`, `_second`, `_nanosecond`, `_offset_seconds`; `relate_value_zone` is `""` |
+| `RELATE_V_LOCAL_TIME` | 13 | `relate_value_hour`, `_minute`, `_second`, `_nanosecond` |
+| `RELATE_V_DATETIME` | 14 | The date and time components, `_offset_seconds`, and `relate_value_zone` (a named time zone such as `Europe/Berlin`, or `""` for an offset only) |
+| `RELATE_V_LOCAL_DATETIME` | 15 | The date and time components |
+| `RELATE_V_DURATION` | 16 | `relate_value_duration` |
+| `RELATE_V_VECTOR` | 17 | `relate_value_vector_dtype`, `_vector_dim`, `_vector_float`, `_vector_int` |
+
+A kind that a later, additive ABI introduces is a number a program does not know; the header asks clients to treat it as a reportable case.
+
+## Value accessors
+
+An accessor called on another kind, on a `NULL` handle, or with a `NULL` out-param refuses without side effects: a pointer return gives `NULL`, a count return gives `-1`, and a status return gives `RELATE_ERROR` with the out-params untouched. A refusal never poisons anything. Every handle and string belongs to the result.
+
+| Function | Serves | Contract |
+| --- | --- | --- |
+| `relate_value_at(result, long long row, long long col)` | — | The cell's root handle; `NULL` for an index out of range, an error result or a `NULL` result |
+| `relate_value_kind(v)` | any | The `enum relate_value_kind` enumerator as an `int`; `-1` for a `NULL` handle |
+| `relate_value_bool(v, uint8_t *out)` | `BOOL` | `0` or `1` |
+| `relate_value_int(v, int64_t *out)` | `INT` | The 64-bit integer |
+| `relate_value_float(v, double *out)` | `FLOAT` | The double, `NaN` and infinities included |
+| `relate_value_is_nan(v, uint8_t *out)`, `relate_value_is_inf(v, uint8_t *out)` | `FLOAT` | `1` when `NaN`, or infinite of either sign |
+| `relate_value_string(v, size_t *len)` | `STRING`, `RELATIONSHIP` | NUL-terminated UTF-8 (a relationship's type); `*len`, when not `NULL`, is the byte length, so a string with an interior NUL crosses whole |
+| `relate_value_element_id(v)` | `NODE`, `RELATIONSHIP` | The :term[element id]{id=element-id} as `elementId()` spells it, such as `4:relate:n0`; `NULL` in the `system` namespace |
+| `relate_value_start_element_id(v)`, `relate_value_end_element_id(v)` | `RELATIONSHIP` | The end nodes' element ids |
+| `relate_value_id(v, int64_t *out)` | `NODE`, `RELATIONSHIP` | The numeric id `id()` returns |
+| `relate_value_start_id(v, int64_t *out)`, `relate_value_end_id(v, int64_t *out)` | `RELATIONSHIP` | The end nodes' numeric ids |
+| `relate_value_list_len(v)` | `LIST`, `PATH`, `NODE` | The items, the path's elements, or the node's labels |
+| `relate_value_list_get(v, long long i)` | `LIST`, `PATH`, `NODE` | Item `i`; `NULL` past the end |
+| `relate_value_map_len(v)` | `MAP`, `NODE`, `RELATIONSHIP` | The entries, or the entity's properties, in the engine's order |
+| `relate_value_map_key(v, long long i, size_t *len)` | `MAP`, `NODE`, `RELATIONSHIP` | Key `i`; `NULL` past the end |
+| `relate_value_map_get(v, const char *key)` | `MAP`, `NODE`, `RELATIONSHIP` | The value under `key`; `NULL` when absent, a `RELATE_V_NULL` handle when present and null |
+| `relate_value_year(v, int64_t *out)`, `relate_value_month(…)`, `relate_value_day(…)` | `DATE`, `DATETIME`, `LOCAL_DATETIME` | Month 1 to 12, day 1 to 31 |
+| `relate_value_hour(v, int64_t *out)`, `relate_value_minute(…)`, `relate_value_second(…)`, `relate_value_nanosecond(…)` | `TIME`, `LOCAL_TIME`, `DATETIME`, `LOCAL_DATETIME` | The local wall clock; nanosecond 0 to 999999999 |
+| `relate_value_offset_seconds(v, int64_t *out)` | `TIME`, `DATETIME` | The UTC offset in seconds |
+| `relate_value_zone(v)` | `TIME`, `DATETIME` | The time zone name, or `""` when the value carries only an offset (always for `TIME`) |
+| `relate_value_duration(v, int64_t *months, int64_t *days, int64_t *seconds, int64_t *nanos)` | `DURATION` | The four components, losslessly; every out-param required |
+| `relate_value_point(v, int32_t *srid, int32_t *dim, double *x, double *y, double *z)` | `POINT` | `dim` is 2 or 3; `x` and `y` are longitude and latitude for a geographic spatial reference identifier (`srid`); `*z` written only when `dim` is 3; every out-param required |
+| `relate_value_vector_dtype(v)` | `VECTOR` | `INTEGER8`, `INTEGER16`, `INTEGER32`, `INTEGER`, `FLOAT16`, `BFLOAT16`, `FLOAT32` or `FLOAT` |
+| `relate_value_vector_dim(v)` | `VECTOR` | The dimension |
+| `relate_value_vector_float(v, long long i, double *out)` | `VECTOR` | Coordinate `i` of a `FLOAT*` vector; another dtype or an index out of range refuses |
+| `relate_value_vector_int(v, long long i, int64_t *out)` | `VECTOR` | Coordinate `i` of an `INTEGER*` vector; another dtype or an index out of range refuses |
+
+## Params builder
+
+`relate_params_new()` returns a root: the statement's map of named parameters. `_put_list` and `_put_map` insert a nested container and write its child builder, which takes the same putters. A map takes a unique, non-`NULL` UTF-8 name; a list takes a `NULL` name and appends. Every putter copies its input and returns a status; a refusal returns `RELATE_ERROR` with an `internal`-stage shape and leaves the builder unchanged and usable.
+
+| Function | Binds |
+| --- | --- |
+| `relate_params relate_params_new(void)` | A new root; never `NULL` |
+| `void relate_params_free(relate_params p)` | Frees a root and every child; `NULL` or a child is a no-op |
+| `relate_params_put_null(p, name, &err)` | `null` |
+| `relate_params_put_bool(p, name, uint8_t v, &err)` | A boolean; `0` is false, any other value true |
+| `relate_params_put_int(p, name, int64_t v, &err)` | An integer, the whole `int64_t` range |
+| `relate_params_put_float(p, name, double v, &err)` | A float, `NaN` and infinities included |
+| `relate_params_put_string(p, name, const char *v, size_t len, &err)` | `len` bytes of UTF-8; invalid UTF-8 refuses |
+| `relate_params_put_date(p, name, year, month, day, &err)` | A date that exists in the calendar |
+| `relate_params_put_local_time(p, name, hour, minute, second, nanosecond, &err)` | A local time |
+| `relate_params_put_time(p, name, hour, minute, second, nanosecond, offset_seconds, zone, &err)` | A zoned time; a non-`NULL` zone supplies the offset at the current instant, and the time keeps no zone id |
+| `relate_params_put_local_datetime(p, name, year, month, day, hour, minute, second, nanosecond, &err)` | A local datetime |
+| `relate_params_put_datetime(p, name, year, month, day, hour, minute, second, nanosecond, offset_seconds, zone, &err)` | A zoned datetime. `NULL` zone: the offset alone. A time zone name such as `Europe/Berlin`: kept with the value, its offset resolved at that wall clock and `offset_seconds` ignored; a daylight-saving overlap takes the earlier offset, and a wall clock in a gap refuses. |
+| `relate_params_put_duration(p, name, months, days, seconds, nanos, &err)` | A duration from any `int64_t` components |
+| `relate_params_put_point(p, name, int32_t srid, double x, double y, const double *z, &err)` | A point: `srid` 7203 (Cartesian) or 4326 (WGS-84) with `z` `NULL`, or 9157 (3D Cartesian) or 4979 (3D WGS-84) with `z` pointing at the third coordinate; any other pairing refuses |
+| `relate_params_put_vector_float(p, name, const char *dtype, const double *values, size_t dim, &err)` | A `FLOAT16`, `BFLOAT16`, `FLOAT32` or `FLOAT` vector; each value exactly representable in the dtype |
+| `relate_params_put_vector_int(p, name, const char *dtype, const int64_t *values, size_t dim, &err)` | An `INTEGER8`, `INTEGER16`, `INTEGER32` or `INTEGER` vector; each value within the dtype's width |
+| `relate_params_put_list(p, name, relate_params *child, &err)` | An empty list, with its child builder in `*child` |
+| `relate_params_put_map(p, name, relate_params *child, &err)` | An empty map, with its child builder in `*child` |
+
+| Limit | Value |
+| --- | --- |
+| Entries per list or map | 100000 |
+| Bytes per parameter name | 4096 |
+| Bytes per builder, across every nested container | 16 MiB |
+| Components | Month 1 to 12, day 1 to 31, hour 0 to 23, minute 0 to 59, second 0 to 59, nanosecond 0 to 999999999, `offset_seconds` within ±64800 (±18:00) |
+
+Each limit refuses one past its value. A `len` or `dim` argument is trusted: a buffer shorter than it is undefined behavior. A statement that references a parameter the builder does not hold fails as an error result with `semantic error: ParameterMissing: Expected parameter(s): <names>`.
+
+## Ownership
+
+The return type is the rule: a `char *` belongs to the caller, a `const char *` to relate.
+
+| Handle or pointer | Owner | Freed by |
+| --- | --- | --- |
+| `relate_database` | Caller | `relate_database_close` |
+| `relate_connection` | Caller | `relate_disconnect` |
+| `relate_query_result` | Caller | `relate_destroy_result` |
+| Every `relate_value` handle, roots and children | The result | `relate_destroy_result`; no per-value free exists |
+| Every `const char *` from a result or value accessor | The result | `relate_destroy_result` |
+| `char *` from an `error_json` out-param, or from `relate_conn_commit`'s `bookmark_out` | Caller | `relate_free_string` |
+| A `relate_params` root and its children | Caller | `relate_params_free` on the root |
+| Strings and arrays passed to a putter | Caller | Copied at the call; released whenever the caller likes |
+
+## Threading and panic safety
+
+| Rule | Contract |
+| --- | --- |
+| Databases | A `relate_database` may be shared across threads |
+| Connections | A `relate_connection` must not be: calls on one connection are serialized by the caller; distinct connections may run on distinct threads |
+| Params builders | One thread at a time, as for a connection |
+| Panics | Every entry point catches a panic at the boundary. The handle it happened on is then poisoned: every later call on it returns `RELATE_ERROR` with an `internal`-stage shape, or `0` or `NULL`. Close and destroy still free a poisoned handle. |
+
+## Environment
+
+| Variable | Effect |
+| --- | --- |
+| `RELATE_FFI_LOG` | `1` logs an internal failure's original message to stderr; read once per process |
+| `RELATE_SNAPSHOT_FORMAT`, `RELATE_DURABILITY_MODE`, `RELATE_CHECKPOINT_INTERVAL_SECS`, `RELATE_LOGICAL_GRAPH_SIZE_LIMIT`, `RELATE_LOAD_CSV_DIR` and the other open settings | Read at open, as the Rust crate's default [`OpenOptions`](/docs/reference/api/rust#openoptions) reads them; the C ABI has no options argument |
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), one value a statement builds is bounded by the expression memory cap, and a file-backed store has one writing open across every process. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+<Matrix columns={["c"]} />
+
+## Example
+
+This program binds a zoned datetime, a point and a vector, then reads each back by its components:
+
+```c run name=example
+#include <stdio.h>
+#include "relate.h"
+
+/* Bind a zoned datetime, a WGS-84 point and a FLOAT32 vector, then read them back. */
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return 1;
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return 1;
+
+    double embedding[3] = {0.25, -1.0, 0.5};
+    relate_params p = relate_params_new();
+    if (relate_params_put_datetime(p, "at", 2026, 11, 4, 9, 30, 0, 0, 0, "Europe/Berlin", &err) != RELATE_OK ||
+        relate_params_put_point(p, "loc", 4326, 12.5, 55.6, NULL, &err) != RELATE_OK ||
+        relate_params_put_vector_float(p, "emb", "FLOAT32", embedding, 3, &err) != RELATE_OK) {
+        fprintf(stderr, "put refused: %s\n", err);
+        relate_free_string(err);
+        return 1;
+    }
+    if (relate_query_params(conn, "RETURN $at AS at, $loc AS loc, $emb AS emb", p, &r, &err) != RELATE_OK) return 1;
+    if (relate_result_is_error(r)) return 1;
+
+    relate_value at = relate_value_at(r, 0, 0);
+    int64_t y = 0, mo = 0, d = 0, h = 0, mi = 0, off = 0;
+    relate_value_year(at, &y); relate_value_month(at, &mo); relate_value_day(at, &d);
+    relate_value_hour(at, &h); relate_value_minute(at, &mi); relate_value_offset_seconds(at, &off);
+    printf("at: kind=%d %04lld-%02lld-%02lld %02lld:%02lld offset=%lld zone=%s\n",
+           relate_value_kind(at), (long long)y, (long long)mo, (long long)d,
+           (long long)h, (long long)mi, (long long)off, relate_value_zone(at));
+
+    int32_t srid = 0, dim = 0;
+    double x = 0, yy = 0, z = 0;
+    relate_value_point(relate_value_at(r, 0, 1), &srid, &dim, &x, &yy, &z);
+    printf("loc: kind=%d srid=%d dim=%d x=%g y=%g\n", relate_value_kind(relate_value_at(r, 0, 1)), srid, dim, x, yy);
+
+    relate_value emb = relate_value_at(r, 0, 2);
+    printf("emb: kind=%d dtype=%s dim=%lld [", relate_value_kind(emb), relate_value_vector_dtype(emb),
+           relate_value_vector_dim(emb));
+    for (long long i = 0; i < relate_value_vector_dim(emb); i++) {
+        double c = 0;
+        relate_value_vector_float(emb, i, &c);
+        printf("%s%g", i ? ", " : "", c);
+    }
+    int64_t wrong = 0;
+    printf("]\nint accessor on a FLOAT32 vector: %s\n",
+           relate_value_vector_int(emb, 0, &wrong) == RELATE_ERROR ? "RELATE_ERROR" : "RELATE_OK");
+
+    relate_destroy_result(r);
+    relate_params_free(p);
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+## See also
+
+- [Use the C ABI](/docs/guides/embed/c): linking, the error channel and the ownership rules, task by task.
+- [Rust API](/docs/reference/api/rust): the crate this library wraps.
+- [Errors](/docs/reference/errors): every message with its cause and remedy.
+- [Storage formats](/docs/reference/storage/formats): what each store layout writes to disk.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the C ABI solves.

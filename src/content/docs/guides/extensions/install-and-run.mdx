@@ -1,0 +1,269 @@
+---
+title: Install and run an extension
+description: Install relate extensions from the signed channel, a pinned GitHub release, a URL, or a folder, then list, check, run, and remove them.
+order: 20
+surfaces: [extensions, cli]
+prerequisites: [get-started/install]
+related: [guides/extensions/write-an-extension, reference/cli/extension, reference/cli/run, guides/agents/agent-safety, reference/security, concepts/security-and-trust]
+---
+
+This guide shows you how to install an :term[extension]{id=extension}, run it into a :term[store]{id=store}, and remove it. An extension is a package that adds an action to `relate run <name>`; `relate extension install` puts it on the machine, and where it comes from is the trust decision. relate never fetches anything on `relate run`: an action that is not installed fails.
+
+## Prerequisites
+
+- relate on your `PATH`: `relate --version` prints its version ([Install relate](/docs/get-started/install)).
+- The runtime the extension's executable needs, such as `python3` for a Python package. The first-party `fs-to-graph` and `git-to-graph` packages are self-contained binaries; `git-to-graph` also runs `git`.
+- Network access for the channel, `--github`, and `--url` installs. `--from` and every other action on this page work offline.
+
+The examples install a package scaffolded with `relate extension init greet`, which writes a `greet/` folder holding a Python package:
+
+```bash verify
+relate extension init greet
+```
+
+## Choose a trust tier
+
+Each install source is a trust tier, and the flag you pass picks it. Every tier runs the same manifest, protocol, and name checks, and a failed install leaves nothing behind.
+
+| Tier | Install with | What relate checks | What you trust |
+| --- | --- | --- | --- |
+| `first-party` | `relate extension install <name>` | The channel's index, `extensions.json`, against the release signing key that `relate upgrade` uses, then the package's SHA-256 against the signed index | relate's release channel |
+| `github-pin` | `--github <owner>/<repo>@<tag>` or `@<full-commit-sha>` | The tag's commit and the release asset's SHA-256, recorded on the first install; a later install whose tag moved or whose asset changed is refused before any download | One commit of one repository |
+| `third-party` | `--url <url>` | That the URL is `https`, or `http` to a loopback address; there is no signature to check | Whoever serves the URL |
+| `local` | `--from <dir>` | That the executable resolves inside the folder; no network, no signature | Whoever controls the folder |
+
+`relate extension list` names each installed package's tier, and a folder placed in the extensions directory by hand lists as `unmarked`. The first-party channel carries `fs-to-graph` and `git-to-graph`.
+
+## Install a package
+
+From the first-party channel, by name. `--version <v>` picks a channel version; the default is the newest listed:
+
+```bash
+relate extension install git-to-graph
+```
+
+From a folder. This is the offline path, for CI, air-gapped machines, and your own packages:
+
+```bash verify
+relate extension install greet --from ./greet
+```
+
+```text
+installed local extension greet 0.1.0 from ./greet
+```
+
+Each install prints one line naming the tier, the package's name and version, and the source. The name you install under must match the manifest's `name`. `install` copies two files, the manifest and the executable, and nothing else from the folder.
+
+From a URL. The URL serves a gzip-compressed tar archive whose only members are `extension.json` and the executable, at the archive's root, with no directory entries:
+
+```bash
+tar --format ustar -czf greet-0.1.0.tar.gz -C greet extension.json greet.py
+relate extension install greet --url https://<host>/greet-0.1.0.tar.gz
+```
+
+The installed line names the tier and the URL. This output came from a test server on the loopback address:
+
+```text
+installed third-party extension greet 0.1.0 from http://127.0.0.1:8897/greet-0.1.0.tar.gz
+```
+
+Any other URL, such as plain `http` to a host that is not loopback, is refused before anything is fetched (exit code 2):
+
+```bash verify
+relate extension install word-count --url http://example.com/word-count-0.1.0.tar.gz
+```
+
+```text
+Error: extension install: --url accepts only https URLs (or plain http to the loopback interface); 'http://example.com/word-count-0.1.0.tar.gz' is neither
+```
+
+From a GitHub release, pinned. The release must carry an asset named `<name>-<version>-<os>-<arch>.tar.gz` for this machine:
+
+```bash
+relate extension install <name> --github <owner>/<repo>@<tag>
+```
+
+The first install records the pin in `extensions-trust.json` in the relate config directory. `relate extension list --trust` prints the recorded pins. When a tag later resolves to another commit, the install is refused until you pass `--re-approve` (accept what the tag resolves to now) or `--approve <full-commit-sha>` (accept only that commit). A repository without `@<tag>` is refused:
+
+```bash verify
+relate extension install greet --github relatedb/greet
+```
+
+```text
+Error: extension install: --github 'relatedb/greet' needs a pin: owner/repo@tag or owner/repo@<full-commit-sha> (an untagged repository is a moving target)
+Usage: relate extension init <name> [--lang sh|py|ts|rust]
+       relate extension install <name> [--github REPO@TAG|@SHA] [--url URL] [--from DIR] [--version V] [--force] [--re-approve | --approve SHA]
+       relate extension list [--available | --trust]
+       relate extension remove <name> [--forget-pin]
+       relate extension check <dir>
+Run 'relate extension --help' for more information.
+```
+
+There is no upgrade action. To move to a newer version, install again with a newer `--version` or pin, which runs the tier's checks again.
+
+## See what is installed
+
+`relate extension list` reads the installed set offline:
+
+```bash verify
+relate extension list
+```
+
+```text
+greet 0.1.0 local ./greet
+```
+
+Each line holds the name, version, tier, and source. `relate extension list --available` prints the first-party channel's catalog instead; it needs the network and fails, naming the index URL, when offline.
+
+## Where packages live
+
+Each package is one folder under `$XDG_CONFIG_HOME/relate/extensions/<name>/`. When `XDG_CONFIG_HOME` is unset, empty, or a relative path, the folder is `~/.config/relate/extensions/<name>/`:
+
+```bash verify
+ls -A "$HOME/.config/relate/extensions/greet"
+```
+
+```text
+.relate-provenance.json
+extension.json
+greet.py
+```
+
+`.relate-provenance.json` is the marker `install` writes, recording the tier and the source:
+
+```bash verify
+cat "$HOME/.config/relate/extensions/greet/.relate-provenance.json"
+```
+
+```text
+{"tier":"local","source":"./greet"}
+```
+
+That folder is the only place relate looks for extensions. It never reads one from the working directory, so cloning a repository cannot add an action to `relate run`.
+
+## Check a package
+
+`relate extension check <dir>` runs a package folder through the stages a run needs: the manifest, the executable, starting it, and the MCP handshake. It opens no store and installs nothing, and relate fetches nothing. It does start the package's executable, so the package's own code runs with your permissions: check only a package whose source you have read or whose source you trust.
+
+Checking the `greet` package prints one line per stage:
+
+```bash verify
+relate extension check ./greet
+```
+
+```text
+manifest: ok (greet 0.1.0, protocol 2025-06-18)
+executable: ok (greet.py)
+spawn: ok
+initialize: ok (MCP 2025-06-18, server relate 0.16.1)
+notifications/initialized: ok
+tools/list: ok (the shared tool table: 5 tools; the extension calls 'write_cypher')
+pin: not from a GitHub source (unmarked)
+```
+
+The last line reports the package's GitHub pin and never changes the :term[exit code]{id=exit-code}: 0 when the package would mount, 2 for a problem in the manifest or the files, 1 for a problem when it runs.
+
+## Run an extension
+
+The manifest defines each action's flags, and `relate run <name> --help` prints them:
+
+```bash verify
+relate run greet --help
+```
+
+```text
+Usage: relate run greet [--name VALUE]
+
+Run the installed extension 'greet' (v0.1.0) as a batched import into a store the host owns.
+The child walks its source and drives the import as an MCP client; the
+host alone owns the store, the caps and the exit codes (ADR-0447).
+
+  -d, --database PATH   Database to import into (default :memory:).
+                         An explicit --database exits after the import; without
+                         it, a TTY opens the shell on the in-memory graph.
+  --name VALUE          A string flag (default 'there')
+```
+
+A run writes to the store named by `-d`, which relate opens and owns; the extension never sees its path. This run writes one node to a new `team.rl`:
+
+```bash verify
+relate run greet --name Ada -d ./team.rl
+```
+
+```text
+greet: Hello Ada world! — wrote 1 sample node(s), the store holds 1
+  MATCH (n:Scaffold) RETURN n
+```
+
+The first line is the extension's summary, and the indented lines are starter queries. With `-d`, the run exits after the summary. Without `-d`, it imports into an in-memory store and, on a terminal, opens the interactive shell on it and offers the starters there.
+
+The store is an ordinary store afterwards:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (n:Scaffold) RETURN n.id AS id, n.note AS note"
+```
+
+```text
++-----------+-------+
+| id        | note  |
++-----------+-------+
+| "example" | "Ada" |
++-----------+-------+
+```
+
+A run exits 0 on success, 2 for a usage problem found before the extension starts (a flag the manifest does not declare, a value of the wrong kind, a name that is not installed), and 1 when the extension fails.
+
+## Remove a package
+
+```bash verify
+relate extension remove greet
+```
+
+```text
+removed extension greet (<home>/.config/relate/extensions/greet)
+```
+
+`remove` deletes only a folder that carries the provenance marker; a folder placed by hand is refused, and there is no `--force`. It keeps a recorded GitHub pin, so a reinstall is still compared with it; `--forget-pin` clears the pin too.
+
+## Verify
+
+Install the package again and check the installed copy. The last line now names the `local` tier from its provenance marker:
+
+```bash verify
+relate extension install greet --from ./greet
+relate extension check "$HOME/.config/relate/extensions/greet"
+```
+
+```text
+installed local extension greet 0.1.0 from ./greet
+manifest: ok (greet 0.1.0, protocol 2025-06-18)
+executable: ok (greet.py)
+spawn: ok
+initialize: ok (MCP 2025-06-18, server relate 0.16.1)
+notifications/initialized: ok
+tools/list: ok (the shared tool table: 5 tools; the extension calls 'write_cypher')
+pin: not from a GitHub source (local)
+```
+
+`relate run --help` lists every installed action with its version.
+
+## If it goes wrong
+
+**`Error: extension install: extension 'greet' is installed local (source: ./greet); refusing a third-party install over it — remove it first: relate extension remove greet`** (exit code 1). An install never replaces a package from another tier. Run `relate extension remove greet`, then install again. A reinstall from the same tier replaces the package.
+
+**`Error: extension install: refusing to touch <home>/.config/relate/extensions/greet: no .relate-provenance.json marker present (the directory was not installed by relate); pass --force to override`** (exit code 1). A folder with that name was placed by hand. Pass `--force` to replace it, or move it aside.
+
+**`Error: extension install: the package's manifest names '<manifest-name>' but the install was for '<name>'`** (exit code 1). Install under the manifest's `name`.
+
+**`Error: extension remove: refusing to remove <home>/.config/relate/extensions/<name>: no .relate-provenance.json marker present (the directory was not installed by relate; remove it manually)`** (exit code 1). relate did not install that folder, so it does not delete it.
+
+**`Error: no installed action 'git-to-graph' — first-party extension available: relate extension install git-to-graph`** (exit code 2). The action is not installed under the extensions directory relate reads; `relate run` fetches nothing. Check `relate extension list`, and check that `XDG_CONFIG_HOME` is the same as when you installed it.
+
+## Related
+
+- [Write an extension](/docs/guides/extensions/write-an-extension): scaffold, check, and run your own package.
+- [`relate extension`](/docs/reference/cli/extension): every action and flag.
+- [`relate run`](/docs/reference/cli/run): the run command and its exit codes.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): the permission matrix, including the extension tiers.
+- [Security reference](/docs/reference/security): what each install source verifies.
+- [Import git history with git-to-graph](/docs/guides/extensions/git-to-graph): a first-party package to install from the channel.

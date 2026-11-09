@@ -1,0 +1,140 @@
+---
+title: relate telemetry
+description: The relate telemetry command with on, off and status, what each prints, the config file it writes, the environment layers that outrank it, and exit codes.
+order: 100
+surfaces: [cli]
+related: [reference/privacy-and-telemetry, reference/cli/flags, reference/cli/environment-variables, guides/agents/run-in-a-sandbox, concepts/problems-relate-solves#offline-and-sandboxed-use]
+---
+
+`relate telemetry on|off|status` manages the anonymous usage metrics the `relate` CLI sends, its :term[telemetry]{id=telemetry}. `off` and `on` write the setting to `config.json` in the user's config directory and print the file's path; `status` prints whether usage metrics are on and which layer decided it. The setting is the third of four layers: `DO_NOT_TRACK` and `RELATE_TELEMETRY` in the environment outrank it. Usage metrics are on by default. What the events hold, and what they never hold, is on [Privacy and telemetry](/docs/reference/privacy-and-telemetry#events).
+
+## Synopsis
+
+```text
+relate telemetry on|off|status
+```
+
+| Action | Does | Prints on stdout |
+| --- | --- | --- |
+| `on` | Writes `{"telemetry":true}` to `config.json` | `telemetry enabled (<path to config.json>)` |
+| `off` | Writes `{"telemetry":false}` to `config.json` | `telemetry disabled (<path to config.json>)` |
+| `status` | Reads the layers; writes nothing | `<enabled\|disabled> (<layer>)`, the layer being `DO_NOT_TRACK`, `RELATE_TELEMETRY`, `config file` or `default` |
+
+Exactly one action is required, in lowercase. The command takes no flags beyond `--help`.
+
+## Where the setting lives
+
+`on` and `off` write one file, created with mode `0600` on Unix:
+
+| Environment | File |
+| --- | --- |
+| `XDG_CONFIG_HOME` set to an absolute path | `$XDG_CONFIG_HOME/relate/config.json` |
+| Otherwise (unset, or a relative path) | `$HOME/.config/relate/config.json` |
+| Neither `HOME` nor an absolute `XDG_CONFIG_HOME` | No file: exit code 1 with `Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)` |
+
+The same directory holds `state.json`, which holds the random install ID and the first-run notice flag. Any run with usage metrics on, `relate telemetry off` included, creates it when it is missing and sends one `RELATE-CLI_COMMAND` event (`command: telemetry`, `action: off`) before the new setting takes effect. A run with `DO_NOT_TRACK=1` set writes neither.
+
+## Which layer decides
+
+The first layer that matches decides, and `status` names it:
+
+| Order | Layer | Turns usage metrics off | Turns them on | `status` prints |
+| --- | --- | --- | --- | --- |
+| 1 | `DO_NOT_TRACK` | `1` or `true` | — | `disabled (DO_NOT_TRACK)` |
+| 2 | `RELATE_TELEMETRY` | `0`, `false` or `off` | `1`, `true` or `on` | `disabled (RELATE_TELEMETRY)` or `enabled (RELATE_TELEMETRY)` |
+| 3 | `config.json`, written by `relate telemetry off` and `on` | `false` | `true` | `disabled (config file)` or `enabled (config file)` |
+| 4 | Default | — | on | `enabled (default)` |
+
+Both variables are read trimmed and case-insensitive (`DO_NOT_TRACK=TRUE` and `RELATE_TELEMETRY=OFF` count). `DO_NOT_TRACK=0` is not an opt-out and passes the decision to the next layer, and so does a `RELATE_TELEMETRY` value other than those six, in any case. `relate telemetry on` writes the file even while `DO_NOT_TRACK=1` is set, and the variable still wins. `relate telemetry off` does not change the environment, so a `RELATE_TELEMETRY=1` in it still turns usage metrics on.
+
+## The first-run notice and the events
+
+The first statement run with usage metrics on prints `relate collects anonymous usage metrics; disable anytime: relate telemetry off` on stderr, once per install. A run with usage metrics off prints no notice, sends nothing and writes no `state.json`. The setting a run reads is the one in force when it starts, so `relate telemetry off` itself still sends its own command event when usage metrics were on. The four events, their properties, the install ID and the delivery are listed on [Privacy and telemetry](/docs/reference/privacy-and-telemetry); the `agent` and `minimal` builds from source contain no usage metrics code and have no `telemetry` command.
+
+## Errors and exit codes
+
+| Exit code | When | Message on stderr |
+| --- | --- | --- |
+| [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | The action ran | None |
+| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | `on` or `off` found no config directory, or could not write the file | `Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)`, or `Error: telemetry: writing <path to config.json>: <reason>` |
+| [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | No action | `Error: telemetry requires an action (on, off, or status)` |
+| 2 | An unknown action, or a second argument | `Error: unexpected argument to telemetry: <argument>` |
+
+Each exit 2 also prints the usage line and `Run 'relate telemetry --help' for more information.`
+
+## Examples
+
+These examples run with `DO_NOT_TRACK=1` set, in a fresh home directory shown as `<home>`, so no command here sends anything. `status` names the environment layer, `off` writes the file, and `env -u DO_NOT_TRACK` runs one command without the variable to show the file's layer underneath:
+
+```bash verify
+relate telemetry status
+relate telemetry off
+env -u DO_NOT_TRACK relate telemetry status
+```
+
+```text
+disabled (DO_NOT_TRACK)
+telemetry disabled (<home>/.config/relate/config.json)
+disabled (config file)
+```
+
+The file holds one key:
+
+```bash verify
+cat "$HOME/.config/relate/config.json"
+echo
+```
+
+```text
+{"telemetry":false}
+```
+
+`RELATE_TELEMETRY` outranks the file:
+
+```bash verify
+env -u DO_NOT_TRACK RELATE_TELEMETRY=0 relate telemetry status
+```
+
+```text
+disabled (RELATE_TELEMETRY)
+```
+
+With `XDG_CONFIG_HOME` set to an absolute path, the file goes under it:
+
+```bash verify
+mkdir -p "$PWD/config"
+XDG_CONFIG_HOME="$PWD/config" relate telemetry off
+```
+
+The working directory is shown as `<dir>`:
+
+```text
+telemetry disabled (<dir>/config/relate/config.json)
+```
+
+A missing or unknown action is a usage error:
+
+```bash verify
+relate telemetry
+echo "exit=$?"
+relate telemetry maybe
+echo "exit=$?"
+```
+
+```text
+Error: telemetry requires an action (on, off, or status)
+Usage: relate telemetry on|off|status
+Run 'relate telemetry --help' for more information.
+exit=2
+Error: unexpected argument to telemetry: maybe
+Usage: relate telemetry on|off|status
+Run 'relate telemetry --help' for more information.
+exit=2
+```
+
+## See also
+
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): the events, what is never collected, and the surfaces that never send anything
+- [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): relate for an agent with usage metrics off
+- [Environment variables](/docs/reference/cli/environment-variables): `DO_NOT_TRACK`, `RELATE_TELEMETRY` and the variables for development and testing
+- [CLI flags](/docs/reference/cli/flags): every flag of every command

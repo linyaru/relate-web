@@ -1,0 +1,47 @@
+/* :::vector-explorer (src/scripts/docs/elements/vector-explorer.ts). Tokens only; nothing moves, so nothing to stop under reduced motion. */
+.vx { font-size: 14px; }
+.vx-controls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin-bottom: 10px; }
+.vx-field { display: flex; align-items: center; gap: 8px; margin: 0; }
+.vx-k { font-weight: 600; }
+.vx-range { width: 180px; max-width: 50vw; accent-color: var(--accent); }
+.vx-kval { min-width: 2ch; font-variant-numeric: tabular-nums; font-weight: 600; }
+.vx-metric { border: 0; padding: 0; flex-wrap: wrap; }
+.vx-metric legend { float: left; margin-right: 8px; padding: 0; color: var(--fg-muted); }
+.vx-metric label { margin-right: 10px; white-space: nowrap; }
+.vx-filter code, .vx-fused code, .vx-list code, .vx-all code { font-family: var(--font-mono); font-size: 0.92em; }
+.vx-filter input:disabled + * { opacity: 0.6; }
+.vx-figure { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.vx-plot { display: block; width: 100%; height: auto; }
+.vx-axis { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.6; }
+.vx-axis-label { font-size: 11px; fill: var(--fg-muted); }
+.vx-pt { stroke-width: 1.2; cursor: pointer; }
+/* Greyed: faded and dashed, so the state does not rest on colour alone; the table says "filtered out" too. */
+.vx-pt.vx-out { fill: var(--bg-inset); fill-opacity: 0.5; stroke: var(--fg-faint); stroke-dasharray: 2 2; }
+.vx-ring { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.vx-rank, .vx-query-label { font-size: 11px; font-weight: 600; fill: var(--fg); stroke: var(--bg); stroke-width: 3px; paint-order: stroke; }
+.vx-query circle, .vx-query path { fill: none; stroke: var(--fg); stroke-width: 2; }
+.vx-status { margin: 10px 0 6px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.vx-list { margin: 0 0 8px; padding-left: 1.6em; }
+.vx-list li { margin: 2px 0; overflow-wrap: anywhere; }
+.vx-inspect { margin: 4px 0; min-height: 1.2em; overflow-wrap: anywhere; }
+.vx-inspect:empty { display: none; }
+.vx-all summary { cursor: pointer; color: var(--fg-muted); }
+.vx-scroll { overflow-x: auto; max-width: 100%; }
+.vx table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vx caption { text-align: left; color: var(--fg-muted); padding-bottom: 6px; }
+.vx th, .vx td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.vx-out-row td { color: var(--fg-faint); }
+.vx-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.vx-list-col { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); }
+.vx-list-col h4 { margin: 0 0 6px; font-size: 13px; }
+.vx-list-col ol { margin: 0; padding-left: 1.6em; }
+.vx-none { color: var(--fg-faint); list-style: none; margin-left: -1.6em; }
+.vx-fused tr.vx-kept td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.vx-fused tr.vx-kept td:first-child::after { content: " kept"; color: var(--fg-muted); font-size: 12px; }
+@media (max-width: 480px) {
+  .vx-controls { flex-direction: column; align-items: stretch; }
+  .vx-range { flex: 1; width: auto; max-width: none; }
+  /* The plot scales a 640-unit drawing to about 300 px; larger units keep its labels readable there. */
+  .vx-rank, .vx-query-label { font-size: 20px; stroke-width: 5px; }
+  .vx-axis-label { font-size: 18px; }
+}

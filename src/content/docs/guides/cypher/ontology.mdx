@@ -1,0 +1,216 @@
+---
+title: Use an ontology
+description: Store an Ontology Graph Spec document with a store, read it back as YAML or JSON, apply it as the graph type, and drop it, with the db.ontology procedures.
+order: 40
+surfaces: [cypher, cli]
+status: preview
+prerequisites: [get-started/install, guides/cypher/parameters]
+related: [reference/cypher/procedures, concepts/namespaces, guides/agents/text-to-cypher, concepts/problems-relate-solves#text-to-cypher, guides/cypher/indexes-and-constraints, reference/cypher/schema-clauses, reference/errors#engine-preview-feature-not-enabled]
+---
+
+This guide shows you how to store, read, apply and drop an :term[ontology]{id=ontology} with the four `db.ontology.*` procedures, a :term[preview feature]{id=preview-feature} that runs only when `RELATE_PREVIEW=ontology` is set in the environment of the process that opens the :term[store]{id=store}. In relate, an ontology is one document per store, in the Ontology Graph Spec 1.1.0 shape, written in YAML or JSON. It describes the node and relationship types of the `neo4j` graph in words an agent or a person can read, and its enforceable parts become the store's :term[graph type]{id=graph-type} when you apply it.
+
+The steps run in a terminal. The in-browser cells on other pages cannot run them: the WebAssembly (WASM) build has no process environment, so nothing can switch the preview on there.
+
+## Prerequisites
+
+- relate on your `PATH` ([install](/docs/get-started/install)).
+- `RELATE_PREVIEW=ontology` in the environment of each command that calls a procedure. The steps put it in front of the command, so it applies to that command only.
+
+:::warning[Served stores]
+The opt-in is read once, when the store opens, and is not a per-caller check. On `relate serve`, it exposes all four procedures to every connected client, including `db.ontology.set` and `db.ontology.drop`, which replace or remove the store's document.
+:::
+
+## Write the ontology
+
+This file describes the shared example graph: people with a unique name and a required role, projects with a unique name, and who works on which project. The `description` fields are for readers; the `key`, `must_exist` and `type` fields are enforceable.
+
+```bash verify
+cat > team.yaml <<'YAML'
+schema: https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json
+id: team
+version: "1"
+description: Who works on which project, and since when.
+nodes:
+  Person:
+    label: Person
+    description: Someone on the team.
+    properties:
+      name: {type: STRING, key: true}
+      role: {type: STRING, must_exist: true, description: "engineer or maintainer"}
+  Project:
+    label: Project
+    description: A code repository the team works on.
+    properties:
+      name: {type: STRING, key: true}
+      language: {type: STRING}
+relationships:
+  WORKS_ON:
+    type: WORKS_ON
+    description: A person contributes to a project.
+    from: {node: Person}
+    to: {node: Project}
+    properties:
+      since: {type: INTEGER, description: "the year the person started"}
+YAML
+```
+
+`schema` must be exactly `https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json`, and `version` is a string. A member the 1.1.0 schema does not define fails at `set`, including the older spellings `mustExist` and `constraint_type`.
+
+## Create the store
+
+This command writes the example graph to a new single-file store, `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+Without the opt-in, every procedure call fails with exit code 6, and `SHOW PROCEDURES` does not list them:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "CALL db.ontology.get() YIELD ontology RETURN ontology"
+```
+
+```text
+semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology
+```
+
+## Store the ontology
+
+`db.ontology.set` takes the document as a string, checks it against the 1.1.0 schema, and stores it byte for byte, replacing any earlier one. Pass it as a parameter: a YAML document does not look like JSON, so `--param` binds it as a string. This command writes to `team.rl`:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl --param "ontology=$(cat team.yaml)" 'CALL db.ontology.set($ontology)'
+```
+
+The double quotes let the shell insert the file; the single quotes keep it from expanding `$ontology`. `set` and `drop` run only as a statement of their own, outside an explicit transaction.
+
+## Read it back
+
+`db.ontology.get()` returns the stored document: the bytes as stored when the format matches (`'yaml'`, the default), or converted when it does not (`'json'`). This is the query an agent runs before it writes Cypher against the store ([text to Cypher](/docs/guides/agents/text-to-cypher)):
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl "CALL db.ontology.get('json') YIELD ontology RETURN ontology"
+```
+
+```text
+{"ontology":"{\"schema\":\"https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json\",\"id\":\"team\",\"version\":\"1\",\"description\":\"Who works on which project, and since when.\",\"nodes\":{\"Person\":{\"label\":\"Person\",\"description\":\"Someone on the team.\",\"properties\":{\"name\":{\"type\":\"STRING\",\"key\":true},\"role\":{\"type\":\"STRING\",\"must_exist\":true,\"description\":\"engineer or maintainer\"}}},\"Project\":{\"label\":\"Project\",\"description\":\"A code repository the team works on.\",\"properties\":{\"name\":{\"type\":\"STRING\",\"key\":true},\"language\":{\"type\":\"STRING\"}}}},\"relationships\":{\"WORKS_ON\":{\"type\":\"WORKS_ON\",\"description\":\"A person contributes to a project.\",\"from\":{\"node\":\"Person\"},\"to\":{\"node\":\"Project\"},\"properties\":{\"since\":{\"type\":\"INTEGER\",\"description\":\"the year the person started\"}}}}}"}
+```
+
+| Procedure | Mode | Returns |
+| --- | --- | --- |
+| `db.ontology.set(ontology :: STRING)` | `WRITE` | Nothing; stores the document after checking it |
+| `db.ontology.get(format = "yaml" :: STRING)` | `READ` | One row, `ontology`: the document as a string, or `null` when none is set |
+| `db.ontology.apply()` | `WRITE` | Nothing; replaces the graph type with the one the document describes |
+| `db.ontology.drop()` | `WRITE` | Nothing; removes the document, and succeeds when none is set |
+
+## Apply it as the graph type
+
+`db.ontology.apply()` turns the enforceable parts of the stored document into the graph type and replaces the current one. It checks the existing data first, and fails without changing anything when a node or relationship breaks the result. This command writes to `team.rl`:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl "CALL db.ontology.apply()"
+```
+
+The graph type shows up as constraints, which hold without the opt-in:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "SHOW CONSTRAINTS YIELD name, type, labelsOrTypes, properties RETURN name, type, labelsOrTypes, properties ORDER BY labelsOrTypes, type"
+```
+
+```text
++-----------------------+------------------------------+---------------+--------------+
+| name                  | type                         | labelsOrTypes | properties   |
++-----------------------+------------------------------+---------------+--------------+
+| "constraint_bda177ce" | "NODE_KEY"                   | ["Person"]    | ["name"]     |
+| "constraint_786ac02f" | "NODE_PROPERTY_EXISTENCE"    | ["Person"]    | ["role"]     |
+| "constraint_7d617092" | "NODE_PROPERTY_TYPE"         | ["Person"]    | ["name"]     |
+| "constraint_819770c5" | "NODE_PROPERTY_TYPE"         | ["Person"]    | ["role"]     |
+| "constraint_1a7131b"  | "NODE_KEY"                   | ["Project"]   | ["name"]     |
+| "constraint_18daa608" | "NODE_PROPERTY_TYPE"         | ["Project"]   | ["language"] |
+| "constraint_77b97d24" | "NODE_PROPERTY_TYPE"         | ["Project"]   | ["name"]     |
+| "constraint_acbf0f7c" | "RELATIONSHIP_PROPERTY_TYPE" | ["WORKS_ON"]  | ["since"]    |
+| "constraint_a4500cf5" | "RELATIONSHIP_SOURCE_LABEL"  | ["WORKS_ON"]  | <null>       |
+| "constraint_f500c307" | "RELATIONSHIP_TARGET_LABEL"  | ["WORKS_ON"]  | <null>       |
++-----------------------+------------------------------+---------------+--------------+
+```
+
+A person without a role now fails, and the statement writes nothing:
+
+```bash verify
+relate --database ./team.rl --mode table "CREATE (:Person {name: 'Eli'})"
+```
+
+```text
+semantic error: ConstraintValidationFailed: `constraint_786ac02f` requires properties
+```
+
+Descriptions, aliases, `one_of` lists and the other descriptive fields are never applied; `get` keeps returning them. `SHOW CURRENT GRAPH TYPE` prints the graph type as Cypher, and [indexes and constraints](/docs/guides/cypher/indexes-and-constraints) covers the constraints it holds.
+
+## Know where the document lives
+
+The document belongs to the `neo4j` :term[namespace]{id=namespace}, the graph that holds user data. `SHOW DATABASES` also lists `system_ontologies`, which no statement can query, reads included:
+
+```bash verify
+relate --database ./team.rl --read-only --namespace system_ontologies --mode table "MATCH (n) RETURN count(n) AS nodes"
+```
+
+```text
+semantic error: SemanticError: This database is not queryable. Use the db.ontology.* procedures on the user database 'neo4j' instead.
+```
+
+The procedures are the only way to the document. [Namespaces](/docs/concepts/namespaces) explains the three fixed graphs of a store.
+
+## Drop the ontology
+
+`db.ontology.drop()` removes the document. The graph type it applied stays until a statement replaces it, such as `ALTER CURRENT GRAPH TYPE SET {}`. This command writes to `team.rl`:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl "CALL db.ontology.drop()"
+```
+
+## Verify
+
+After the drop, `get` returns `null`:
+
+```bash verify
+RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode table "CALL db.ontology.get() YIELD ontology RETURN ontology IS NULL AS unset"
+```
+
+```text
++-------+
+| unset |
++-------+
+| true  |
++-------+
+```
+
+Before the drop, the `get` output and the `ConstraintValidationFailed` refusal showed the document stored and its graph type in force.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `semantic error: SemanticError: preview feature 'ontology' is not enabled: set RELATE_PREVIEW=ontology` (exit code 6) | The process that opened the store has no opt-in. | Set `RELATE_PREVIEW=ontology` in that process's environment. |
+| `Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature '<name>' (known features: …)` (exit code 1) | A misspelled feature name; the store does not open. | Spell it `ontology`; separate several features with commas. |
+| `semantic error: Unsupported ontology spec version: '<uri>'. This version of Relate supports up to Ontology Graph Spec 1.1.0 ('https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json').` | The `schema` field names another spec version. | Rewrite the document in the 1.1.0 shape with that exact `schema`. |
+| ``type error: InvalidArgumentType: db.ontology.set argument `ontology` expects STRING`` | A JSON document passed with `--param` was parsed into a map. | Pass the document in YAML, or as a JSON-quoted string. |
+| `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` | `set`, `apply` or `drop` on a store opened with `--read-only`. | Run it without `--read-only`. |
+| ``semantic error: ConstraintValidationFailed: `<constraint>` violated by element `<element id>`: …`` | `apply` found existing data that breaks the ontology. | Fix the element the message names, then apply again. |
+| `semantic error: SemanticError: Ontologies can only be stored for the user database 'neo4j'.` | The procedure ran on the `system` namespace. | Run it on `neo4j`, the default. |
+
+## Related
+
+- [Procedures](/docs/reference/cypher/procedures): the `db.ontology.*` signatures, the document shape, and the transaction rules.
+- [Namespaces](/docs/concepts/namespaces): `neo4j`, `system` and `system_ontologies`.
+- [Text to Cypher](/docs/guides/agents/text-to-cypher): give a model the schema before it writes a statement.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): the constraints a graph type adds, and how to list them.

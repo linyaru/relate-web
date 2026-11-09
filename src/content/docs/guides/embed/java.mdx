@@ -1,0 +1,420 @@
+---
+title: Use the Java client
+label: Java
+description: Add the com.relate:relate jar to a Maven or Gradle build, open stores in each mode, bind typed parameters, run transactions, and handle exceptions.
+order: 60
+surfaces: [java]
+prerequisites: [get-started/java]
+related: [reference/api/java, get-started/java, reference/errors, concepts/transactions-and-concurrency, guides/storage/choose-a-store-layout, reference/project, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+This guide shows you how to use the relate Java :term[client]{id=client} in an app: the Maven or Gradle dependency, how the jar loads its native engine, which store to open and how, which Java types values arrive as, how to group writes and retry a conflict, what a result reports about itself, and how to branch on an exception. The client runs the engine inside your Java virtual machine (JVM) through JNA (Java Native Access). Every program on this page writes to a store it creates, using the team graph from the [Java tutorial](/docs/get-started/java).
+
+## Prerequisites
+
+- Java 17 or later. The programs on this page ran on JDK 21.0.13 with JNA 5.14.0 and Jackson databind 2.17.2, the client's two dependencies.
+- Maven or Gradle.
+- macOS (arm64 or x86-64), Linux with glibc (arm64 or x86-64), or Windows (x86-64): the platforms the jar carries an engine for.
+
+## Add the client
+
+The artifact is `com.relate:relate` and the package is `com.relate`. The plain jar carries the engine for all five platforms, about 40 MB; in these blocks `<release>` is the release version:
+
+```xml title="pom.xml"
+<dependency>
+  <groupId>com.relate</groupId>
+  <artifactId>relate</artifactId>
+  <version><release></version>
+</dependency>
+```
+
+```kotlin title="build.gradle.kts"
+dependencies { implementation("com.relate:relate:<release>") }
+```
+
+For a smaller deployable, depend on one classifier jar instead, which carries one platform's engine. Depend on the plain jar or one classifier jar, never both:
+
+| Classifier | Platform |
+| --- | --- |
+| `osx-aarch_64` | macOS arm64 |
+| `osx-x86_64` | macOS x86-64 |
+| `linux-aarch_64` | Linux arm64, glibc |
+| `linux-x86_64` | Linux x86-64, glibc |
+| `windows-x86_64` | Windows x86-64 |
+
+The names follow the vocabulary of the `os-maven-plugin` build extension for Maven and of `com.google.osdetector` for Gradle. With the extension, `<classifier>${os.detected.classifier}</classifier>` picks the build host's; in a Gradle build that applies `com.google.osdetector`, `"com.relate:relate:<release>:${osdetector.classifier}"` does. A container image built for another platform names its classifier literally. The jars are attached to each release on the [releases page](https://github.com/relatedb/relate/releases); resolving `com.relate:relate` from Maven Central is a launch-day target. [Project](/docs/reference/project#platforms) lists what each release publishes, and where.
+
+## Load the native engine
+
+The first use of `Database` in a JVM resolves the engine once:
+
+1. When `RELATE_LIB` is set and not empty, its path is loaded. It is a development override for a library you built, not a deployment mechanism.
+2. Otherwise the jar's engine for the running platform is extracted to a cache directory and loaded from there.
+3. Otherwise the call throws `RelateException`, naming the platform and the classifier to add.
+
+The system library path, `java.library.path` and `jna.library.path` are never searched. The extracted file is reused by every later JVM:
+
+| Platform | Cache root |
+| --- | --- |
+| macOS | `~/Library/Caches/relate/native` |
+| Linux | `$XDG_CACHE_HOME/relate/native` when `XDG_CACHE_HOME` is absolute, else `~/.cache/relate/native` |
+| Windows | `%LOCALAPPDATA%\relate\native` |
+
+On a read-only home directory or a `noexec` mount, pass `-Drelate.native.cache=<dir>` to move the cache. On Java 24 or later, pass `--enable-native-access=ALL-UNNAMED` to the JVM: JNA loads through JNI, and without the flag the JVM prints `WARNING: A restricted method in java.lang.System has been called` on first use.
+
+## Open a store
+
+`Database.open(path)` opens a store for writing and creates it when it is missing; `Database.openReadOnly(path)` loads an existing one once. The path decides the layout:
+
+| Call | Opens | Notes |
+| --- | --- | --- |
+| `Database.open(":memory:")` | An in-memory store | Gone when the database closes |
+| `Database.open("./team")` | A directory store | Created when missing; another process may read it with `openReadOnly` while you write |
+| `Database.open("./team.rl")` | A single-file store | Created when missing; opens only while no other process writes it |
+| `Database.openReadOnly(path)` | An existing store, :term[read-only]{id=read-only} | Refuses writes and `checkpoint()`; a missing store is an error, never created |
+| `db.connect("system")` | A connection in another namespace | `connect()` is `connect("neo4j")`; names match case-insensitively |
+
+`Database` and `Database.Connection` are `AutoCloseable`. Close both, ideally with try-with-resources: until the database and its connections close, a file :term[store]{id=store} cannot be opened again in the same JVM. This program writes `team.rl`, closes it, and reads it back read-only:
+
+```java run name=open
+import com.relate.ClientException;
+import com.relate.Database;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class Open {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    public static void main(String[] args) {
+        try (Database db = Database.open("./team.rl");
+             Database.Connection conn = db.connect()) {
+            conn.query(TEAM);
+        }
+        System.out.println("team.rl exists: " + Files.exists(Path.of("team.rl")));
+
+        try (Database db = Database.openReadOnly("./team.rl");
+             Database.Connection conn = db.connect()) {
+            var people = conn.query("MATCH (p:Person) RETURN count(p) AS people");
+            System.out.println("people: " + people.rows().get(0).get(0));
+            try {
+                conn.query("CREATE (:Person {name: 'Lin'})");
+            } catch (ClientException e) {
+                System.out.println("refused: " + e.getGqlStatus() + " " + e.getCode());
+            }
+        }
+    }
+}
+```
+
+A connection serves one thread at a time; its methods are `synchronized`, so concurrent callers queue. For parallel work, open one connection per thread from the same `Database`.
+
+## Bind parameters and read typed values
+
+`conn.query(statement, params)` takes a `Map<String, ?>`, and each value binds as its natural Cypher type: `Integer` and `Long` as `INTEGER`, `LocalDate` as `DATE`, `VectorValue` as `VECTOR`, a `List` as `LIST`. A Java type outside the supported set throws `IllegalArgumentException` before the statement runs. Cells come back typed in the same way: nodes as the `Node` record, integers as `Long`, dates as `java.time` values.
+
+```java run name=params
+import com.relate.Database;
+import com.relate.Node;
+import com.relate.VectorValue;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+public class Params {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    public static void main(String[] args) {
+        try (Database db = Database.open(":memory:");
+             Database.Connection conn = db.connect()) {
+            conn.query(TEAM);
+
+            var team = conn.query("""
+                MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+                RETURN p, w.since AS since ORDER BY since""",
+                Map.of("project", "relate"));
+            for (List<Object> row : team.rows()) {
+                Node person = (Node) row.get(0);
+                Long since = (Long) row.get(1);
+                System.out.println(person.properties().get("name") + " " + person.labels() + " since " + since);
+            }
+
+            var noor = conn.query("""
+                MATCH (p:Person {name: $name})
+                SET p.joined = $joined, p.focus = $focus
+                RETURN p.joined AS joined, p.focus AS focus, elementId(p) AS id""",
+                Map.of("name", "Noor",
+                       "joined", LocalDate.of(2025, 3, 1),
+                       "focus", new VectorValue("FLOAT32", List.of(0.25, 0.5, 1.0))));
+            List<Object> row = noor.rows().get(0);
+            System.out.println(row.get(0).getClass().getSimpleName() + " " + row.get(0));
+            System.out.println(row.get(1));
+
+            var byId = conn.query("MATCH (p) WHERE elementId(p) = $id RETURN p.name AS name",
+                Map.of("id", row.get(2)));
+            System.out.println("by element id: " + byId.rows().get(0).get(0));
+        }
+    }
+}
+```
+
+An element id comes back spelled exactly as `elementId()` returns it, so it round-trips through a parameter. The [Java API](/docs/reference/api/java#values) has the type of every Cypher kind in both directions.
+
+## Group writes in a transaction
+
+Outside a transaction, each `query` commits on its own. `begin()` opens an explicit transaction on the connection; `commit()` applies its statements together and returns its :term[bookmark]{id=bookmark}, `"relate:<n>"`, or `null` when it wrote nothing, and `rollback()` discards them. A :term[conflict]{id=conflict}, another connection committing a change to the same node first, throws `TransientException` from `commit()`; it is the one exception worth retrying, and a failed commit ends the transaction. This program commits one change, rolls one back, and retries a unit of work that loses a conflict on its first attempt:
+
+```java run name=transaction
+import com.relate.ClientException;
+import com.relate.Database;
+import com.relate.RelateException;
+import java.util.function.Consumer;
+
+public class Transactions {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    static String inTransaction(Database.Connection conn, Consumer<Integer> work) {
+        for (int attempt = 1; ; attempt++) {
+            conn.begin();
+            try {
+                work.accept(attempt);
+                return conn.commit();
+            } catch (RelateException e) {
+                try {
+                    conn.rollback();
+                } catch (ClientException ended) {
+                    // a failed commit has already ended the transaction
+                }
+                if (!e.isRetryable() || attempt == 3) {
+                    throw e;
+                }
+                System.out.println("attempt " + attempt + ": " + e.getMessage());
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        try (Database db = Database.open(":memory:");
+             Database.Connection conn = db.connect();
+             Database.Connection other = db.connect()) {
+            conn.query(TEAM);
+
+            conn.begin();
+            conn.query("MATCH (n:Person {name: 'Noor'}), (t:Project {name: 'opencypher-tck'}) "
+                + "CREATE (n)-[:WORKS_ON {since: 2025}]->(t)");
+            conn.query("MATCH (n:Person {name: 'Noor'}) SET n.role = 'engineer'");
+            System.out.println("committed: " + conn.commit());
+
+            conn.begin();
+            conn.query("MATCH (a:Person {name: 'Ada'}) DETACH DELETE a");
+            conn.rollback();
+            System.out.println("people: " + conn.query("MATCH (p:Person) RETURN count(p)").rows().get(0).get(0));
+
+            String bookmark = inTransaction(conn, attempt -> {
+                conn.query("MATCH (p:Project {name: 'relate'}) SET p.reviews = coalesce(p.reviews, 0) + 1");
+                if (attempt == 1) {
+                    other.query("MATCH (p:Project {name: 'relate'}) SET p.reviews = 10");
+                }
+            });
+            var reviews = conn.query("MATCH (p:Project {name: 'relate'}) RETURN p.reviews").rows().get(0).get(0);
+            System.out.println("committed: " + bookmark + ", reviews: " + reviews);
+        }
+    }
+}
+```
+
+The retry re-runs the whole unit of work, reads included, because the losing transaction saw state that has since changed. Compare bookmarks by their number, never as strings: `"relate:10"` sorts before `"relate:9"`. An auto-commit write carries its bookmark on `result.getBookmark()`. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) explains what a transaction isolates.
+
+## Read result metadata
+
+`query` returns a `Database.Result` that holds every row, copied out of the engine before the call returns. Beside `columns()` and `rows()` it reports:
+
+| Method | Value |
+| --- | --- |
+| `getQueryType()` | `"r"` (read), `"w"` (write, no columns), `"rw"` (write with columns) or `"s"` (schema) |
+| `getNamespace()` | The namespace the statement ran in: its `USE` target, else the connection's |
+| `getBookmark()` | An auto-commit write's bookmark, `relate:<n>`; the [Java API](/docs/reference/api/java#result) lists when it is `null` |
+| `getNotifications()` | The planner's notifications, filled by `EXPLAIN` and `PROFILE` and empty on a plain run |
+| `getPlan()` | The plan document under `EXPLAIN` or `PROFILE`, else `null` |
+
+The Java `Result` has no mutation counters, column types, or timings. To learn how many nodes a write touched, return a count from the statement.
+
+```java run name=metadata
+import com.relate.Database;
+import com.relate.Notification;
+
+public class Metadata {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    static void show(String label, Database.Result r) {
+        System.out.println(label + ": type=" + r.getQueryType() + " namespace=" + r.getNamespace()
+            + " bookmark=" + r.getBookmark() + " columns=" + r.columns());
+    }
+
+    public static void main(String[] args) {
+        try (Database db = Database.open(":memory:");
+             Database.Connection conn = db.connect()) {
+            show("create", conn.query(TEAM));
+            show("read", conn.query("MATCH (p:Person) RETURN p.name AS name"));
+            show("update", conn.query("MATCH (p:Person {name: 'Ada'}) SET p.role = 'lead' RETURN p.role AS role"));
+            show("index", conn.query("CREATE INDEX person_name FOR (p:Person) ON (p.name)"));
+            show("routed", conn.query("USE system SHOW DATABASES YIELD name RETURN name"));
+
+            var explained = conn.query("EXPLAIN MATCH (a:Person), (b:Project) RETURN a.name, b.name");
+            System.out.println("plan root: " + explained.getPlan().root.operator);
+            for (Notification n : explained.getNotifications()) {
+                System.out.println(n.getGqlStatus() + " " + n.getSeverity() + " " + n.getTitle());
+                System.out.println("remedy: " + n.getRemedy());
+            }
+        }
+    }
+}
+```
+
+`EXPLAIN` plans the statement without running it, and the two unconnected patterns earn a Cartesian product notification with its remedy. [Notifications](/docs/reference/cypher/notifications) lists every kind.
+
+## Handle errors
+
+Every failure the engine reports throws a subclass of `RelateException`, an unchecked exception. The class comes from the engine's classification, so code never parses message text:
+
+| Class | Thrown when |
+| --- | --- |
+| `TransientException` | `isRetryable()` is true: a write-write conflict, or the retryable workspace cap |
+| `ClientException` | The code starts `Neo.ClientError.`: syntax, types, a missing parameter, an unknown namespace, a write on a read-only store |
+| `DatabaseException` | The code starts `Neo.DatabaseError.`: the engine's own failures, every failed open among them |
+| `RelateException` | Anything else, including the client's own failures (loading the engine, a closed handle), where `getCode()` is `null` |
+
+Each carries `getCode()` (the Neo4j status code), `getGqlStatus()`, `getStage()` (`COMPILE`, `RUNTIME` or `INTERNAL`) and `isRetryable()`:
+
+```java run name=errors
+import com.relate.ClientException;
+import com.relate.Database;
+import com.relate.RelateException;
+import java.util.Map;
+
+public class Errors {
+    static final String TEAM = """
+        CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+               (grace:Person {name: 'Grace', role: 'engineer'}),
+               (noor:Person {name: 'Noor', role: 'maintainer'}),
+               (relate:Project {name: 'relate', language: 'Rust'}),
+               (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+               (ada)-[:WORKS_ON {since: 2024}]->(relate),
+               (grace)-[:WORKS_ON {since: 2023}]->(relate),
+               (grace)-[:WORKS_ON {since: 2022}]->(tck),
+               (noor)-[:MAINTAINS]->(relate),
+               (ada)-[:KNOWS]->(grace)
+        """;
+
+    public static void main(String[] args) {
+        Database db = Database.open(":memory:");
+        Database.Connection conn = db.connect();
+        conn.query(TEAM);
+        try {
+            conn.query("MATCH (p:Person {name: $name}) RETURN p.role AS role");
+        } catch (ClientException e) {
+            System.out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
+            System.out.println("code: " + e.getCode());
+            System.out.println("gql_status: " + e.getGqlStatus() + ", stage: " + e.getStage()
+                + ", retryable: " + e.isRetryable());
+        }
+        System.out.println(conn.query("MATCH (p:Person {name: $name}) RETURN p.role AS role",
+            Map.of("name", "Noor")).rows().get(0).get(0));
+
+        conn.close();
+        db.close();
+        try {
+            conn.query("RETURN 1");
+        } catch (RelateException e) {
+            System.out.println(e.getClass().getSimpleName() + ": " + e.getMessage() + ", code: " + e.getCode());
+        }
+    }
+}
+```
+
+`close()` is idempotent, and a call after it throws instead of touching freed memory. After an `INTERNAL` failure the handle may be unusable: close it and open a new one. The [errors reference](/docs/reference/errors#engine-parameter-missing) lists every engine message with its cause and codes.
+
+## Verify
+
+Ask the engine which release the jar loaded:
+
+```java run name=verify
+import com.relate.Database;
+
+public class Verify {
+    public static void main(String[] args) {
+        try (Database db = Database.open(":memory:");
+             Database.Connection conn = db.connect()) {
+            var result = conn.query("CALL dbms.components() YIELD name, versions "
+                + "WHERE name = 'Relate' RETURN versions[0] AS version");
+            System.out.println("relate " + result.rows().get(0).get(0));
+        }
+    }
+}
+```
+
+A version means the jar found an engine for your platform, loaded it, and ran a statement through it.
+
+## If it goes wrong
+
+| Error | Cause | Remedy |
+| --- | --- | --- |
+| `RelateException`: `relate: no bundled native library for platform <key> …` | The classpath has a classifier jar for another platform | Depend on the plain jar, or add the classifier the message names |
+| `RelateException`: `relate: unsupported platform os.name=<name>, os.arch=<arch>; …` | No jar carries an engine for this operating system and architecture | Run on one of the five platforms in [Prerequisites](#prerequisites) |
+| `RelateException`: `relate: cannot extract the bundled native library …` | The cache directory is not writable | Pass `-Drelate.native.cache=<writable directory>` |
+| `RelateException`: `incompatible librelate_ffi at <path> …` | `RELATE_LIB` points at a library of another C application binary interface (C ABI) version; the client needs version 2 | Unset `RELATE_LIB` to load the jar's engine, or rebuild the library from the same release |
+| `DatabaseException`: `internal error` (`Neo.DatabaseError.General.UnknownError`, stage `INTERNAL`) from `open` or `openReadOnly` | Another process or an unclosed `Database` in this JVM holds the store for writing, or `openReadOnly` named a path with no store | Close the other writer, open a directory store read-only beside its writer, or fix the path |
+| `ClientException`: `semantic error: WriteOnReadOnlyAccessDatabase: …` (`42N18`) | A write or `checkpoint()` on a database opened with `openReadOnly` | Open with `Database.open` for writes |
+
+## Related
+
+- [Java API](/docs/reference/api/java): every class, method, value mapping, and exception.
+- [Embed relate in a Java app](/docs/get-started/java): the first program, step by step.
+- [Errors](/docs/reference/errors): every engine error message, its codes, and its remedy.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): in memory, a directory or one `.rl` file.
+- [Project](/docs/reference/project): releases, platforms, and where each package is published.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem this client solves.

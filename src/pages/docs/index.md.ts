@@ -18,6 +18,7 @@ export const GET: APIRoute = async () => {
     versionLine: versionLine(site.engine.verified),
     lastUpdated: lastUpdated(join(ROOT, 'src/pages/docs/index.astro')),
     agentsMd: agentsMd(site.engine.version),
+    order: site.order(),
   });
   return new Response(markdown, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
 };

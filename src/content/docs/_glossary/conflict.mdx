@@ -1,0 +1,15 @@
+---
+id: conflict
+term: "write-write conflict"
+short: "The retryable error a commit gets when another transaction committed a change to the same node or relationship after it began; exit code 5 on the CLI."
+aliases: []
+context: engine
+see: concepts/transactions-and-concurrency
+related: ["transaction", "exit-code", "error-object"]
+---
+
+Transactions in relate commit optimistically: each writes into its own view and checks for overlap only at commit. When two overlapping transactions change the same node or relationship, the first to commit wins, and the later commit fails with `write-write conflict` instead of overwriting the first. Nothing from the failed transaction is applied, so running it again from the start is safe.
+
+On the CLI the failure is exit code 5, and the :term[error object]{id=error-object} has `"retryable":true`. The engine marks one other refusal retryable: a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared workspace pool. Exit code 5 also covers a store locked by another process, which is not retryable until that process exits, so a retry loop checks `retryable`, not only the code: a held store has the `kind` `locked` and `retryable` false.
+
+A reader never conflicts. Readers take no locks and see the graph as of the last commit before they started.

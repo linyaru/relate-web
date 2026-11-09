@@ -1,0 +1,596 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "value-types": {
+      "kind": "table",
+      "text": "| int                | float            | string            | nothing | list                              | map            | duration            | vector                                  |\n|--------------------|------------------|-------------------|---------|-----------------------------------|----------------|---------------------|-----------------------------------------|\n| \"INTEGER NOT NULL\" | \"FLOAT NOT NULL\" | \"STRING NOT NULL\" | \"NULL\"  | \"LIST<INTEGER NOT NULL> NOT NULL\" | \"MAP NOT NULL\" | \"DURATION NOT NULL\" | \"VECTOR<INTEGER8 NOT NULL>(2) NOT NULL\" |\n1 row",
+      "table": {
+        "columns": [
+          "int",
+          "float",
+          "string",
+          "nothing",
+          "list",
+          "map",
+          "duration",
+          "vector"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"INTEGER NOT NULL\"",
+            "\"FLOAT NOT NULL\"",
+            "\"STRING NOT NULL\"",
+            "\"NULL\"",
+            "\"LIST<INTEGER NOT NULL> NOT NULL\"",
+            "\"MAP NOT NULL\"",
+            "\"DURATION NOT NULL\"",
+            "\"VECTOR<INTEGER8 NOT NULL>(2) NOT NULL\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "int",
+          "float",
+          "string",
+          "nothing",
+          "list",
+          "map",
+          "duration",
+          "vector"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "duration": "DURATION NOT NULL",
+            "float": "FLOAT NOT NULL",
+            "int": "INTEGER NOT NULL",
+            "list": "LIST<INTEGER NOT NULL> NOT NULL",
+            "map": "MAP NOT NULL",
+            "nothing": "NULL",
+            "string": "STRING NOT NULL",
+            "vector": "VECTOR<INTEGER8 NOT NULL>(2) NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "numbers": {
+      "kind": "table",
+      "text": "| max_int             | hex | octal | grouped | exponent | truncated |\n|---------------------|-----|-------|---------|----------|-----------|\n| 9223372036854775807 | 31  | 15    | 1000    | 1000.0   | -3        |\n1 row",
+      "table": {
+        "columns": [
+          "max_int",
+          "hex",
+          "octal",
+          "grouped",
+          "exponent",
+          "truncated"
+        ],
+        "numeric": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "9223372036854775807",
+            "31",
+            "15",
+            "1000",
+            "1000.0",
+            "-3"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER",
+          "INTEGER",
+          "INTEGER",
+          "FLOAT",
+          "INTEGER"
+        ],
+        "columns": [
+          "max_int",
+          "hex",
+          "octal",
+          "grouped",
+          "exponent",
+          "truncated"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "exponent": 1000,
+            "grouped": 1000,
+            "hex": 31,
+            "max_int": 9223372036854776000,
+            "octal": 15,
+            "truncated": -3
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "property-lists": {
+      "kind": "table",
+      "text": "| floats     | type                            | empty |\n|------------|---------------------------------|-------|\n| [1.0, 2.0] | \"LIST<FLOAT NOT NULL> NOT NULL\" | []    |\n1 row · nodes created: 1, properties set: 3, labels added: 1",
+      "table": {
+        "columns": [
+          "floats",
+          "type",
+          "empty"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[1.0, 2.0]",
+            "\"LIST<FLOAT NOT NULL> NOT NULL\"",
+            "[]"
+          ]
+        ],
+        "summary": "1 row · nodes created: 1, properties set: 3, labels added: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "floats",
+          "type",
+          "empty"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "empty": [],
+            "floats": [
+              1,
+              2
+            ],
+            "type": "LIST<FLOAT NOT NULL> NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 1,
+          "labels_removed": 0,
+          "nodes_created": 1,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "property-map": {
+      "kind": "table",
+      "text": "error: type error: InvalidPropertyType",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "type error: InvalidPropertyType",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "element-ids": {
+      "kind": "table",
+      "text": "| node_id       | rel_id        | namespace |\n|---------------|---------------|-----------|\n| \"4:relate:n1\" | \"5:relate:r0\" | \"neo4j\"   |\n1 row · nodes created: 2, relationships created: 1, properties set: 2, labels added: 2",
+      "table": {
+        "columns": [
+          "node_id",
+          "rel_id",
+          "namespace"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"4:relate:n1\"",
+            "\"5:relate:r0\"",
+            "\"neo4j\""
+          ]
+        ],
+        "summary": "1 row · nodes created: 2, relationships created: 1, properties set: 2, labels added: 2"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "node_id",
+          "rel_id",
+          "namespace"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "namespace": "neo4j",
+            "node_id": "4:relate:n1",
+            "rel_id": "5:relate:r0"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 2,
+          "labels_removed": 0,
+          "nodes_created": 2,
+          "nodes_deleted": 0,
+          "properties_set": 2,
+          "relationships_created": 1,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "temporal": {
+      "kind": "table",
+      "text": "| month_end    | later                  | between  | kept_apart | weekday |\n|--------------|------------------------|----------|------------|---------|\n| \"2026-02-28\" | \"2026-11-08T11:30:00Z\" | \"P10M7D\" | \"P1DT25H\"  | 7       |\n1 row",
+      "table": {
+        "columns": [
+          "month_end",
+          "later",
+          "between",
+          "kept_apart",
+          "weekday"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"2026-02-28\"",
+            "\"2026-11-08T11:30:00Z\"",
+            "\"P10M7D\"",
+            "\"P1DT25H\"",
+            "7"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "DATE",
+          "DATETIME",
+          "DURATION",
+          "DURATION",
+          "INTEGER"
+        ],
+        "columns": [
+          "month_end",
+          "later",
+          "between",
+          "kept_apart",
+          "weekday"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "between": "P10M7D",
+            "kept_apart": "P1DT25H",
+            "later": "2026-11-08T11:30:00Z",
+            "month_end": "2026-02-28",
+            "weekday": 7
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "points": {
+      "kind": "table",
+      "text": "| cartesian                                             | geo_srid | distance |\n|-------------------------------------------------------|----------|----------|\n| point({crs: \"cartesian\", srid: 7203, x: 1.0, y: 2.0}) | 4326     | 5.0      |\n1 row",
+      "table": {
+        "columns": [
+          "cartesian",
+          "geo_srid",
+          "distance"
+        ],
+        "numeric": [
+          false,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "point({crs: \"cartesian\", srid: 7203, x: 1.0, y: 2.0})",
+            "4326",
+            "5.0"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "POINT",
+          "INTEGER",
+          "FLOAT"
+        ],
+        "columns": [
+          "cartesian",
+          "geo_srid",
+          "distance"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "cartesian": {
+              "crs": "cartesian",
+              "srid": 7203,
+              "x": 1,
+              "y": 2
+            },
+            "distance": 5,
+            "geo_srid": 4326
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "vectors": {
+      "kind": "table",
+      "text": "| small                          | from_string                    | type                                   | dims |\n|--------------------------------|--------------------------------|----------------------------------------|------|\n| vector([1, 2, 3], 3, INTEGER8) | vector([1.5, 2.5], 2, FLOAT32) | \"VECTOR<FLOAT32 NOT NULL>(2) NOT NULL\" | 3    |\n1 row",
+      "table": {
+        "columns": [
+          "small",
+          "from_string",
+          "type",
+          "dims"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "vector([1, 2, 3], 3, INTEGER8)",
+            "vector([1.5, 2.5], 2, FLOAT32)",
+            "\"VECTOR<FLOAT32 NOT NULL>(2) NOT NULL\"",
+            "3"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "VECTOR",
+          "VECTOR",
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "small",
+          "from_string",
+          "type",
+          "dims"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "dims": 3,
+            "from_string": {
+              "dim": 2,
+              "type": "FLOAT32",
+              "values": [
+                1.5,
+                2.5
+              ]
+            },
+            "small": {
+              "dim": 3,
+              "type": "INTEGER8",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            },
+            "type": "VECTOR<FLOAT32 NOT NULL>(2) NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "uuids": {
+      "kind": "table",
+      "text": "| parsed                                 | from_halves                            | type            |\n|----------------------------------------|----------------------------------------|-----------------|\n| \"f066ecfc-5151-4121-8a36-b35e00d72918\" | \"00000000-0000-0000-0000-000000000001\" | \"UUID NOT NULL\" |\n1 row",
+      "table": {
+        "columns": [
+          "parsed",
+          "from_halves",
+          "type"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"f066ecfc-5151-4121-8a36-b35e00d72918\"",
+            "\"00000000-0000-0000-0000-000000000001\"",
+            "\"UUID NOT NULL\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "parsed",
+          "from_halves",
+          "type"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "from_halves": "00000000-0000-0000-0000-000000000001",
+            "parsed": "f066ecfc-5151-4121-8a36-b35e00d72918",
+            "type": "UUID NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

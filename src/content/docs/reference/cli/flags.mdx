@@ -1,0 +1,218 @@
+---
+title: CLI flags
+label: Flags
+description: Every relate CLI flag with its argument, default, scope and environment variable at a stable anchor, plus how flags parse and the environment the CLI reads.
+order: 20
+surfaces: [cli]
+related: [reference/cli, reference/cli/agent-mode, reference/cli/exit-codes-and-errors, guides/operate/durability-modes, guides/cli/scripting, reference/cli/output-modes, reference/cli/environment-variables]
+---
+
+Each flag of the `relate` CLI has a row on this page at a stable anchor, `https://relatedb.ai/docs/reference/cli/flags#<flag>` (`#read-only`, `#max-rows`); a command's own flag carries the command's name (`#serve-mcp`, `#clone-wal-dir`). A row gives the flag's other spellings, its argument, its default, where it applies, and the environment variable that sets its default. The tables are generated from the data file the CLI facts are recorded in, so the page and its markdown twin list the same flags.
+
+## Synopsis
+
+```text
+relate [OPTIONS] [--database PATH] [QUERY]
+relate <COMMAND> [ARGS]
+relate query [STATEMENT] [--database PATH]
+```
+
+The query-run flags (`OPTIONS`) apply to the path-first form and to `relate query`. A command takes only its own flags, listed under [Command flags](#command-flags); `relate serve` also takes six query-run flags, named in its table. The sections before the tables explain the flag families whose behavior a one-line row cannot carry.
+
+## How flags are parsed
+
+| Rule | Behavior |
+| --- | --- |
+| Values | A flag's value is the next argument: `--mode envelope`. The `=` form is an unknown flag (`--mode=envelope` exits 2). |
+| The one attached value | `--read-only` takes its optional value attached, `--read-only=live`. `--read-only live` exits 2 with `Error: --read-only takes its value attached: --read-only=live`. |
+| Position | Query-run flags may come before or after the statement: `relate "RETURN 1 AS ok" --mode envelope` runs. |
+| One statement argument | A second positional statement exits 2 with `Error: unexpected argument: <statement>`. `--command` and a positional statement together exit 2 with `Error: --command cannot be combined with a positional query`. |
+| Other spellings | Short forms `-d` (`--database`), `-c` (`--command`), `-h` (`--help`) and `-v` (`--version`); single-dash forms `-json`, `-csv`, `-jsonl`, `-markdown`, `-noheader`, `-param` and `-version`. |
+| Repeated flags | `--param` and `--fetch-params` repeat, one parameter each; a `--param` name bound twice keeps the last value. `--read-only` may appear once: a second exits 2 with `Error: relate --read-only may be given only once`. |
+| Pairs and output flags | Of `--safe` and `--no-safe`, or `--agent-mode` and `--no-agent-mode`, the last one given wins. Of several output-mode flags (`--mode`, `--format`, `--json`, `--csv`, `--jsonl`, `--markdown`, `--toon`), the last one wins. |
+| Precedence | A flag beats its environment variable, which beats the built-in default. |
+| Unknown flags | Exit 2 with three lines on stderr: `Error: unknown flag: <flag>`, the usage line, and `Run 'relate --help' for more information.` A close match to a real flag adds `Did you mean '<flag>'?` after the first line. |
+| `--` | Every argument after it is positional. |
+
+A misspelled flag gets its suggestion:
+
+```bash verify
+relate --readonly "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Error: unknown flag: --readonly
+Did you mean '--read-only'?
+Usage: relate [OPTIONS] [--database PATH] [QUERY]
+Run 'relate --help' for more information.
+exit=2
+```
+
+## Output
+
+[Output modes](/docs/reference/cli/output-modes) shows each mode's shape on stdout. Without an output flag, the mode depends on where stdout goes:
+
+| stdout | Default mode |
+| --- | --- |
+| A terminal | `table` |
+| A pipe or a file | `jsonl` |
+| A pipe or a file, with [agent mode](/docs/reference/cli/agent-mode) on | `toon` |
+
+An explicit mode always overrides the default. `--json`, `--csv`, `--jsonl`, `--markdown` and `--toon` are shortcuts for `--mode <name>`, and `--format` is an alias of `--mode`. `--output` and `-o` are unknown flags whose suggestion names `--format`.
+
+| Mode | Prints |
+| --- | --- |
+| `table` | A human table; control characters escaped |
+| `csv` | RFC 4180 CSV; a value starting with `=`, `+`, `-` or `@` gets a `'` prefix, so `-5` prints as `'-5` |
+| `json` | One JSON array; indented on a terminal, one compact line when piped |
+| `jsonl` | One JSON object per row |
+| `envelope` | One compact JSON object per result set; fields on the [agent mode page](/docs/reference/cli/agent-mode#the-envelope) |
+| `markdown` | A GitHub-flavored table; `\|` escaped |
+| `cypher` | Each row as a Cypher `CREATE` statement |
+| `toon` | One `rows[N]{cols}:` header, then one line per row; nested values as inline JSON |
+| `speedscope` | A `PROFILE` plan tree as one speedscope profile JSON document |
+
+`--pretty` indents `json` output when stdout is not a terminal; the other modes ignore it. `--noheader` drops the header row of `table` and `csv`; `markdown` and `toon` keep theirs. `--width N` wraps the `table` mode to `N` columns; a value under 20 exits 2, and without it the width is the terminal's, else `COLUMNS`, else the natural width.
+
+## Store and storage
+
+`--database PATH` names the :term[store]{id=store}: a directory (a snapshot plus a :term[WAL]{id=wal}), a single-file `.rl` store, or `:memory:`, the default. It is never a URL; a remote store is a `--load` source.
+
+| Flag | Behavior |
+| --- | --- |
+| `--load SOURCE` | Loads a store from a local `.rl` file, a directory, or an `https` URL to a `.rl` file. Into `:memory:`, the store opens read-only and the source is released after the load. Into a `--database` path that does not exist yet, the source is copied there and the store opens normally. A URL is fetched to a private temporary copy that is not kept. |
+| `--read-only[=snapshot\|live]` | Opens an existing store without writing, checkpointing or migrating it; every write exits 6. `snapshot`, the default, freezes the state at open; `live` follows a directory store's WAL and is refused for `.rl` and `:memory:`. A directory store can be open read-only beside its writer; a `.rl` store only while no writer holds it. |
+| `--namespace NAME` | The namespace a statement without `USE` targets: `neo4j` (default), `system` or `system_ontologies`. |
+| `--wal-dir DIR` | The WAL directory of a directory store, default `<DATABASE>/wal`. |
+| `--snapshot-format F` | The :term[codec]{id=codec} of an empty directory store: `parquet` (default), `json` or `markdown`. An existing store keeps its recorded codec; naming a different one exits 1 with `storage error: snapshot codec mismatch: directory is <codec>, requested <codec>`. |
+| `--markdown-body-properties LIST` | The properties a `markdown` store writes as note bodies; default `body`. |
+| `--durability-mode MODE` | `full` (default) syncs each commit before it is acknowledged. `everysecond` can lose about the last second of acknowledged writes in a crash. `snapshot` can lose every write since the last completed checkpoint. |
+| `--checkpoint-interval-secs N` | The timed checkpoint period, default `300`; `0` turns the timer off. Persistent stores only. Not accepted by `relate serve`, which reads only `RELATE_CHECKPOINT_INTERVAL_SECS`. |
+
+The [durability modes guide](/docs/guides/operate/durability-modes) covers choosing a loss window, and [storage formats](/docs/reference/storage/formats) covers the store forms.
+
+## Safety
+
+`--read-only` and `--safe` are off unless given, and agent detection switches neither on.
+
+| Flag | Default | Refuses or bounds | Exit code |
+| --- | --- | --- | --- |
+| `--read-only` | off | Every write: `WriteOnReadOnlyAccessDatabase` | 6 |
+| `--safe` | off | A new named node without a label, and a `MATCH` read whose final `RETURN` or `WITH` has no `LIMIT` and no reducing aggregate (`collect()` does not count): `SafeModeViolation`. Also a remote `--load` source. | 6; 2 for the remote `--load` |
+| `--load-csv-dir PATH` | denied | Local `LOAD CSV` outside `PATH`; a file over 8 MiB, a limit no flag raises | 1 |
+| `--max-traversal-depth N` | `500` | An explicit hop bound over `N` (1 through 2000): `TraversalDepthExceeded` | 6 |
+| `--fetch-params N=SRC` | unset | A fetched file over 64 MiB, or a fetch over 60 seconds. There is no URL allowlist: the fetch runs in the CLI process with the same trust as `--param`. | 1 |
+
+`--no-safe` turns safe mode off, including when `RELATE_SAFE_MODE=1` set it. The errors behind the :term[exit codes]{id=exit-code} are in the [errors reference](/docs/reference/errors#engine-safe-mode-violation).
+
+## Memory limits
+
+A `SIZE` is a number of bytes, or a number with `mb`, `mib`, `gb` or `gib`. A statement that exceeds `--logical-graph-size-limit` or `--expression-memory-limit` fails with the error kind `capacity` and exit code 1, and is not retryable.
+
+| Flag | Default | Bounds |
+| --- | --- | --- |
+| `--logical-graph-size-limit SIZE` | unlimited | The live graph plus its indexes, in logical bytes; `0` is unlimited |
+| `--expression-memory-limit SIZE` | `256 MiB` | One value a statement builds; `none` or `0` turns the cap off |
+| `--concurrent-logical-workspace-limit SIZE` | admission off | A shared workspace pool; a positive value turns query admission on, and `0` is rejected |
+
+[Size a store and its memory](/docs/guides/operate/sizing-and-memory) works through a sizing.
+
+## Timeouts
+
+`--timeout DURATION` bounds each statement's wall-clock time. A bare number is seconds; `ms`, `s` and `m` suffixes and fractions are accepted; `0` turns the bound off, and unset means no bound. A statement that runs longer is cancelled and exits 7 with `Error: query timed out after <duration>` on stderr; the error object's `code` is `timeout`, its `kind` is `execution`, and `retryable` is `false`. A value that is not a duration exits 2:
+
+```bash verify
+relate --timeout soon "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Error: invalid --timeout: 'soon' is not a duration (try 500ms, 10s, 2m)
+exit=2
+```
+
+`relate serve` has its own deadlines instead: `--tx-idle-timeout-secs` (default `60`), `--header-deadline-secs` (default `10`) and `--body-deadline-secs` (default `60`), in its table.
+
+## Agent ergonomics
+
+`--agent-mode` and `--no-agent-mode` turn :term[agent mode]{id=agent-mode} on or off: the 100-row cap default and the piped `toon` default. `--max-rows N` sets the cap directly; `0` prints every row. The [agent mode page](/docs/reference/cli/agent-mode) has the detection rules and what each output mode prints when the cap cuts a result.
+
+## Query-run flags
+
+The flags of the path-first form and of `relate query`. The [`relate query` reference](/docs/reference/cli/query) has the session forms and their errors.
+
+<Flags command="query" />
+
+## Command flags
+
+Each command's own flags. `relate query` takes the query-run flags; `relate telemetry` and `relate agent-context` take no flags beyond `--help`.
+
+### `relate clone`
+
+The [`relate clone` reference](/docs/reference/cli/clone) has the layouts each pairing writes and its errors.
+
+<Flags command="clone" />
+
+### `relate info`
+
+The [`relate info` reference](/docs/reference/cli/info) has the fields it prints and its errors.
+
+<Flags command="info" />
+
+### `relate pull`
+
+The [`relate pull` reference](/docs/reference/cli/pull) has the credentials, the query rules and the errors.
+
+<Flags command="pull" />
+
+### `relate push`
+
+The [`relate push` reference](/docs/reference/cli/push) has the selectors, the merge keys, the dry-run plan and the errors.
+
+<Flags command="push" />
+
+### `relate skill`
+
+The [`relate skill` reference](/docs/reference/cli/skill) has the agent directories and the errors.
+
+<Flags command="skill" />
+
+### `relate upgrade`
+
+The [`relate upgrade` reference](/docs/reference/cli/upgrade) has what it checks and replaces, and its errors.
+
+<Flags command="upgrade" />
+
+### `relate run`
+
+The [`relate run` reference](/docs/reference/cli/run) has how an action runs and its errors.
+
+An installed extension's own flags come from its manifest; `relate run --help` lists the installed actions.
+
+<Flags command="run" />
+
+### `relate serve`
+
+The [`relate serve` reference](/docs/reference/cli/serve) has the listeners, the startup lines and the errors.
+
+<Flags command="serve" />
+
+### `relate extension`
+
+The [`relate extension` reference](/docs/reference/cli/extension) has each subcommand, the provenance marker and the errors.
+
+<Flags command="extension" />
+
+## Environment variables
+
+Every environment variable the CLI reads, with the flag or command it serves. A flag beats its variable. [Environment variables](/docs/reference/cli/environment-variables) adds the variables this table does not list and what an invalid value does. The [CLI errors](/docs/reference/errors#cli-errors) list the message an invalid value prints and its exit code.
+
+<EnvVars />
+
+## See also
+
+- [relate CLI](/docs/reference/cli): the commands and the query-run flag families
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): what each exit code means and the error object
+- [Agent mode](/docs/reference/cli/agent-mode): detection, the row cap, and the envelope
+- [Script the CLI](/docs/guides/cli/scripting): the flags in shell scripts, with exit codes and `--timeout`

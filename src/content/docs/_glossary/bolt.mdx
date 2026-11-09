@@ -1,0 +1,19 @@
+---
+id: bolt
+term: "Bolt"
+short: "Neo4j's binary client protocol; `relate serve --bolt <port>` speaks it, so Neo4j's drivers and Neo4j Browser can run statements against a relate store."
+aliases: []
+context: surfaces
+see: reference/security
+related: ["http-query-api", "surface", "bookmark"]
+---
+
+Bolt is the protocol Neo4j's official drivers use. `relate serve --bolt <port>` hosts it on one store, together with Bolt over WebSocket for browser tools, so existing driver code and Neo4j Browser connect to relate as they would to a server. Bolt carries statements; the language stays relate's dialect, so a Neo4j-only clause fails as it does on any other surface. The server speaks Bolt 4.4 and 5.4.
+
+Like every served surface, it binds to `127.0.0.1` unless `--host` says otherwise, has no TLS, and checks one basic-auth credential shared with the other surfaces. WebSocket connections are accepted from loopback origins and the hosted Neo4j Browser and Console by default (loopback only under `--auth none`); `--ws-allow-origin` replaces that list with the origins it names (repeatable, `*` for any).
+
+```bash
+relate serve --bolt 7687 --database ./team.rl --read-only
+```
+
+Removing `--read-only` lets clients write.

@@ -1,0 +1,23 @@
+---
+id: fresh-graph-per-test-run
+title: Fresh graph per test run
+order: 170
+problem: "Give every test or CI run its own graph, built from a fixture and thrown away afterwards, with results a script can check."
+capability: "The in-memory store, the default, gone when the process exits; `--load` to read a fixture store into memory; envelope output and typed exit codes for the script that checks it."
+intents:
+  - in-memory graph database for tests
+  - test fixtures for a graph
+  - run graph queries in CI
+  - throwaway database per test
+  - gate a build on a Cypher query
+surfaces: [cli, python, node]
+guides: [guides/cli/scripting, guides/storage/choose-a-store-layout#start-in-memory, get-started/python, guides/agents/use-in-ci]
+recipes: [dependency-blast-radius, migration-rehearsal]
+reference: [reference/cli/exit-codes-and-errors, reference/cli/flags]
+schema: null
+verify: dependency-blast-radius#gate
+---
+
+A test that shares a database with the previous run inherits its state, and a test suite that needs a database server needs that server in CI too. Each run should start from a known graph, check what it needs to, and leave nothing behind.
+
+With no `--database`, a statement runs against an in-memory store that is gone when the process exits, and the clients open the same store as `:memory:`. A fixture kept as a `.rl` file loads with `--load` into an in-memory copy, which is read-only, so a test cannot change the fixture; `--load ./fixture.rl --database ./scratch.rl` copies it and opens the copy for writing. `--mode envelope` prints one JSON object per result, and the exit code names the class of a failure, so a CI step can branch on both ([Script the CLI](/docs/guides/cli/scripting)). The [dependency blast radius recipe](/cookbook/dependency-blast-radius/) ends with a statement that returns no rows when the build may pass.

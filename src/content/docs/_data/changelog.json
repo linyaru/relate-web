@@ -1,0 +1,66 @@
+{
+  "$schema_note": "Release notes authored here (ADR-0002), one entry per release, newest first; rendered to /docs/reference/changelog/, its twin and /docs/changelog.json by src/lib/docs/generated/changelog.ts. Each item is one sentence of inline markdown ending with a period; `breaking: true` marks a change that can make working code or statements fail; `pages` lists the page ids (with an optional #anchor) that document it, linked once published. Facts come from upstream's release notes (public/releases.json) and are checked against the binary named in cli.json `recorded_with` where the CLI can show them. The verified engine version (_data/engine.json) must be an entry or an entry's `previous`: every twin links #since-<verified>.",
+  "policy": [
+    "relate is pre-1.0. Its releases follow semantic versioning, under which anything can change in a 0.x release, a patch release included: 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C ABI with an incompatible typed one.",
+    "A change that can make working code or statements fail is marked **Breaking** in the entry of the release that ships it, under Changed or Removed, with its replacement when there is one. A feature that still works but is to be removed is listed under Deprecated in the release that deprecates it."
+  ],
+  "releases": [
+    {
+      "version": "0.16.1",
+      "date": "2026-11-04",
+      "published_at": "2026-11-04T17:26:42Z",
+      "previous": "0.16.0",
+      "summary": "The last release published under the name cypherlite: its release assets carry that name, and a successful `cypherlite upgrade` ends with a notice of the rename and the relate install command.",
+      "changed": [
+        {
+          "text": "The C ABI is the typed ABI v2: `relate_abi_version()` returns 2, values are read through typed accessors instead of JSON strings, parameters are passed through a typed builder instead of a JSON string, and an error arrives as one object with `code`, `gql_status`, `stage`, `retryable` and `message`.",
+          "breaking": true
+        },
+        {
+          "text": "The Python binding and the Java, JavaScript, Go and Swift clients use the typed ABI v2."
+        },
+        {
+          "text": "The typed parameter builder is bounded: at most 100,000 entries per container, 4 KiB per name, and 16 MiB in all."
+        },
+        {
+          "text": "A bookmark carries the engine's commit sequence, through the C ABI, Python and Bolt."
+        },
+        {
+          "text": "An error of the internal class crosses the C ABI with a generic message; the internal detail stays inside the engine."
+        },
+        {
+          "text": "A non-boolean value where Cypher requires a boolean, such as a quantifier's `WHERE` or an operand of `AND`, `OR` or `XOR`, fails with `InvalidArgumentType` instead of a generic syntax error.",
+          "breaking": true
+        },
+        {
+          "text": "A clause that reads an entity it creates fails with `Entity, '<name>', cannot be created and referenced in the same clause`, and a `CREATE` or `MERGE` whose node is bound to null fails instead of creating a new node.",
+          "breaking": true
+        },
+        {
+          "text": "An administration command with a `USE` clause that names a graph other than `system` fails with `UseClauseWithAdministrationCommand`.",
+          "breaking": true,
+          "pages": [
+            "reference/errors#engine-use-on-administration-command"
+          ]
+        }
+      ],
+      "removed": [
+        {
+          "text": "The `apoc.coll.sort` spelling: a call fails as an unknown function, `UnknownFunction: unknown function apoc.coll.sort()`, and `coll.sort` is the replacement.",
+          "breaking": true,
+          "pages": [
+            "reference/errors#engine-unknown-function"
+          ]
+        }
+      ],
+      "fixed": [
+        {
+          "text": "A frontier search that exhausts its re-arrival budget falls back to the plain walk instead of dropping endpoints, which could make `count(DISTINCT n)` return 0 on a dense clique."
+        },
+        {
+          "text": "`push` keeps a node's secondary labels and merges on its keyed label, so an update no longer creates a second node."
+        }
+      ]
+    }
+  ]
+}

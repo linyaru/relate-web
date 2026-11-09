@@ -1,0 +1,124 @@
+---
+title: Choose a durability mode
+label: Durability modes
+description: "Pick full, everysecond, or snapshot durability for a relate store, see what each can lose in a crash, and set it per run, environment, or server."
+order: 40
+surfaces: [cli, python, node]
+prerequisites: [get-started/install]
+related: [reference/cli/flags#durability-mode, guides/operate/crash-and-recovery, concepts/storage-and-durability, reference/storage/wal-and-checkpoints, reference/errors#cli-invalid-env-durability-mode]
+---
+
+This guide shows you how to choose and set a :term[durability mode]{id=durability-mode}: the rule for when a commit counts as safe on disk. The default, `full`, syncs the :term[WAL]{id=wal} to disk before a commit returns, so a crash loses no acknowledged write. `everysecond` and `snapshot` return before that sync, and a crash can lose writes they already acknowledged.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- A :term[store]{id=store} on disk, a directory or a `.rl` file. An in-memory store forgets everything at exit in every mode.
+
+## Compare the modes
+
+To sync is to force written data out of the operating system's cache onto the disk (`fsync`). Each mode decides when the WAL is synced relative to the moment a commit returns:
+
+| Mode | A commit returns | The WAL is synced | A crash can lose |
+| --- | --- | --- | --- |
+| `full` (default) | After its WAL record is synced | Before each commit, or group of commits, is acknowledged | No acknowledged write |
+| `everysecond` | After it applies in memory | About once a second, in the background | About the last second of acknowledged writes; slow storage or a delayed sync makes the window longer |
+| `snapshot` | After it applies in memory | Never on commit; only a completed :term[checkpoint]{id=checkpoint} is durable | Every write since the last completed checkpoint, up to 300 seconds of writes under the default timer |
+
+A killed process can lose the window too, not only a power cut. In a test on this release, a write to a `.rl` store was acknowledged and the process was killed with `kill -9` half a second later, three times per mode. Under `full` the write was there on the next open every time; under `everysecond` and `snapshot` it was gone every time. In one more `snapshot` run, it was still gone with 3 seconds between the write and the kill.
+
+The mode is a setting of the process that opens the store, not of the store. The next open picks its own, and an open that sets nothing gets `full`.
+
+## Choose one
+
+- If every acknowledged write must survive a crash, keep `full`. It is the only mode with no loss window.
+- If losing about the last second of writes is acceptable, such as a cache you can rebuild, choose `everysecond`. Commits stop waiting for each sync.
+- If the writes can be redone from their source, such as a bulk load you can rerun, choose `snapshot`. Pair it with a checkpoint interval that bounds what a rerun has to redo.
+
+## Set it for one run
+
+`--durability-mode` applies to the run it's on. To follow along, create the shared example graph as `team.rl` first:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+This run writes to `team.rl` under `everysecond`: it records that Noor maintains `opencypher-tck` too.
+
+```bash verify
+relate --database ./team.rl --durability-mode everysecond --mode envelope "MATCH (noor:Person {name: 'Noor'}), (tck:Project {name: 'opencypher-tck'}) CREATE (noor)-[:MAINTAINS]->(tck) RETURN noor.name AS person, tck.name AS project"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck"}],"truncated":false}
+```
+
+A one-shot run checkpoints when it exits cleanly, so this write is on disk by the time the command returns. The window matters for processes that stay open, such as `relate serve`, an app that uses a client, or a long script.
+
+## Set it for an environment
+
+`RELATE_DURABILITY_MODE` sets the mode for every open that doesn't set one itself. The flag wins over the variable. The Python and Node.js clients read the same variable when they open a store, so it is how an app chooses a mode.
+
+This run writes to `team.rl` under `snapshot`, set by the variable: Grace maintains `relate` now.
+
+```bash verify
+RELATE_DURABILITY_MODE=snapshot relate --database ./team.rl --mode envelope "MATCH (grace:Person {name: 'Grace'}), (r:Project {name: 'relate'}) CREATE (grace)-[:MAINTAINS]->(r) RETURN grace.name AS person, r.name AS project"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Grace","project":"relate"}],"truncated":false}
+```
+
+## Set it for a server
+
+`relate serve` takes the same flag, with the same order: the flag, then `RELATE_DURABILITY_MODE`, then `full`. This server is writable on purpose, since the mode only matters for writes:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+relate serve --database ./team.rl --http 7474 --durability-mode everysecond
+```
+
+## Bound the snapshot window
+
+Under `snapshot`, the time between checkpoints is the loss window. A one-shot run or `relate query` takes `--checkpoint-interval-secs N`; `relate serve` doesn't accept that flag and takes only `RELATE_CHECKPOINT_INTERVAL_SECS`. The default is 300 seconds. `0` turns off only the timer: checkpoints still run when a WAL segment fills, on a clean exit, and on `.checkpoint`.
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+RELATE_CHECKPOINT_INTERVAL_SECS=30 relate serve --database ./team.rl --http 7474 --durability-mode snapshot
+```
+
+## Verify
+
+Read the store back read-only. Both writes are there, next to the example's original `MAINTAINS` relationship:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:MAINTAINS]->(project:Project) RETURN p.name AS person, project.name AS project ORDER BY person, project"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"},{"person":"Noor","project":"relate"}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Error: invalid --durability-mode: semantic error: invalid durability mode "<value>"; expected full, everysecond, or snapshot`, exit code 2.** The flag's value is misspelled. Use one of the three names.
+- **`Error: invalid RELATE_DURABILITY_MODE: semantic error: invalid durability mode "<value>"; expected full, everysecond, or snapshot`, exit code 2.** The variable holds something else. Fix it or unset it ([the variable's error](/docs/reference/errors#cli-invalid-env-durability-mode)). The clients refuse to open too: Python's `relate.connect()` raises `OperationalError` and Node.js throws, each with a message that names `RELATE_DURABILITY_MODE`.
+- **Writes acknowledged just before a crash are missing.** The process ran under `everysecond` or `snapshot`, and the crash fell inside the loss window. Switch to `full` if those writes matter ([Recover from a crash](/docs/guides/operate/crash-and-recovery)).
+
+## Related
+
+- [`--durability-mode`](/docs/reference/cli/flags#durability-mode) in the flags reference.
+- [Recover from a crash](/docs/guides/operate/crash-and-recovery): what an open restores after a crash.
+- [Storage and durability](/docs/concepts/storage-and-durability): the WAL, snapshots, and checkpoints, and why there are three modes.

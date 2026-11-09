@@ -1,0 +1,231 @@
+---
+title: Use relate in CI
+description: Run relate in GitHub Actions with a pinned, signature-checked binary, usage metrics off, and a Cypher check on a read-only store that gates the job.
+order: 90
+surfaces: [cli, agents]
+prerequisites: [get-started/install, guides/cli/scripting]
+related: [concepts/problems-relate-solves#fresh-graph-per-test-run, concepts/problems-relate-solves#dependency-analysis, cookbook/dependency-blast-radius, get-started/install, reference/security, reference/cli/exit-codes-and-errors, reference/privacy-and-telemetry, reference/cli/agent-mode]
+---
+
+This guide shows you how to run relate in a GitHub Actions job: install one exact release and check its signature, keep usage metrics off, and gate the build on a Cypher :term[statement]{id=statement} that returns no rows when the build may pass. The example check is the advisory gate from the [dependency blast radius recipe](/cookbook/dependency-blast-radius/), run against a store committed to the repository and opened `--read-only`.
+
+## Prerequisites
+
+- A GitHub repository with Actions enabled. The workflow runs on `ubuntu-24.04`, whose image (version 20261101.360.1) includes `jq` 1.7 and the OpenSSH client.
+- A store in the repository for the check to read, such as a `.rl` file. The steps build a small one, `deps.rl`.
+- relate on your `PATH`, to run the check locally first ([Install relate](/docs/get-started/install)).
+
+## Build a fixture store
+
+The check reads a dependency graph: package versions that `DEPENDS_ON` each other, and advisories that affect some of them, as in the recipe's data model. This writes a small one into a new :term[single-file store]{id=single-file-store}, `deps.rl`, with invented package names. In a real repository the store is built by your own tooling and committed:
+
+```bash verify
+relate query --database ./deps.rl --mode envelope <<'EOF'
+CREATE (app:Version:Root {key: 'NPM/team-api@1.4.0', name: 'team-api', version: '1.4.0'}),
+       (router:Version {key: 'NPM/route-kit@2.3.1', name: 'route-kit', version: '2.3.1'}),
+       (parser:Version {key: 'NPM/path-match@0.1.7', name: 'path-match', version: '0.1.7'}),
+       (signer:Version {key: 'NPM/token-sign@8.5.1', name: 'token-sign', version: '8.5.1'}),
+       (app)-[:DEPENDS_ON {requirement: '^2.3.0'}]->(router),
+       (router)-[:DEPENDS_ON {requirement: '0.1.7'}]->(parser),
+       (app)-[:DEPENDS_ON {requirement: '^8.5.0'}]->(signer),
+       (parser)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0007', title: 'Backtracking on crafted paths', cvss3: 7.5}),
+       (signer)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0012', title: 'Weak default algorithm', cvss3: 8.1}),
+       (router)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0019', title: 'Verbose error pages', cvss3: 4.3});
+EOF
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+## Write the check as a statement
+
+A gate is a statement whose rows are the findings: no rows, the build passes. This one lists every advisory with a score of at least `$minCvss` that a root package can reach, with the shortest chain to it, minus the ids in `$allow` that a reviewer accepted. Keep it in the repository as `gate.cypher`:
+
+```bash verify
+cat > gate.cypher <<'EOF'
+MATCH p = SHORTEST 1 (r:Root)-[:DEPENDS_ON]->{0,12}(v:Version)
+MATCH (v)-[:AFFECTED_BY]->(a:Advisory)
+WHERE a.cvss3 >= $minCvss AND NOT a.id IN $allow
+RETURN a.id AS advisory, a.cvss3 AS cvss, v.key AS version,
+       [n IN nodes(p) | n.name] AS path
+ORDER BY cvss DESC, advisory, version;
+EOF
+```
+
+The thresholds are :term[parameters]{id=parameter}, so the workflow changes them with `--param` and the statement stays the same file. The recipe explains the pattern and runs it on 89 real package versions.
+
+## Turn the findings into an exit code
+
+relate's own exit code says whether the statement ran: 0 for success, including an empty result, 6 for a rejected statement, 1 for a store that cannot be opened, 5 for one another process holds. The findings are rows, so a second command turns rows into a failure. `--mode json` prints the result as one JSON array, and `jq -e 'length == 0'` exits 1 when the array has anything in it:
+
+```bash verify
+relate query --database ./deps.rl --read-only --mode json --max-rows 0 --timeout 30s --param minCvss=7.5 --param 'allow=[]' < gate.cypher > findings.json
+echo "relate exit=$?"
+cat findings.json
+jq -e 'length == 0' findings.json
+echo "gate exit=$?"
+```
+
+```text
+relate exit=0
+[{"advisory":"ADV-2026-0012","cvss":8.1,"path":["team-api","token-sign"],"version":"NPM/token-sign@8.5.1"},{"advisory":"ADV-2026-0007","cvss":7.5,"path":["team-api","route-kit","path-match"],"version":"NPM/path-match@0.1.7"}]
+false
+gate exit=1
+```
+
+Two findings fail the gate; the 4.3 advisory is under the threshold. Every flag on that command is there for CI:
+
+| Flag | Why |
+| --- | --- |
+| `relate query … < gate.cypher` | `query` reads the statement from stdin. Without the word `query`, a redirected file is not read: relate prints its help and exits 0 |
+| `--read-only` | The check cannot change the store, and a write in the statement fails with exit code 6 |
+| `--mode json` | One JSON array, whatever stdout is; with `--max-rows 0` its shape does not change under :term[agent mode]{id=agent-mode} either |
+| `--max-rows 0` | Every finding is printed, even when the job runs under an agent harness, where the default caps output at 100 rows |
+| `--timeout 30s` | A statement that runs longer is cancelled with exit code 7 instead of holding the job |
+
+[Script the CLI](/docs/guides/cli/scripting) covers each one, and [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) lists every exit code.
+
+## Accept reviewed findings
+
+A finding a reviewer accepts goes into `$allow`, in the workflow or a file beside `gate.cypher`. With both ids allowed, the result is empty and the gate passes:
+
+```bash verify
+relate query --database ./deps.rl --read-only --mode json --max-rows 0 --timeout 30s --param minCvss=7.5 --param 'allow=["ADV-2026-0007","ADV-2026-0012"]' < gate.cypher > findings.json
+jq -e 'length == 0' findings.json
+echo "gate exit=$?"
+```
+
+```text
+true
+gate exit=0
+```
+
+## Keep usage metrics off
+
+The relate CLI sends anonymous :term[usage metrics]{id=telemetry} unless a setting turns them off ([Privacy and telemetry](/docs/reference/privacy-and-telemetry)). `DO_NOT_TRACK=1` in the job's environment turns them off for every step, sends nothing, and prints no first-run notice. `relate telemetry status` names the setting that decided:
+
+```bash verify
+DO_NOT_TRACK=1 relate telemetry status
+```
+
+```text
+disabled (DO_NOT_TRACK)
+```
+
+## Add the workflow
+
+The workflow installs relate 0.16.1 with the three checks `install.sh` makes, from the Pinned binary steps of [Install relate](/docs/get-started/install): the signature on `SHA256SUMS` against the release signing key, the signed first line naming the release, and the binary's SHA-256. Release 0.16.1 was published under the project's earlier name, so its asset, its signer and its manifest header say `cypherlite`; from the first relate-named release on they say `relate`, with the same key ([Security](/docs/reference/security#release-signing-key)). The release URLs are launch-day targets.
+
+```yaml title=".github/workflows/graph-check.yml"
+name: Graph check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  DO_NOT_TRACK: '1'
+  RELATE_VERSION: 0.16.1
+  RELATE_ASSET: cypherlite-linux-amd64
+  RELATE_SIGNER: cypherlite-release
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      # The download, cached by version and asset; the checks below run on every job.
+      - name: Restore the relate download
+        id: relate-cache
+        uses: actions/cache@v6
+        with:
+          path: relate-download
+          key: relate-${{ env.RELATE_VERSION }}-${{ env.RELATE_ASSET }}
+
+      - name: Download relate
+        if: steps.relate-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p relate-download && cd relate-download
+          BASE="https://github.com/relatedb/relate/releases/download/v$RELATE_VERSION"
+          curl -sSfLO "$BASE/$RELATE_ASSET"
+          curl -sSfLO "$BASE/SHA256SUMS"
+          curl -sSfLO "$BASE/SHA256SUMS.sig"
+
+      - name: Verify and install relate
+        working-directory: relate-download
+        run: |
+          echo "$RELATE_SIGNER ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK $RELATE_SIGNER" > allowed_signers
+          ssh-keygen -Y verify -f allowed_signers -I "$RELATE_SIGNER" -n "$RELATE_SIGNER" -s SHA256SUMS.sig < SHA256SUMS
+          test "$(head -n 1 SHA256SUMS)" = "# $RELATE_SIGNER-version: v$RELATE_VERSION"
+          grep "  $RELATE_ASSET\$" SHA256SUMS | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 "$RELATE_ASSET" "$HOME/.local/bin/relate"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check the version
+        run: relate --version
+
+      - name: Gate on reachable advisories
+        run: |
+          relate query --database ./deps.rl --read-only --mode json --max-rows 0 --timeout 30s \
+            --param minCvss=7.5 --param 'allow=[]' < gate.cypher > findings.json
+          jq . findings.json
+          jq -e 'length == 0' findings.json
+```
+
+What each part does:
+
+- **`env`** applies to every step: `DO_NOT_TRACK` turns usage metrics off, and the three `RELATE_` values are the pin. Moving to a new release changes them together, in the same change that moves any `AGENTS.md` pin.
+- **`shell: bash`** runs each step with `bash --noprofile --norc -eo pipefail`, so the first failing command, a failed check or a non-zero relate exit, fails the step. A step with no `shell` on an Ubuntu runner runs `bash -e`, without `pipefail` (GitHub's workflow syntax reference, read 2026-11-08).
+- **`actions/checkout`** v7 (as its README describes v7.0.1, the latest release on 2026-11-08) checks out the repository, store and `gate.cypher` included.
+- **The cache** (`actions/cache` v6, as its README describes v6.1.0) keeps the three downloaded files under a key made of the version and the asset, so a new pin downloads again. The cache stores the files, not the trust: the verify step checks the signature, the header and the checksum on every job, cached or not, and needs no network.
+- **The verify step** stops the job at the first check that fails, before anything is installed.
+- **The gate step** prints the findings to the log with `jq .`, then fails the job when relate exits non-zero or when the result has rows.
+
+## Open the workspace store read-only
+
+The checkout puts the store in the workspace, and every step that reads it passes `--read-only`: relate writes nothing, runs no checkpoint, and leaves the file byte for byte as committed. A `.rl` store opens read-only only while no process writes it, which holds in a job where nothing else opens it; otherwise the open fails with `Failed to open Relate: storage locked: <path>`, exit code 5.
+
+A check that needs to write, such as one that derives data before it gates, works on a copy. `--load ./deps.rl --database ./scratch.rl` copies the store and opens the copy for writing; `--load ./deps.rl` alone loads it into an in-memory store that is itself read-only and gone when the step ends.
+
+## Verify
+
+Run the gate locally against the committed store before pushing: exit code 1 and the findings on a failing graph, exit code 0 and `[]` on a passing one, as in [Turn the findings into an exit code](#turn-the-findings-into-an-exit-code). In the Actions log, the `Check the version` step prints:
+
+```bash verify
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| The verify step fails at `ssh-keygen -Y verify`, with no `Good "cypherlite-release" signature` line | The downloaded `SHA256SUMS` or its signature is not the release's, or a value in `env` does not match the release | Check the three `RELATE_` values against the Pinned binary steps; never skip the check |
+| The verify step fails at `test` or `sha256sum -c -` | The manifest names another release, or the binary does not match its line | Delete the cache entry for the key and run again; a second failure means the download is not the release |
+| `Failed to open Relate: storage error: database not found: <path>`, exit code 1 | The store path is wrong, or the file was not checked out (Git LFS without `lfs: true` on the checkout) | Fix the `--database` path |
+| `semantic error: …` or `syntax error: …`, exit code 6 | `gate.cypher` does not parse or plan, or it writes on a read-only store | Run it locally with the same flags; the message names the problem |
+| `Error: query timed out after <duration>`, exit code 7 | The statement ran past `--timeout` | Bound the pattern, or raise `--timeout` |
+| The gate fails, `findings.json` is an object with `data` and `rowCap` instead of an array, and stderr shows `warning: result truncated to 100 rows …` | `--max-rows 0` is missing and an agent harness variable is set in the job | Add `--max-rows 0` |
+
+## Related
+
+- [Fresh graph per test run](/docs/concepts/problems-relate-solves#fresh-graph-per-test-run) and [Dependency analysis](/docs/concepts/problems-relate-solves#dependency-analysis) in the capability catalog.
+- [Dependency blast radius](/cookbook/dependency-blast-radius/): the gate on real dependency graphs, with its data.
+- [Install relate](/docs/get-started/install): the Pinned binary steps.
+- [Security](/docs/reference/security): the signing key, its fingerprint, and what each check proves.
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): every exit code and the error object.
+- [Agent mode](/docs/reference/cli/agent-mode): the defaults a harness variable changes.

@@ -1,0 +1,19 @@
+---
+id: rl
+term: ".rl"
+short: "The file extension of a single-file store; a `--database` path that ends in `.rl` selects that layout."
+aliases: [".cl"]
+context: storage
+see: reference/storage/formats
+related: ["single-file-store", "store"]
+---
+
+`.rl` names the single-file layout: one file holding a store's snapshot, its WAL, and its metadata. The extension is what selects it. `--database ./graph.rl` opens or creates a :term[single-file store]{id=single-file-store}, and any other path is a directory store. `relate info` prints the layout as `layout: .rl bundle`.
+
+Files written by releases up to 0.16 with the older extension `.cl` open as single-file stores too. The docs say "a `.rl` file" for the layout and "store" for the database it holds.
+
+```bash
+relate info --database ./graph.rl --json
+```
+
+`relate info` reads the file's metadata without opening the store.

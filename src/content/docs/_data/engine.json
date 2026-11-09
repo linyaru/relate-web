@@ -1,5 +1,23 @@
 {
   "version": "0.16.1",
   "verified": "0.16.1",
-  "date": "2026-11-04"
+  "date": "2026-11-04",
+  "commit": "ac441ec",
+  "source_build": true,
+  "version_check": {
+    "recorded": {
+      "command": "relate --version",
+      "stdout": "Relate v0.16.1\nLicense: Apache 2.0 (binary)\n",
+      "stderr": "",
+      "exit": 0
+    }
+  },
+  "envelope_check": {
+    "recorded": {
+      "command": "relate --mode envelope \"RETURN 1 AS ok\"",
+      "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"ok\"],\"notifications\":[],\"rows\":[{\"ok\":1}],\"truncated\":false}\n",
+      "stderr": "",
+      "exit": 0
+    }
+  }
 }

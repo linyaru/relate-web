@@ -1,0 +1,15 @@
+---
+id: surface
+term: "surface"
+short: "Any front door to the relate engine: the CLI, a language client, the C ABI, the WebAssembly build, or a server that `relate serve` hosts."
+aliases: []
+context: surfaces
+see: concepts/architecture
+related: ["client", "mcp", "bolt", "http-query-api"]
+---
+
+relate is one engine with several ways in, and the docs call each one a surface. The CLI links the engine into one binary. The :term[clients]{id=client} run it inside a program's own process. The C ABI exposes it as a C interface. The WebAssembly build runs it in a browser page. `relate serve` opens one store and hosts three network surfaces over it: :term[Bolt]{id=bolt}, the :term[HTTP Query API]{id=http-query-api} and :term[MCP]{id=mcp}.
+
+Every surface calls the same Rust API, so a statement, a result type, an error or a notification means the same thing through each. They differ in what is around the engine: the CLI adds output modes, exit codes and agent mode; `relate serve` adds authentication, origins, and a connection cap.
+
+The docs say surface for these front doors, and client for a language package.

@@ -1,0 +1,265 @@
+---
+title: Writing clauses
+description: The grammar of CREATE, MERGE with ON CREATE and ON MATCH, SET, REMOVE, DELETE, FOREACH and LOAD CSV in relate, with what each returns and its errors.
+order: 50
+surfaces: [cypher, cli]
+related: [reference/cypher/reading-clauses, reference/cypher/schema-clauses, reference/cypher/types-and-values, guides/cypher/import-csv, reference/errors]
+---
+
+Writing clauses change the graph: `CREATE` and `INSERT` add nodes and relationships, `MERGE` matches a pattern or creates it, `SET` and `REMOVE` change labels and properties, `DELETE` removes entities, `FOREACH` runs updates once per list element, and `LOAD CSV` reads rows from a local file. Each change lands in the :term[store]{id=store} the statement runs against. A statement that writes commits whole, or fails and changes nothing; `CALL { … } IN TRANSACTIONS` is the exception, and commits each batch on its own. A write with no `RETURN` returns no rows.
+
+## Synopsis
+
+```text
+CREATE <pattern> [, <pattern> …]
+INSERT <pattern> [, <pattern> …]
+
+MERGE <pattern>
+  [ON CREATE SET <set item> [, …]]
+  [ON MATCH SET <set item> [, …]]
+
+SET <set item> [, …]
+  <set item> = <variable>.<key> = <expression>
+             | <variable>[<key expression>] = <expression>
+             | <variable> = <map or entity>
+             | <variable> += <map or entity>
+             | <variable>:<Label>[:<Label> …]
+             | <variable> IS <Label>
+             | <variable>:$(<expression>)
+
+REMOVE <variable>.<key> | <variable>[<key expression>] | <variable>:<Label>[:<Label> …] | <variable>:$(<expression>) [, …]
+
+[DETACH | NODETACH] DELETE <expression> [, …]
+
+FOREACH (<variable> IN <list> | <update clause> [<update clause> …])
+
+LOAD CSV [WITH HEADERS] FROM <file> AS <variable> [FIELDTERMINATOR <character>]
+
+FINISH
+```
+
+## Clauses
+
+| Clause | Does | Notes |
+| --- | --- | --- |
+| `CREATE` | Creates every node and relationship in the pattern that is not a bound variable | Each relationship needs a direction and exactly one :term[relationship type]{id=relationship-type}. A variable bound earlier in the statement cannot be redeclared with labels or properties. A variable created in one `CREATE` cannot be read in the same clause; a second `CREATE` can read it |
+| `INSERT` | The same as `CREATE` | GQL spelling |
+| `MERGE` | Matches the whole pattern; when it has no match, creates the whole pattern | One pattern per `MERGE`. Properties in the pattern must not be `null`. Relationships need exactly one type; an undirected relationship matches either direction and is created left to right |
+| `ON CREATE SET` | Runs its items only on a row where `MERGE` created the pattern | Same items as `SET` |
+| `ON MATCH SET` | Runs its items only on a row where `MERGE` matched | Same items as `SET` |
+| `SET n.key = v` | Sets one :term[property]{id=property} | `null` removes the property |
+| `SET n[expr] = v` | Sets the property the string expression names | A dynamic key |
+| `SET n = map` | Replaces every property with the map's entries | Another node or relationship in place of the map copies its properties; labels are unchanged |
+| `SET n += map` | Adds or overwrites the map's keys and keeps the rest | A `null` value in the map removes that key |
+| `SET n:Label`, `SET n IS Label` | Adds labels | `$(<expression>)` takes a string or a list of strings |
+| `REMOVE` | Removes properties or labels | Removing what is absent is not an error |
+| `DELETE` | Deletes relationships, nodes with no relationships, or a path's relationships and nodes | A node that still has relationships fails the statement |
+| `DETACH DELETE` | Deletes nodes and their relationships | |
+| `NODETACH DELETE` | The same as `DELETE` | GQL spelling |
+| `FOREACH` | Runs its update clauses once per element of the list | Only update clauses inside (`CREATE`, `MERGE`, `SET`, `REMOVE`, `DELETE`, `FOREACH`); a `null` list runs nothing. Variables bound inside stay inside |
+| `LOAD CSV` | One row per CSV record: a list of strings, or with `WITH HEADERS` a map keyed by the header | Local files only, under the directory `--load-csv-dir` allows; denied by default. Every value is a string. The [CSV guide](/docs/guides/cypher/import-csv) has the file policy, quoting, and size limit |
+| `FINISH` | Ends the statement with no result columns | For a statement run only for its writes |
+
+### Property values
+
+A property holds a scalar, a temporal or spatial value, a vector, or a list of one of those types. The [types and values](/docs/reference/cypher/types-and-values) page lists them.
+
+| Value set | Result |
+| --- | --- |
+| `null` | Removes the property |
+| A list of one type, such as `['rust', 'cypher']` | Stored |
+| A list that mixes types, such as `['rust', 1]` | `type error: InvalidPropertyType` |
+| A list holding `null` | `type error: InvalidPropertyType` |
+| A map | `type error: InvalidPropertyType` |
+
+## What a write returns
+
+| Situation | Result |
+| --- | --- |
+| No `RETURN` | No rows. The CLI prints nothing for it |
+| `RETURN` after the write | The rows, with the written values; a created node already has its :term[element id]{id=element-id} |
+| Nothing changed | No rows; the CLI prints `note: write statement changed nothing; the graph is unchanged` on stderr |
+| Counters | The cells on this page show the counters the WebAssembly envelope carries (`nodes created`, `properties set` and the rest), except after `FINISH`; the CLI's envelope carries none |
+| A failure | The statement changes nothing |
+
+Reading a deleted entity's properties later in the same statement fails; a value projected with `WITH` before the `DELETE` stays readable.
+
+## Errors
+
+| Message | CLI exit code | Cause |
+| --- | --- | --- |
+| `syntax error: RequiresDirectedRelationship: CREATE relationships must have a direction` | 6 | A `CREATE` relationship written `-[:TYPE]-` |
+| `syntax error: NoSingleRelationshipType: CREATE relationships must have exactly one type` | 6 | No type, or `:A\|B`; the `MERGE` form names `MERGE` |
+| `syntax error: CreatingVarLength: variable length relationships cannot be used in CREATE` | 6 | A variable-length or quantified relationship in `CREATE`; the `MERGE` form names `MERGE` |
+| `syntax error: SyntaxError: Entity, '<name>', cannot be created and referenced in the same clause` | 6 | `CREATE (a {…}), (b {name: a.name})` |
+| `syntax error: VariableAlreadyBound: variable '<name>' already declared` | 6 | `MATCH (a) CREATE (a:Person)` |
+| `type error: InvalidPropertyType` | 6 | A map, a mixed list or a list holding `null` as a property value |
+| `syntax error: InvalidClauseComposition: invalid FOREACH: invalid use of MATCH inside 'FOREACH'` | 6 | A reading clause inside `FOREACH` |
+| `syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS` | 6 | A write, or `LOAD CSV`, before `CALL { … } IN TRANSACTIONS` in the same statement |
+| `syntax error: parse error: MERGE requires exactly one pattern path at line 0, col 0` | 6 | Two comma-separated patterns in one `MERGE` |
+| `MergeReadOwnWrites: cannot MERGE with null properties` | 1 | A `MERGE` pattern property that is `null` |
+| `DeleteConnectedNode: Cannot delete node with relationships unless DETACH` | 1 | `DELETE` or `NODETACH DELETE` on a node with relationships |
+| `DeletedEntityAccess: cannot access properties of a deleted node` | 1 | A property read after `DELETE` in the same statement |
+| `LOAD CSV file unavailable` | 1 | The file is outside the allowed directory, missing, a URL, or no directory is allowed |
+| `semantic error: ConstraintValidationFailed: <constraint> <rule>` | 6 | The write breaks a constraint ([schema clauses](/docs/reference/cypher/schema-clauses#constraint-violations)) |
+| `semantic error: WriteOnReadOnlyAccessDatabase: …` | 6 | The store is open read-only ([errors](/docs/reference/errors#engine-write-on-read-only)) |
+
+## Examples
+
+The cells run in page order on one in-memory store. Each one writes, and says what before it runs. First, the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+`CREATE` adds a person, a project and the relationship between them, and returns them:
+
+```cypher run name=create
+CREATE (lin:Person {name: 'Lin', role: 'engineer'})-[w:WORKS_ON {since: 2026}]->(docs:Project {name: 'relate-docs', language: 'Markdown'})
+RETURN lin.name AS person, type(w) AS type, docs.name AS project
+```
+
+A relationship in `CREATE` needs a direction:
+
+```cypher run name=create-undirected expect=error
+CREATE (:Person {name: 'Kim'})-[:KNOWS]-(:Person {name: 'Sam'})
+```
+
+`MERGE` finds Ada, so only `ON MATCH SET` runs and sets `seen`:
+
+```cypher run name=merge-node
+MERGE (p:Person {name: 'Ada'})
+  ON CREATE SET p.created = true
+  ON MATCH SET p.seen = true
+RETURN p.name AS name, p.created AS created, p.seen AS seen
+```
+
+Merging a relationship between existing nodes starts by matching both ends. This creates Ada's `WORKS_ON` to the TCK project:
+
+```cypher run name=merge-relationship
+MATCH (a:Person {name: 'Ada'}), (r:Project {name: 'opencypher-tck'})
+MERGE (a)-[w:WORKS_ON]->(r)
+  ON CREATE SET w.since = 2026
+RETURN w.since AS since
+```
+
+`MERGE` on a whole pattern creates the whole pattern when any part is missing. Zed does not exist, so this creates Zed, the relationship, and a second Grace:
+
+```cypher run name=merge-whole-pattern
+MERGE (:Person {name: 'Zed'})-[:KNOWS]->(:Person {name: 'Grace'});
+MATCH (g:Person {name: 'Grace'}) RETURN count(g) AS graces
+```
+
+A `null` property in a `MERGE` pattern fails:
+
+```cypher run name=merge-null expect=error
+MERGE (p:Person {name: null}) RETURN p
+```
+
+`DETACH DELETE` removes Zed, the second Grace and the relationship between them:
+
+```cypher run name=detach-delete
+MATCH (z:Person {name: 'Zed'})-[:KNOWS]->(g:Person)
+DETACH DELETE z, g
+```
+
+`SET` with `+=` adds a key, `:Lead` adds a label, and `null` removes Ada's `role` and the `seen` flag:
+
+```cypher run name=set-forms
+MATCH (p:Person {name: 'Ada'})
+SET p += {level: 3, seen: null}, p:Lead, p.role = null
+RETURN labels(p) AS labels, properties(p) AS props
+```
+
+`SET` with `=` replaces every property and keeps the labels:
+
+```cypher run name=set-replace
+MATCH (p:Person {name: 'Ada'})
+SET p = {name: 'Ada', role: 'engineer'}
+RETURN labels(p) AS labels, properties(p) AS props
+```
+
+A list property holds values of one type:
+
+```cypher run name=property-type expect=error
+MATCH (p:Person {name: 'Ada'}) SET p.tags = ['rust', 1]
+```
+
+`REMOVE` takes the label back off:
+
+```cypher run name=remove
+MATCH (p:Person {name: 'Ada'})
+REMOVE p:Lead
+RETURN labels(p) AS labels
+```
+
+`DELETE` refuses a node that still has relationships:
+
+```cypher run name=delete-connected expect=error
+MATCH (p:Person {name: 'Noor'}) DELETE p
+```
+
+`FOREACH` creates two people who work on relate, one per list element:
+
+```cypher run name=foreach
+MATCH (r:Project {name: 'relate'})
+FOREACH (name IN ['Kim', 'Sam'] |
+  CREATE (:Person {name: name, role: 'engineer'})-[:WORKS_ON {since: 2026}]->(r))
+```
+
+`FINISH` ends a statement that only writes. This removes the two again:
+
+```cypher run name=finish
+MATCH (p:Person) WHERE p.name IN ['Kim', 'Sam']
+DETACH DELETE p
+FINISH
+```
+
+`LOAD CSV` reads files from disk, which the in-browser cells cannot reach, so its examples run on the CLI. This setup step writes a file into a directory named `import`:
+
+```bash verify
+mkdir import
+printf 'name;role\nKim;engineer\nSam;maintainer\n' > import/people.csv
+```
+
+`WITH HEADERS` makes each record a map, and `FIELDTERMINATOR` names the separator. No `--database` means an in-memory store, so nothing is kept:
+
+```bash verify
+relate --load-csv-dir ./import --mode table "LOAD CSV WITH HEADERS FROM 'people.csv' AS row FIELDTERMINATOR ';' RETURN row.name AS name, row.role AS role"
+```
+
+```text
++-------+--------------+
+| name  | role         |
++-------+--------------+
+| "Kim" | "engineer"   |
+| "Sam" | "maintainer" |
++-------+--------------+
+```
+
+`LOAD CSV` counts as a write before `CALL { … } IN TRANSACTIONS`, so the batched form fails before it runs:
+
+```bash verify
+relate --load-csv-dir ./import --mode table "LOAD CSV WITH HEADERS FROM 'people.csv' AS row FIELDTERMINATOR ';' CALL (row) { CREATE (:Person {name: row.name}) } IN TRANSACTIONS OF 1 ROWS"
+```
+
+```text
+syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS
+```
+
+## See also
+
+- [Import a CSV](/docs/guides/cypher/import-csv): the `LOAD CSV` file policy, type conversion, and size limit.
+- [Schema clauses](/docs/reference/cypher/schema-clauses): the constraints a write must satisfy.
+- [Composing clauses](/docs/reference/cypher/composing-clauses#call-subqueries): `CALL { … } IN TRANSACTIONS` for batched writes.
+- [Types and values](/docs/reference/cypher/types-and-values): the values a property holds.
+- [Errors](/docs/reference/errors): every message with its exit code and remedy.

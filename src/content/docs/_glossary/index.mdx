@@ -1,0 +1,19 @@
+---
+id: index
+term: "index"
+short: "A structure the planner uses to find nodes or relationships by a property without scanning a label: range, text, point, vector or full-text."
+aliases: []
+context: cypher
+see: guides/cypher/tune-a-query
+related: ["constraint", "plan", "notification", "vector-index", "full-text-index", "point-index"]
+---
+
+An index maps property values to the nodes or relationships that hold them, so a lookup such as `MATCH (p:Person {name: 'Ada'})` starts from the matching node instead of reading every `Person`. A plain `CREATE INDEX` makes a range index, which serves equality and range comparisons; `CREATE TEXT INDEX`, `CREATE POINT INDEX`, `CREATE VECTOR INDEX` and `CREATE FULLTEXT INDEX` make the other kinds. A new store has none.
+
+```cypher
+CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name)
+```
+
+`SHOW INDEXES` lists every index with its type and state, and `DROP INDEX <name>` removes one. A uniqueness or key :term[constraint]{id=constraint} creates a range index of its own, listed with the constraint as its owner. When a plan reads more than it needs to, the planner's :term[notification]{id=notification} names the index that would help, and `EXPLAIN` shows whether a plan uses one.
+
+Indexes count toward the logical graph size, and the schema folder holds a `CREATE` statement for each.

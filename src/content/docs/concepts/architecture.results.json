@@ -1,0 +1,155 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "plan": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [
+          {
+            "category": "PERFORMANCE",
+            "code": "Relate.Notification.Statement.MissingIndex",
+            "description": "the equality predicate on name filters :Person without a range index on (:Person {name})",
+            "gql_status": "03C91",
+            "operator_id": 1,
+            "remedy": "CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)",
+            "severity": "INFORMATION",
+            "title": "Missing index"
+          }
+        ],
+        "plan": {
+          "profiled": false,
+          "root": {
+            "actual": null,
+            "children": [
+              {
+                "actual": null,
+                "children": [],
+                "details": "(r:Project)<-[:WORKS_ON]-(p:Person)",
+                "estimated_rows": null,
+                "identifiers": [],
+                "operator": "Expand",
+                "warnings": [
+                  {
+                    "category": "PERFORMANCE",
+                    "code": "Relate.Notification.Statement.MissingIndex",
+                    "description": "the equality predicate on name filters :Person without a range index on (:Person {name})",
+                    "gql_status": "03C91",
+                    "remedy": "CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)",
+                    "severity": "INFORMATION",
+                    "title": "Missing index"
+                  }
+                ]
+              }
+            ],
+            "details": "1 item(s)",
+            "estimated_rows": null,
+            "identifiers": [],
+            "operator": "ProduceResults",
+            "warnings": []
+          },
+          "schema": "relate.plan/v1",
+          "statement": "MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(r:Project) RETURN r.name AS project"
+        },
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "run": {
+      "kind": "table",
+      "text": "| project  |\n|----------|\n| \"relate\" |\n1 row",
+      "table": {
+        "columns": [
+          "project"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"relate\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "project"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "project": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

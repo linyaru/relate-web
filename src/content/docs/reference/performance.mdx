@@ -1,0 +1,187 @@
+---
+title: Performance
+description: Measured memory per node and relationship, .rl open time by store size, query latency on the LDBC data set at scale factor 0.1, and output bytes per CLI mode.
+order: 70
+surfaces: [cli, cypher, agents]
+related: [reference/limitations, guides/operate/sizing-and-memory, reference/storage/limits-and-sizing, concepts/where-relate-fits, reference/cli/agent-mode]
+---
+
+These are measured figures for relate 0.16.1: the memory a graph takes per node and relationship, how long a `.rl` :term[store]{id=store} takes to open as it grows, how long 30 read queries take on a social-network data set of about 1.8 million elements, and how many bytes each CLI output mode prints. Every number names its engine version, its machine, its method, and its source. They describe one build on one machine class; they are not a guarantee for another machine, another graph, or another release.
+
+## Synopsis
+
+| Measurement | Engine | Machine | Source |
+| --- | --- | --- | --- |
+| [Memory per element, synthetic shapes](#memory-per-node-and-relationship) | The upstream tree reporting 0.16.1, frozen 2026-11-07 | GitHub Actions 4-core x86-64 Linux runner, in a container limited to 2 CPUs and 2 GB | Upstream frozen baseline (memory-shape loadtest), worst of 5 runs |
+| [Memory per element, a property graph](#memory-per-node-and-relationship) | `Relate v0.16.1`, source build `ac441ec` | Apple M4 Max, 16 cores, 64 GB, macOS 26.7.2 | Measured for this page, 2026-11-07 |
+| [Open time of a `.rl` store](#open-time-of-a-rl-store) | `Relate v0.16.1`, source build `ac441ec` | Apple M4 Max, 16 cores, 64 GB, macOS 26.7.2 | Measured for this page, 2026-11-07, median of 9 runs |
+| [Query latency, LDBC data at scale factor 0.1](#query-latency-at-scale-factor-01) | 0.16.1, as the report stamps it, frozen 2026-11-07 | GitHub Actions 4-core x86-64 Linux runner, in a container limited to 2 CPUs and 6 GB | Upstream frozen baseline (query-latency suite), worst of 5 runs |
+| [Mixed read and write throughput](#mixed-read-and-write-throughput) | 0.16.1, as the reports stamp it, frozen 2026-11-07 | GitHub Actions 4-core x86-64 Linux runner, in a container limited to 2 CPUs and 2 GB | Upstream frozen baselines (fraud and identity loadtests), worst of 5 runs |
+| [Output bytes per CLI mode](#output-bytes-per-cli-mode) | `Relate v0.16.1`, source build `ac441ec` | Any; the bytes are deterministic | Measured for this page with `wc -c` |
+
+The upstream baselines run the engine in a Docker container built from `rust:1.88-bookworm` and run on `debian:bookworm-slim`, with 2 CPUs of CPU bandwidth on a 10 ms period. A frozen baseline keeps, for each figure, the worst of five runs: the lowest throughput, the highest latency, the highest memory. No figure on this page comes from Windows, from the WebAssembly build, or from a store larger than 3 million elements.
+
+## Memory per node and relationship
+
+relate holds the whole graph in memory, so its size per element is the first sizing number. Two meters measure it:
+
+| Meter | What it counts | Where it shows |
+| --- | --- | --- |
+| Logical size | The live graph and its indexes, by a fixed formula over payload bytes and reserved slots; the same on every OS and allocator | The counter `--logical-graph-size-limit` caps, and the `used=` figure in `capacity exceeded: used=… limit=…` |
+| Resident set size (RSS) | The process's memory as the OS reports it, including query scratch space and allocator slack | `/usr/bin/time`, `ps`, a container's memory limit |
+
+The upstream memory-shape loadtest fills four synthetic graphs until each reaches a 32 MiB logical cap. Every node has one integer property and a label; relationships have no properties; there are no indexes. The shapes are `flat` (nodes only), `ring` (each node points to the next, in one cycle), `fanout` (hubs, each with leaves), and `dense ring` (20 relationships per node, in a cycle). RSS is measured in a served process after the load, less the RSS of the same server with an empty store (11,841,536 bytes).
+
+| Shape | Nodes | Relationships | Logical bytes | Logical bytes per element | RSS over an empty server | On disk after checkpoint |
+| --- | --- | --- | --- | --- | --- | --- |
+| `flat` | 120,000 | 0 | 33,120,516 | 276 | 50,847,744 | 2,041,295 |
+| `fanout` | 52,016 | 52,000 | 33,316,930 | 320 | 46,268,416 | 1,837,437 |
+| `ring` | 46,000 | 46,000 | 33,121,108 | 360 | 45,600,768 | 1,850,979 |
+| `dense ring` | 5,000 | 100,000 | 33,366,110 | 318 | 40,652,800 | 1,699,957 |
+
+Logical bytes per element is logical bytes divided by nodes plus relationships, rounded to the nearest byte by this page. The RSS column is the figure from the run with the highest ratio of RSS to logical size; RSS was 1.22 to 1.54 times the logical size across the four shapes (ratios rounded to two decimals).
+
+A graph with more properties costs more per element. For this page, stores of `Person` nodes were built with three properties each (an integer `id`, a string `name` such as `person-42`, a float `score`), two `KNOWS` relationships per node with one integer property, and a range index on `Person.id`, then saved as `.rl` files. The logical size is the `used=` figure of a capacity refusal; the peak RSS is `/usr/bin/time -l`'s maximum resident set size for a `--read-only` open that runs `RETURN 1 AS ok`, the median of 3 runs.
+
+| Nodes | Relationships | Logical bytes | Logical bytes per element | Peak RSS while opening | `.rl` file size |
+| --- | --- | --- | --- | --- | --- |
+| 10,000 | 20,000 | 13,890,107 | 463 | 53,673,984 | 4,685,824 |
+| 100,000 | 200,000 | 138,990,108 | 463 | 348,897,280 | 47,595,520 |
+| 1,000,000 | 2,000,000 | 1,390,890,109 | 464 | 3,464,413,184 | 187,416,576 |
+
+All sizes are in bytes. The logical size grows in proportion to the element count. The peak RSS while opening is 2.5 to 3.9 times the logical size (ratios rounded to one decimal): it includes decoding the snapshot, and it includes the 12.6 MB a `:memory:` run of the same statement peaks at.
+
+The LDBC data set at scale factor 0.1, in the [query latency section](#query-latency-at-scale-factor-01), adds a third point: 327,588 nodes and 1,477,965 relationships with the data set's properties and 16 indexes peaked at 1,024,663,552 bytes of RSS while loading and querying in `:memory:`, the highest of 5 runs.
+
+## Open time of a `.rl` store
+
+Opening a store loads its snapshot into memory and replays the :term[WAL]{id=wal}, so open time grows with the graph. The stores are the three `Person` stores from the [memory section](#memory-per-node-and-relationship), each checkpointed with an empty WAL. Each figure is the wall time of `relate --database <store>.rl --read-only "RETURN 1 AS ok"`, process start included, over 9 runs after one untimed run that warmed the page cache. Times are rounded to the millisecond.
+
+| Store | `.rl` file size | Shortest | Median | Longest |
+| --- | --- | --- | --- | --- |
+| `:memory:`, for the cost of starting the process | — | 21 ms | 24 ms | 26 ms |
+| 10,000 nodes, 20,000 relationships | 4,685,824 bytes | 70 ms | 80 ms | 89 ms |
+| 100,000 nodes, 200,000 relationships | 47,595,520 bytes | 634 ms | 657 ms | 692 ms |
+| 1,000,000 nodes, 2,000,000 relationships | 187,416,576 bytes | 7,983 ms | 8,155 ms | 8,469 ms |
+
+From 100,000 to 1,000,000 nodes, the median open time grew 12.4 times for 10 times the elements. The machine was running other work during the measurement (a load average of about 3.5 on 16 cores), so the spread includes that noise.
+
+## Query latency at scale factor 0.1
+
+The upstream query-latency suite runs the 30 Cypher read queries of the open source [graph-benchmark-ldbc](https://github.com/prrao87/graph-benchmark-ldbc) project (commit `c8eb87f`) against the Linked Data Benchmark Council (LDBC) Social Network Benchmark data set, `CsvBasic-StringDateFormatter`, at scale factor 0.1: 327,588 nodes and 1,477,965 relationships, loaded into `:memory:` with an `ID` index on all eight labels and eight lookup indexes. The queries' literals were chosen for scale factor 1; at 0.1, 14 of them run with substituted literals so each answer keeps the shape of its scale factor 1 answer. This is not an LDBC Benchmark result.
+
+Each query's answer is checked against a reference answer first. Then the query runs once untimed, then for at least 5 rounds and at least 1 second. Latency is the engine-reported statement time, which leaves out process start and result printing. The frozen figure for each query is its highest median (p50) and highest mean across 5 runs. Loading the data set took 88.1 to 93.4 seconds across the runs.
+
+Across the 30 queries, the median p50 is 0.111 ms; 24 queries have a p50 under 1 ms and 27 under 2 ms. The slowest is query 19, at 15.009 ms.
+
+| Query | What it asks | p50 (ms) | Mean (ms) | Rows |
+| --- | --- | --- | --- | --- |
+| 1 | People in a city with a given interest | 0.100 | 0.103 | 1 |
+| 2 | Posts by a named person whose content contains a word | 0.176 | 0.178 | 2 |
+| 3 | The creator of a post, by ID, and where they studied | 0.080 | 0.081 | 1 |
+| 4 | Comments by a named person longer than 100 characters | 0.082 | 0.083 | 1 |
+| 5 | People with a last name who are members of forums whose title contains a name | 1.054 | 1.105 | 1 |
+| 6 | Employees of a company whose last name contains a string | 0.077 | 0.078 | 2 |
+| 7 | Places where a person commented on posts with a tag | 0.069 | 0.072 | 0 |
+| 8 | People born after 1990 who moderate forums whose title contains a name | 0.665 | 0.666 | 1 |
+| 9 | People with a last name who know someone who studied in a city | 0.106 | 0.108 | 1 |
+| 10 | People who commented on posts with a tag | 0.122 | 0.128 | 3 |
+| 11 | The non-university organization with the most employees | 7.703 | 7.469 | 1 |
+| 12 | Number of comments with content by people in a city | 0.680 | 0.680 | 1 |
+| 13 | Number of people who liked comments by a named person | 0.865 | 0.870 | 1 |
+| 14 | Number of forums with tags in a tag class | 0.060 | 0.061 | 1 |
+| 15 | Number of forums moderated by employees of a company | 0.068 | 0.070 | 1 |
+| 16 | Number of posts containing a word by people in a city | 0.114 | 0.117 | 1 |
+| 17 | The most common interest among people who studied at a university | 1.222 | 1.227 | 1 |
+| 18 | People studying at an institution with a given interest | 0.376 | 0.379 | 1 |
+| 19 | The place with the most comments whose tag name contains a string | 15.009 | 15.112 | 1 |
+| 20 | Number of comments containing a phrase and longer than 1,000 characters | 1.210 | 1.252 | 1 |
+| 21 | Whether a named person liked a post, by ID | 0.107 | 0.109 | 1 |
+| 22 | Whether anyone at a company wrote a comment replying to a post | 0.083 | 0.084 | 1 |
+| 23 | Whether a person with a last name moderates a forum with a tag | 0.075 | 0.077 | 1 |
+| 24 | Whether a person in a city has a given interest | 0.071 | 0.074 | 1 |
+| 25 | Whether a named person knows anyone who studied at a school | 0.069 | 0.072 | 1 |
+| 26 | Whether a person is a member of a forum with a tag | 0.066 | 0.068 | 1 |
+| 27 | Whether anyone in a city wrote a comment with a tag | 3.638 | 3.700 | 1 |
+| 28 | Whether people in a city are interested in tags of a tag class | 0.117 | 0.118 | 1 |
+| 29 | Whether a named person wrote a post using a browser | 0.079 | 0.080 | 1 |
+| 30 | Whether comments reply to posts by the same person | 0.313 | 0.320 | 1 |
+
+The baseline reports times in nanoseconds; this table rounds them to 0.001 ms. Rows is the number of rows the query returns. Queries 7, 24, 25, 26 and 29 check for something that is not in the data. No figure is published for scale factor 1, which needs about 12 GB of memory and runs only on developers' machines.
+
+## Mixed read and write throughput
+
+Two upstream loadtests run a fixed mix of reads and writes from several workers at once, with 44% of operations writing, under the default `full` durability mode, 20,000 operations each.
+
+| Loadtest | Graph at start | Store | Workers | Operations per second | Reads per second | Writes per second |
+| --- | --- | --- | --- | --- | --- | --- |
+| Fraud: payments between accounts | 1,510 nodes, 25,346 relationships | A directory store on tmpfs, a file system in memory | 8 | 3,488 | 1,963 | 1,533 |
+| Identity: users, groups, and permissions | 1,264 nodes, 2,744 relationships | `:memory:` | 4 | 575 | 319 | 255 |
+
+The operations per second are the lowest of 5 runs, with that report's reads and writes per second, rounded to the whole operation. The fraud store sits on tmpfs, so its WAL syncs cost less than they would on a disk.
+
+## Output bytes per CLI mode
+
+An agent pays for every byte of output it reads back, so the output mode matters. These are the bytes `relate` prints for two results, counted with `wc -c`, newlines included. The first result has 3 rows of 3 columns from the shared example graph; the second has 100 rows of 3 columns (an integer, a string, and a float) from `UNWIND range(1, 100) AS i RETURN i AS id, 'person-' + toString(i) AS name, i * 1.5 AS score`, which opens no store. Without :term[agent mode]{id=agent-mode}, the default for piped output is `jsonl`; under agent mode it is `toon`.
+
+| Mode | 3 rows | 100 rows |
+| --- | --- | --- |
+| `table` | 273 | 3,224 |
+| `csv` | 81 | 1,826 |
+| `json` | 161 | 4,214 |
+| `jsonl` | 159 | 4,212 |
+| `envelope` | 290 | 4,335 |
+| `markdown` | 195 | 3,162 |
+| `toon` | 97 | 2,038 |
+
+`toon` names the columns once, in a header, where `jsonl` repeats them on every row. `envelope` adds the column types, the notifications, and the `truncated` flag to the rows.
+
+The 3-row result comes from this graph. The setup step writes it to `./team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)" > /dev/null
+```
+
+The same statement in `jsonl`, 159 bytes, then in `toon`, 97 bytes, on a `--read-only` open:
+
+```bash verify
+relate --database ./team.rl --read-only --mode jsonl "MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since"
+relate --database ./team.rl --read-only --mode toon "MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since"
+```
+
+```text
+{"person":"Grace","project":"opencypher-tck","since":2022}
+{"person":"Grace","project":"relate","since":2023}
+{"person":"Ada","project":"relate","since":2024}
+rows[3]{person,project,since}:
+  Grace,opencypher-tck,2022
+  Grace,relate,2023
+  Ada,relate,2024
+```
+
+The 100-row statement in `toon`, counted with `wc -c` (`tr` strips the padding some `wc` builds add):
+
+```bash verify
+relate --mode toon "UNWIND range(1, 100) AS i RETURN i AS id, 'person-' + toString(i) AS name, i * 1.5 AS score" | wc -c | tr -d ' '
+```
+
+```text
+2038
+```
+
+## See also
+
+- [Size a store and its memory](/docs/guides/operate/sizing-and-memory): turning these figures into a memory estimate for a graph
+- [Limits and sizing](/docs/reference/storage/limits-and-sizing): the graph size cap and the other guard rails
+- [Limitations](/docs/reference/limitations): what relate does not do, and the error each limit raises
+- [Agent mode](/docs/reference/cli/agent-mode): the row cap and the `toon` default for agents
+- [Where relate fits](/docs/concepts/where-relate-fits): whether a graph of a given size suits relate

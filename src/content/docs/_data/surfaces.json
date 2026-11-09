@@ -1,0 +1,1499 @@
+{
+  "$schema_note": "The surfaces capability matrix (<Matrix />, src/components/docs/matrix.ts). features are the rows, surfaces the columns, cells[feature][surface] = {value: yes|no|partial|unknown, note, sources}; every source id is a key of `sources`. A cell nobody has checked is \"unknown\", never a guess.",
+  "verified": "0.16.1",
+  "checked": "2026-11-08",
+  "sources": {
+    "binary": "A run of the relate 0.16.1 release-profile source build (commit ac441ec) on 2026-11-07, with DO_NOT_TRACK=1; `relate serve` runs were made over HTTP and MCP on stdio.",
+    "cli-json": "src/content/docs/_data/cli.json (the recorded CLI facts).",
+    "wasm": "A run of public/wasm (the WASM build this site ships) in Node.js on 2026-11-07, and its relate.d.ts.",
+    "python-client": "A run of the Python client built from upstream commit ac441ec on 2026-11-07.",
+    "node-client": "A run of the Node.js client built from upstream commit ac441ec on 2026-11-07; it loads the C ABI library (`librelate_ffi`) that the C, Java, Go and Swift clients load.",
+    "spec-rust": "Upstream docs/api/rust/spec.md and description.md at ac441ec.",
+    "spec-c": "Upstream docs/api/c/spec.md at ac441ec.",
+    "spec-python": "Upstream docs/api/python/spec.md and description.md at ac441ec.",
+    "spec-javascript": "Upstream docs/api/javascript/spec.md at ac441ec.",
+    "spec-wasm": "Upstream docs/api/wasm/spec.md at ac441ec.",
+    "spec-java": "Upstream docs/api/java/spec.md at ac441ec, and clients/java Database.java (the path goes to `relate_database_open` unchanged).",
+    "spec-go": "Upstream docs/api/go/spec.md at ac441ec.",
+    "spec-swift": "Upstream docs/api/swift/spec.md at ac441ec, and clients/swift Database.swift (the path goes to `relate_database_open` unchanged).",
+    "spec-bolt": "Upstream docs/api/bolt/spec.md at ac441ec.",
+    "spec-http": "Upstream docs/api/http/spec.md at ac441ec.",
+    "spec-mcp": "Upstream docs/api/mcp/spec.md at ac441ec.",
+    "serve-help": "The `relate serve --help` text of the same binary.",
+    "jvm-go-swift-clients": "Runs of the Java, Go and Swift clients built from upstream commit 6a0c391 (relate 0.16.1) on 2026-11-08 (the docs sample runners, scripts/docs-samples.ts)."
+  },
+  "surfaces": [
+    {
+      "id": "cli",
+      "label": "CLI",
+      "what": "the `relate` binary"
+    },
+    {
+      "id": "python",
+      "label": "Python",
+      "what": "the `relate-db` package"
+    },
+    {
+      "id": "node",
+      "label": "Node.js",
+      "what": "the `@relate/relate` package, over the C ABI"
+    },
+    {
+      "id": "browser",
+      "label": "Browser (WASM)",
+      "what": "the `@relate/relate-wasm` package"
+    },
+    {
+      "id": "rust",
+      "label": "Rust",
+      "what": "the `relate` crate"
+    },
+    {
+      "id": "c",
+      "label": "C",
+      "what": "the C ABI (`librelate_ffi`)"
+    },
+    {
+      "id": "java",
+      "label": "Java",
+      "what": "the `com.relate:relate` artifact, over the C ABI"
+    },
+    {
+      "id": "go",
+      "label": "Go",
+      "what": "the Go module, over the C ABI"
+    },
+    {
+      "id": "swift",
+      "label": "Swift",
+      "what": "the `Relate` Swift package, over the C ABI"
+    },
+    {
+      "id": "bolt",
+      "label": "Bolt",
+      "what": "`relate serve --bolt`"
+    },
+    {
+      "id": "http",
+      "label": "HTTP",
+      "what": "`relate serve --http` (the HTTP Query API v2)"
+    },
+    {
+      "id": "mcp",
+      "label": "MCP",
+      "what": "`relate serve --mcp`"
+    }
+  ],
+  "features": [
+    {
+      "id": "open-memory",
+      "label": "In-memory store",
+      "means": "A store that lives only in the process."
+    },
+    {
+      "id": "open-directory",
+      "label": "Directory store",
+      "means": "A store in a directory on disk."
+    },
+    {
+      "id": "open-rl",
+      "label": "Single-file .rl store",
+      "means": "A store in one `.rl` file."
+    },
+    {
+      "id": "read-only",
+      "label": "Read-only open",
+      "means": "An open that loads the store once and refuses every write."
+    },
+    {
+      "id": "transactions",
+      "label": "Explicit transactions",
+      "means": "Several statements committed or rolled back together."
+    },
+    {
+      "id": "parameters",
+      "label": "Parameters",
+      "means": "`$name` values passed beside the statement."
+    },
+    {
+      "id": "result-metadata",
+      "label": "Column types, counters and timings",
+      "means": "Metadata returned with each result."
+    },
+    {
+      "id": "notifications",
+      "label": "Notifications",
+      "means": "The engine's query notifications (for example a Cartesian product), each with a remedy."
+    },
+    {
+      "id": "arrow",
+      "label": "Arrow output",
+      "means": "Results as Apache Arrow."
+    },
+    {
+      "id": "cdc",
+      "label": "Change data capture",
+      "means": "Reading committed changes from a slot."
+    },
+    {
+      "id": "vector-search",
+      "label": "Vector search",
+      "means": "Vector indexes and `SEARCH`."
+    },
+    {
+      "id": "full-text",
+      "label": "Full-text search",
+      "means": "Full-text indexes and their queries."
+    },
+    {
+      "id": "load-csv",
+      "label": "LOAD CSV from local files",
+      "means": "Local `LOAD CSV` under a configured directory (denied unless one is set)."
+    },
+    {
+      "id": "load-url",
+      "label": "Load a store from a URL",
+      "means": "Opening a `.rl` store fetched over https."
+    },
+    {
+      "id": "agent-mode",
+      "label": "Agent mode",
+      "means": "The CLI's agent defaults: the 100-row cap and the piped `toon` output."
+    }
+  ],
+  "cells": {
+    "open-memory": {
+      "cli": {
+        "value": "yes",
+        "note": "`--database :memory:`, the default",
+        "sources": [
+          "binary",
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`relate.connect(\":memory:\")`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`Database.open(\":memory:\")`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`new RelateDb()`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`Database::open(\":memory:\")`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`relate_database_open(\":memory:\", …)`",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`Database.open(\":memory:\")`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`relate.Open(\":memory:\")`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`Database.inMemory()`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`relate serve --database :memory: --bolt <port>`",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`relate serve --database :memory: --http <port>`",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`relate serve --database :memory: --mcp stdio`",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      }
+    },
+    "open-directory": {
+      "cli": {
+        "value": "yes",
+        "note": "`--database ./dir`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`relate.connect(path)`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`Database.open(path)`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "no filesystem paths; `RelateDb.open(\"opfs://<name>\")` is the durable browser store, in a dedicated worker",
+        "sources": [
+          "wasm",
+          "spec-wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`Database::open(path)`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`relate_database_open(path, …)`",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`Database.open(path)`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`relate.Open(path)`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`Database(path:)`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`relate serve` on a directory store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`relate serve` on a directory store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`relate serve` on a directory store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      }
+    },
+    "open-rl": {
+      "cli": {
+        "value": "yes",
+        "note": "`--database ./graph.rl`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`relate.connect(\"graph.rl\")`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`Database.open(\"graph.rl\")`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "opens `:memory:` and `opfs://` only",
+        "sources": [
+          "wasm",
+          "spec-wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`Database::open(\"graph.rl\")`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "a `*.rl` URI",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`Database.open(\"graph.rl\")`",
+        "sources": [
+          "spec-java",
+          "spec-c"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`relate.Open(\"graph.rl\")`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`Database(path: \"graph.rl\")`",
+        "sources": [
+          "spec-swift",
+          "spec-c"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`relate serve` on a `.rl` store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`relate serve` on a `.rl` store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`relate serve` on a `.rl` store",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      }
+    },
+    "read-only": {
+      "cli": {
+        "value": "yes",
+        "note": "`--read-only`; a write exits 6",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`read_only=True`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`Database.open(uri, { readOnly: true })`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`new RelateDb(true)`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`OpenMode::ReadOnly`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`relate_database_open_read_only`",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`Database.openReadOnly(uri)`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`relate.OpenReadOnly(uri)`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`Database(readOnlyPath:)`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`relate serve --read-only`",
+        "sources": [
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`relate serve --read-only`",
+        "sources": [
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`relate serve --mcp stdio --read-only`; only `read_cypher` and `get_schema` are listed",
+        "sources": [
+          "binary"
+        ]
+      }
+    },
+    "transactions": {
+      "cli": {
+        "value": "yes",
+        "note": "`.begin`, `.commit`, `.rollback` in a script on stdin or the shell",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`autocommit = False`, then `commit()` or `rollback()`",
+        "sources": [
+          "spec-python",
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`begin()`, `commit()`, `rollback()`",
+        "sources": [
+          "node-client",
+          "spec-javascript"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "each statement commits on its own; `BEGIN` is a syntax error",
+        "sources": [
+          "wasm",
+          "spec-wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`begin()`, `commit()`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`relate_conn_begin`, `relate_conn_commit`, `relate_conn_rollback`",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`begin()`, `commit()`, `rollback()`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`Begin()`, `Commit()`, `Rollback()`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`begin()`, `commit()`, `rollback()`, `transaction { }`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`BEGIN`, `COMMIT`, `ROLLBACK`",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`POST /db/<name>/query/v2/tx`, then `…/tx/<id>/commit`",
+        "sources": [
+          "spec-http"
+        ]
+      },
+      "mcp": {
+        "value": "no",
+        "note": "each `tools/call` runs one statement",
+        "sources": [
+          "spec-mcp"
+        ]
+      }
+    },
+    "parameters": {
+      "cli": {
+        "value": "yes",
+        "note": "`--param name=value`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`execute(statement, {\"x\": 3})`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`query(statement, { x: 3 })`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`execute(statement, paramsJson)`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`query_with_params`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "the params builder",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`query(statement, Map)`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`QueryParams(statement, map)`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`query(statement, [String: CypherValue])`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "the `RUN` message's parameter map",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`\"parameters\"` in the request body",
+        "sources": [
+          "binary"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "the tools' `parameters` argument",
+        "sources": [
+          "binary",
+          "spec-mcp"
+        ]
+      }
+    },
+    "result-metadata": {
+      "cli": {
+        "value": "partial",
+        "note": "the envelope has `columnTypes`, and the plan on `EXPLAIN`; no counters or timings",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`QueryResult` metadata and the result summary",
+        "sources": [
+          "spec-python"
+        ]
+      },
+      "node": {
+        "value": "partial",
+        "note": "counters, query type and timings; no per-column type list (each value carries its type)",
+        "sources": [
+          "spec-javascript",
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`columnTypes`, `stats`, `elapsed_ms` in the envelope",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`QueryResult.header`: column types, query type, elapsed and its phase split, counters",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "partial",
+        "note": "counters, timings and column names; no column-type call (read each value's kind with `relate_value_kind`)",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "partial",
+        "note": "query type, namespace, bookmark, notifications and plan; no column types, counters or timings",
+        "sources": [
+          "spec-java",
+          "jvm-go-swift-clients"
+        ]
+      },
+      "go": {
+        "value": "partial",
+        "note": "`Stats`, `QueryType`, `Plan`; no column types or timings",
+        "sources": [
+          "spec-go",
+          "jvm-go-swift-clients"
+        ]
+      },
+      "swift": {
+        "value": "partial",
+        "note": "`stats`, `elapsedMs` and its phase split, `queryType`; no column types",
+        "sources": [
+          "spec-swift",
+          "jvm-go-swift-clients"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "the `SUCCESS` summary: `t_first`, `t_last`, `type`, `stats`",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "partial",
+        "note": "`counters` and `queryPlan`; no column types or timings in the JSON response",
+        "sources": [
+          "binary"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`columnTypes`, `stats`, `elapsed_ms` in the tool result",
+        "sources": [
+          "binary",
+          "spec-mcp"
+        ]
+      }
+    },
+    "notifications": {
+      "cli": {
+        "value": "yes",
+        "note": "`notifications` in the envelope; filled on `EXPLAIN` and `PROFILE`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`QueryResult.notifications`",
+        "sources": [
+          "spec-python"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`result.notifications`",
+        "sources": [
+          "spec-javascript"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`notifications` in the envelope; filled on `EXPLAIN` and `PROFILE`",
+        "sources": [
+          "wasm",
+          "spec-wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "with the plan, on `EXPLAIN` and `PROFILE`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`relate_result_notifications`",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`getNotifications()`",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`Notifications`",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`notifications`",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "in the ending `SUCCESS` summary when there are any",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`notifications` in the response on `EXPLAIN` and `PROFILE` only; the remedy is appended to `description`",
+        "sources": [
+          "binary",
+          "spec-http"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "on every call, from the `EXPLAIN` that classifies the statement",
+        "sources": [
+          "spec-mcp"
+        ]
+      }
+    },
+    "arrow": {
+      "cli": {
+        "value": "no",
+        "note": "no Arrow output mode",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`cursor.to_arrow()` (the `relate-db[arrow]` extra), `Database.execute_arrow()`",
+        "sources": [
+          "spec-python",
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "no",
+        "note": "no Arrow call in the client",
+        "sources": [
+          "spec-javascript"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "no Arrow call in the package",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "the `relate-arrow` crate",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "no",
+        "note": "no Arrow call in the client",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "no",
+        "note": "no Arrow call in the client",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "no",
+        "note": "no Arrow call in the client",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "no",
+        "note": "no Arrow call in the client",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "no",
+        "note": "no Arrow output on this surface",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "no",
+        "note": "no Arrow output on this surface",
+        "sources": [
+          "spec-http"
+        ]
+      },
+      "mcp": {
+        "value": "no",
+        "note": "no Arrow output on this surface",
+        "sources": [
+          "spec-mcp"
+        ]
+      }
+    },
+    "cdc": {
+      "cli": {
+        "value": "no",
+        "note": "no CDC command; `CALL db.cdc.current()` is `ProcedureNotFound`",
+        "sources": [
+          "binary",
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-python"
+        ]
+      },
+      "node": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-javascript"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "`CALL db.cdc.current()` is `ProcedureNotFound`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`register_cdc_slot`, `cdc_records_after`, `ack_cdc_slot`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "no",
+        "note": "no change-data-capture call in the client",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "no",
+        "note": "no change-data-capture feed on this surface",
+        "sources": [
+          "spec-bolt"
+        ]
+      },
+      "http": {
+        "value": "no",
+        "note": "no change-data-capture feed on this surface",
+        "sources": [
+          "spec-http"
+        ]
+      },
+      "mcp": {
+        "value": "no",
+        "note": "no change-data-capture feed on this surface",
+        "sources": [
+          "spec-mcp"
+        ]
+      }
+    },
+    "vector-search": {
+      "cli": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "the engine crate the other surfaces build on",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` as statements",
+        "sources": [
+          "binary"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` as statements",
+        "sources": [
+          "binary"
+        ]
+      }
+    },
+    "full-text": {
+      "cli": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX`",
+        "sources": [
+          "binary"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX`",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` and `db.index.fulltext.queryNodes`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "the engine crate the other surfaces build on",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "sources": [
+          "node-client",
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "sources": [
+          "binary"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "sources": [
+          "binary"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "sources": [
+          "binary"
+        ]
+      }
+    },
+    "load-csv": {
+      "cli": {
+        "value": "yes",
+        "note": "`--load-csv-dir PATH` or `RELATE_LOAD_CSV_DIR`",
+        "sources": [
+          "binary",
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`; `connect` takes no CSV option",
+        "sources": [
+          "python-client"
+        ]
+      },
+      "node": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`",
+        "sources": [
+          "node-client"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "no CSV directory can be set; a local file is `LOAD CSV file unavailable`",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "yes",
+        "note": "`OpenOptions.load_csv_dir`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
+        "sources": [
+          "node-client",
+          "spec-rust"
+        ]
+      },
+      "java": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
+        "sources": [
+          "node-client",
+          "spec-rust"
+        ]
+      },
+      "go": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
+        "sources": [
+          "node-client",
+          "spec-rust"
+        ]
+      },
+      "swift": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
+        "sources": [
+          "node-client",
+          "spec-rust"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR` for `relate serve`, one store for every served surface",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR` for `relate serve`, which has no flag for it",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`RELATE_LOAD_CSV_DIR` for `relate serve`, one store for every served surface",
+        "sources": [
+          "binary",
+          "serve-help"
+        ]
+      }
+    },
+    "load-url": {
+      "cli": {
+        "value": "yes",
+        "note": "`--load` with an https URL to a `.rl` file",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-python"
+        ]
+      },
+      "node": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-javascript"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "opens `:memory:` and `opfs://` only",
+        "sources": [
+          "wasm"
+        ]
+      },
+      "rust": {
+        "value": "no",
+        "note": "`Database::open` takes `:memory:`, a path or `file://`",
+        "sources": [
+          "spec-rust"
+        ]
+      },
+      "c": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-c"
+        ]
+      },
+      "java": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-java"
+        ]
+      },
+      "go": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-go"
+        ]
+      },
+      "swift": {
+        "value": "no",
+        "note": "no open from a URL in the client",
+        "sources": [
+          "spec-swift"
+        ]
+      },
+      "bolt": {
+        "value": "yes",
+        "note": "`relate serve --load` with an https URL",
+        "sources": [
+          "serve-help"
+        ]
+      },
+      "http": {
+        "value": "yes",
+        "note": "`relate serve --load` with an https URL",
+        "sources": [
+          "serve-help"
+        ]
+      },
+      "mcp": {
+        "value": "yes",
+        "note": "`relate serve --load` with an https URL",
+        "sources": [
+          "serve-help"
+        ]
+      }
+    },
+    "agent-mode": {
+      "cli": {
+        "value": "yes",
+        "note": "`--agent-mode`, `RELATE_AGENT_MODE`, or a detected agent harness",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "python": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "node": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "browser": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "rust": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "c": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "java": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "go": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "swift": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "bolt": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "http": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      },
+      "mcp": {
+        "value": "no",
+        "note": "A CLI setting",
+        "sources": [
+          "cli-json"
+        ]
+      }
+    }
+  }
+}

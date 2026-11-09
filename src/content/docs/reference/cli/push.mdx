@@ -1,0 +1,262 @@
+---
+title: relate push
+description: The relate push command, which copies a scoped subgraph of a store into Neo4j or Aura, with its flags, scope, merge keys, update policies, report and errors.
+order: 120
+surfaces: [cli]
+related: [reference/cli/pull, reference/cli/flags#relate-push, guides/neo4j/push-to-neo4j, reference/cypher/schema-clauses, reference/cli/exit-codes-and-errors, concepts/problems-relate-solves#neo4j-subgraph-mirror]
+---
+
+`relate push` copies a subgraph of a local :term[store]{id=store} into a Neo4j or Aura database over the HTTP Query API v2, then exits. It is the mirror of [`relate pull`](/docs/reference/cli/pull): the same credentials file, the same URI rules, the same transport. Push merges each node and relationship on a key taken from the store's constraints, sends batched, parameterized statements, never deletes anything on the remote, and prints a report of what it created, updated, and skipped.
+
+`--dry-run` prints the plan without contacting the remote. No Neo4j server was available when this page was verified: the dry runs and refusals shown are recorded runs of the relate binary, and what a push does against a live remote is described from relate's CLI specification and its agent skill, not from a run.
+
+## Synopsis
+
+```text
+relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]
+```
+
+| Part | Required | Meaning |
+| --- | --- | --- |
+| `--to CREDS` | yes | The remote: a credentials file, or a Query API URI |
+| `--database PATH` | yes | The source store: a directory or a single-file `.rl` store |
+| `--query`, `--labels` or `--types` | no | What to push; at most one of the three, and without any, the whole store |
+
+:term[Push]{id=push} is a command, so it takes only its own flags. `--namespace` is refused in both positions, because push always reads the `neo4j` namespace.
+
+## Options
+
+<Flags command="push" />
+
+A flag that takes one value may appear once: a second `--to`, `--query` or `--rel-mode` is a usage error. `--dry-run`, `--json` and `--allow-plaintext` may also appear once. `--merge-key` and `--rel-key` repeat once per label or type, `--updated-at` repeats but never names a property twice, and `--labels` and `--types` add to their lists when repeated.
+
+## The remote and its credentials
+
+`--to` takes a credentials file in the format `relate pull --from` reads (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, optional `NEO4J_DATABASE`), or a Query API URI. With a URI, the username, password and database come from the process environment; a missing one is an error such as `NEO4J_USERNAME missing from push --to`.
+
+Everything else about the connection is pull's: the URI scheme mapping, the refusal of a URI that carries a password, the warning for a credentials file other users can read, and the refusal of plain `http://` to a non-loopback host unless `--allow-plaintext` is given. The [pull reference](/docs/reference/cli/pull#connection-and-credentials) has the tables.
+
+## The source store
+
+| Property | Behavior |
+| --- | --- |
+| `--database` | A directory store or a single-file `.rl` store; `:memory:` is a usage error (exit code 2) |
+| Opening | Push opens the store itself, as a writer: a store another process holds for writing fails with `storage locked: <path>` (exit code 1), and push has no `--read-only` flag |
+| A path that does not exist | Created as a new, empty store; the push then plans nothing |
+| Namespace | Always `neo4j` |
+
+## Scope
+
+| Selector | What is pushed |
+| --- | --- |
+| None | The whole store |
+| `--query Q` | The nodes, relationships and paths the statements `RETURN`, with the endpoints of each relationship. `Q` is a statement, a `;`-separated list, a file path, or `-` for stdin, with the same rule as pull: every `RETURN` item is a graph element |
+| `--labels L1,L2` | Nodes with any of these :term[labels]{id=label}, and the relationships whose two endpoints are both in scope; a relationship with an endpoint out of scope is counted in a `(dangling)` row and not written |
+| `--types T1,T2` | Relationships of these :term[relationship types]{id=relationship-type}, with both their endpoints |
+
+Two selectors together are a usage error: `push takes one of --query, --labels, or --types (none pushes the whole store)`.
+
+## Merge keys
+
+Push writes a node with `MERGE` on its label's merge key, so pushing twice does not duplicate it. The key comes from the store's uniqueness, node key and relationship key :term[constraints]{id=constraint}, composite keys included. `--merge-key LABEL:PROP[,PROP]` sets or overrides one label's key, once per label.
+
+| Case | Behavior |
+| --- | --- |
+| A label with a key | `` UNWIND $rows AS row MERGE (n:`Label` {`key`: row.key.`key`}) SET … `` |
+| A label without one, `--unkeyed-labels skip` (default) | Not written; its row in the report says `(unkeyed)` and counts the nodes as skipped |
+| A label without one, `--unkeyed-labels create` | `` UNWIND $rows AS row CREATE (n:`Label`) SET n += row.props ``, where the `SET` follows `--nodes-update` (`SET n = row.props` under `replace`); pushing twice creates the nodes twice |
+| A relationship with an unkeyed endpoint | Not written, counted `(unkeyed)`, under either action |
+
+Relationships follow `--rel-mode`:
+
+| `--rel-mode` | Statement | Pushing twice |
+| --- | --- | --- |
+| `keyed` (default) | `MERGE` on the type's key: `--rel-key TYPE:PROP[,PROP]`, else the type's relationship uniqueness or key constraint; without either, one relationship of the type between the two nodes | Idempotent |
+| `structural` | `` MERGE (a)-[r:`TYPE`]->(b) ``, even when a key exists; parallel relationships of one type between the same two nodes become one | Idempotent |
+| `create` | `` CREATE (a)-[r:`TYPE`]->(b) `` | Creates them again |
+
+## Update policies
+
+`--nodes-update` and `--rels-update` decide what happens to an entity that already exists on the remote. Each takes a global policy (`add`), a per-entity list (`Person=replace,Project=skip`), or both, where a bare policy in the list is the default for every entity it does not name.
+
+| Policy | Statement | On the remote |
+| --- | --- | --- |
+| `add` (default) | `SET n += row.props` | Pushed properties are set; properties only the remote has stay |
+| `replace` | `SET n = row.props` | The property map is replaced; properties only the remote has are removed |
+| `skip` | Creates missing entities only | Existing entities are left as they are |
+
+`--updated-at NAME[,NAME]` names timestamp properties to compare, the first one present on each side winning. When both the local entity and the remote row carry one, a strictly newer remote row is skipped and counted as remote-newer, and an equal or newer local row is written. Temporal values and numbers compare; any other pair is incomparable, is written under the policy, and adds to the `warn` count.
+
+## The report
+
+Push prints one row per entity, then a summary line. The `skipped` column adds up the four reasons: unkeyed, policy, remote-newer and dangling. `warn` counts the `--updated-at` pairs that could not be compared. A dry run also prints each entity's statement shape and ends with `dry run: <n> entities, <m> rows planned; nothing was sent`.
+
+`--json` prints the same report as one JSON object:
+
+| Key | Holds |
+| --- | --- |
+| `dryRun` | `true` for a dry run |
+| `entities` | One object per entity: `entity`, `kind` (`node` or `relationship`), `total`, `created`, `updated`, `skipped` (`unkeyed`, `policy`, `remoteNewer`, `dangling`), `incomparableWarnings`, `mergeKey`, `policy`, `statement`, `batches` |
+| `statementsSent`, `rowsSent`, `bytesSent`, `elapsedMs` | The totals of the run |
+
+In a dry run nothing is read from the remote, so `created` counts every row in scope.
+
+## Against a live remote
+
+From the CLI specification, not from a run:
+
+- Before it writes an entity, push reads the remote's current rows for that entity by the same merge key, so the report can separate created from updated and `--updated-at` can compare timestamps.
+- Every value is sent as a typed parameter, so `DATE`, `POINT`, `UUID` and vector properties keep their Cypher type on the remote. A byte-array property fails the push: `push failed: property "<key>": a byte array property …`.
+- Rows go in batches of `--batch-size` (default `5000`) per statement.
+- Nothing is deleted on the remote.
+- Pushing the same scope twice, under `add` or `skip`, with keyed or structural relationships, leaves the remote as one push did.
+- A failing batch stops the push, names the entity, the batch and the row range, prints the partial report of what landed, and exits 1.
+- The report does not compare the remote's constraints with the local ones: a local merge key that the remote does not enforce still merges, but the remote may already hold duplicates of it.
+
+A failure before any write is a recorded run. With a uniqueness constraint on `Person` only, `--labels Person`, and `NEO4J_URI=http://127.0.0.1:8873` in `local.env`, where nothing was listening, the pre-read fails, the report prints with nothing written, and the push exits 1. The timing and the text after `io:` vary by run and by operating system (this recording is from macOS):
+
+```bash
+relate push --to local.env --database ./team.rl --labels Person
+```
+
+```text
+entity                       total  created  updated  skipped  warn  merge key  policy  batches
+Person                           3        0        0        0     0  name       add           0
+(Person)-[:KNOWS]->(Person)      1        0        0        0     0             add           0
+(dangling)                       4        0        0        4     0             skip          0
+pushed 0 rows in 0 statements (0 bytes) in 1 ms
+Error: push failed: pre-read of Person failed: HTTP request to http://127.0.0.1:8873/db/neo4j/query/v2 failed: io: Connection refused (os error 61)
+```
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | The push completed, or a dry run printed its plan |
+| 1 | A runtime failure: credentials missing or unreadable, a refused `NEO4J_URI`, plaintext refused, the store locked by another process, no answer from the remote, a remote error, a failing batch, or a value that cannot be pushed |
+| 2 | A usage error: `--to` or `--database` missing, `:memory:`, two selectors, an invalid value, a repeated single-value flag, an unknown flag, or `--namespace`. The message is followed by the usage line and `Run 'relate push --help' for more information.` |
+
+The usage messages, each on stderr after `Error: `:
+
+| Message | Cause |
+| --- | --- |
+| `push requires --to` | No `--to` |
+| `push requires --database` | No `--database` |
+| `push cannot read :memory: (--database must be an on-disk store)` | `--database :memory:` |
+| `push takes one of --query, --labels, or --types (none pushes the whole store)` | Two selectors |
+| `invalid --batch-size "<value>" (expected a number >= 1)` | `--batch-size 0` or a value that is not a number |
+| `unknown update policy "<value>" (expected add, replace or skip)` | A bad `--nodes-update` or `--rels-update` value |
+| `unknown --rel-mode "<value>" (expected keyed, structural or create)` | A bad `--rel-mode` |
+| `unknown --unkeyed-labels "<value>" (expected skip or create)` | A bad `--unkeyed-labels` |
+| `--namespace is not valid with push (push always reads the neo4j namespace)` | `--namespace` before the `push` word |
+| `push <flag> may be given only once` | A single-value flag repeated, such as two `--to` flags, or `--dry-run`, `--json` or `--allow-plaintext` given twice |
+| `--merge-key "<value>" must be NAME:PROP[,PROP] (no ':' found)` | A `--merge-key` value without a colon; `--rel-key` gives the same message with its own name |
+| `--merge-key "<value>" has an empty name` | Nothing before the colon; also from `--rel-key` |
+| `--merge-key "<value>" has an empty property name` | Nothing after the colon, or an empty item in its property list; also from `--rel-key` |
+| `--merge-key names "<label>" twice` | Two `--merge-key` flags for one label |
+| `--rel-key names "<type>" twice` | Two `--rel-key` flags for one type |
+| `--labels has an empty name in "<value>"` | An empty item in a `--labels` list, such as `A,`; `--types` gives the same message with its own name |
+| `--updated-at names "<name>" twice` | One property in two `--updated-at` flags |
+| `--updated-at "<value>" names "<name>" twice` | One property twice in one `--updated-at` list |
+| `--updated-at "<value>" has an empty property name` | An empty `--updated-at` value, or an empty item in its list |
+| `empty item in policy list` | An empty `--nodes-update` or `--rels-update` value, or an empty item in its list |
+| `policy list has two global policies ("<policy>" twice)` | Two bare policies in one list, such as `add,replace` |
+| `empty entity name in policy item "<item>"` | A list item with nothing before the `=` |
+| `policy list names entity "<entity>" twice` | One entity named twice in one list |
+| `unexpected argument to push: <argument>` | An unknown flag, including `--read-only` and `--namespace` after the word |
+
+## Examples
+
+The setup writes the team graph (five nodes, five relationships) into `./team.rl` and a credentials file that names a documentation host, `neo4j.example.com`; a dry run never contacts it.
+
+```bash verify
+printf 'NEO4J_URI=https://neo4j.example.com:7473\nNEO4J_USERNAME=neo4j\nNEO4J_PASSWORD=<password>\n' > neo4j.env
+chmod 600 neo4j.env
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)" > /dev/null
+```
+
+The store has no constraints yet, so no label has a merge key and the plan skips everything:
+
+```bash verify
+relate push --to neo4j.env --database ./team.rl --dry-run
+```
+
+```text
+entity                                      total  created  updated  skipped  warn  merge key  policy  batches
+Person (unkeyed)                                3        0        0        3     0             add           0
+Project (unkeyed)                               2        0        0        2     0             add           0
+(Person)-[:KNOWS]->(Person) (unkeyed)           1        0        0        1     0             add           0
+(Person)-[:MAINTAINS]->(Project) (unkeyed)      1        0        0        1     0             add           0
+(Person)-[:WORKS_ON]->(Project) (unkeyed)       3        0        0        3     0             add           0
+dry run: 5 entities, 10 rows planned; nothing was sent
+```
+
+The next two statements write a uniqueness constraint on each label into `./team.rl`, which gives both labels a key. The second dry run plans every row and prints the statements:
+
+```bash verify
+relate --database ./team.rl "CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE" > /dev/null
+relate --database ./team.rl "CREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE" > /dev/null
+relate push --to neo4j.env --database ./team.rl --dry-run
+```
+
+```text
+entity                            total  created  updated  skipped  warn  merge key  policy  batches
+Person                                3        3        0        0     0  name       add           1
+Project                               2        2        0        0     0  name       add           1
+(Person)-[:KNOWS]->(Person)           1        1        0        0     0             add           1
+(Person)-[:MAINTAINS]->(Project)      1        1        0        0     0             add           1
+(Person)-[:WORKS_ON]->(Project)       3        3        0        0     0             add           1
+Person: UNWIND $rows AS row MERGE (n:`Person` {`name`: row.key.`name`}) SET n += row.props
+Project: UNWIND $rows AS row MERGE (n:`Project` {`name`: row.key.`name`}) SET n += row.props
+(Person)-[:KNOWS]->(Person): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Person` {`name`: row.end.`name`}) MERGE (a)-[r:`KNOWS`]->(b) SET r += row.props
+(Person)-[:MAINTAINS]->(Project): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Project` {`name`: row.end.`name`}) MERGE (a)-[r:`MAINTAINS`]->(b) SET r += row.props
+(Person)-[:WORKS_ON]->(Project): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Project` {`name`: row.end.`name`}) MERGE (a)-[r:`WORKS_ON`]->(b) SET r += row.props
+dry run: 5 entities, 10 rows planned; nothing was sent
+```
+
+`--labels Person` keeps the people and the one relationship between two people; the four relationships that reach a project are counted as dangling:
+
+```bash verify
+relate push --to neo4j.env --database ./team.rl --dry-run --labels Person
+```
+
+```text
+entity                       total  created  updated  skipped  warn  merge key  policy  batches
+Person                           3        3        0        0     0  name       add           1
+(Person)-[:KNOWS]->(Person)      1        1        0        0     0             add           1
+(dangling)                       4        0        0        4     0             skip          0
+Person: UNWIND $rows AS row MERGE (n:`Person` {`name`: row.key.`name`}) SET n += row.props
+(Person)-[:KNOWS]->(Person): UNWIND $rows AS row MATCH (a:`Person` {`name`: row.start.`name`}) MATCH (b:`Person` {`name`: row.end.`name`}) MERGE (a)-[r:`KNOWS`]->(b) SET r += row.props
+dry run: 3 entities, 8 rows planned; nothing was sent
+```
+
+Two selectors are a usage error:
+
+```bash verify
+relate push --to neo4j.env --database ./team.rl --labels Person --types KNOWS
+echo "exit=$?"
+```
+
+```text
+Error: push takes one of --query, --labels, or --types (none pushes the whole store)
+Usage: relate push --to CREDS --database PATH [--query Q | --labels L1,L2 | --types T1,T2] [--batch-size N] [--nodes-update POLICY] [--rels-update POLICY] [--updated-at NAME[,NAME]] [--rel-mode MODE] [--merge-key LABEL:PROP[,PROP]] [--rel-key TYPE:PROP[,PROP]] [--unkeyed-labels ACTION] [--dry-run] [--json] [--allow-plaintext]
+Run 'relate push --help' for more information.
+exit=2
+```
+
+## See also
+
+- [`relate pull`](/docs/reference/cli/pull): the mirror command, and the credential and URI tables push shares
+- [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j): the task, from a dry run to a verified push
+- [Schema clauses](/docs/reference/cypher/schema-clauses): the constraints push takes its merge keys from
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit codes every command shares
+- [Problems relate solves: Neo4j subgraph mirror](/docs/concepts/problems-relate-solves#neo4j-subgraph-mirror)

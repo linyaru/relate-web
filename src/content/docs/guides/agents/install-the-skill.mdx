@@ -1,0 +1,176 @@
+---
+title: Install the agent skill
+label: Install the skill
+description: Put the relate skill where a coding agent reads it, with relate skill install, with the skills CLI, or as a manual copy checked against its SHA-256.
+order: 10
+surfaces: [cli, agents]
+prerequisites: [get-started/install]
+related: [get-started/agent-quickstart, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety, reference/cli, reference/errors, reference/cli/skill]
+---
+
+This guide shows you how to install the relate agent skill in one of three ways: with the relate CLI's installer, with the skills CLI from the website, or as a manual copy checked against published checksums. The :term[skill]{id=skill} is a `SKILL.md` cheat sheet and a set of reference files that a coding agent reads before it uses relate: the CLI and its flags, output modes, :term[exit codes]{id=exit-code}, Cypher, the clients, and the agent rules. All three install the same `SKILL.md`; the relate CLI and a manual copy also install the 15 reference files.
+
+## Prerequisites
+
+- For the CLI installer: relate on your `PATH` ([Install relate](/docs/get-started/install)). The skill ships inside the binary, so this way needs no network.
+- For the skills CLI: Node.js with `npx`, and network access to `relatedb.ai`.
+- For a manual copy: `curl` and `python3`, and network access to `relatedb.ai`.
+
+## Choose a way to install
+
+| Way | Installs | Checked by | Network |
+| --- | --- | --- | --- |
+| `relate skill install` | `SKILL.md` and the 15 reference files | The bytes come from inside the binary; `relate skill check` compares an installed copy with them | None |
+| `npx skills add https://relatedb.ai --skill relate` | `SKILL.md` only | The skills CLI (1.7.6) checks the `sha256:` digest of `SKILL.md` in the website's discovery index | Required |
+| Manual copy | `SKILL.md` and the 15 reference files | A script compares each file with its SHA-256 in `/docs/docs-artifacts.json` | Required |
+
+## Install with the relate CLI
+
+`relate skill install` copies the skill into the skills directory of every agent it detects in your home directory; an agent counts as detected when its configuration directory exists. [relate skill](/docs/reference/cli/skill#agents-and-paths) lists the eleven agents, each one's `--agent` name, how it is detected, and where the skill goes.
+
+To install for every detected agent at once:
+
+```bash
+relate skill install
+```
+
+`--agent <name>` targets one agent, and installs for it even when its directory does not exist yet. For Claude Code:
+
+```bash verify
+relate skill install --agent claude-code
+```
+
+The path starts with your home directory, shown as `<home>`:
+
+```text
+installed relate skill into <home>/.claude/skills/relate
+```
+
+Then `relate skill list` prints each detected agent's install state and path. Claude Code's directory exists now, so it is detected:
+
+```bash verify
+relate skill list
+```
+
+```text
+claude-code: installed (<home>/.claude/skills/relate)
+```
+
+The installer stamps the binary's version into the `version:` line of `SKILL.md` and writes a `.relate-installed` marker beside it. The marker is how relate knows the directory is its own: it replaces a marked directory or an earlier relate skill, and refuses to overwrite anything else. After `relate upgrade` replaces the binary, it runs `relate skill install` again. If any detected agent already holds a relate copy, this happens without asking and writes into every detected agent, including one detected since the last install. If none holds a copy, it asks first on a terminal, prints a hint otherwise, and `--yes` installs without asking. A `relate` directory that holds neither the marker nor an earlier relate skill is left untouched.
+
+## Install with the skills CLI
+
+The website publishes the same skill under the Agent Skills discovery paths, so the skills CLI can install it before relate is on the machine:
+
+```bash
+npx skills add https://relatedb.ai --skill relate
+```
+
+As of skills 1.7.6 (read and run 2026-11-07), the `https://` prefix is required: given a bare `relatedb.ai`, the skills CLI does not look for the website's discovery index. It reads `/.well-known/agent-skills/index.json`, checks the `sha256:` digest of `SKILL.md` against it, and writes `SKILL.md` where its own settings say.
+
+The index lists six skills, this bundle and the five task skills listed in `/skill.md`, and `--skill relate` picks this one. Its entry is `SKILL.md`, so this way installs that file without `references/`. The links in `SKILL.md` that point into `references/` then name files that are not on disk. Each reference file is published at `https://relatedb.ai/skills/relate/references/<name>.md`, and the relate CLI and a manual copy both put the reference files on disk.
+
+## Install a task skill
+
+Besides the CLI bundle, the website publishes five task skills, one per task family. Each cites the docs pages and cookbook recipes it draws on, and every Cypher statement in it runs on the WebAssembly build the site ships. `relate skill install` does not install them; the binary carries its own bundle only.
+
+| Skill | For |
+| --- | --- |
+| `relate-agent-memory` | Long-term agent memory: entities, episodes, facts with provenance and two time axes |
+| `relate-graphrag` | Hybrid retrieval: vector and full-text search fused by reciprocal rank, then a graph hop |
+| `relate-schema-design` | Labels, relationship types, constraints, indexes, schema discovery and the schema folder |
+| `relate-query-tuning` | `EXPLAIN`, `PROFILE`, the planner's notifications and their remedies, indexes and traversal bounds |
+| `relate-migrate-from-vector-search` | Moving records and embeddings from a vector-only store, and checks that nothing was lost |
+
+The skills CLI installs one by name, the same way as the bundle. For the agent memory skill:
+
+```bash
+npx skills add https://relatedb.ai --skill relate-agent-memory
+```
+
+As with the bundle, the index entry is `SKILL.md` alone; each task skill's `SKILL.md` names the absolute URL of every reference file, at `https://relatedb.ai/skills/<name>/references/<file>.md`. A URL with a path, such as `https://relatedb.ai/skills/relate-graphrag`, does not select a skill: the skills CLI finds no discovery index under that path and installs nothing. For a copy by hand, put the files that `/docs/docs-artifacts.json` lists under `/skills/<name>/` in a directory named after the skill, beside the `relate` directory below.
+
+## Install by hand
+
+A manual copy is a directory named `relate`, holding `SKILL.md` and `references/`, under a skills directory the agent reads. In a project, that is `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, or `.agents/skills/`. In your home directory, it is the directory in the agent table. These commands copy the bundle into the current project for Claude Code:
+
+```bash
+base=https://relatedb.ai/skills/relate
+dest=.claude/skills/relate
+mkdir -p "$dest/references"
+curl -sSfL "$base/SKILL.md" -o "$dest/SKILL.md"
+for f in agent-safety client-c client-extensions client-go client-java client-javascript client-python client-swift client-wasm operations pull push run-git-to-graph spatial vector; do
+  curl -sSfL "$base/references/$f.md" -o "$dest/references/$f.md"
+done
+```
+
+A download by hand has no digest check of its own. `/docs/docs-artifacts.json` lists the SHA-256 of every skill file the website serves, and at launch the release key signs it, as `docs-artifacts.json.sig` beside it. This script compares each downloaded file with its entry there:
+
+```bash
+manifest="$(mktemp)"
+curl -sSfL https://relatedb.ai/docs/docs-artifacts.json -o "$manifest"
+python3 - "$manifest" "$dest" <<'PY'
+import hashlib, json, pathlib, sys
+want = {a["path"]: a["sha256"] for a in json.loads(pathlib.Path(sys.argv[1]).read_text())["artifacts"]}
+dest = pathlib.Path(sys.argv[2])
+files = [dest / "SKILL.md", *sorted((dest / "references").glob("*.md"))]
+bad = [str(f) for f in files if hashlib.sha256(f.read_bytes()).hexdigest() != want.get("/skills/relate/" + f.relative_to(dest).as_posix())]
+print("mismatch: " + ", ".join(bad) if bad else f"{len(files)} files match docs-artifacts.json")
+sys.exit(1 if bad else 0)
+PY
+rm -f "$manifest"
+```
+
+When every file matches, the script prints `16 files match docs-artifacts.json` and exits 0. On any mismatch it prints `mismatch:` followed by the files that differ, and exits 1. A file that differs is not the one the website published, so delete the copy and download it again.
+
+## Verify
+
+The skill is installed when `SKILL.md` sits in a directory the agent reads. For a copy in a home skills directory, `relate skill check` compares it with the bundle inside the binary:
+
+```bash verify
+relate skill check
+```
+
+```text
+claude-code: up to date (<home>/.claude/skills/relate)
+```
+
+`relate skill check` exits 0 when every installed copy matches, and 1 when one has drifted, with a `missing:`, `differs:`, or `extra:` line per file. A manual copy in a home skills directory gets the same check, and `relate skill list` reports it as `installed (legacy bundle)`. A copy in a project directory is outside what `relate skill list` and `relate skill check` read, so check the files themselves. The installed directory holds the marker, `SKILL.md`, and `references`:
+
+```bash verify
+ls -A "$HOME/.claude/skills/relate"
+```
+
+```text
+.relate-installed
+SKILL.md
+references
+```
+
+The frontmatter names the skill and the relate version it describes, which matches what `relate --version` reports:
+
+```bash verify
+grep -E '^(name|version):' "$HOME/.claude/skills/relate/SKILL.md"
+```
+
+```text
+name: relate
+version: 0.16.1
+```
+
+For a project copy, the same two commands on `.claude/skills/relate` show `SKILL.md` and `references` without the marker, and the same two lines.
+
+## If it goes wrong
+
+- **`Error: skill: no supported agents detected`** (exit code 1): `relate skill install` found none of the directories in the agent table. Its second line, `valid agents: claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie`, lists the names `--agent` accepts; pass one of them.
+- **`Error: skill: unknown agent: '<name>'`** (exit code 2): `--agent` names an agent relate does not know. Use a name from the `valid agents:` line ([errors reference](/docs/reference/errors#cli-skill-unknown-agent)).
+- **`Error: skill: refusing to touch <dest>: no .relate-installed marker present (directory was not created by relate); pass --force to override`** (exit code 1): a `relate` directory that relate did not write is in the way. Move it aside, or pass `--force` to replace it ([errors reference](/docs/reference/errors#cli-skill-refusing-to-touch)).
+- **`relate skill check` prints `drifted`** (exit code 1): an installed copy differs from the binary's bundle, for example after the binary was replaced without `relate upgrade`. `relate skill install` rewrites it.
+
+## Related
+
+- [Connect your agent to relate](/docs/get-started/agent-quickstart): install a pinned relate and its skill, then rehearse a change.
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the machine output, error object, and exit codes the skill summarizes.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and the permission matrix.
+- [CLI reference](/docs/reference/cli): every `relate skill` action and flag.
+- [The skill's landing file, `/skill.md`](/skill.md): the bundle's URLs, its discovery index, and its checksums.

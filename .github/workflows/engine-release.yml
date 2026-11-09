@@ -1,0 +1,175 @@
+# The deterministic release signal (DOCS-PLAN.md §6): when relate publishes a
+# release, refresh everything the site takes from it and open a pull request
+# with the diff for a person to review. No agent writes anything here, and
+# nothing is committed to main: the only commit goes to the pull request's
+# branch.
+#
+# scripts/release-refresh.sh does the work (its header lists the steps): the
+# synced files (install.sh, releases.json, extensions.json and its
+# signature), public/wasm/ from the release's WASM package, _data/engine.json,
+# the skill bundle (skill:sync from the upstream checkout at the tag, or else a
+# comparison with the copy the verified release binary embeds), the CLI recordings
+# (docs:cli-check), cookbook:record, docs:check --record, and the language
+# samples when the clients can be built. The pull request body is its report:
+# a row per step and the review checklist. When any step fails the pull
+# request opens as a draft, so the failure is visible next to the diff.
+#
+# Triggers:
+#   - repository_dispatch, type relate-release, to be sent by upstream's
+#     release pipeline once releases.json is published, with the payload
+#     {"version": "X.Y.Z", "tag": "vX.Y.Z"} (tag optional, default vX.Y.Z).
+#     Not wired yet: upstream's publish-releases-json workflow sends no
+#     dispatch (LAUNCH.md). Until it does, run this workflow by hand.
+#   - workflow_dispatch with the version, to refresh from a release by hand
+#
+# Secrets (all optional; each one's absence is reported, not fatal):
+#   RELATE_UPSTREAM_TOKEN  read access to the upstream repository's contents
+#                          and releases (private before launch). Without it
+#                          the release cannot be read until the repository is
+#                          public, and the samples are skipped.
+#   RELEASE_PR_TOKEN       opens the pull request. A pull request opened with
+#                          the default GITHUB_TOKEN does not start other
+#                          workflows, so without this token the required
+#                          Cookbook check has to be started by hand (close and
+#                          reopen the pull request, or push to its branch).
+name: Engine release
+
+on:
+  repository_dispatch:
+    types: [relate-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The relate release to refresh from (X.Y.Z)
+        required: true
+      tag:
+        description: Its tag (default vX.Y.Z)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: engine-release
+  cancel-in-progress: false
+
+env:
+  DO_NOT_TRACK: '1'
+  UPSTREAM_REPO: ${{ vars.RELATE_UPSTREAM_REPO || 'relatedb/relate' }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: The release
+        id: release
+        env:
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+          PAYLOAD_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+          HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
+        run: |
+          version="${PAYLOAD_VERSION:-$INPUT_VERSION}"
+          version="${version#v}"
+          tag="${PAYLOAD_TAG:-$INPUT_TAG}"
+          tag="${tag:-v$version}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the version must be X.Y.Z, not '$version'"
+            exit 1
+          fi
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the tag must be vX.Y.Z, not '$tag'"
+            exit 1
+          fi
+          if [ "$HAS_UPSTREAM_TOKEN" != true ]; then
+            echo "::warning::RELATE_UPSTREAM_TOKEN is not set: the release is read with the default token, which works only once $UPSTREAM_REPO is public, and the language samples are skipped"
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "upstream=$HAS_UPSTREAM_TOKEN"
+          } >> "$GITHUB_OUTPUT"
+
+      # Full history: each docs page's "Updated" date is its file's last commit.
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install
+        working-directory: site
+        run: npm ci
+
+      # The upstream checkout at the tag: skill:sync reads the skill bundle
+      # from it, and the language samples need the clients built from it.
+      - uses: actions/checkout@v4
+        if: steps.release.outputs.upstream == 'true'
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
+          ref: ${{ steps.release.outputs.tag }}
+          path: upstream
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        if: steps.release.outputs.upstream == 'true'
+        with:
+          python-version: '3.12'
+
+      # A failed client build (an upstream build change, pip or npm trouble)
+      # must not stop the refresh: release-refresh.sh reports it in the pull
+      # request (RELATE_CLIENTS_BUILD) and skips the samples.
+      - name: Build the clients
+        id: clients
+        if: steps.release.outputs.upstream == 'true'
+        continue-on-error: true
+        run: |
+          channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' upstream/rust-toolchain.toml)"
+          rustup toolchain install "$channel" --profile minimal
+          bash site/scripts/samples/setup.sh --upstream upstream --out "$RUNNER_TEMP/samples" --python python3 --github-env
+
+      - name: Refresh
+        id: refresh
+        working-directory: site
+        env:
+          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          HAS_UPSTREAM: ${{ steps.release.outputs.upstream }}
+          RELATE_CLIENTS_BUILD: ${{ steps.clients.outcome }}
+        run: |
+          report="$RUNNER_TEMP/release-report.md"
+          args=(--version "$VERSION" --tag "$TAG" --repo "$UPSTREAM_REPO" --report "$report")
+          # With the checkout, skill:sync publishes the bundle from it.
+          if [ "$HAS_UPSTREAM" = true ]; then args+=(--upstream ../upstream); fi
+          status=0
+          bash scripts/release-refresh.sh "${args[@]}" || status=$?
+          if [ ! -s "$report" ]; then
+            echo "::error::the refresh stopped before it could write a report (exit $status); see the log above"
+            exit 1
+          fi
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          echo "report=$report" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          path: site
+          token: ${{ secrets.RELEASE_PR_TOKEN || github.token }}
+          base: main
+          branch: engine-release/${{ steps.release.outputs.tag }}
+          delete-branch: true
+          commit-message: Refresh the site from relate ${{ steps.release.outputs.tag }}
+          title: Refresh the site from relate ${{ steps.release.outputs.tag }}
+          body-path: ${{ steps.refresh.outputs.report }}
+          draft: ${{ steps.refresh.outputs.ok != 'true' }}

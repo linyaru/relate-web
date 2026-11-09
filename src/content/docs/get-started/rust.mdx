@@ -1,0 +1,388 @@
+---
+title: Embed relate in a Rust program
+label: Rust
+description: A first Rust program on the relate crate, which opens a store, passes parameters, runs transactions, reads result metadata, and matches a typed error.
+order: 60
+surfaces: [rust]
+related: [get-started/python, get-started/c, get-started/java, get-started/go, get-started/swift, reference/errors, concepts/transactions-and-concurrency, reference/storage/formats, reference/api/rust, guides/embed/rust, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+By the end of this page, you'll have a Rust program that keeps a small graph of people and projects in one file. It reads the graph with parameters and reports errors by their variant and code. Along the way we write inside a :term[transaction]{id=transaction}, roll one back, and read what a result says about itself. It takes about fifteen minutes, plus one longer first build. The engine compiles into your binary, so there is no server to start, and every step writes to a store it creates.
+
+## Prerequisites
+
+- Rust 1.88 or later, with `cargo`.
+- A terminal and a text editor. The relate CLI is not needed: the crate is the engine.
+
+## Install the crate
+
+The crate is `relate`, and it builds from the relate repository. Create a binary crate and add it:
+
+```bash
+cargo new team
+cd team
+cargo add --git https://github.com/relatedb/relate relate
+```
+
+Each program on this page is a whole `src/main.rs`, run with `cargo run`. The first build compiles the engine from source; later builds reuse it. The crate has no version constant of its own, so this program asks the engine which release it is:
+
+```rust run name=version
+use relate::Database;
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    let result = conn.query(
+        "CALL dbms.components() YIELD name, versions \
+         WHERE name = 'Relate' RETURN versions[0] AS version",
+    )?;
+    println!("{}", result.rows[0][0].as_string().unwrap_or("unknown"));
+    Ok(())
+}
+```
+
+Notice the version: the programs on this page were checked against that release, and their recorded output comes from it.
+
+## Open a store
+
+A :term[store]{id=store} is where relate keeps a graph. `:memory:` is a store that lives in the process and forgets everything when the `Database` is dropped. A path ending in `.rl` is a :term[single-file store]{id=single-file-store}, which `Database::open()` creates when nothing is there yet.
+
+```rust run name=open
+use std::path::Path;
+
+use relate::Database;
+
+fn main() -> relate::Result<()> {
+    let memory = Database::open(":memory:")?;
+    let mut conn = memory.connect()?;
+    let result = conn.query("RETURN 'hello' AS greeting")?;
+    println!("{}", result.rows[0][0].as_string().unwrap_or(""));
+
+    let team = Database::open("./team.rl")?;
+    drop(team);
+    println!("{}", Path::new("team.rl").exists());
+    Ok(())
+}
+```
+
+`Database::open()` opens a store, `connect()` returns a connection on it, and `query()` runs one :term[statement]{id=statement} and returns its whole result. Every call is synchronous and returns `relate::Result`, so `?` passes an error up. Notice that `team.rl` now exists. Dropping the `Database` and its connections closes the store.
+
+## Create the graph
+
+Our graph is three people and two projects: who works on what, since when, and who maintains `relate`. One `CREATE` statement writes all of it. The rest of this page uses the same statement, as `TEAM`, on an in-memory store, so each program runs on its own.
+
+```rust run name=create
+use relate::Database;
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    let result = conn.query(TEAM)?;
+    println!("nodes created: {}", result.stats.nodes_created);
+    println!("relationships created: {}", result.stats.relationships_created);
+    Ok(())
+}
+```
+
+A write returns no rows, so we read its counters from `result.stats`. Five nodes and five relationships: the whole team.
+
+## Read it back with parameters
+
+A statement names each value it needs as `$name`, and `query_with_params()` takes the values as a `BTreeMap<String, Value>`. The statement text stays the same while the values change, and a value never becomes part of the Cypher.
+
+```rust run name=params
+use std::collections::BTreeMap;
+
+use relate::{Database, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+const TEAM_OF: &str = "
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+    for project in ["relate", "opencypher-tck"] {
+        println!("{project}");
+        let params = BTreeMap::from([("project".to_string(), Value::String(project.into()))]);
+        for row in conn.query_with_params(TEAM_OF, params)?.rows {
+            let name = row[0].as_string().unwrap_or("");
+            let since = row[1].as_int().unwrap_or(0);
+            println!("  {name} since {since}");
+        }
+    }
+    Ok(())
+}
+```
+
+Each row is a `Vec<Value>` in the order of the `RETURN` columns, and `as_string()` and `as_int()` read a value as the Rust type, or `None` when it is another type. Notice that Noor isn't listed: she maintains `relate` through a `MAINTAINS` relationship, and the pattern asks for `WORKS_ON`.
+
+## Change it in a transaction
+
+A connection commits each statement on its own until you call `begin()`. From then on, every statement is part of one transaction, `commit()` keeps it, and `rollback()` throws it away. This program adds Lin to the team and commits, then deletes every project and rolls back.
+
+```rust run name=transaction
+use relate::{Connection, Database};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+fn count(conn: &mut Connection, label: &str) -> relate::Result<i64> {
+    let result = conn.query(&format!("MATCH (n:{label}) RETURN count(n) AS n"))?;
+    Ok(result.rows[0][0].as_int().unwrap_or(0))
+}
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    conn.begin()?;
+    conn.query(
+        "MATCH (tck:Project {name: 'opencypher-tck'}) \
+         CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)",
+    )?;
+    let bookmark = conn.commit()?;
+    println!("committed: {}", bookmark.is_some());
+    println!("people after commit: {}", count(&mut conn, "Person")?);
+
+    conn.begin()?;
+    conn.query("MATCH (p:Project) DETACH DELETE p")?;
+    println!("projects inside the transaction: {}", count(&mut conn, "Project")?);
+    conn.rollback()?;
+    println!("projects after rollback: {}", count(&mut conn, "Project")?);
+    Ok(())
+}
+```
+
+Inside the transaction, the delete is visible: zero projects. After `rollback()`, both are back, and Lin, who was committed, stays. `commit()` returns `Some` :term[bookmark]{id=bookmark}, the commit's place in the store's history as `relate:<n>`, when the transaction wrote something, and `None` when it wrote nothing. Each transaction starts with its own `begin()`.
+
+## Read result metadata
+
+A `QueryResult` describes itself as well as holding rows. Its `header` names the columns, gives each a type, and says what kind of statement it was, and its `stats` count what the statement changed.
+
+```rust run name=metadata
+use std::collections::BTreeMap;
+
+use relate::{Database, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    let params = BTreeMap::from([("project".to_string(), Value::String("relate".into()))]);
+    let result = conn.query_with_params(
+        "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) \
+         RETURN p.name AS name, w.since AS since ORDER BY since",
+        params,
+    )?;
+    println!("{:?}", result.header.columns);
+    println!("{:?}", result.header.column_types);
+    println!("query type: {}", result.header.query_type);
+
+    let write = conn.query("MATCH (n:Person {name: 'Noor'}) SET n.role = 'lead'")?;
+    println!("query type: {}", write.header.query_type);
+    println!("properties set: {}", write.stats.properties_set);
+    Ok(())
+}
+```
+
+`column_types` holds one type name per column, such as `STRING` or `INTEGER`. The engine takes each type from the first row, so a column whose first value is `null`, or a result with no rows, reports `ANY`. `query_type` is a `QueryType`, which prints `r` for a read and `w` for a write that returns no columns.
+
+## Catch an error
+
+Every call returns `relate::Result`, whose error is the enum `relate::Error`, and its variant says what kind of problem it is. A statement that uses `$name` without a value is rejected before it runs, as `Error::ParameterMissing`:
+
+```rust run name=error
+use std::collections::BTreeMap;
+
+use relate::{error_info, Database, Error, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+const ROLE_OF: &str = "MATCH (p:Person {name: $name}) RETURN p.role AS role";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    match conn.query(ROLE_OF) {
+        Err(e @ Error::ParameterMissing(_)) => {
+            let info = error_info(&e);
+            println!("{e}");
+            println!("gql_status: {}", info.gql_status);
+            println!("neo4j_code: {}", info.neo4j_code);
+            println!("stage: {:?}", info.stage);
+            println!("retryable: {}", info.retryable);
+        }
+        Err(e) => return Err(e),
+        Ok(_) => println!("no error"),
+    }
+
+    let params = BTreeMap::from([("name".to_string(), Value::String("Noor".into()))]);
+    let result = conn.query_with_params(ROLE_OF, params)?;
+    println!("{}", result.rows[0][0].as_string().unwrap_or(""));
+    Ok(())
+}
+```
+
+The message says what's missing. `error_info()` returns the engine's classification of any `Error`, and its fields are what code branches on:
+
+| Field | This error | Meaning |
+| --- | --- | --- |
+| `gql_status` | `42N02` | The GQLSTATUS code; the Python and Node.js clients report the same code for the same error |
+| `neo4j_code` | `Neo.ClientError.Statement.ParameterMissing` | The Neo4j status code for the same error |
+| `stage` | `Compile` | Where it was found: `Compile` before any work, `Runtime` while producing rows, `Internal` when it is not the statement's fault |
+| `retryable` | `false` | Whether running it again can succeed; `true` for a write-write conflict, never for a mistake in the statement |
+
+The [errors reference](/docs/reference/errors#engine-parameter-missing) lists this message with its cause and remedy. With the value bound, the same statement finds Noor's role.
+
+## Put it together
+
+`main.rs` puts the steps together in one program. It opens `team.rl`, creates the graph only when the store has no people yet, and prints who works on each project. A relate error anywhere ends it with the error's code and a nonzero exit status.
+
+```rust run name=program title="main.rs"
+use std::collections::BTreeMap;
+use std::process;
+
+use relate::{error_info, Connection, Database, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+";
+
+const TEAM_OF: &str = "
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+";
+
+fn ensure_team(conn: &mut Connection) -> relate::Result<()> {
+    let result = conn.query("MATCH (p:Person) RETURN count(p) AS n")?;
+    let people = result.rows[0][0].as_int().unwrap_or(0);
+    if people == 0 {
+        conn.query(TEAM)?;
+        println!("created the team graph");
+    } else {
+        println!("found {people} people");
+    }
+    Ok(())
+}
+
+fn report(conn: &mut Connection, project: &str) -> relate::Result<()> {
+    println!("{project}");
+    let params = BTreeMap::from([("project".to_string(), Value::String(project.into()))]);
+    for row in conn.query_with_params(TEAM_OF, params)?.rows {
+        let name = row[0].as_string().unwrap_or("");
+        let since = row[1].as_int().unwrap_or(0);
+        println!("  {name} since {since}");
+    }
+    Ok(())
+}
+
+fn run() -> relate::Result<()> {
+    let db = Database::open("./team.rl")?;
+    let mut conn = db.connect()?;
+    ensure_team(&mut conn)?;
+    report(&mut conn, "relate")?;
+    report(&mut conn, "opencypher-tck")?;
+    Ok(())
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("relate error {}: {e}", error_info(&e).gql_status);
+        process::exit(1);
+    }
+}
+```
+
+Run it with `cargo run`. Each statement is durable in `team.rl` when `query()` returns, and the store closes when `run()` returns and drops the `Database` and its connection. Run it a second time and it prints `found 3 people` instead of creating the graph again, then the same report. If another process has `team.rl` open for writing, the open fails with `Error::Locked`, and the program prints `relate error 42000: storage locked: <path>` and exits with status 1.
+
+To read the file with no chance of changing it, open it read-only: `Database::open_read_only("./team.rl")`. A write then fails with GQLSTATUS `42N18`, and a path with no store behind it is an error instead of a new store.
+
+## What you built
+
+You have a Rust program that keeps a graph of people and projects in `team.rl`, one file you can copy or archive. It reads with parameters, writes inside transactions, knows a read from a write by its query type, and reports errors by variant and GQLSTATUS code. Ada, Grace, and Noor are waiting in that file for the next run.
+
+## Next
+
+- [Embed relate in a Python app](/docs/get-started/python): the same steps, the same graph, in Python.
+- [Use the Rust crate](/docs/guides/embed/rust): open modes, parameters, transactions, metadata and errors in depth.
+- [Rust API](/docs/reference/api/rust): every type and method.
+- [Errors](/docs/reference/errors): every error message, its cause, its remedy, and its codes.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.

@@ -1,0 +1,44 @@
+/* :::terminal, the agent-mode terminal (src/scripts/docs/elements/terminal.ts).
+   The screen is a terminal, so it stays dark in both themes (--bg-code);
+   it scrolls inside itself, never the page. Nothing here animates. */
+.term { container-type: inline-size; display: grid; gap: 10px; min-width: 0; font-size: 14px; }
+.term-field { display: grid; gap: 4px; min-width: 0; }
+.term-field > label, .term-modes-label { font-size: 13px; font-weight: 600; color: var(--fg-muted); }
+.term select, .term textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; max-width: 100%; }
+.term select { padding: 5px 8px; }
+.term textarea { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; padding: 8px 10px; resize: vertical; min-height: 3.2em; width: 100%; box-sizing: border-box; }
+.term-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.term-harness { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.term-harness input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.term-hint { font-size: 13px; color: var(--fg-faint); }
+.term kbd { font-family: var(--font-mono); font-size: 12px; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: 3px; }
+.term-modes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.term-tabs { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; }
+.term-tab { font: inherit; font-family: var(--font-mono); font-size: 13px; padding: 5px 12px; border: 0; border-left: 1px solid var(--border-strong); background: var(--bg); color: var(--fg); cursor: pointer; }
+.term-tab:first-child { border-left: 0; border-radius: 5px 0 0 5px; }
+.term-tab:last-child { border-radius: 0 5px 5px 0; }
+/* The site's ring (base.css, 3px --focus outside the box): the strip does not clip, so the ring sits outside the
+   focused tab, over its neighbour, and never on the accent fill of the selected tab, where it would not show. */
+.term-tab:focus-visible { position: relative; z-index: 1; }
+.term-tab[aria-selected='true'] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.term-tab[aria-selected='true']::after { content: ' \2713'; }
+.term-pick { display: none; }
+@container (max-width: 520px) {
+  .term-tabs { display: none; }
+  .term-pick { display: grid; gap: 4px; width: 100%; }
+}
+.term-screen { background: var(--bg-code); color: var(--code-fg); border-radius: 6px; padding: 10px 12px; overflow: auto; max-height: 26rem; min-width: 0; font-family: var(--font-mono); font-size: 13px; line-height: 1.45; }
+.term-line { display: grid; grid-template-columns: 7ch max-content; column-gap: 1ch; }
+.term-fd { color: var(--code-comment); user-select: none; }
+.term-line[data-fd='2'] .term-fd { color: var(--code-string); }
+.term-text { white-space: pre; }
+.term-command .term-fd { color: var(--code-keyword); }
+.term-command .term-text { color: var(--code-keyword); }
+/* The pane's own lines (what it left out), told apart by the 'pane' label and italics, not by colour alone. */
+.term-note .term-fd, .term-note .term-text { color: var(--code-comment); font-style: italic; }
+.term-exit { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.term-exit code { font-size: 13px; }
+.term-status { margin: 0; color: var(--fg-muted); font-size: 13px; overflow-wrap: anywhere; }
+.term-about { font-size: 13px; color: var(--fg-muted); }
+.term-about summary { cursor: pointer; }
+.term-about ul { margin: 6px 0 0; padding-left: 20px; }

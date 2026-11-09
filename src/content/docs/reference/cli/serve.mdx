@@ -1,0 +1,199 @@
+---
+title: relate serve
+description: The relate serve command that hosts the HTTP Query API, MCP and Bolt on one store, with its flags, auth, bind host, read-only serving and exit codes.
+order: 60
+surfaces: [cli, http, mcp, bolt]
+related: [reference/cli/flags#relate-serve, reference/server/http, reference/server/mcp, reference/server/bolt, guides/serve/auth-and-tls, guides/agents/connect-over-mcp, guides/serve/mcp, reference/security#served-surfaces, concepts/problems-relate-solves#graph-queries-over-mcp, concepts/problems-relate-solves#shared-store-across-processes]
+---
+
+`relate serve` opens one store and hosts relate's network :term[surfaces]{id=surface} on it until it gets SIGINT or SIGTERM: the :term[HTTP Query API]{id=http-query-api} with `--http PORT`, :term[MCP]{id=mcp} with `--mcp PORT` (streamable HTTP) or `--mcp stdio`, and :term[Bolt]{id=bolt} with `--bolt PORT`. At least one surface flag is required, and ports have no defaults. Every listener binds `127.0.0.1` unless `--host` names another address, and no surface has Transport Layer Security (TLS). Writes are allowed unless the store is opened with `--read-only`.
+
+## Synopsis
+
+```text
+relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+```
+
+The usage line is the one `relate serve --help` prints. The HTTP limits (`--tx-idle-timeout-secs`, `--max-open-transactions`, `--header-deadline-secs`, `--body-deadline-secs`) and `--max-connections` are left out of it and listed under [Options](#options).
+
+## Options
+
+`--database` (short form `-d`) is required: a directory, a path ending in `.rl`, or `:memory:`. Each flag beats its environment variable, which beats the default. Besides its own flags, `relate serve` takes the query-run flags named in the table's last row, with the same resolution as in a query session. Any other query-run flag, such as `--timeout`, `--mode` or `--wal-dir`, exits 2 with `Error: unexpected argument to serve: <flag>`. `RELATE_CHECKPOINT_INTERVAL_SECS` sets the checkpoint period, since `--checkpoint-interval-secs` is not accepted.
+
+<Flags command="serve" />
+
+## Surfaces
+
+| Flag | Surface | Listens on | Requests | Authentication |
+| --- | --- | --- | --- | --- |
+| `--http PORT` | HTTP Query API v2 | `http://HOST:PORT` | `POST /db/<name>/query/v2`, transactions under `/db/<name>/query/v2/tx`, and a public `GET /` discovery document | Basic |
+| `--mcp PORT` | MCP, streamable HTTP transport | `http://HOST:PORT` | `POST /` with a complete JSON-RPC message | Basic |
+| `--mcp stdio` | MCP, stdio transport | stdin and stdout | Newline-delimited JSON-RPC, until the host closes stdin | None |
+| `--bolt PORT` | Bolt and Bolt over WebSocket | `bolt://HOST:PORT` | A Bolt driver, or a WebSocket upgrade from an allowed origin | Basic |
+
+The request and response formats are on the server pages: [HTTP Query API](/docs/reference/server/http), [MCP server](/docs/reference/server/mcp), and [Bolt server](/docs/reference/server/bolt).
+
+## Authentication
+
+One credential guards every port listener. An HTTP or MCP request without it, or with the wrong one, gets `401 Unauthorized` with `WWW-Authenticate: Basic realm="relate"`; a Bolt client gets `Neo.ClientError.Security.Unauthorized` and the connection closes ([Bolt server](/docs/reference/server/bolt#authentication)). The startup lines on stderr say where the credential came from:
+
+| Credential source | Startup line |
+| --- | --- |
+| `--auth USER:PASSWORD` | `auth: basic (from --auth)` |
+| `RELATE_AUTH=USER:PASSWORD` | `auth: basic (from RELATE_AUTH)` |
+| Neither, a persistent store, first start | `auth: generated token for user relate: <token>`, then `auth: persisted at <database>.auth-token (reused on restart)` |
+| Neither, a persistent store whose token file exists | `auth: basic (token reused from <database>.auth-token)` |
+| Neither, `:memory:` | `auth: generated token for user relate: <token>`, then `auth: connect with auth=(relate, <token>) — :memory: generates a fresh token every start` |
+| `--auth none` | `auth: none (no credentials checked — publish ports only on trusted networks)` |
+| `--mcp stdio` alone | No `auth:` line; the stdio transport has no challenge, since the MCP host started the process |
+
+The token file sits beside the store (`./team` gets `./team.auth-token`), holds `relate:<token>`, and has mode `0600`. A value that is not `USER:PASSWORD` or `none` exits 1 with `Error: --auth: expected user:password or 'none'`. A credential on the command line shows in the process list; `RELATE_AUTH` keeps it out. There are no users or roles: the one credential can run every statement the open allows.
+
+## Bind host and plaintext
+
+`--host` sets the address every listener binds, `127.0.0.1` by default. No surface has TLS. Any address that is not loopback exposes the credential and every result in plaintext, and the startup lines then include this warning (from the `relate serve` source, with `<host>` for the address):
+
+```text
+serve: WARNING: --host <host> exposes the PLAINTEXT HTTP/MCP/Bolt surfaces to the network — serve has no TLS; anyone who can reach the ports can present credentials. Keep 127.0.0.1 or front the server with TLS (ADR-0248).
+```
+
+Two more warnings print on a non-loopback `--host`, each when its condition holds. With `--max-connections 0` (unlimited):
+
+```text
+WARNING: --max-connections is unlimited on non-loopback --host <host>. Each accepted connection takes a thread before authentication. Set --max-connections to bound it (ADR-0333).
+```
+
+With `--http` served and both `--tx-idle-timeout-secs 0` and `--max-open-transactions 0`:
+
+```text
+WARNING: --tx-idle-timeout-secs and --max-open-transactions are both 0 on non-loopback --host <host>. An abandoned transaction never expires and the registry is unbounded, so it holds a snapshot pin until restart. Set one of the two to bound it (ADR-0435).
+```
+
+The defaults (128 connections, a 60-second idle expiry and 128 open transactions) print neither. A run with only `--mcp stdio` binds no listener and prints no warning. [Authentication and TLS for relate serve](/docs/guides/serve/auth-and-tls) covers a TLS-terminating proxy in front of relate.
+
+## Read-only serving
+
+`--read-only` opens an existing store read-only for every surface. It never creates a store, holds no writer lease, refuses every write, and skips the final checkpoint at shutdown. The MCP surface then lists `read_cypher` and `get_schema` and no `write_cypher`.
+
+| Spelling | Serves | Startup line |
+| --- | --- | --- |
+| `--read-only`, `--read-only=snapshot` | The store as it was at open, beside any process that writes a directory store later | `serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails` |
+| `--read-only=live` | A :term[live read-only]{id=live-read-only} open of a directory store: the writer's commits appear as they land. Refused for `.rl` files and `:memory:` | `serve: opened the store read-only and following the WAL (ADR-0306) — the writer's committed frames appear as they land` |
+| `--database :memory: --load SOURCE` | The source's content in memory, the source released after the load; every write fails | `serve: loaded the store into memory (ADR-0500) — read-only, the source released after the load; every write fails` |
+
+`--read-only` must follow the word `serve`. Before it, the run exits 2 with `Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)`, so a server never starts writable by accident. `--read-only live`, with a space, exits 2 with `Error: --read-only takes its value attached: --read-only=live`. A missing directory store exits 1 with `Error: Failed to open Relate: storage error: read-only open requires an existing database at <path>`, and a missing `.rl` file with `Error: Failed to open Relate: storage error: database not found: <path>`. A `.rl` file another process holds for writing also exits 1 (`storage locked: <path>`).
+
+## Startup and shutdown
+
+`relate serve` writes its startup lines to stderr, in this order: the non-loopback `--host` warning, the access line of a read-only open, the `auth:` lines, the two non-loopback limit warnings when they apply, then one line per surface. Stdout carries nothing, except the JSON-RPC replies of `--mcp stdio`. This run served a directory store read-only on all three port surfaces:
+
+```text
+serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails
+auth: basic (token reused from ./team.auth-token)
+serve: HTTP Query API v2 listening on http://127.0.0.1:8869 (auth: basic)
+serve: Bolt listening on bolt://127.0.0.1:8871 (auth: basic)
+serve: MCP (streamable HTTP) listening on http://127.0.0.1:8870 (auth: basic)
+```
+
+| Event | What happens | Exit code |
+| --- | --- | --- |
+| SIGINT or SIGTERM | Prints `serve: shutting down`, closes the listeners, and takes the final checkpoint of a writable persistent store | 0 |
+| The MCP host closes stdin (`--mcp stdio`) | Prints `serve: stdin closed, shutting down` and takes the same final checkpoint | 0 |
+
+The server sends one usage metrics event when it exits, unless usage metrics are off ([relate telemetry](/docs/reference/cli/telemetry)); the statements it serves send none ([Privacy and telemetry](/docs/reference/privacy-and-telemetry)).
+
+## Errors and exit codes
+
+A run that stops on a signal or on the end of stdin exits 0. Every other exit is one of these:
+
+| Event | What happens | Exit code |
+| --- | --- | --- |
+| The store does not open | `Error: Failed to open Relate: <detail>` | 1 |
+| A port does not bind, or `--auth` is malformed | The error line; no surface line prints | 1 |
+| Any usage error | The error line, the usage line and a `--help` hint | 2 |
+
+The refusals a run meets before it serves anything:
+
+| Rule | Behavior |
+| --- | --- |
+| No surface flag | Exit code 2: `Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT\|stdio and/or --bolt PORT` |
+| Port value | `0` through `65535`. `0` binds a free port the operating system picks, and the startup line names the bound port. Any other value exits 2: `Error: --http expects a port number (0-65535), got "<value>"` |
+| A port already in use | Exit code 1 before any surface line prints: `Error: serve --http <port>: cannot bind <host>:<port>: <reason>`; the reason is the operating system's text |
+| `--mcp` twice, or both `PORT` and `stdio` | Exit code 2: `Error: serve --mcp may be given only once` |
+| A listener flag without its listener | Exit code 2. `--origin` needs `--http`; `--ws-allow-origin`, `--ws-max-connections` and `--bolt-identity` need `--bolt`; `--tx-idle-timeout-secs` and `--max-open-transactions` need `--http`; `--header-deadline-secs` and `--body-deadline-secs` need `--http` or `--mcp PORT`. Each message names the flag and the listener, such as `Error: serve --origin configures the --http surface, which this run does not serve: pass --http PORT or drop --origin` |
+| `--auth` with only `--mcp stdio` | Exit code 2: `Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only` |
+| A statement after the flags | Exit code 2: `Error: unexpected argument to serve: <statement>` |
+
+[Read-only serving](#read-only-serving) lists the refusals of `--read-only`, and the server pages list each surface's request errors.
+
+## Examples
+
+These examples run in a new, empty directory. This first command writes: it creates the directory store `./team` with three people and two projects:
+
+```bash verify
+relate --database ./team "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+The stdio transport, read-only, with stdin already closed: relate opens the store, starts the transport, sees the end of input, and exits 0. An MCP host keeps stdin open instead:
+
+```bash verify
+relate serve --mcp stdio --database ./team --read-only < /dev/null
+echo "exit=$?"
+```
+
+```text
+serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails
+serve: MCP (stdio) serving on stdin/stdout (auth: none)
+serve: stdin closed, shutting down
+exit=0
+```
+
+The HTTP Query API on port 8869, read-only, with the credential from `RELATE_AUTH`. The script waits for the port, sends one statement without the credential and one with it, stops the server with SIGTERM, and then prints the server's stderr:
+
+```bash
+RELATE_AUTH=ada:example-password relate serve --database ./team --read-only --http 8869 2> serve.log &
+server=$!
+for i in $(seq 50); do curl -s -o /dev/null http://127.0.0.1:8869/ && break; sleep 0.1; done
+curl -s -H 'Content-Type: application/json' \
+  -X POST http://127.0.0.1:8869/db/neo4j/query/v2 \
+  -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}'
+echo
+curl -s -u ada:example-password -H 'Content-Type: application/json' \
+  -X POST http://127.0.0.1:8869/db/neo4j/query/v2 \
+  -d '{"statement": "MATCH (p:Person) RETURN p.name AS name ORDER BY name"}'
+echo
+kill -TERM "$server"
+wait "$server"
+echo "exit=$?"
+cat serve.log
+```
+
+A run on port 8869 printed:
+
+```text
+{"errors":[{"code":"42NFF","message":"authentication required"}]}
+{"data":{"fields":["name"],"values":[["Ada"],["Grace"],["Noor"]]},"bookmarks":[]}
+exit=0
+serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails
+auth: basic (from RELATE_AUTH)
+serve: HTTP Query API v2 listening on http://127.0.0.1:8869 (auth: basic)
+serve: shutting down
+```
+
+Without `--read-only`, the server allows writes and takes a final checkpoint when it stops.
+
+## See also
+
+- [CLI flags](/docs/reference/cli/flags#relate-serve): the serve flags beside every other command's
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): host configurations for `--mcp stdio` and `--mcp PORT`
+- [Security](/docs/reference/security#served-surfaces): the served surfaces' defaults in one table
+- [Authentication and TLS for relate serve](/docs/guides/serve/auth-and-tls): a credential and a TLS proxy for a networked server

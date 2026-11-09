@@ -1,0 +1,219 @@
+---
+title: relate pull
+description: The relate pull command, which copies a Neo4j or Aura subgraph into a local store, with its flags, credentials, query rules, what it writes and its errors.
+order: 110
+surfaces: [cli]
+related: [reference/cli/push, reference/cli/flags#relate-pull, guides/neo4j/pull-from-neo4j, reference/cypher/differences-from-neo4j, reference/cli/exit-codes-and-errors, concepts/problems-relate-solves#neo4j-subgraph-mirror]
+---
+
+`relate pull` copies the nodes and relationships that one or more Cypher statements return from a Neo4j or Aura database into a local :term[store]{id=store}, then exits. It talks to the source over Neo4j's :term[HTTP Query API]{id=http-query-api} v2, writes into an empty directory or `.rl` store, carries the source's constraints and indexes across, and checkpoints once at the end. No Neo4j server was available when this page was verified: the refusals and failures shown are recorded runs of the relate binary, and what a successful pull writes is described from relate's CLI specification and its agent skill, not from a run.
+
+## Synopsis
+
+```text
+relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH
+```
+
+| Part | Required | Meaning |
+| --- | --- | --- |
+| `--query Q` | yes | What to copy: Cypher whose `RETURN` items are nodes, relationships, or paths |
+| `--database PATH` | yes | The destination store: a directory or a single-file `.rl` store, either empty or not yet created |
+| `--from FILE` | no | The credentials file; without it, the credentials come from the process environment |
+
+:term[Pull]{id=pull} is a command, so it takes only its own flags: the query-run flags such as `--mode` do not apply. `--namespace` is refused in both positions, because pull always writes the `neo4j` namespace.
+
+## Options
+
+<Flags command="pull" />
+
+## Connection and credentials
+
+The credentials are four keys. `--from FILE` reads them from a `KEY=VALUE` file; without `--from`, pull reads the same names from the process environment.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `NEO4J_URI` | yes | The source's Query API origin, such as `https://<host>:7473` |
+| `NEO4J_USERNAME` | yes | The user for HTTP Basic authentication; `NEO4J_USER` is accepted in its place |
+| `NEO4J_PASSWORD` | yes | The password |
+| `NEO4J_DATABASE` | no | The source database; default `neo4j` |
+
+Pull sends each statement to `<origin>/db/<NEO4J_DATABASE>/query/v2`. A `--from` file that other local users can read (any group or world permission bit) prints a warning naming the file and its mode, and its credentials still load.
+
+`NEO4J_URI` names the Query API, not a Bolt endpoint. Pull maps the URI schemes it accepts as follows:
+
+| `NEO4J_URI` | Request origin |
+| --- | --- |
+| `http://<host>:<port>` or `https://<host>:<port>` | Used as written |
+| `neo4j://<host>[:7687]` or `bolt://<host>[:7687]` | `http://<host>:7474` |
+| `neo4j://` or `bolt://` on any other port | Refused: `NEO4J_URI bolt port <port> has no Query API mapping (7687 → 7474); use an explicit http(s) NEO4J_URI` |
+| `neo4j+s://<host>[:<port>]`, `neo4j+ssc://` and `bolt+s://` | `https://<host>`, without the port |
+| A URI with a user and password in it | Refused: `NEO4J_URI must not contain userinfo; pass credentials via NEO4J_USERNAME/NEO4J_PASSWORD` |
+| Any other scheme | Refused: `unsupported NEO4J_URI scheme (use neo4j/bolt/http/https or +s/+ssc)` |
+| A host with characters a DNS name or IP address cannot hold, such as a percent-encoded password | Refused: `NEO4J_URI has an invalid host (expected a DNS name or IP literal)` |
+
+The refusals of a malformed `NEO4J_URI` never echo the URI, so a password pasted into it does not reach a log.
+
+### Plaintext credentials
+
+Pull refuses to send credentials over plain `http://` to a host that is not the local machine, before any network call. A loopback origin (`localhost`, `127.0.0.0/8`, `::1`) is allowed, and an `https://` origin is never refused.
+
+| Origin | Without `--allow-plaintext` | With `--allow-plaintext` |
+| --- | --- | --- |
+| `https://` | Sent | Sent |
+| `http://` to a loopback address | Sent | Sent |
+| `http://` to any other host | Refused, exit code 1 | Sent, after a warning line on stderr |
+
+The warning `--allow-plaintext` prints names the request URL:
+
+```text
+warning: Query API URL http://<host>:7474/db/neo4j/query/v2 is http://; Basic auth credentials will be sent in the clear (--allow-plaintext)
+```
+
+## Selecting the subgraph
+
+`--query` takes one of four forms: a statement, a `;`-separated list of statements, the path of a file that holds them, or `-` to read them from stdin. Every statement's `RETURN` items must be graph elements: nodes, relationships, or paths. A projection, a scalar or an aggregate is refused before the source is contacted:
+
+```text
+Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: count(n)
+```
+
+All the statements of one pull run in one process against one destination. A relationship returned by a later statement finds its endpoints among the nodes a previous statement copied, so one statement can copy nodes and the next the relationships between them.
+
+`--param N=V` binds a parameter of the source statements; repeat it for more. As in a query run, `V` is parsed as a JSON scalar, a bare word is a string, and a name bound twice keeps the last value.
+
+## What it writes
+
+| Property | Behavior |
+| --- | --- |
+| Destination | A directory store or a single-file `.rl` store; `:memory:` is a usage error (exit code 2) |
+| Empty destination | Required. A store that already holds data is refused before the source is contacted: `destination database is not empty; pull writes into an empty database only (ADR-0158)` |
+| A path that does not exist | Created as a new store once the credentials load, before the URI, plaintext, shape and empty-destination checks; a pull that fails after that leaves it there, empty |
+| Namespace | Always `neo4j` |
+| Codec | A new directory store gets the build's default codec, `parquet` in the release binary |
+| Checkpoint | One, after the last statement |
+
+From the CLI specification, not from a run: within one pull, each source element is identified by its Neo4j :term[element id]{id=element-id}, so an element that two statements return is written once. Values keep their Cypher type: pull asks for the typed form of the Query API's JSON, so `DATE`, the other temporal types, `DURATION`, `POINT`, `UUID` and `VECTOR` properties are stored as those types. A byte-array property, a value the server could not serialize, or an unrecognized type fails the pull with exit code 1 and an error that names the element and the property, in the form `typed wire decode failed: property "<key>" on element <element id>: unsupported typed value "<tag>"`.
+
+After the data, pull copies the source's schema, also from the specification. It reads `SHOW CONSTRAINTS` and `SHOW INDEXES` on the source and runs each row as a `CREATE … IF NOT EXISTS` statement on the destination:
+
+| Source schema | On the destination |
+| --- | --- |
+| Uniqueness, existence, node key, relationship key and property type :term[constraints]{id=constraint} | Created with the same form |
+| `RANGE`, `TEXT` and `POINT` indexes | Created |
+| Indexes that back a constraint, indexes that are not online, `LOOKUP` indexes | Left out |
+| `FULLTEXT` and `VECTOR` indexes, unrecognized constraint kinds | Skipped with a note on stderr, and counted |
+
+A schema row never fails a pull. On success, pull prints one line on stdout and exits 0:
+
+```text
+pulled <N> new / <M> reused nodes, <P> new / <Q> reused rels (+ <C> constraints, <I> indexes; <S> schema skipped) to <PATH>
+```
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | The pull completed and printed its summary line |
+| 1 | A runtime failure: missing or unreadable credentials, a refused `NEO4J_URI`, plaintext refused, a non-empty destination, a statement whose `RETURN` is not graph elements, no answer from the source, an error the source returned, or a value that cannot be stored |
+| 2 | A usage error: `--query` or `--database` missing, `:memory:` as the destination, an unknown flag or argument, or `--namespace`. The message is followed by the usage line and `Run 'relate pull --help' for more information.` |
+
+The messages, each on stderr after `Error: `:
+
+| Message | Exit code | Cause |
+| --- | --- | --- |
+| `pull requires --query` | 2 | No `--query` |
+| `pull requires --database` | 2 | No `--database` |
+| `pull cannot target :memory: (--database must persist)` | 2 | `--database :memory:` |
+| `unexpected argument to pull: <argument>` | 2 | An unknown flag, a flag of the query run, or a positional store path |
+| `--namespace is not valid with pull (pull always writes the neo4j namespace)` | 2 | `--namespace` before the `pull` word; after it, the message is the unexpected-argument one |
+| `NEO4J_URI missing from environment` | 1 | No `--from` and no `NEO4J_URI`; the same message names `NEO4J_USERNAME` or `NEO4J_PASSWORD` when that one is missing |
+| `<KEY> missing from env file` | 1 | The `--from` file lacks `NEO4J_URI`, `NEO4J_USERNAME` (or `NEO4J_USER`) or `NEO4J_PASSWORD` |
+| `failed to read env file <path>: <reason>` | 1 | The `--from` file cannot be read |
+| `refusing to send Basic auth credentials in the clear: Query API URL <url> is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI` | 1 | Plain `http://` to another host without `--allow-plaintext` |
+| `destination database is not empty; pull writes into an empty database only (ADR-0158)` | 1 | The destination holds data |
+| `shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: <item>` | 1 | A `RETURN` item that is not a node, relationship, or path |
+| `no statements in --query value` | 1 | An empty `--query` value |
+| `HTTP request to <url> failed: <reason>` | 1 | The source did not answer: a closed port, a name that does not resolve, or a network failure |
+
+## Examples
+
+The examples share one credentials file. Its host is a documentation name, `neo4j.example.com`, and each command fails before it would connect. The file is readable by its owner only, so no warning prints. The setup also writes one `:Person` node into `./team.rl`, so the first example has a destination that holds data:
+
+```bash verify
+printf 'NEO4J_URI=https://neo4j.example.com:7473\nNEO4J_USERNAME=neo4j\nNEO4J_PASSWORD=<password>\n' > neo4j.env
+chmod 600 neo4j.env
+relate --database ./team.rl "CREATE (:Person {name: 'Ada', role: 'engineer'})" > /dev/null
+```
+
+A destination that already holds data is refused:
+
+```bash verify
+relate pull --from neo4j.env --query 'MATCH (n) RETURN n' --database ./team.rl
+echo "exit=$?"
+```
+
+```text
+Error: destination database is not empty; pull writes into an empty database only (ADR-0158)
+exit=1
+```
+
+A statement that returns a count instead of graph elements is refused before the source is contacted:
+
+```bash verify
+relate pull --from neo4j.env --query 'MATCH (n) RETURN count(n) AS nodes' --database ./mirror.rl
+echo "exit=$?"
+```
+
+```text
+Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: count(n)
+exit=1
+```
+
+A plain `http://` origin on another host is refused, and a credentials file with group read permission gets a warning first:
+
+```bash verify
+printf 'NEO4J_URI=http://neo4j.example.com:7474\nNEO4J_USERNAME=neo4j\nNEO4J_PASSWORD=<password>\n' > plain.env
+chmod 640 plain.env
+relate pull --from plain.env --query 'MATCH (n) RETURN n' --database ./mirror.rl
+echo "exit=$?"
+```
+
+```text
+warning: env file plain.env is group/world-readable (mode 0640); credentials may be exposed to other local users — run `chmod 600 plain.env`
+Error: refusing to send Basic auth credentials in the clear: Query API URL http://neo4j.example.com:7474/db/neo4j/query/v2 is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI
+exit=1
+```
+
+`:memory:` is a usage error:
+
+```bash verify
+relate pull --from neo4j.env --query 'MATCH (n) RETURN n' --database :memory:
+echo "exit=$?"
+```
+
+```text
+Error: pull cannot target :memory: (--database must persist)
+Usage: relate pull [--from FILE] --query Q [--param N=V] [--allow-plaintext] --database PATH
+Run 'relate pull --help' for more information.
+exit=2
+```
+
+When no server answers, the error names the request URL. This run had `NEO4J_URI=http://127.0.0.1:8873` with nothing listening on that port. The text after `io:` comes from the operating system; this recording is from macOS, and the error number in parentheses differs on Linux:
+
+```bash
+relate pull --from local.env --query 'MATCH (n) RETURN n' --database ./mirror.rl
+```
+
+```text
+Error: HTTP request to http://127.0.0.1:8873/db/neo4j/query/v2 failed: io: Connection refused (os error 61)
+```
+
+The pull exits 1, and `./mirror.rl` remains as an empty store that a later pull can write into.
+
+## See also
+
+- [`relate push`](/docs/reference/cli/push): the mirror command, which copies from a store into Neo4j or Aura
+- [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j): the task, from credentials to a first query on the copy
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): what a statement written for Neo4j may need on the copy
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit codes every command shares
+- [Problems relate solves: Neo4j subgraph mirror](/docs/concepts/problems-relate-solves#neo4j-subgraph-mirror)

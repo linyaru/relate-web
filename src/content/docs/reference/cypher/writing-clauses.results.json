@@ -1,0 +1,563 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create": {
+      "kind": "table",
+      "text": "| person | type       | project       |\n|--------|------------|---------------|\n| \"Lin\"  | \"WORKS_ON\" | \"relate-docs\" |\n1 row · nodes created: 2, relationships created: 1, properties set: 5, labels added: 2",
+      "table": {
+        "columns": [
+          "person",
+          "type",
+          "project"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Lin\"",
+            "\"WORKS_ON\"",
+            "\"relate-docs\""
+          ]
+        ],
+        "summary": "1 row · nodes created: 2, relationships created: 1, properties set: 5, labels added: 2"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "person",
+          "type",
+          "project"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "person": "Lin",
+            "project": "relate-docs",
+            "type": "WORKS_ON"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 2,
+          "labels_removed": 0,
+          "nodes_created": 2,
+          "nodes_deleted": 0,
+          "properties_set": 5,
+          "relationships_created": 1,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-undirected": {
+      "kind": "table",
+      "text": "error: syntax error: RequiresDirectedRelationship: CREATE relationships must have a direction",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: RequiresDirectedRelationship: CREATE relationships must have a direction",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "merge-node": {
+      "kind": "table",
+      "text": "| name  | created | seen |\n|-------|---------|------|\n| \"Ada\" | null    | true |\n1 row · properties set: 1",
+      "table": {
+        "columns": [
+          "name",
+          "created",
+          "seen"
+        ],
+        "numeric": [
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"Ada\"",
+            "null",
+            "true"
+          ]
+        ],
+        "summary": "1 row · properties set: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "ANY",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "name",
+          "created",
+          "seen"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "created": null,
+            "name": "Ada",
+            "seen": true
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 1,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "merge-relationship": {
+      "kind": "table",
+      "text": "| since |\n|-------|\n| 2026  |\n1 row · relationships created: 1, properties set: 1",
+      "table": {
+        "columns": [
+          "since"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "2026"
+          ]
+        ],
+        "summary": "1 row · relationships created: 1, properties set: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER"
+        ],
+        "columns": [
+          "since"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "since": 2026
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 1,
+          "relationships_created": 1,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "merge-whole-pattern": {
+      "kind": "table",
+      "text": "| graces |\n|--------|\n| 2      |\n1 row · nodes created: 2, relationships created: 1, properties set: 2, labels added: 2",
+      "table": {
+        "columns": [
+          "graces"
+        ],
+        "numeric": [
+          true
+        ],
+        "rows": [
+          [
+            "2"
+          ]
+        ],
+        "summary": "1 row · nodes created: 2, relationships created: 1, properties set: 2, labels added: 2"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER"
+        ],
+        "columns": [
+          "graces"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "graces": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "merge-null": {
+      "kind": "table",
+      "text": "error: MergeReadOwnWrites: cannot MERGE with null properties",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "MergeReadOwnWrites: cannot MERGE with null properties",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "detach-delete": {
+      "kind": "table",
+      "text": "(no rows) · nodes deleted: 2, relationships deleted: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 2,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 1
+        }
+      },
+      "expectError": false
+    },
+    "set-forms": {
+      "kind": "table",
+      "text": "| labels             | props                   |\n|--------------------|-------------------------|\n| [\"Person\", \"Lead\"] | {level: 3, name: \"Ada\"} |\n1 row · properties set: 3, labels added: 1",
+      "table": {
+        "columns": [
+          "labels",
+          "props"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\", \"Lead\"]",
+            "{level: 3, name: \"Ada\"}"
+          ]
+        ],
+        "summary": "1 row · properties set: 3, labels added: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "MAP"
+        ],
+        "columns": [
+          "labels",
+          "props"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person",
+              "Lead"
+            ],
+            "props": {
+              "level": 3,
+              "name": "Ada"
+            }
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 1,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "set-replace": {
+      "kind": "table",
+      "text": "| labels             | props                           |\n|--------------------|---------------------------------|\n| [\"Person\", \"Lead\"] | {name: \"Ada\", role: \"engineer\"} |\n1 row · properties set: 3",
+      "table": {
+        "columns": [
+          "labels",
+          "props"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\", \"Lead\"]",
+            "{name: \"Ada\", role: \"engineer\"}"
+          ]
+        ],
+        "summary": "1 row · properties set: 3"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "MAP"
+        ],
+        "columns": [
+          "labels",
+          "props"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person",
+              "Lead"
+            ],
+            "props": {
+              "name": "Ada",
+              "role": "engineer"
+            }
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 3,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "property-type": {
+      "kind": "table",
+      "text": "error: type error: InvalidPropertyType",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "type error: InvalidPropertyType",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "remove": {
+      "kind": "table",
+      "text": "| labels     |\n|------------|\n| [\"Person\"] |\n1 row · labels removed: 1",
+      "table": {
+        "columns": [
+          "labels"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\"]"
+          ]
+        ],
+        "summary": "1 row · labels removed: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST"
+        ],
+        "columns": [
+          "labels"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 1,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "delete-connected": {
+      "kind": "table",
+      "text": "error: DeleteConnectedNode: Cannot delete node with relationships unless DETACH",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "DeleteConnectedNode: Cannot delete node with relationships unless DETACH",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "foreach": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 2, relationships created: 2, properties set: 6, labels added: 2",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 2,
+          "labels_removed": 0,
+          "nodes_created": 2,
+          "nodes_deleted": 0,
+          "properties_set": 6,
+          "relationships_created": 2,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "finish": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

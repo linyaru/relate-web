@@ -1,0 +1,20 @@
+---
+id: node
+term: "node"
+short: "An entity in the graph: it carries zero or more labels and a map of properties, and relationships connect it to other nodes."
+aliases: ["vertex", "vertices"]
+context: cypher
+see: reference/cypher/patterns
+related: ["relationship", "label", "property", "element-id"]
+---
+
+A node is written in a pattern in parentheses: `(p:Person {name: 'Ada'})` is a node bound to `p`, with the label `Person` and the property `name`. A node can hold any number of :term[labels]{id=label}, including none, and any number of :term[properties]{id=property}. It exists on its own; a :term[relationship]{id=relationship} always has a node at each end.
+
+`elementId(n)` returns a node's :term[element id]{id=element-id}. A plain `DELETE` removes a node with no relationships; on a node that has some it fails with `DeleteConnectedNode`, and `DETACH DELETE` removes the node together with its relationships.
+
+```cypher
+CREATE (ada:Person {name: 'Ada', role: 'engineer'})
+RETURN elementId(ada) AS id, labels(ada) AS labels
+```
+
+The word node always means a graph node in these docs; the JavaScript runtime is Node.js.

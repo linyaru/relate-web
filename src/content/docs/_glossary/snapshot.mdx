@@ -1,9 +1,15 @@
 ---
 id: snapshot
-term: snapshot
-short: "The committed graph state a checkpoint writes to disk; on open, relate loads the latest one and then replays the WAL."
+term: "snapshot"
+short: "The committed graph state a checkpoint writes to disk, loaded on open before the WAL replays; not the `snapshot` durability mode or `--read-only` freshness."
 aliases: ["dump"]
 context: storage
 see: reference/storage/formats
 related: ["checkpoint", "wal", "codec"]
 ---
+
+A snapshot is the graph as of one point in the commit order, written by a :term[checkpoint]{id=checkpoint} through the store's :term[codec]{id=codec}, as Parquet files by default, a JSON file, or a folder of markdown notes. Opening a durable store loads the snapshot into memory, then replays the :term[WAL]{id=wal} records written after it, so the snapshot and the WAL together hold every acknowledged commit.
+
+The word has two other uses in relate, each spelled as code. `--durability-mode snapshot` is the durability mode that makes only completed checkpoints durable. The default freshness of a read-only open, `--read-only=snapshot`, freezes the view at open.
+
+`relate info` reports a snapshot's format version and its node and relationship counts, labeled with the checkpoint's log sequence number, without opening the store.

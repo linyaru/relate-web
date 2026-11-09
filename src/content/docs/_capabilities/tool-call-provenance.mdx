@@ -1,0 +1,39 @@
+---
+id: tool-call-provenance
+title: Tool-call provenance
+order: 20
+problem: "Find out which tool call wrote a fact in an agent's memory, which calls read it since, and what failed calls left behind."
+capability: "Each tool call recorded as a node in the same graph, by the same statement as the call, linked to every node it wrote or returned and guarded by `NODE KEY` and relationship property constraints."
+intents:
+  - audit what my agent wrote to memory
+  - trace which tool call created this fact
+  - provenance for agent tool calls
+  - log agent tool calls in the graph they touched
+  - lineage of a fact in agent memory
+surfaces: [cypher, agents]
+guides: [guides/agents/model-agent-memory]
+recipes: [tool-call-provenance]
+reference: [reference/cypher/overview]
+schema: |
+  flowchart TB
+    accTitle: Recommended data model for tool-call provenance: the agent's memory and the trace of every call beside it
+    accDescr {
+      A Session HAS_CALL each of its ToolCall nodes, with a timestamp. A
+      ToolCall records its sequence number, tool name, status and row count,
+      and TOUCHED the Entity and Fact nodes it wrote or returned. A Fact is
+      ABOUT an Entity.
+    }
+    Session(("<b>Session</b><br/>id")) -- "<b>HAS_CALL</b><br/>ts" --> ToolCall(("<b>ToolCall</b><br/>seq · name · status<br/>rows · error"))
+    ToolCall -- "<b>TOUCHED</b>" --> Entity(("<b>Entity</b><br/>key · kind"))
+    ToolCall -- "<b>TOUCHED</b>" --> Fact(("<b>Fact</b><br/>text"))
+    Fact -- "<b>ABOUT</b>" --> Entity
+    class Session l1
+    class ToolCall l2
+    class Entity l3
+    class Fact l4
+verify: tool-call-provenance#lineage
+---
+
+When an agent's memory holds something wrong, the questions are about history: which call wrote the fact, which calls have read it since, and what the calls that failed left behind. A log kept in a separate system answers them only after a join across two stores, and only if both recorded the same identifiers.
+
+In the [tool-call provenance recipe](/cookbook/tool-call-provenance/) the trace lives in the memory graph itself. Every call becomes a `ToolCall` node, written by the same statement as the call, and `TOUCHED` relationships link it to each node the call wrote or returned. NODE KEY and relationship property constraints refuse an audit row that repeats a sequence number or carries a timestamp of the wrong type. An audit is then a graph read: the lineage of one fact, what each tool cost, and which calls rolled back.

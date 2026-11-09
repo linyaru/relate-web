@@ -1,0 +1,17 @@
+---
+id: full-text-index
+term: "full-text index"
+short: "An index over one or more string properties that finds entities containing given words, scored by how often the words occur."
+aliases: []
+context: cypher
+see: reference/cypher/search
+related: ["search", "vector-index", "index"]
+---
+
+A full-text index splits the strings of the properties it covers into lowercase alphanumeric words and finds the entities that contain any word of a query, ignoring case. There is no stemming: `graphs` does not match `graph`. The score is the number of query-word occurrences in the indexed properties.
+
+```cypher
+CREATE FULLTEXT INDEX doc_text IF NOT EXISTS FOR (d:Doc) ON EACH [d.title, d.body]
+```
+
+The :term[SEARCH clause]{id=search} queries it with a string and a required `LIMIT`, and accepts `SKIP` and `WITH ANALYZER`; the analyzer does not change the tokens. `SHOW INDEXES` lists it with the type `FULLTEXT`. A full-text and a vector search can be fused into one ranking with `COMBINE`, a preview feature.

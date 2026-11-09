@@ -144,6 +144,8 @@ export function writeLabels(dir: string, slug: string, diagram: Diagram, labels:
 const SVG_ELEMENTS = new Set([
   'svg', 'g', 'defs', 'style', 'title', 'desc', 'marker', 'filter', 'fedropshadow',
   'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'foreignobject',
+  // mermaid's sequenceDiagram defines its actor icons as <symbol>s in <defs>; nothing references a URL.
+  'symbol',
 ]);
 // HTML inside a foreignObject label.
 const HTML_ELEMENTS = new Set(['div', 'span', 'p', 'br', 'b', 'i', 'em', 'strong', 'small', 'code']);
@@ -154,6 +156,10 @@ const ATTRIBUTES = new Set([
   'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'alignment-baseline',
   'marker-start', 'marker-mid', 'marker-end', 'markerwidth', 'markerheight', 'markerunits', 'orient', 'refx', 'refy',
   'stddeviation', 'flood-color', 'flood-opacity',
+  // mermaid's sequenceDiagram sets name=<actor> on actor lines and boxes, fill-rule and
+  // clip-rule on its icon symbols, and filter="url(#…)" on actor boxes (the url() is
+  // checked to be a fragment); none of them fetches anything.
+  'name', 'fill-rule', 'clip-rule', 'filter',
 ]);
 const CSS_FUNCTIONS = new Set(['rgb', 'rgba', 'hsl', 'hsla', 'var', 'calc', 'drop-shadow', 'rotate', 'scale', 'translate', 'url']);
 

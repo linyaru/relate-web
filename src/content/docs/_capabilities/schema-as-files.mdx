@@ -1,0 +1,22 @@
+---
+id: schema-as-files
+title: Schema as files
+order: 160
+problem: "Let an agent or a reviewer read a store's indexes and constraints from a file instead of opening the database, and see a schema change as a text diff."
+capability: "A text copy of the schema under `.cypherlite/schema/`, with `schema.cypher` holding one `CREATE` statement per index and constraint, rewritten at every checkpoint and checked at every open."
+intents:
+  - read the graph schema without opening the database
+  - review schema changes in a pull request
+  - indexes and constraints as text files
+  - schema migrations visible in git
+surfaces: [cli, agents]
+guides: [guides/storage/choose-a-store-layout, guides/storage/schema-as-files]
+recipes: []
+reference: [reference/storage/formats, reference/storage/wal-and-checkpoints, reference/cypher/schema-clauses]
+schema: null
+verify: reference/storage/formats#step-2
+---
+
+The schema of a database usually lives inside it: to learn which indexes and constraints exist, an agent or a reviewer has to open the store and run a `SHOW` statement, and a schema change in a pull request is invisible next to the code that relies on it.
+
+Every checkpoint of a durable store writes its schema as text under `.cypherlite/schema/` inside the store. `schema.cypher` holds one `CREATE INDEX` or `CREATE CONSTRAINT` statement per entry, with the graph type beside it when the store has one, so one file read answers what the schema is and a schema change shows up as an ordinary diff. The text is a copy, not the source: an open compares it with the schema the checkpoint persisted, and a hand-edited file fails the open with an error naming the file, which says that deleting the folder and reopening regenerates it. Schema changes are made with Cypher statements, and the next checkpoint rewrites the files.

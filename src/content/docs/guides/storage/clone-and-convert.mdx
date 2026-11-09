@@ -1,0 +1,210 @@
+---
+title: Clone and convert a store
+label: Clone and convert
+description: Copy a relate store with relate clone between a .rl file and a directory and between the parquet, json and markdown codecs, and check the copy matches.
+order: 40
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/cli/clone, reference/storage/formats, guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, guides/storage/obsidian-vault, concepts/problems-relate-solves#single-file-graph]
+---
+
+This guide shows you how to copy a relate :term[store]{id=store} into a new one, change its layout or its codec on the way, and check that the copy holds the same graph. The command is `relate clone <source> <dest>`: the destination's path picks the layout (a path ending in `.rl` is one file, any other path a :term[directory store]{id=directory-store}), and `--to-snapshot-format parquet|json|markdown` picks the codec. The source is opened read-only and never written.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A store to copy. The commands on this page start from the shared example graph in a single-file store, `team.rl`:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+## Decide when to convert
+
+A store's layout and :term[codec]{id=codec} are fixed when it is created: `--snapshot-format` applies only to an empty directory. To change either, write a new store with :term[`relate clone`]{id=clone}:
+
+| If | Convert to | Command |
+| --- | --- | --- |
+| A second process must read while one writes, or follow the writer | A directory store | `relate clone ./team.rl ./team` |
+| The store is attached, shipped, or archived as one file | A `.rl` file | `relate clone ./team ./team.rl` |
+| Reviewers diff the graph in pull requests | A directory store with the `json` codec | `relate clone --to-snapshot-format json ./team ./team-json` |
+| People read and edit the graph as notes | A directory store with the `markdown` codec | `relate clone --to-snapshot-format markdown ./team ./team-md` |
+| A `.rl` file is far larger than what it holds | A fresh `.rl` file | `relate clone ./team.rl ./team-compact.rl` |
+
+The [storage formats reference](/docs/reference/storage/formats) has the files each layout and codec writes.
+
+## Change the layout
+
+Clone the `.rl` file into a directory, then the directory back into a second `.rl` file. `relate clone` prints nothing on success:
+
+```bash verify
+relate clone ./team.rl ./team
+relate clone ./team ./team-copy.rl
+```
+
+The destination must not exist yet; `relate clone` never overwrites. It reads the state committed when it opens the source and does not follow later commits. A directory source can be cloned while another process writes to it; a :term[`.rl` file]{id=rl} only while no process holds it open for writing.
+
+## Change the codec
+
+Without `--to-snapshot-format`, the destination keeps the source's codec. With it, the destination's first checkpoint is written in the codec it names. Write a `json` copy and a `markdown` copy of the directory store:
+
+```bash verify
+relate clone --to-snapshot-format json ./team ./team-json
+relate clone --to-snapshot-format markdown ./team ./team-md
+```
+
+`relate info` reads a store's layout and codec without opening it:
+
+```bash verify
+relate info --database ./team-md | head -n 2
+```
+
+```text
+layout: native directory
+codec: markdown
+```
+
+The `json` copy holds the graph in one `graph.json`. The `markdown` copy holds one note per node, in a folder per label, with an index note per folder, a root `index.md` and a `log.md`:
+
+```bash verify
+ls team-json team-md team-md/Person
+```
+
+```text
+team-json:
+graph.json
+manifest.json
+wal
+
+team-md:
+Person
+Project
+index.md
+log.md
+
+team-md/Person:
+Ada.md
+Grace.md
+Noor.md
+index.md
+```
+
+The `markdown` codec names each note after a key property of its label, `name` here, so every node of a label needs that property, and its value must be unique within the label. `--markdown-body-properties` chooses the properties written as each note's body; [Open a store as an Obsidian vault](/docs/guides/storage/obsidian-vault) covers both.
+
+## Check that the copy holds the same graph
+
+Compare what a statement returns from the source and from the copy. This check writes every node's labels and properties and every relationship to a file, sorted, once for the source and once for a store that went from `.rl` to `markdown` and back to `.rl`:
+
+```bash verify
+cat > graph-check.cypher <<'EOF'
+MATCH (n) RETURN labels(n) AS labels, properties(n) AS props ORDER BY n.name;
+MATCH (a)-[r]->(b) RETURN a.name AS from, type(r) AS type, properties(r) AS props, b.name AS to ORDER BY from, type, to;
+EOF
+relate clone ./team-md ./team-roundtrip.rl
+relate query --database ./team.rl --read-only --mode jsonl < graph-check.cypher > before.jsonl
+relate query --database ./team-roundtrip.rl --read-only --mode jsonl < graph-check.cypher > after.jsonl
+cmp before.jsonl after.jsonl && echo "same graph: $(wc -l < after.jsonl | tr -d ' ') rows"
+```
+
+```text
+same graph: 10 rows
+```
+
+Five nodes and five relationships come back identical. Order the rows by a property your graph has on every node. Values without a YAML form keep their type in a `markdown` note: a date or a point is written as a small map tagged `__type` and reads back as a date or a point. One difference to expect from a `markdown` round trip: a node with two or more labels can return them from `labels(n)` in another order, so sort them before comparing such a graph.
+
+## Measure the sizes
+
+A `.rl` file grows to the most space it has needed and reuses it; it does not shrink when data is deleted. `relate clone` writes only the current state. To see it, add 20,000 draft nodes to `team.rl`, delete them again, and clone it:
+
+```bash verify
+relate info --database ./team.rl | grep 'total bytes'
+relate --database ./team.rl --mode envelope "UNWIND range(1, 20000) AS i CREATE (:Draft {id: i, text: 'draft note ' + toString(i)})"
+relate --database ./team.rl --mode envelope "MATCH (d:Draft) DELETE d"
+relate clone ./team.rl ./team-compact.rl
+```
+
+```text
+total bytes: 36864
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+The method: `relate info` prints each store's size on disk as `total bytes`, read without opening the store. The loop prints it for the bloated file, its clone, and the three copies made in [Change the codec](#change-the-codec) and [Change the layout](#change-the-layout):
+
+```bash verify
+for store in team.rl team-compact.rl team team-json team-md; do printf '%s: ' "$store"; relate info --database "./$store" | grep 'total bytes'; done
+```
+
+```text
+team.rl: total bytes: 3203072
+team-compact.rl: total bytes: 32768
+team: total bytes: 3498
+team-json: total bytes: 1327
+team-md: total bytes: 2926
+```
+
+| Store | Measured | What it shows |
+| --- | --- | --- |
+| `team.rl` before the drafts | 36,864 bytes | A new `.rl` file for 5 nodes and 5 relationships |
+| `team.rl` after the drafts were deleted | 3,203,072 bytes | The file kept the space the 20,000 drafts needed |
+| `team-compact.rl` | 32,768 bytes | The clone holds only the current state |
+| `team` (`parquet` directory) | 3,498 bytes | Columnar files plus a manifest |
+| `team-json` | 1,327 bytes | One JSON file plus a manifest; on this graph the smallest |
+| `team-md` | 2,926 bytes | One note per node, an index per label, and the `log.md` and `index.md` notes |
+
+These numbers are for this 5-node graph. At 100,000 nodes the `json` codec is about 3.4 times the size of `parquet` ([measured in the formats reference](/docs/reference/storage/formats#size-on-disk)), so the sizes on a small graph don't predict the order on a large one.
+
+## Verify
+
+The converted store opens and answers statements. The `markdown` copy returns who works on what:
+
+```bash verify
+relate --database ./team-md --read-only --mode envelope "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN p.name AS name, proj.name AS project ORDER BY name, project"
+```
+
+```text
+{"columnTypes":["STRING","STRING"],"columns":["name","project"],"notifications":[],"rows":[{"name":"Ada","project":"relate"},{"name":"Grace","project":"opencypher-tck"},{"name":"Grace","project":"relate"}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Error: unexpected argument to clone: --snapshot-format`** (exit code 2). The flag on `relate clone` is `--to-snapshot-format`:
+
+  ```bash verify
+  relate clone --snapshot-format json ./team ./team-json2
+  ```
+
+  ```text
+  Error: unexpected argument to clone: --snapshot-format
+  Did you mean '--to-snapshot-format'?
+  Usage: relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST
+  Run 'relate clone --help' for more information.
+  ```
+
+  A `--snapshot-format` placed before the verb, as in `relate --snapshot-format json clone …`, does not change the destination's codec: the copy keeps the source's. Put `--to-snapshot-format` after `clone`.
+
+- **`Failed to clone database: storage error: clone destination already exists`** (exit code 1). `relate clone` never overwrites. Pick a new destination path.
+- **`Failed to clone database: storage error: markdown vault: node <id> of label <Label> has no '<property>' property; the markdown vault requires a non-null unique '<property>' on :<Label>`** (exit code 1). A `markdown` destination names each note after a key property, and a node of that label lacks it. Set the property on every node of the label first. A failed clone removes the destination it created.
+- **`Failed to clone database: storage error: markdown vault: two nodes of label <Label> share the key value '<value>'; the vault filename would collide`** (exit code 1). Two nodes of one label have the same key value. Make the values unique, or keep the store in `parquet` or `json`.
+- **`Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`** (exit code 2). The codec name is misspelled.
+- **`Failed to clone database: storage locked: <path>`** (exit code 1). The source is a `.rl` file that a process holds open for writing. Clone it when that process exits ([storage locked](/docs/reference/errors#cli-clone-locked)).
+
+## Related
+
+- [`relate clone`](/docs/reference/cli/clone): the command's flags and exit codes.
+- [Storage formats](/docs/reference/storage/formats): the files each layout and codec writes, and sizes at 100,000 nodes.
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): which layout and codec fit a job.
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): `relate clone` as the backup command.
+- [Single-file graph](/docs/concepts/problems-relate-solves#single-file-graph) in the capability catalog.

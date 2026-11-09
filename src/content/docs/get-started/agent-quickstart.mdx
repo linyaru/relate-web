@@ -5,10 +5,10 @@ description: Give an agent a pinned, verified relate with its skill, then rehear
 order: 20
 surfaces: [cli, mcp, agents]
 prerequisites: [get-started/install]
-related: [reference/errors, cookbook/agent-memory]
+related: [reference/errors, cookbook/agent-memory, guides/agents/install-the-skill, guides/agents/drive-relate-from-an-agent, guides/agents/agent-safety]
 ---
 
-In about ten minutes, an agent goes from no relate at all to a small graph it has read, rehearsed a change on, changed for real, and served to itself over MCP, with every step checked. An agent can follow the same steps from the markdown twin at `https://relatedb.ai/docs/get-started/agent-quickstart.md`; the prompt to paste into an agent is the Agent tab on the [install page](/docs/get-started/install). A person can follow the steps at a terminal just as well.
+In about ten minutes, an agent goes from no relate at all to a small graph it has read, rehearsed a change on, changed for real, and served to itself over MCP, with every step checked. An agent can follow the same steps from the markdown twin at `https://relatedb.ai/docs/get-started/agent-quickstart.md`; the prompt to paste into an agent is the Agent tab on the [install page](/docs/get-started/install). A person can follow the same steps at a terminal.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ Notice that nothing runs until all three checks pass. If one fails, the download
 
 An agent reads the :term[envelope]{id=envelope}: one JSON object per result set. Let's confirm the bytes match:
 
-```bash
+```bash verify
 relate --mode envelope "RETURN 1 AS ok"
 ```
 
@@ -37,11 +37,22 @@ relate --mode envelope "RETURN 1 AS ok"
 
 The output should be exactly that line. Every statement this page runs passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
 
+The envelope is one of relate's [output modes](/docs/reference/cli/output-modes). This statement runs in your browser, on the engine this page loads, and the terminal below shows it in four of those modes: `table`, `envelope`, `jsonl` and `toon`.
+
+```cypher run name=names
+UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name
+```
+
+The terminal prints the same statement the way relate prints it, one view per mode, with the exit code. It runs on an empty database opened read-only, which is what `relate --read-only` opens. Now edit the statement, or pick a preset that fails and run it: notice that the JSON modes add an error object on stdout and the exit code becomes 6. "Run as an agent harness" plays `CLAUDECODE=1`, so a statement over 100 rows comes back cut, with a warning on stderr.
+
+:::terminal{cell=names}
+:::
+
 ## Install the skill
 
 The skill is relate's cheat sheet for agents: the CLI, Cypher, and what to read for vectors, storage and safety. It ships inside the binary. This step installs it for Claude Code; the other names `--agent` accepts are `cursor`, `windsurf`, `copilot`, `antigravity`, `gemini-cli`, `cline`, `codex`, `pi`, `opencode` and `junie`.
 
-```bash
+```bash verify
 relate skill install --agent claude-code
 ```
 
@@ -57,7 +68,7 @@ The skill now sits where Claude Code looks for skills. `relate skill check` repo
 
 `relate agent-context` prints the commands, flags and exit codes of the binary that is installed, so it can't describe a different version:
 
-```bash
+```bash verify
 relate agent-context
 ```
 
@@ -94,105 +105,105 @@ Exit code 6 comes back on purpose when we read an error.
 
 ## Get a graph, with its checksum
 
-Our graph is five friends and who knows whom. A file you're handed gets its SHA-256 checked before it runs, so we check this one too.
+Our graph is a small team: three people, two projects, who works on what and who knows whom. It's the same graph the other Get started tutorials build. A file you're handed gets its SHA-256 checked before it runs, so we check this one too.
 
 :::note[A local file for now]
 The example graph is not published as a download yet, so we write its seed script on the spot. The checksum step is the same one a downloaded file gets.
 :::
 
-Write the seed script, a few `CREATE` statements and a count:
+Write the seed script, one `CREATE` statement:
 
-```bash
-cat > friends.cypher <<'EOF'
-CREATE (ada:Person {name: 'Ada', likes: 'tea'}),
-       (bo:Person {name: 'Bo', likes: 'chess'}),
-       (cy:Person {name: 'Cy', likes: 'kites'}),
-       (dot:Person {name: 'Dot', likes: 'tea'}),
-       (eli:Person {name: 'Eli', likes: 'puzzles'}),
-       (ada)-[:KNOWS {since: 2019}]->(bo),
-       (bo)-[:KNOWS {since: 2021}]->(cy),
-       (cy)-[:KNOWS {since: 2020}]->(dot),
-       (dot)-[:KNOWS {since: 2023}]->(ada);
-MATCH (p:Person) RETURN count(p) AS people;
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
 EOF
 ```
 
 Check its checksum:
 
-```bash
-sha256sum friends.cypher
+```bash verify
+sha256sum team.cypher
 ```
 
 ```text
-e0c0183542c9e0cab2adb283ec1d1f3e69b8892ae812c43d729190cbb9f127bb  friends.cypher
+2d6ab96dc893a4c9e8bbf767e38e43a7fab76cd7af2440b48e3fe0eca4e15d0e  team.cypher
 ```
 
-If the hash differs, the file is not the one this page describes: stop, and write it again. When it matches, run the script into a single-file :term[store]{id=store}, `friends.rl`:
+If the hash differs, the file is not the one this page describes: stop, and write it again. When it matches, run the script into a single-file :term[store]{id=store}, `team.rl`:
 
-```bash
-relate query --database ./friends.rl --mode envelope < friends.cypher
+```bash verify
+relate query --database ./team.rl --mode envelope < team.cypher
 ```
 
 ```text
 {"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":5}],"truncated":false}
 ```
 
-One envelope per statement: the `CREATE` returns no rows, and the count finds five people. Eli knows nobody yet. We're about to fix that.
+One envelope for the one statement: the `CREATE` returns no rows. Noor maintains relate but works on neither project yet. We're about to change that.
 
 ## Rehearse before you write
 
-The change we want is one new friendship: Eli knows Ada. Before writing anything, we look at the graph, plan the write, and try it where it can't hurt.
+The change we want is one new `WORKS_ON` relationship: Noor starts on `opencypher-tck` in 2026. Before writing anything, we look at the graph, plan the write, and try it where it can't hurt.
 
 ### Read it read-only
 
 `--read-only` opens the store :term[read-only]{id=read-only}: relate never writes it or checkpoints it, and every write fails.
 
-```bash
-relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project ORDER BY person, project"
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","friend"],"notifications":[],"rows":[{"friend":"Bo","person":"Ada"},{"friend":"Cy","person":"Bo"},{"friend":"Dot","person":"Cy"},{"friend":"Ada","person":"Dot"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"}],"truncated":false}
 ```
 
-Four friendships, a ring of four, and Eli outside it.
+Three `WORKS_ON` relationships, and none of them is Noor's.
 
 ### Plan the write with EXPLAIN
 
 `EXPLAIN` plans a statement without running it, so it works on a read-only open even for a write. The values go in as `$parameters`, bound with `--param`:
 
-```bash
-relate --database ./friends.rl --read-only --mode table --param name=Eli --param friend=Ada 'EXPLAIN MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend'
+```bash verify
+relate --database ./team.rl --read-only --mode table --param name=Noor --param project=opencypher-tck 'EXPLAIN MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project'
 ```
 
 ```text
-Query: MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend
+Query: MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project
 Plan:
-+------------------+----+------------------------+-----------------------------------------+
-| Operator         | Id | Details                | Warnings                                |
-+------------------+----+------------------------+-----------------------------------------+
-| + ProduceResults | 0  | 2 item(s)              | -                                       |
-+------------------+----+------------------------+-----------------------------------------+
-| | + SetProperty  | 1  | 1 item(s)              | -                                       |
-+------------------+----+------------------------+-----------------------------------------+
-| | | + Merge      | 2  | (p)-[k:KNOWS]->(f)     | -                                       |
-+------------------+----+------------------------+-----------------------------------------+
-| | | | + Expand   | 3  | (p:Person), (f:Person) | the MATCH patterns share no join anchor |
-+------------------+----+------------------------+-----------------------------------------+
++------------------+----+-------------------------+-----------------------------------------+
+| Operator         | Id | Details                 | Warnings                                |
++------------------+----+-------------------------+-----------------------------------------+
+| + ProduceResults | 0  | 2 item(s)               | -                                       |
++------------------+----+-------------------------+-----------------------------------------+
+| | + SetProperty  | 1  | 1 item(s)               | -                                       |
++------------------+----+-------------------------+-----------------------------------------+
+| | | + Merge      | 2  | (p)-[w:WORKS_ON]->(j)   | -                                       |
++------------------+----+-------------------------+-----------------------------------------+
+| | | | + Expand   | 3  | (j:Project), (p:Person) | the MATCH patterns share no join anchor |
++------------------+----+-------------------------+-----------------------------------------+
 Warnings: Id 3: the MATCH patterns share no join anchor
 Notifications:
+Id 3: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Project without a range index on (:Project {name}) Remedy: CREATE INDEX relate_Project__name FOR (n:Project) ON (n.name)
 Id 3: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Person without a range index on (:Person {name}) Remedy: CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)
 ```
 
-Notice the notification: it names the index that would make the lookup cheaper, with the statement to create it. Five people don't need one. This step uses `--mode table` because a plan reads better as a table; the envelope carries the same plan as JSON.
+Notice the notifications: each names the index that would make a lookup cheaper, with the statement to create it. Five nodes don't need one. This step uses `--mode table` because a plan reads better as a table; the envelope carries the same plan as JSON.
 
 ### Turn on safe mode
 
 `--safe` refuses statement shapes agents commonly get wrong, such as a read with no `LIMIT`:
 
-```bash
-relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name"
+```bash verify
+relate --database ./team.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name"
 ```
 
 The message goes to stderr, the error object to stdout:
@@ -204,73 +215,73 @@ syntax error: SafeModeViolation: This statement is not allowed in safe mode: an 
 
 With a `LIMIT`, the same read goes through:
 
-```bash
-relate --database ./friends.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3"
+```bash verify
+relate --database ./team.rl --read-only --safe --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3"
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Bo"},{"name":"Cy"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
 ```
 
 ### Try the write on a throwaway copy
 
 `--load` with a new `--database` path copies the store there and opens the copy for writing. The original stays as it was:
 
-```bash
-relate --load ./friends.rl --database ./rehearsal.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
+```bash verify
+relate --load ./team.rl --database ./rehearsal.rl --mode envelope --param name=Noor --param project=opencypher-tck 'MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project, w.since AS since'
 ```
 
 ```text
---load ./friends.rl: loaded into ./rehearsal.rl
-{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","friend","since"],"notifications":[],"rows":[{"friend":"Ada","person":"Eli","since":2026}],"truncated":false}
+--load ./team.rl: loaded into ./rehearsal.rl
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"truncated":false}
 ```
 
-The copy has the new friendship. The original still has none for Eli:
+The copy has the new relationship. The original still has none for Noor:
 
-```bash
-relate --database ./friends.rl --read-only --mode envelope "MATCH (:Person {name: 'Eli'})-[k:KNOWS]->() RETURN count(k) AS friendships"
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (:Person {name: 'Noor'})-[w:WORKS_ON]->() RETURN count(w) AS projects"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["friendships"],"notifications":[],"rows":[{"friendships":0}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":0}],"truncated":false}
 ```
 
 The rehearsal did what we wanted, so the copy can go:
 
-```bash
+```bash verify
 rm ./rehearsal.rl
 ```
 
 ## Run it for real
 
-Now the same statement, on `friends.rl`, without `--read-only`. This writes one `KNOWS` relationship from Eli to Ada:
+Now the same statement, on `team.rl`, without `--read-only`. This writes one `WORKS_ON` relationship from Noor to `opencypher-tck`:
 
-```bash
-relate --database ./friends.rl --mode envelope --param name=Eli --param friend=Ada 'MATCH (p:Person {name: $name}), (f:Person {name: $friend}) MERGE (p)-[k:KNOWS]->(f) SET k.since = 2026 RETURN p.name AS person, f.name AS friend, k.since AS since'
+```bash verify
+relate --database ./team.rl --mode envelope --param name=Noor --param project=opencypher-tck 'MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project, w.since AS since'
 ```
 
 ```text
-{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","friend","since"],"notifications":[],"rows":[{"friend":"Ada","person":"Eli","since":2026}],"truncated":false}
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"truncated":false}
 ```
 
 The CLI prints no summary of what changed, so we check with a read:
 
-```bash
-relate --database ./friends.rl --read-only --mode envelope "MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN p.name AS person, f.name AS friend ORDER BY person"
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project ORDER BY person, project"
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","friend"],"notifications":[],"rows":[{"friend":"Bo","person":"Ada"},{"friend":"Cy","person":"Bo"},{"friend":"Dot","person":"Cy"},{"friend":"Ada","person":"Dot"},{"friend":"Ada","person":"Eli"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"}],"truncated":false}
 ```
 
-Five friendships. Eli is in.
+Four `WORKS_ON` relationships. Noor is on the TCK.
 
 ## Read an error and its exit code
 
 Let's make a mistake on purpose: a statement that uses `$name` without binding it.
 
-```bash
-relate --database ./friends.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
+```bash verify
+relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
 echo "exit=$?"
 ```
 
@@ -292,22 +303,22 @@ The first line is stderr; the error object is stdout. Its fields are the ones to
 
 The fix is the missing `--param`:
 
-```bash
-relate --database ./friends.rl --read-only --mode envelope --param name=Eli 'MATCH (p:Person {name: $name}) RETURN p.likes AS likes'
+```bash verify
+relate --database ./team.rl --read-only --mode envelope --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["likes"],"notifications":[],"rows":[{"likes":"puzzles"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["role"],"notifications":[],"rows":[{"role":"maintainer"}],"truncated":false}
 ```
 
-Eli likes puzzles.
+Noor is a maintainer.
 
 ## Open the MCP surface read-only
 
 The last step serves the store to an agent harness over MCP, on stdio, read-only. For Claude Code:
 
 ```bash
-claude mcp add relate -- relate serve --mcp stdio --database ./friends.rl --read-only
+claude mcp add relate -- relate serve --mcp stdio --database ./team.rl --read-only
 ```
 
 To allow writes, remove `--read-only`.
@@ -319,7 +330,7 @@ To commit the same server to a repository, the `.mcp.json` block is:
   "mcpServers": {
     "relate": {
       "command": "relate",
-      "args": ["serve", "--mcp", "stdio", "--database", "./friends.rl", "--read-only"]
+      "args": ["serve", "--mcp", "stdio", "--database", "./team.rl", "--read-only"]
     }
   }
 }
@@ -341,10 +352,13 @@ A repository's `AGENTS.md` (or `CLAUDE.md`) is the first file an agent harness r
 
 ## What you built
 
-You have a pinned, verified relate with its skill installed, and a graph in one file, `friends.rl`, that was rehearsed on before it was changed. You've read an error by its fields and its exit code, and the same store is one MCP command away from your agent, read-only. Five friends, one new friendship, and no surprises.
+You have a pinned, verified relate with its skill installed, and a graph in one file, `team.rl`, that was rehearsed on before it was changed. You've read an error by its fields and its exit code, and the same store is one MCP command away from your agent, read-only. Three people, two projects, one new `WORKS_ON`, and no surprises.
 
 ## Next
 
 - [Errors](/docs/reference/errors): every message an agent can meet, with its cause, remedy and exit code.
 - [Connect over MCP](/docs/guides/agents/connect-over-mcp): the config block for each agent host.
 - [Agent memory](/cookbook/agent-memory/): a worked example of a graph an agent writes to and recalls from.
+- [Install the agent skill](/docs/guides/agents/install-the-skill): the skill for every agent host, and keeping it in step with the binary.
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the envelope, the error object and the row cap in depth.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode and rehearsal as standing practice.

@@ -1,0 +1,19 @@
+---
+id: preview-feature
+term: "preview feature"
+short: "A Cypher feature from a not-yet-settled proposal that relate ships switched off; it runs only when `RELATE_PREVIEW` names it when the store opens."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["cypher-25", "ontology", "search"]
+---
+
+A preview feature is syntax, a function name or a procedure family from a Cypher Improvement Proposal (CIP) whose shape can still change. relate implements several and keeps each off by default, so a statement that runs today keeps its meaning when the proposal settles.
+
+`RELATE_PREVIEW` takes a comma-separated list of names and is read once, when the store opens, from the environment of the process that opens it. An unknown name stops the open with exit code 1 and lists every known name, so a typo never passes silently. While a feature is off, most fail with a message that names the opt-in; a name gate fails as an unknown function instead.
+
+```text
+semantic error: SemanticError: preview feature 'local-callables' is not enabled: set RELATE_PREVIEW=local-callables
+```
+
+The WebAssembly build has no process environment, so the cells on this site run without previews.

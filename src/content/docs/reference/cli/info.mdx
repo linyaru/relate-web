@@ -1,0 +1,195 @@
+---
+title: relate info
+description: The relate info command that reads a store's metadata without opening it, with every field of its table and its --json object, its flags and exit codes.
+order: 80
+surfaces: [cli]
+related: [reference/cli/flags#relate-info, reference/storage/formats, reference/storage/wal-and-checkpoints, reference/cli/clone, guides/storage/backup-and-restore]
+---
+
+`relate info --database PATH` prints a :term[store]{id=store}'s metadata and exits, without opening the store: no lock, no write-ahead log (WAL) replay, no graph load. It reports the layout, the :term[codec]{id=codec} and its format version, the last :term[checkpoint]{id=checkpoint}, the size on disk, the WAL segments written since that checkpoint, the node and relationship counts at that checkpoint, and the index and :term[constraint]{id=constraint} catalog. The output is a key/value table, or one JSON object with `--json`. Because nothing is opened, `info` runs beside a process that has the store open.
+
+## Synopsis
+
+```text
+relate info --database PATH [--json]
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `--database PATH` | The store: a directory store or a path ending in `.rl`. Required; short form `-d`. `:memory:` and an empty path are refused |
+| `--json` | One JSON object on stdout instead of the table. Optional; at most once |
+
+## Options
+
+<Flags command="info" />
+
+No environment variable changes what `info` prints. A query-run flag after `info`, such as `--read-only`, exits 2 with `Error: unexpected argument to info: <flag>`.
+
+## Fields
+
+The counts are the checkpoint's, not the live graph's: commits since the last checkpoint sit in the WAL, which `info` does not replay. `wal segments past checkpoint` says how many WAL segments may hold them.
+
+| Table key | JSON key | Value |
+| --- | --- | --- |
+| `layout` | `layout` | `native directory` (`"native_dir"`) for a directory store, `.rl bundle` (`"bundle"`) for a single-file store |
+| `superblock version` | `superblock_version` | The `.rl` file's container version; a table line only for a `.rl` file, `null` for a directory store |
+| `codec` | `codec` | `parquet`, `json` or `markdown` |
+| `format version` | `format_version` | The snapshot format version |
+| `checkpoint LSN` | `checkpoint_lsn` | The log sequence number (LSN) of the last checkpoint |
+| `commit timestamp` | `commit_ts` | The commit timestamp of that checkpoint |
+| `total bytes` | `total_bytes` | The store's size on disk in bytes, WAL included |
+| `wal segments past checkpoint` | `wal_segments` | WAL segment files written since the checkpoint; each may hold newer commits |
+| `nodes (at checkpoint LSN <n>)` | `node_count` | Nodes at the checkpoint |
+| `relationships (at checkpoint LSN <n>)` | `rel_count` | Relationships at the checkpoint |
+| `indexes` | `indexes` | The count, then one line per index, `<name>: :<Label>(<property>)`. JSON: an array of `{name, label, property}` |
+| `constraints` | `constraints` | The count, then one line per constraint, `<name>: <kind> node\|relationship :<Label>(<properties>)`, with `:: <TYPE>` for a property type constraint. JSON: an array of `{name, kind, label, relationship, properties, property_type, enforced_label}`; `relationship` is a boolean, and a field that does not apply is `null` |
+
+JSON keys are sorted alphabetically. Three states leave fields empty:
+
+| State | Table | JSON |
+| --- | --- | --- |
+| A `json` or `markdown` codec store | `format version`, `nodes`, `relationships`, `indexes` and `constraints` print `unavailable`, after a `note:` line | Those five keys are `null` |
+| A new store before its first checkpoint | `snapshot: none yet (no checkpoint since creation)` in place of every checkpoint field | Every field but `layout`, `superblock_version`, `total_bytes` and `wal_segments` is `null` |
+| A directory store | No `superblock version` line | `superblock_version` is `null` |
+
+A `json`-codec store keeps its counts and catalog in `graph.json`, which `info` does not parse, so it reports only what the manifest holds. A store that a writer has created but not yet checkpointed printed this in a run:
+
+```text
+layout: native directory
+snapshot: none yet (no checkpoint since creation)
+total bytes: 55
+wal segments past checkpoint: 1
+```
+
+## Errors and exit codes
+
+| Exit code | When | Message on stderr |
+| --- | --- | --- |
+| [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | The metadata printed | None |
+| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | The store could not be read: a missing path, or a corrupt or unreadable manifest | `Failed to read store info: <detail>`, such as `storage error: database not found: <path>` |
+| [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | No `--database` | `Error: info requires --database` |
+| 2 | `--database :memory:` or an empty path | `Error: info cannot use :memory: or an empty --database path (info reads an on-disk store)` |
+| 2 | `--json` twice | `Error: info --json may be given only once` |
+| 2 | An extra argument or an unknown flag | `Error: unexpected argument to info: <argument>` |
+| 2 | `--read-only` before `info` | `Error: info cannot be combined with a query or an access flag (--read-only)` |
+
+Each exit 2 also prints the usage line and `Run 'relate info --help' for more information.` No failure prints an :term[error object]{id=error-object}.
+
+## Examples
+
+These examples run in a new, empty directory. This first command writes: it creates the directory store `./team` with three people, two projects, and five relationships. The process checkpoints the store as it exits:
+
+```bash verify
+relate --database ./team "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+The table for a directory store:
+
+```bash verify
+relate info --database ./team
+```
+
+```text
+layout: native directory
+codec: parquet
+format version: 3
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 3498
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 1): 5
+relationships (at checkpoint LSN 1): 5
+indexes: 0
+constraints: 0
+```
+
+A `.rl` file with an index and two constraints. These four commands write: they create `catalog.rl` and add the schema, each commit checkpointed as its process exits:
+
+```bash verify
+relate --database ./catalog.rl "CREATE (:Person {name: 'Ada'})-[:WORKS_ON {since: 2024}]->(:Project {name: 'relate'})"
+relate --database ./catalog.rl "CREATE INDEX person_name FOR (p:Person) ON (p.name)"
+relate --database ./catalog.rl "CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS NOT NULL"
+relate --database ./catalog.rl "CREATE CONSTRAINT works_since FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS :: INTEGER"
+```
+
+```bash verify
+relate info --database ./catalog.rl
+```
+
+```text
+layout: .rl bundle
+superblock version: 1
+codec: parquet
+format version: 3
+checkpoint LSN: 4
+commit timestamp: 4
+total bytes: 45056
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 4): 2
+relationships (at checkpoint LSN 4): 1
+indexes: 1
+  person_name: :Person(name)
+constraints: 2
+  project_name: exists node :Project(name)
+  works_since: propertyType relationship :WORKS_ON(since) :: INTEGER
+```
+
+The same store as JSON, one line:
+
+```bash verify
+relate info --database ./catalog.rl --json
+```
+
+```text
+{"checkpoint_lsn":4,"codec":"parquet","commit_ts":4,"constraints":[{"enforced_label":null,"kind":"exists","label":"Project","name":"project_name","properties":["name"],"property_type":null,"relationship":false},{"enforced_label":null,"kind":"propertyType","label":"WORKS_ON","name":"works_since","properties":["since"],"property_type":"INTEGER","relationship":true}],"format_version":3,"indexes":[{"label":"Person","name":"person_name","property":"name"}],"layout":"bundle","node_count":2,"rel_count":1,"superblock_version":1,"total_bytes":45056,"wal_segments":1}
+```
+
+A `json`-codec copy of `./team`, made with `relate clone`, reports what its manifest holds:
+
+```bash verify
+relate clone --to-snapshot-format json ./team ./team-json
+relate info --database ./team-json
+```
+
+```text
+layout: native directory
+codec: json
+format version: unavailable
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 1327
+wal segments past checkpoint: 1
+note: a JSON-codec store keeps the format version, counts and the index/constraint catalog in graph.json, which a cold info read never parses (ADR-0165)
+nodes: unavailable
+relationships: unavailable
+indexes: unavailable
+constraints: unavailable
+```
+
+A path with no store:
+
+```bash verify
+relate info --database ./missing
+echo "exit=$?"
+```
+
+```text
+Failed to read store info: storage error: database not found: ./missing
+exit=1
+```
+
+## See also
+
+- [Storage formats](/docs/reference/storage/formats): what the layout and codec fields name
+- [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints): the checkpoint LSN and the WAL segments `info` counts
+- [relate clone](/docs/reference/cli/clone): the copy whose layout and codec `info` confirms
+- [CLI flags](/docs/reference/cli/flags#relate-info): the info flags beside every other command's

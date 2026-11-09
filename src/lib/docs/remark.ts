@@ -7,6 +7,7 @@ import type { VFile } from 'vfile';
 
 import { DOCS_DIR, glossary, publishedIds } from './content.ts';
 import { renderConstructs, type ToMarkdown } from './constructs.ts';
+import { renderToggletips } from './glossary-toggletip.ts';
 import { highlighter } from './highlight.ts';
 
 export interface RemarkDocsOptions {
@@ -18,13 +19,16 @@ export function remarkDocs(options: RemarkDocsOptions) {
   return async (tree: Root, file: VFile) => {
     const path = file.path ?? '';
     if (!path.startsWith(DOCS_DIR)) return;
+    const terms = glossary();
     renderConstructs(tree, 'html', {
       file: path,
       source: String(file.value),
       links: { pages: publishedIds() },
-      glossary: glossary(),
+      glossary: terms,
       components: options.components,
       highlight: await highlighter(),
     });
+    // The glossary: the first use of each term becomes its toggletip (glossary-toggletip.ts, ADR-0009).
+    renderToggletips(tree, terms);
   };
 }

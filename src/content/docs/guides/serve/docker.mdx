@@ -1,0 +1,162 @@
+---
+title: Run relate serve in a container
+label: Docker
+description: Build the server image from the Dockerfile in relate's source, keep the store on a volume, publish the Bolt, HTTP and MCP ports, and serve read-only.
+order: 40
+surfaces: [docker, bolt, http, mcp]
+prerequisites: [get-started/install]
+related: [guides/serve/auth-and-tls, reference/cli/serve, guides/serve/http-query-api, guides/serve/bolt, guides/serve/mcp, reference/privacy-and-telemetry]
+---
+
+This guide shows you how to run `relate serve` in a container, with the Dockerfile that ships in the relate source repository. One container serves :term[Bolt]{id=bolt} on port 7687, the :term[HTTP Query API]{id=http-query-api} on 7474 and :term[MCP]{id=mcp} over HTTP on 7475, from one :term[store]{id=store} kept on a volume, with one credential for all three. No prebuilt image is published: you build it from a checkout of the source. For this page, the `relate serve` commands the image runs and the endpoints it answers on were checked against the relate 0.16.1 binary on the host, and the Compose file was parsed by Docker Compose 5.6.1. The image itself was not built or run.
+
+## Prerequisites
+
+- Docker Engine 23.0 or later, where BuildKit is the default builder. This page parsed its Compose file with Docker Compose 5.6.1 on Docker 29.9.2.
+- A checkout of the relate source repository, `github.com/relatedb/relate`, at the release you want to serve. The repository is private until launch.
+- relate on your `PATH` for the last check, optional ([Install relate](/docs/get-started/install)).
+
+## Build the image
+
+From the root of the checkout:
+
+```bash
+docker build -t relate-bolt:0.16.1 .
+```
+
+The Dockerfile compiles `relate` in a Rust build stage and copies the static binaries into an image built `FROM scratch`. The repository's `make docker` runs the same build and tags it `relate-bolt:<version>` and `relate-bolt:latest`. What the image holds:
+
+| Item | Value |
+| --- | --- |
+| Base | `scratch`: no shell, no package manager, no HTTP client |
+| Binaries | `/bin/relate` and `/bin/entrypoint`, the process that starts `relate serve` |
+| User | UID and GID `1000` |
+| Volume | `/data`; the default store is the directory store `/data/graph` |
+| Ports | `7687` (Bolt), `7474` (HTTP Query API), `7475` (MCP over HTTP) |
+| Effective arguments | `--host 0.0.0.0 --database /data/graph --bolt 7687` (the image's `CMD`); the entrypoint appends `--http 7474 --mcp 7475` when they are not given |
+
+Arguments after the image name go to `relate serve` in place of the defaults, and the entrypoint adds back any of `--host`, `--database`, `--bolt`, `--http` and `--mcp` they leave out. So `docker run relate-bolt:0.16.1 --read-only` serves the default store read-only on all three ports.
+
+## Create the store on a volume
+
+The first run creates the store and serves it writable. This command writes to the volume `relate-data`: `RELATE_QUERY` is a statement the entrypoint runs once, when the store does not exist yet, before the server starts.
+
+```bash
+docker run -d --name relate-seed \
+  -p 127.0.0.1:7687:7687 -p 127.0.0.1:7474:7474 -p 127.0.0.1:7475:7475 \
+  -v relate-data:/data \
+  -e DO_NOT_TRACK=1 \
+  -e RELATE_AUTH \
+  -e RELATE_QUERY="UNWIND ['Ada', 'Grace', 'Noor'] AS name CREATE (:Person {name: name})" \
+  relate-bolt:0.16.1
+```
+
+| Setting | Why |
+| --- | --- |
+| `-p 127.0.0.1:<port>:<port>` | Inside the container the server must bind `0.0.0.0` to be reachable, and prints a plaintext warning at startup. Publishing on the host's `127.0.0.1` keeps the ports off the network |
+| `-v relate-data:/data` | A named volume starts as a copy of the image's `/data`, owned by UID 1000, so the server can write the store there. A host directory mounted instead must be writable by UID 1000 |
+| `-e DO_NOT_TRACK=1` | `relate serve` sends one usage-metrics event when it exits unless metrics are off; the statements it serves send nothing ([Privacy and telemetry](/docs/reference/privacy-and-telemetry)) |
+| `-e RELATE_AUTH` | Passes your shell's `RELATE_AUTH=<user>:<password>` to the server. Without it, the server generates a token |
+
+Without `RELATE_AUTH`, the token is in the container's log, on the line that starts `auth: generated token for user relate:`, and on the volume as `/data/graph.auth-token`, where a restart reuses it:
+
+```bash
+docker logs relate-seed 2>&1 | grep 'auth:'
+```
+
+[Authentication and TLS](/docs/guides/serve/auth-and-tls) covers the credential on each surface. Once the store holds what it should, stop and remove the writable container with `docker stop relate-seed` and `docker rm relate-seed`.
+
+## Serve the store read-only
+
+Run the image again on the same volume with `--read-only`, a :term[read-only]{id=read-only} open. The server takes no writer lease and refuses every write, on every surface:
+
+```bash
+docker run -d --name relate \
+  -p 127.0.0.1:7687:7687 -p 127.0.0.1:7474:7474 -p 127.0.0.1:7475:7475 \
+  -v relate-data:/data \
+  -e DO_NOT_TRACK=1 \
+  -e RELATE_AUTH \
+  relate-bolt:0.16.1 --read-only
+```
+
+To allow writes, remove `--read-only`. A read-only open never creates a store, so on an empty volume this container exits at once. The same flags with the host binary show the message it prints, with the path the container would name in place of `<dir>/data/graph`:
+
+```bash verify
+relate serve --database ./data/graph --read-only --http 8842
+echo "exit=$?"
+```
+
+```text
+Error: Failed to open Relate: storage error: read-only open requires an existing database at <dir>/data/graph
+exit=1
+```
+
+## Run it with `docker compose`
+
+The same read-only service as a Compose file. `RELATE_AUTH` comes from your shell or an `.env` file beside it, and Compose refuses to start without it:
+
+```yaml title="compose.yaml"
+services:
+  relate:
+    image: relate-bolt:0.16.1
+    command: ["--read-only"]
+    environment:
+      DO_NOT_TRACK: "1"
+      RELATE_AUTH: ${RELATE_AUTH:?set RELATE_AUTH to user:password}
+    ports:
+      - "127.0.0.1:7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7475:7475"
+    volumes:
+      - relate-data:/data
+    restart: unless-stopped
+
+volumes:
+  relate-data:
+    external: true
+```
+
+To allow writes, remove the `command` line. `external: true` uses the `relate-data` volume the seeding run created, instead of a new empty one, which a read-only start cannot open.
+
+## Check its health
+
+The image has no shell and no HTTP client, so a Docker `HEALTHCHECK` or a Compose `healthcheck`, which run inside the container, have nothing to run. Probe from outside instead: `GET /` on the HTTP port needs no credential and answers `200` with the discovery document while the server is up, which suits an HTTP probe from an orchestrator or a load balancer.
+
+## Verify
+
+The container was not run for this page. This check runs the command the read-only container runs, with the host binary on loopback ports: it creates a store, serves it read-only on port 8842 with Bolt on 8843, probes `GET /` without a credential, runs a read with the generated token, and stops the server.
+
+```bash verify
+relate --database ./data/graph "UNWIND ['Ada', 'Grace', 'Noor'] AS name CREATE (:Person {name: name})" > /dev/null
+relate serve --database ./data/graph --read-only --http 8842 --bolt 8843 --mcp 8844 2> serve.log &
+server=$!
+until curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8842/
+curl -s -u "$(cat data/graph.auth-token)" -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}' \
+  -w '\n' http://127.0.0.1:8842/db/neo4j/query/v2
+kill $server
+wait $server
+```
+
+```text
+200
+{"data":{"fields":["people"],"values":[[3]]},"bookmarks":[]}
+```
+
+Against the container, the same two `curl` commands go to `http://127.0.0.1:7474/`, with `-u "$RELATE_AUTH"` or the token from `docker logs`.
+
+## If it goes wrong
+
+**The container exits at once, and `docker logs` shows `Error: Failed to open Relate: storage error: read-only open requires an existing database at /data/graph`.** The volume holds no store and the container runs `--read-only`, which never creates one. Run the seeding container first, or mount the volume that holds the store.
+
+**The log shows a `WARNING` that begins `serve: WARNING: --host 0.0.0.0 exposes the PLAINTEXT`.** That is expected in a container, which must bind all interfaces. The `127.0.0.1:` prefix on each `-p` keeps the ports on the host's loopback; for traffic across a network, put a TLS-terminating proxy in front ([Authentication and TLS](/docs/guides/serve/auth-and-tls#put-tls-in-front)).
+
+**A client gets `401`, or a driver `Neo.ClientError.Security.Unauthorized`.** The client's credential is not the container's. Use the `RELATE_AUTH` value the container was started with, or the token from `docker logs`.
+
+## Related
+
+- [Authentication and TLS](/docs/guides/serve/auth-and-tls): the credential, the bind address, and TLS in front.
+- [`relate serve`](/docs/reference/cli/serve): every flag the container's arguments can carry.
+- [Serve the HTTP Query API](/docs/guides/serve/http-query-api), [Serve a store over Bolt](/docs/guides/serve/bolt) and [Serve a store over MCP](/docs/guides/serve/mcp): connecting to each port.
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what `relate serve` sends and how `DO_NOT_TRACK=1` stops it.

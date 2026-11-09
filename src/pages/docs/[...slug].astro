@@ -4,10 +4,20 @@
 // is /docs/<id>.md ([...slug].md.ts).
 import { render } from 'astro:content';
 
+import EnvVars from '../../components/docs/EnvVars.astro';
 import Errors from '../../components/docs/Errors.astro';
+import ExitCodes from '../../components/docs/ExitCodes.astro';
+import Flags from '../../components/docs/Flags.astro';
 import Install from '../../components/docs/Install.astro';
+import LanguagePicker from '../../components/docs/LanguagePicker.astro';
+import Matrix from '../../components/docs/Matrix.astro';
 import PageActions from '../../components/docs/PageActions.astro';
+import PageRuntime from '../../components/docs/PageRuntime.astro';
 import Docs from '../../layouts/Docs.astro';
+import { mb } from '../../lib/cookbook/render.ts';
+import { docsPlaygroundHref } from '../../lib/docs/constructs.ts';
+import { elementNeeds } from '../../lib/docs/elements.ts';
+import { engineDownloadBytes, hasCells } from '../../lib/docs/results.ts';
 import { resolveHref } from '../../lib/docs/links.ts';
 import { pageUrl } from '../../lib/docs/model.ts';
 import { breadcrumb, humanize, prevNext } from '../../lib/docs/nav.ts';
@@ -39,6 +49,15 @@ const prerequisites = data.prerequisites.map(ref);
 const related = data.related.map(ref);
 const editUrl = `https://github.com/relatedb/relate-web/blob/main/${page.entry.filePath}`;
 const showEdit = resolveHref(editUrl, site.links) !== null;
+// A page with runnable cells or interactive elements gets the page runtime
+// (PageRuntime, scripts/docs/runtime.ts) and the engine bar it starts from;
+// the elements share the cells' engine and database (DOCS-PLAN.md §7.2).
+// When no cell and no element on the page runs the engine (ElementSpec
+// `engine: false`), the bar is quiet: it stays out of sight, making no claim
+// about an engine, until something starts the engine.
+const cells = hasCells(page.entry.body ?? '');
+const { elements, engine: elementEngine } = elementNeeds(page.file, page.entry.body ?? '');
+const quiet = !cells && !elementEngine;
 ---
 <Docs title={data.title} description={data.description ?? ''} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl}>
   <nav class="breadcrumb" aria-label="Breadcrumb" data-pagefind-ignore>
@@ -57,6 +76,7 @@ const showEdit = resolveHref(editUrl, site.links) !== null;
       </p>
     )}
     <PageActions twinHref={page.twinUrl} verified={site.engine.verified} />
+    <LanguagePicker source={page.entry.body ?? ''} />
   </header>
   {prerequisites.length > 0 && (
     <p class="doc-prereqs">
@@ -66,8 +86,36 @@ const showEdit = resolveHref(editUrl, site.links) !== null;
       ))}
     </p>
   )}
+  {(cells || elements) && (
+    <div class="engine-bar" id="engineBar" data-verified={site.engine.verified} data-quiet={quiet ? '' : undefined} hidden data-pagefind-ignore>
+      <span class="engine-status">
+        <span class="dot"></span>
+        <span class="engine-text">
+          {cells
+            ? <>The cells on this page run in your browser. Press Run to load the engine ({mb(engineDownloadBytes())}); earlier
+              cells run first. The recorded results are from relate {site.engine.verified}.</>
+            : <>The examples on this page run in your browser; the engine ({mb(engineDownloadBytes())}) loads on first use. What
+              shows until then was recorded with relate {site.engine.verified}.</>}
+        </span>
+      </span>
+      <span class="engine-actions">
+        {cells && <button class="btn" type="button" data-action="run-all">Run all</button>}
+        <button class="btn" type="button" data-action="reset">Reset</button>
+        <button class="btn danger" type="button" data-action="stop" hidden>Stop</button>
+        {/* Engine-bar toggles of interactive elements (src/scripts/docs/elements.ts): shown once the element's module exists. */}
+        {cells && <button class="btn" type="button" data-bar-element="timing" aria-pressed="false" hidden>Show timing</button>}
+        {cells && (
+          <a class="btn" href={docsPlaygroundHref(page.id)} target="_blank" rel="noopener" title="Run every cell in the playground, then query the graph">
+            Open in playground
+            <svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
+          </a>
+        )}
+      </span>
+    </div>
+  )}
+  {(cells || elements) && <PageRuntime />}
   <div class="docs-body">
-    <Content components={{ Install, Errors }} />
+    <Content components={{ Install, Errors, ExitCodes, Flags, EnvVars, Matrix }} />
   </div>
   {related.length > 0 && (
     <section class="doc-related" data-pagefind-ignore>

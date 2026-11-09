@@ -1,0 +1,294 @@
+---
+title: Keep an agent safe
+description: Limit what an agent can change through relate with read-only opens, safe mode, backups before writes, retry rules, the LOAD CSV directory, and network egress.
+order: 30
+surfaces: [cli, mcp, agents]
+prerequisites: [get-started/install]
+related: [guides/agents/drive-relate-from-an-agent, guides/agents/connect-over-mcp, guides/storage/backup-and-restore, reference/cli/flags, reference/errors, reference/security, reference/limitations, guides/agents/run-in-a-sandbox, guides/integrations/vercel-ai-sdk, concepts/transactions-and-concurrency, concepts/agent-native, concepts/security-and-trust]
+---
+
+This guide shows you how to limit what an agent can do to your data through relate: open stores read-only, turn on :term[safe mode]{id=safe-mode}, back up before a write, check destructive statements, retry only what is retryable, and keep file and network access narrow. Each control is a flag or an environment variable on the command the agent runs, and the [permission matrix](#permission-matrix) shows which ones the CLI and the :term[MCP]{id=mcp} server honor.
+
+## Prerequisites
+
+- relate on `PATH` ([Install relate](/docs/get-started/install)).
+- A store to protect. The steps build a small one, `team.rl`.
+
+## Create the example store
+
+This writes a new single-file :term[store]{id=store} named `team.rl` that holds three people and two projects. Every later command opens it with `--read-only` unless the step says it writes:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+```
+
+```bash verify
+relate query --database ./team.rl --mode envelope < team.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+```
+
+## Open the store read-only
+
+`--read-only` opens a store :term[read-only]{id=read-only}: relate never writes it, never runs a :term[checkpoint]{id=checkpoint} on it, and never migrates it. A write fails before anything changes, with exit code 6:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "CREATE (:Person {name: 'Eve'})"
+```
+
+The first line is stderr, the second is stdout:
+
+```text
+semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.","retryable":false}}
+```
+
+| Store | With `--read-only` |
+| --- | --- |
+| Directory | Opens beside a running writer; `--read-only=live` follows the writer's commits |
+| `.rl` file | Opens only while no writer holds it |
+| `:memory:` | Rejects writes and creates nothing |
+
+The MCP server takes the same flag. Opened read-only, it lists `read_cypher` and `get_schema` and leaves out `write_cypher`:
+
+```bash
+relate serve --mcp stdio --database ./team.rl --read-only
+```
+
+To allow writes, remove `--read-only`. `read_cypher` refuses writes and schema changes either way, with `Only MATCH queries are allowed for read-query`.
+
+A client handle takes the same guard: [Use relate with the Vercel AI SDK](/docs/guides/integrations/vercel-ai-sdk) opens the store with `{ readOnly: true }` behind an agent tool and plans each statement with `EXPLAIN` before it runs.
+
+## Turn on safe mode
+
+`--safe` refuses statement shapes that agents commonly get wrong, before anything runs, as `SafeModeViolation` with exit code 6. It is off unless asked for: `--safe` or `RELATE_SAFE_MODE=1` turns it on, and `--no-safe` or `RELATE_SAFE_MODE=0` turns it off. `relate serve --safe` applies it to every statement the server runs.
+
+| Safe mode refuses | It allows | Fix |
+| --- | --- | --- |
+| `CREATE` or `MERGE` of a new named node without a label | Anonymous `()` endpoints of a relationship, and nodes bound earlier in the statement | Give the node a label: `CREATE (n:Person)` |
+| A `MATCH` read whose final `RETURN` or `WITH` has no `LIMIT` and no reducing aggregate; `collect()` does not count, because it keeps every row | A `RETURN` of constants only, `SHOW` and `CALL`-only statements, and `MATCH … SET` or `MATCH … DELETE` writes | Add `LIMIT <n>`, or return only reducing aggregates, such as `count(*)`, with no grouping key |
+| A remote `--load` source, with exit code 2, before any network request | A local `--load` source, and `--fetch-params` | Download the file, check its SHA-256, and load the local copy |
+
+A new named node without a label, on an in-memory store that nothing keeps:
+
+```bash verify
+relate --safe --mode envelope "CREATE (n {name: 'Eve'}) RETURN n.name AS name"
+```
+
+```text
+syntax error: SafeModeViolation: This statement is not allowed in safe mode: CREATE or MERGE of a new node `n` without a label. Safe mode refuses shapes an agent commonly gets wrong — give the node a label, e.g. `CREATE (n:Person)`, so the write is self-describing. This is a policy, not a database limit; reopen without --safe to allow it.
+{"error":{"code":"validation_error","exit_code":6,"kind":"syntax","message":"syntax error: SafeModeViolation: This statement is not allowed in safe mode: CREATE or MERGE of a new node `n` without a label. Safe mode refuses shapes an agent commonly gets wrong — give the node a label, e.g. `CREATE (n:Person)`, so the write is self-describing. This is a policy, not a database limit; reopen without --safe to allow it.","retryable":false}}
+```
+
+A `collect()` with no `LIMIT`:
+
+```bash verify
+relate --database ./team.rl --read-only --safe --mode envelope 'MATCH (p:Person) RETURN collect(p.name) AS names'
+```
+
+```text
+syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>` (collect() buffers every row, so it does not count as a bound even beside count() or another reducing aggregate; use count() for a bounded total). This is a policy, not a database limit; reopen without --safe to allow it.
+{"error":{"code":"validation_error","exit_code":6,"kind":"syntax","message":"syntax error: SafeModeViolation: This statement is not allowed in safe mode: an unbounded read (`MATCH … RETURN` or `MATCH … WITH` without `LIMIT`). Safe mode refuses shapes an agent commonly gets wrong — add `LIMIT <n>` (collect() buffers every row, so it does not count as a bound even beside count() or another reducing aggregate; use count() for a bounded total). This is a policy, not a database limit; reopen without --safe to allow it.","retryable":false}}
+```
+
+Safe mode judges the shape of a statement, not its effect. It cannot see the store's size, so it refuses an unbounded read of a small store too, and a labeled `MATCH (p:Person) DETACH DELETE p` passes it. A grouping aggregate such as `RETURN p.name, count(*)` is still unbounded and is refused. A `CALL { … }` subquery is checked on its own, so a `MATCH … RETURN` inside one needs its own `LIMIT`. For an agent that only reads, `--read-only` is the fence and `--safe` keeps its reads bounded.
+
+## Back up before a write
+
+`relate clone` copies a store to a new path and exits. It opens the source read-only, and the destination must not exist yet. A clone before an agent writes turns a mistake into a file copy:
+
+```bash verify
+relate clone ./team.rl ./team-backup.rl
+```
+
+`relate clone` prints nothing when it succeeds. The copy holds all five nodes:
+
+```bash verify
+relate --database ./team-backup.rl --read-only --mode envelope 'MATCH (n) RETURN count(n) AS nodes'
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+```
+
+A directory store can be cloned while its writer runs. A `.rl` source fails with `Failed to clone database: storage locked: <path>` (exit code 1) while a writer holds it. To rehearse a write instead of backing up, `--load ./team.rl --database ./rehearsal.rl` copies the store and opens the copy for writing, as the [agent quickstart](/docs/get-started/agent-quickstart#try-the-write-on-a-throwaway-copy) shows.
+
+Inside one session, `.begin` and `.rollback` undo a destructive statement after its effect has been checked. This script opens `team.rl` for writing, deletes a project, counts, and rolls the delete back:
+
+```bash verify
+relate query --database ./team.rl --mode envelope <<'EOF'
+.begin
+MATCH (p:Project {name: 'opencypher-tck'}) DETACH DELETE p;
+MATCH (p:Project) RETURN count(p) AS projects;
+.rollback
+MATCH (p:Project) RETURN count(p) AS projects;
+EOF
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":2}],"truncated":false}
+```
+
+Inside the transaction one project is left; after the rollback, both are back.
+
+## Check destructive statements before they run
+
+The CLI prints no summary of what a write changed, so a read afterwards is the check. Two cases need care:
+
+- `DROP INDEX` and `DROP CONSTRAINT` print nothing when they succeed. `SHOW INDEXES` and `SHOW CONSTRAINTS` list what exists before anything is dropped.
+- A write that changed nothing exits 0 and prints a note on stderr. A `MATCH` that finds no rows skips the rest of its statement, so the `SET` never runs.
+
+This statement opens `team.rl` for writing but matches nobody:
+
+```bash verify
+relate --database ./team.rl --mode envelope "MATCH (p:Person {name: 'Zed'}) SET p.role = 'maintainer'"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+note: write statement changed nothing; the graph is unchanged
+```
+
+The prefix to match on stderr is `note: write statement`; a transaction that persisted nothing prints `note: .commit changed nothing; the transaction applied no changes`.
+
+## Retry only retryable errors
+
+The error object's `retryable` is `true` for a write-write conflict (exit 5) and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared pool (exit 1, kind `resource`; reachable when statements run concurrently, as under `relate serve`). A one-shot CLI run meets only the first. Every other error repeats when the same statement runs again:
+
+| Error | Exit code | `retryable` | Remedy |
+| --- | --- | --- | --- |
+| Write-write conflict, kind `conflict` | 5 | `true` | Run the statement again in a fresh transaction |
+| `resource limit exceeded: concurrent-logical-workspace-limit limit=<bytes>`, kind `resource`, while other statements hold the pool | 1 | `true` | Run it again once other statements finish, or raise `--concurrent-logical-workspace-limit` |
+| `storage locked: <path>`, kind `locked` | 5 | `false` | Wait for the other process to exit; a directory store can also be opened `--read-only` beside its writer, a `.rl` store cannot |
+| `Error: query timed out after <duration>` | 7 | `false` | Bound the statement with `LIMIT` or a narrower pattern, or raise `--timeout` |
+| Any rejected statement: syntax, parameter, type, safe mode, read-only | 6 | `false` | Fix the statement |
+| A runtime failure: missing store, I/O, capacity, `LOAD CSV` | 1 | `false` | Read `message` and fix the cause |
+
+[Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent#branch-on-the-exit-code-and-the-error-object) shows the whole error object.
+
+## Keep LOAD CSV inside one directory
+
+`LOAD CSV` reads no local file by default. `--load-csv-dir <dir>`, or `RELATE_LOAD_CSV_DIR` when the flag is absent, allows regular files under that one directory, up to 8 MiB (8,388,608 bytes) each. A path outside it, a symlink that escapes it, a special file, and a URL all fail the same way: the exit code is 1, and the message names no path. The first command writes a CSV file under `imports/`:
+
+```bash verify
+mkdir -p imports
+printf 'name,role\nOla,engineer\n' > imports/people.csv
+```
+
+```bash verify
+relate --mode envelope "LOAD CSV WITH HEADERS FROM 'people.csv' AS row RETURN row.name AS name"
+```
+
+```text
+LOAD CSV file unavailable
+{"error":{"code":"fatal_error","exit_code":1,"kind":"execution","message":"LOAD CSV file unavailable","retryable":false}}
+```
+
+With the directory named, the same statement reads the file:
+
+```bash verify
+relate --load-csv-dir ./imports --mode envelope "LOAD CSV WITH HEADERS FROM 'people.csv' AS row RETURN row.name AS name"
+```
+
+```text
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ola"}],"truncated":false}
+```
+
+`relate serve` has no `--load-csv-dir` flag: `RELATE_LOAD_CSV_DIR` in the server's environment is its only switch. Over MCP, `read_cypher` refuses `LOAD CSV`, and `write_cypher` runs it when the directory is set and the store is writable.
+
+## Control network egress
+
+These commands and flags reach the network, and each one is visible on the command line an agent runs:
+
+| Command or flag | Reaches | Limits | Checks |
+| --- | --- | --- | --- |
+| `--load https://…/<name>.rl` | Any `https://` host; plain `http://` only for a loopback host | 1 GiB and 300 seconds; the downloaded copy is deleted after the load | No signature and no host allowlist; `--safe` refuses it |
+| `--fetch-params <name>=<url>` | Any `http://` or `https://` URL | 64 MiB and 60 seconds | No allowlist; `--safe` does not refuse it |
+| `relate upgrade` | `releases.json` on relatedb.ai, then the release's files on GitHub | — | The checksum list's signature against the key pinned in the binary, then the binary's checksum; any failure stops it before the binary changes |
+| `relate extension install` | The signed first-party channel, a GitHub release, or the `--url` given | — | Per trust tier; see the [permission matrix](#permission-matrix) |
+| `relate pull`, `relate push` | The Neo4j or Aura server named on the command line | — | — |
+| Usage metrics | Mixpanel, with anonymous usage events | — | `DO_NOT_TRACK=1` turns them off ([Privacy and telemetry](/docs/reference/privacy-and-telemetry)) |
+
+For a store published at a URL, the checked path is to download it, compare its SHA-256 with the published value, and load the local copy. A `--load` into the default in-memory store is read-only. In this block `<sha256>` is the published value, and `relate` runs only when it matches; `--strict` also fails a malformed checksum line. Where `sha256sum` is missing, `shasum -a 256 --strict -c -` stands in for it:
+
+```bash
+curl -sSfL -o graph.rl https://<host>/<path>/graph.rl
+echo "<sha256>  graph.rl" | sha256sum --strict -c - && relate --load ./graph.rl --mode envelope 'MATCH (n) RETURN count(n) AS nodes'
+```
+
+## Permission matrix
+
+What each control does on each surface. MCP stdio is `relate serve --mcp stdio`, MCP HTTP is `relate serve --mcp <port>`, and the hosted docs MCP server serves this documentation, not a store of yours (a launch-day target). "n/a" means the control does not exist on that surface.
+
+| Control | CLI | MCP stdio | MCP HTTP | Hosted docs MCP |
+| --- | --- | --- | --- | --- |
+| `--read-only` | Off by default. Writes fail with exit code 6; a directory store opens beside its writer | Off by default. With it, `write_cypher` is not listed; `read_cypher` refuses writes and schema changes in every mode | Same as MCP stdio | Always read-only, and rate-limited |
+| `--safe` | Off by default (`RELATE_SAFE_MODE`). Refuses a new named node without a label, an unbounded `MATCH` read, and a remote `--load` | `relate serve --safe`: the same statement refusals on every tool call, and a remote `--load` refused at startup | Same as MCP stdio | n/a |
+| `LOAD CSV` policy | Denied by default. `--load-csv-dir <dir>` or `RELATE_LOAD_CSV_DIR` allows regular files under one directory, 8 MiB each; no URLs | No flag; `RELATE_LOAD_CSV_DIR` in the server's environment only. `read_cypher` refuses `LOAD CSV`; `write_cypher` runs it | Same as MCP stdio | n/a |
+| `--fetch-params` and `--load` egress | `--fetch-params`: `http` or `https` URL or file, 64 MiB, 60 seconds, no allowlist. `--load`: `https` (or loopback `http`) `.rl` URL, 1 GiB, 300 seconds | `--fetch-params` is not a `serve` flag; parameters arrive in the tool call. `relate serve --load` fetches once, at startup, under the CLI's rules | Same as MCP stdio | n/a |
+| Extension tiers | `relate extension install`: first-party (signed channel, checked against the release key), GitHub pin (`--github`: tag, commit and asset SHA-256 recorded; a moved tag is refused), third party (`--url`: `https`, or `http` to a loopback host), local (`--from <dir>`). `relate run` runs installed packages only; an uninstalled name fails without fetching anything | n/a: the server's tools are `read_cypher`, `write_cypher`, and `get_schema` | n/a | n/a |
+| `upgrade` | `relate upgrade` installs the latest release after its signature and checksum pass, on macOS and Linux; `--check` changes nothing. It reinstalls the skill for every detected agent without asking once any of them holds a relate copy; with none, it asks first (`--yes` skips the question) | n/a | n/a | n/a |
+
+The [hosted docs MCP server](/docs/reference/server/docs-mcp) page describes that server's limits.
+
+MCP over HTTP also asks for HTTP Basic authentication by default: `relate serve` generates a token, prints it at startup, and keeps it in a `<store>.auth-token` file beside the store. MCP over stdio has no authentication, because the host that starts the server is its only client.
+
+## Verify
+
+With `--read-only` and `--safe` together, a destructive statement from an agent fails and the store stays as it was:
+
+```bash verify
+relate --database ./team.rl --read-only --safe --mode envelope 'MATCH (p:Person) DETACH DELETE p'
+echo "exit=$?"
+```
+
+```text
+semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.","retryable":false}}
+exit=6
+```
+
+All three people are still there, and a bounded count passes safe mode:
+
+```bash verify
+relate --database ./team.rl --read-only --safe --mode envelope 'MATCH (p:Person) RETURN count(p) AS people'
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`semantic error: WriteOnReadOnlyAccessDatabase: …`** (exit code 6): a write reached a read-only open. When the write is intended, back up the store and run it in a separate command without `--read-only` ([errors reference](/docs/reference/errors#engine-write-on-read-only)).
+- **`syntax error: SafeModeViolation: This statement is not allowed in safe mode: …`** (exit code 6): the statement has one of the refused shapes. Add the label, the `LIMIT`, or a reducing aggregate; safe mode is a policy, so reopening without `--safe` also allows it ([errors reference](/docs/reference/errors#engine-safe-mode-violation)).
+- **`LOAD CSV file unavailable`** (exit code 1): no `--load-csv-dir` was given, or the file is outside it, a symlink escape, or a special file. Put the file under the directory and pass `--load-csv-dir <dir>` ([errors reference](/docs/reference/errors#cli-load-csv-unavailable)).
+- **`Error: --safe refuses a remote --load source — …`** (exit code 2): safe mode never loads a store from the network. Download the file, check its SHA-256, and pass the local path to `--load`.
+
+## Related
+
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the envelope, the error object, and the exit codes.
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): read-only config blocks for each agent host.
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): `relate clone` and checkpoints in depth.
+- [CLI flags](/docs/reference/cli/flags#safety): `--read-only`, `--safe`, `--load-csv-dir`, and their environment variables.
+- [Errors](/docs/reference/errors): every message with its cause, remedy, and retry advice.
+- [Security](/docs/reference/security): the release signing key and how downloads are verified.
+- [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): what to allow when the agent runs inside one.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): why only a write-write conflict is worth a retry.
+- [Limitations](/docs/reference/limitations): what relate does not do, including what safe mode does not catch.
+- [Agent-native by design](/docs/concepts/agent-native): why the CLI's defaults look the way they do for agents.

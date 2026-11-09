@@ -67,7 +67,7 @@ internal stays out.
 The site existed before this log: the Astro migration, the cookbook moving
 here from upstream, the playground being built here, the WASM copy under
 `public/`, and the brand and colour tokens were decided without ADRs. Those
-decisions are described in `CLAUDE.md`, `MAINTAINING.md`, and `LAUNCH.md`
+decisions are described in `AGENTS.md`, `MAINTAINING.md`, and `LAUNCH.md`
 and are not backfilled. Changing any of them is ADR-worthy from now on.
 
 ## Template
@@ -93,3 +93,30 @@ Copy `template.md`.
 | [0013](0013-safe-by-default-agent-surfaces.md) | Agent-facing surfaces are safe by default and docs content is data | Accepted |
 | [0014](0014-fit-and-performance-pages.md) | The docs answer "does relate fit" with a fit page and measured performance | Accepted |
 | [0015](0015-launch-scope-inverted-and-mcp-shape.md) | Launch scope inverted; five MCP tools; directives inside MDX; the seed script is the docs-graph artifact | Accepted |
+| [0016](0016-cli-facts-recorded-and-replayed.md) | CLI facts are recorded runs, replayed against a relate binary | Proposed |
+| [0017](0017-runnable-docs-cells.md) | Runnable docs cells: recorded sidecars, recorded static graph forms, and a twin-based playground hand-off | Proposed |
+| [0018](0018-generated-reference-pages-and-changelog-feed.md) | Generated reference pages, an authored changelog data file and a JSON Feed | Proposed |
+| [0019](0019-skill-publication-and-artifact-manifest.md) | The skill is published byte-identical with generated indexes and a signed artifact manifest | Proposed |
+| [0020](0020-docs-graph-schema.md) | The docs graph's launch schema, seed format and structural checks | Proposed |
+| [0021](0021-verified-samples-and-release-refresh.md) | Verified language samples, and a release refresh that opens a pull request | Proposed |
+| [0022](0022-shared-example-graph-is-the-team-graph.md) | The docs' shared example graph is the team graph | Proposed |
+| [0023](0023-docs-mcp-worker-shape.md) | The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements | Proposed |
+| [0024](0024-docs-mcp-rate-limits.md) | The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding | Proposed |
+| [0025](0025-markdown-negotiation-rules.md) | How the docs answer Accept: text/markdown and ?section= | Proposed |
+| [0026](0026-capability-catalog.md) | The capability catalog: one page's generated section and capabilities.json | Proposed |
+| [0027](0027-compiled-language-samples.md) | Verified samples in Rust, Java, Go, Swift and C | Proposed |
+| [0028](0028-embeddings-artifact-and-hybrid-search.md) | Section embeddings are a committed artifact, and the docs graph carries a vector index over them | Proposed |
+| [0029](0029-evals-harness-and-usage-data.md) | The docs evals grade stores, not prose, and the per-tool usage page is built from counted log lines | Proposed |
+| [0030](0030-glossary-bodies-checks-and-toggletip.md) | Glossary bodies, the §4.11 checks as built, and the toggletip's markup | Proposed |
+| [0031](0031-phase-2-constructs.md) | Phase 2 constructs: the agentic and deeplink directives, a sixth JSX component for the matrix, and a language picker on the tab memory | Proposed |
+| [0032](0032-task-skills-library.md) | Task skills are authored here, listed beside the CLI bundle, installed by name, and re-reviewed when a cited recipe changes | Proposed |
+| [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Proposed |
+| [0034](0034-verify-steps-start-loopback-servers.md) | A verify step may start and stop its own loopback server | Proposed |
+| [0035](0035-interactive-element-framework.md) | Interactive elements are directives with recorded static forms, found by directory and loaded lazily on the page's one engine | Proposed |
+| [0036](0036-graph-view-extras.md) | Graph view extras live in the one graph module and work on every graph view; cell words set their defaults and the static picture | Proposed |
+| [0037](0037-agent-mode-terminal.md) | The agent-mode terminal renders the engine's envelopes as the CLI prints them, on an empty read-only database, with CLI-only facts from recordings | Proposed |
+| [0038](0038-plan-viewer-and-timing-bar.md) | The plan viewer is an HTML tree whose static form is the CLI's plan table, and the timing bar shows only a live run | Proposed |
+| [0039](0039-live-schema-and-vector-explorer.md) | The live schema reuses the data-model drawing, and the vector explorer projects at record time and checks fusion against the page | Proposed |
+| [0040](0040-geospatial-explorer.md) | The geospatial explorer searches the page's own cells on a plane, with a first frame laid out at record time | Proposed |
+| [0041](0041-mcp-tryout-and-agent-trace.md) | The MCP tryout and the agent trace answer tool calls in the page by relate serve's mapping, with recorded server answers where the engine cannot speak | Proposed |
+| [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |

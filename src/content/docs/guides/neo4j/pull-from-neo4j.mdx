@@ -1,0 +1,171 @@
+---
+title: Pull a subgraph from Neo4j
+label: Pull from Neo4j
+description: Copy the nodes and relationships a Cypher query returns from Neo4j or Aura into a local relate store with relate pull, with the source's schema and value types.
+order: 10
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/cli/pull, guides/neo4j/push-to-neo4j, reference/cypher/differences-from-neo4j, guides/storage/clone-and-convert, cookbook/migration-rehearsal, concepts/problems-relate-solves#neo4j-subgraph-mirror, guides/migrate/from-neo4j]
+---
+
+This guide shows you how to copy part of a Neo4j or Aura database into a local relate store with :term[`relate pull`]{id=pull}. It runs Cypher statements against the source over Neo4j's HTTP Query API and writes what they return, with the source's constraints and indexes, into a new store. A pull needs a running Neo4j or Aura database, which the docs checks don't have, so only the refusals relate makes before it connects are replayed on this page; the rest follows the `relate pull` specification.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A Neo4j or Aura database that answers the HTTP Query API (`POST /db/<database>/query/v2`), and a user that can read the part you want.
+- A destination path for the new store: a directory, or a path ending in `.rl` for a single file. `:memory:` is refused, because the copy has to outlive the command.
+
+## Write the connection file
+
+`relate pull` reads `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` (default `neo4j`) from the env file `--from` names, in the `KEY=VALUE` format of Aura's credentials file, or from the environment without `--from`. Replace the placeholders, and make the file readable only by you:
+
+```bash verify
+cat > neo4j.env <<'EOF'
+NEO4J_URI=neo4j+s://<instance-id>.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<password>
+NEO4J_DATABASE=neo4j
+EOF
+chmod 600 neo4j.env
+```
+
+A file others can read still loads, with a warning. relate turns the URI forms Neo4j tools print into a Query API address:
+
+| `NEO4J_URI` | The Query API relate calls |
+| --- | --- |
+| `https://<host>:<port>` or `http://<host>:<port>` | That address, as given |
+| `neo4j+s://<instance-id>.databases.neo4j.io` (Aura) | `https://<instance-id>.databases.neo4j.io` |
+| `neo4j://<host>:7687` or `bolt://<host>:7687` | `http://<host>:7474` |
+| `neo4j://` or `bolt://` on any other port | Refused: pass the `http(s)` address of the Query API |
+| A URI with a user or password in it | Refused: credentials go in `NEO4J_USERNAME` and `NEO4J_PASSWORD` |
+
+Requests go to `<address>/db/<NEO4J_DATABASE>/query/v2` with HTTP Basic authentication, and relate refuses to send the password over plain `http://` to any host but the loopback interface. A Bolt URI for another machine maps to such an address:
+
+```bash verify
+NEO4J_URI=neo4j://neo4j.invalid:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD='<password>' relate pull --query "MATCH (n) RETURN n" --database ./plaintext-check
+```
+
+```text
+Error: refusing to send Basic auth credentials in the clear: Query API URL http://neo4j.invalid:7474/db/neo4j/query/v2 is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI
+```
+
+Use the `https://` address, or pass `--allow-plaintext` on a network you trust.
+
+## Select the subgraph
+
+`--query` takes the statements that pick the subgraph: inline Cypher, a `;`-separated list, a file path, or `-` for stdin. Every statement must `RETURN` graph elements, nodes, relationships or paths; relate checks this before it connects:
+
+```bash verify
+relate pull --from neo4j.env --query "MATCH (p:Person) RETURN p.name" --database ./names
+```
+
+```text
+Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: p.name
+```
+
+Return each relationship with its two endpoints, as in `RETURN p, r, x`, or return a path. `--param <name>=<value>` binds a parameter of the source statement. These statements pick who works on which project, and who maintains `relate`:
+
+```bash
+relate pull --from neo4j.env \
+  --query "MATCH (p:Person)-[r:WORKS_ON]->(x:Project) RETURN p, r, x; MATCH path = (:Person)-[:MAINTAINS]->(:Project {name: \$project}) RETURN path" \
+  --param project=relate \
+  --database ./mirror
+```
+
+The statements share one load: a node two statements return is written once, and the store is checkpointed once, at the end.
+
+## Run the pull
+
+On success, `relate pull` prints one line and exits 0; the counts depend on the source:
+
+```text
+pulled <nodes> new / <reused> reused nodes, <rels> new / <reused> reused rels (+ <c> constraints, <i> indexes; <s> schema skipped) to ./mirror
+```
+
+The destination must be empty: a pull never merges into existing data, so refresh a copy by pulling into a new path. A store that holds anything is refused before relate connects:
+
+```bash verify
+relate --database ./team --mode envelope "CREATE (:Person {name: 'Ada', role: 'engineer'})"
+relate pull --from neo4j.env --query "MATCH (p:Person) RETURN p" --database ./team
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+Error: destination database is not empty; pull writes into an empty database only (ADR-0158)
+```
+
+A failed pull leaves an empty store at the destination path, which the next pull may use.
+
+## What lands in the store
+
+The copy holds each returned node with its :term[labels]{id=label} and properties, and each relationship with its :term[type]{id=relationship-type}, endpoints and properties, as the source stores them. The source's :term[element ids]{id=element-id} are not copied: the local nodes and relationships get new ids. Everything lands in the `neo4j` namespace.
+
+Values keep their Cypher type, because relate asks the Query API for its typed JSON form:
+
+| Source type | Stored as |
+| --- | --- |
+| Scalars, temporal values, `POINT`, `UUID`, `VECTOR`, lists of them | The same type; a `TIME` or `DATETIME` keeps its offset, a `ZONED DATETIME` its named zone, a point its SRID, a vector its coordinate type |
+| `BYTE ARRAY` | Not stored: the pull fails and names the element and property |
+
+After the data, the pull copies the source's schema as `CREATE … IF NOT EXISTS` statements:
+
+| Source schema | In the copy |
+| --- | --- |
+| Uniqueness, existence, node key, relationship key and property type :term[constraints]{id=constraint} | The same constraint |
+| `RANGE`, `TEXT` and `POINT` indexes | The same index |
+| Indexes that back a constraint, `LOOKUP` indexes, indexes that are not `ONLINE` | Left out; the copy creates its own |
+| `FULLTEXT` and `VECTOR` indexes | Skipped with a warning on stderr, such as `warning: pull skipped index "<name>" (unsupported kind)`, and counted under `schema skipped` |
+
+A skipped entry never fails the pull; create those indexes in the copy with `CREATE FULLTEXT INDEX` or `CREATE VECTOR INDEX` ([Search](/docs/reference/cypher/search)).
+
+## Expect the dialect differences
+
+The copy runs Neo4j's Cypher with the exceptions [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists, each with the error relate returns and the form to write instead; there are no procedure libraries such as APOC. Run the application's statements against the copy before relying on it. `relate serve --database ./mirror --read-only --bolt <port>` puts the copy behind Bolt for Neo4j drivers and tools.
+
+## Rehearse a change on a copy
+
+To try a migration before running it on the source, clone the pulled store and run the migration on the clone, so the pull stays as it came:
+
+```bash
+relate clone ./mirror ./mirror-rehearsal
+relate query --database ./mirror-rehearsal < migration.cypher
+```
+
+The [migration rehearsal recipe](/cookbook/migration-rehearsal/) checks what a migration changed. [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j) copies a result back.
+
+## Verify
+
+Count what arrived, by label, and compare with the same count on the source. The copy opens read-only:
+
+```bash
+relate --database ./mirror --read-only --mode envelope "MATCH (n) RETURN labels(n) AS labels, count(*) AS nodes ORDER BY nodes DESC"
+```
+
+`relate info --database ./mirror` prints the node, relationship, index and constraint counts without opening the store.
+
+## If it goes wrong
+
+- **`Error: HTTP request to <url> failed: io: Connection refused (os error <n>)`** (exit code 1). Nothing listens at the Query API address. Check `NEO4J_URI`, and that the server has the Query API enabled. Against a port where nothing listens, with the operating system's error number removed:
+
+  ```bash verify
+  NEO4J_URI=http://127.0.0.1:9 NEO4J_USERNAME=neo4j NEO4J_PASSWORD='<password>' relate pull --query "MATCH (n) RETURN n" --database ./mirror 2>&1 | sed -E 's/ \(os error [0-9]+\)$//'
+  ```
+
+  ```text
+  Error: HTTP request to http://127.0.0.1:9/db/neo4j/query/v2 failed: io: Connection refused
+  ```
+
+- **`Error: NEO4J_URI bolt port <port> has no Query API mapping (7687 → 7474); use an explicit http(s) NEO4J_URI`** (exit code 1). A Bolt URI on a port other than 7687. Give the Query API's own address.
+- **`Error: NEO4J_<VAR> missing from environment`** (URI, USERNAME or PASSWORD) or **`Error: NEO4J_<VAR> missing from env file`** (exit code 1). The variable is not set, or the `--from` file lacks it. Add it to the file, or export it.
+- **`Error: destination database is not empty; …`** or **`Error: shape query RETURN must be graph elements …`** (exit code 1). Pull into a new path; return nodes, relationships, or paths ([Select the subgraph](#select-the-subgraph)).
+- **`Error: typed wire decode failed: property "<key>" on element <element id>: unsupported typed value "Base64"`** (exit code 1). A property holds a byte array, which a store can't keep. Remove or convert that property on the source, or leave those nodes out of the statements.
+- **`Error: pull cannot target :memory: (--database must persist)`** (exit code 2). Name a directory or a `.rl` path.
+
+## Related
+
+- [`relate pull`](/docs/reference/cli/pull): every flag and exit code.
+- [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j): the same connection, the other direction.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): what to expect when the copy runs Neo4j statements.
+- [Clone and convert a store](/docs/guides/storage/clone-and-convert): copies of the pulled store in any layout.
+- [Neo4j subgraph mirror](/docs/concepts/problems-relate-solves#neo4j-subgraph-mirror) in the capability catalog.

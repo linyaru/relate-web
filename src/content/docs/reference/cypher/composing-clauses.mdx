@@ -1,0 +1,255 @@
+---
+title: Composing clauses
+description: UNION, CALL subqueries with scope clauses and IN TRANSACTIONS, EXISTS, COUNT and COLLECT subqueries, USE, CALL procedure YIELD, NEXT and WHEN in relate.
+order: 60
+surfaces: [cypher]
+related: [reference/cypher/reading-clauses, reference/cypher/writing-clauses, reference/cypher/procedures, concepts/namespaces, concepts/transactions-and-concurrency, concepts/problems-relate-solves#dependency-analysis]
+---
+
+Composing clauses combine queries. `UNION` stacks the rows of two queries, a `CALL { … }` subquery runs a query once per input row, `EXISTS`, `COUNT` and `COLLECT` turn a subquery into a value, `USE` picks the :term[namespace]{id=namespace} a statement runs against, `CALL <procedure>` runs a built-in procedure, `NEXT` feeds one query's rows into the next, and `WHEN … THEN … ELSE` picks one query by condition. Every form on this page runs without a preview opt-in.
+
+## Synopsis
+
+```text
+<query> UNION [DISTINCT | ALL] <query> [UNION [DISTINCT | ALL] <query> …]
+
+[OPTIONAL] CALL [(<variable>, … | * )] { <query> }
+  [IN [<n> CONCURRENT] TRANSACTIONS [OF <n> ROWS]
+    [ON ERROR CONTINUE | BREAK | FAIL | RETRY [FOR <duration>] [THEN CONTINUE | BREAK | FAIL]]
+    [REPORT STATUS AS <variable>]]
+
+EXISTS { <pattern> [WHERE <predicate>] | <query> }
+COUNT { <pattern> [WHERE <predicate>] | <query> }
+COLLECT { <query that returns one column> }
+
+USE <namespace> <query>
+
+CALL <procedure>([<argument>, …]) [YIELD * | YIELD <column> [AS <alias>], … [WHERE <predicate>]]
+
+<query> NEXT <query> [NEXT <query> …]
+
+WHEN <predicate> THEN <query> [WHEN <predicate> THEN <query> …] [ELSE <query>]
+```
+
+## UNION
+
+| Form | Result |
+| --- | --- |
+| `UNION`, `UNION DISTINCT` | The rows of every branch, duplicates removed |
+| `UNION ALL` | The rows of every branch, duplicates kept |
+
+| Rule | Behavior |
+| --- | --- |
+| Column names | Every branch returns the same column names; the order of the columns may differ, and rows are matched by name |
+| Mixing `UNION` and `UNION ALL` in one statement | `syntax error: InvalidClauseComposition: mixing UNION and UNION ALL` |
+| Different column names | `syntax error: DifferentColumnsInUnion: all UNION branches must have the same column names` |
+| `ORDER BY`, `SKIP`, `LIMIT` after the last branch | Apply to that branch only; an `ORDER BY` after a `CALL () { … }` that wraps the union sorts every row ([example](#examples)) |
+| `USE` | Each branch may start with `USE`, naming the same namespace |
+
+## CALL subqueries
+
+A `CALL { … }` subquery runs once for each incoming row. The scope clause in parentheses names the outer variables the body can read.
+
+| Scope | Body can read | Notes |
+| --- | --- | --- |
+| `CALL (a, b) { … }` | `a` and `b` | |
+| `CALL (*) { … }` | Every variable in scope | |
+| `CALL () { … }` | No outer variable | Reading one fails with `syntax error: UndefinedVariable: variable '<name>' not defined` |
+| `CALL { WITH a … }` | The variables the leading `WITH` imports | Deprecated. `EXPLAIN` reports notification `01N00`, ``The `CALL { … }` subquery has no variable scope clause.``, with the remedy ``Add the scope clause the body imports: `CALL (n) { … }`, or `CALL () { … }` when it imports nothing.`` |
+
+| Body | Rows after the subquery |
+| --- | --- |
+| Ends in `RETURN` | One row per row the body returns, per input row; an input row for which the body returns nothing is dropped |
+| Ends in `RETURN`, under `OPTIONAL CALL` | One row per row the body returns, per input row; an input row for which the body returns nothing is kept, with the returned variables `null` |
+| No `RETURN` (a unit subquery, such as one that only writes) | The input rows, unchanged |
+
+| Rule | Behavior |
+| --- | --- |
+| A returned name that an outer variable already has | ``syntax error: VariableAlreadyBound: Variable `<name>` already declared in outer scope`` |
+| Aggregation in the body | Per input row: `CALL (p) { MATCH (p)-->(x) RETURN count(x) AS n }` counts for each `p` |
+| Nesting | A body can hold another `CALL` subquery |
+
+### CALL IN TRANSACTIONS
+
+`IN TRANSACTIONS` commits the subquery's work in batches of input rows, each batch its own :term[transaction]{id=transaction}. `ON ERROR …` and `REPORT STATUS AS …` may come in either order. Outside an explicit transaction, each batch commits on its own: a batch that committed stays committed when a later one fails. Inside an explicit transaction, the batches commit or roll back with that transaction.
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `OF <n> ROWS` | 1,000 rows | Input rows per batch |
+| `IN [<n>] CONCURRENT TRANSACTIONS` | Off | Accepted; the batches run one after another |
+| `ON ERROR FAIL` | The default | The statement fails at the first failing batch; earlier batches stay committed |
+| `ON ERROR CONTINUE` | — | Skips the failing batch and runs the rest |
+| `ON ERROR BREAK` | — | Stops at the failing batch; the statement succeeds with what committed |
+| `ON ERROR RETRY [FOR <duration>] [THEN …]` | Without `THEN`: `FAIL` | Accepted, but no batch is retried: the duration is ignored and the `THEN` fallback applies at once. Without `THEN`, the statement fails as under `ON ERROR FAIL` |
+| `REPORT STATUS AS <variable>` | Off | Binds a map per input row: `started`, `committed`, `transactionId` and `errorMessage`. Needs `ON ERROR CONTINUE`, `BREAK`, or `RETRY … THEN CONTINUE` or `THEN BREAK`; otherwise `syntax error: InvalidReportStatusUsage: REPORT STATUS requires ON ERROR CONTINUE, BREAK, or RETRY with THEN CONTINUE or THEN BREAK` |
+
+A write before `CALL { … } IN TRANSACTIONS` in the same statement fails with `syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS`, and `LOAD CSV` counts as a write ([writing clauses](/docs/reference/cypher/writing-clauses#examples)). Every input row runs the subquery once and counts against the fixed budget of 100,000 nested evaluation passes per statement ([limitations](/docs/reference/limitations)).
+
+## Subquery expressions
+
+| Form | Value | Body |
+| --- | --- | --- |
+| `EXISTS { … }` | `true` when the body has at least one row | A pattern with an optional `WHERE`, or a query with `MATCH` and `RETURN` |
+| `COUNT { … }` | The number of rows the body returns | The same as `EXISTS` |
+| `COLLECT { … }` | A list of the body's single column | A query ending in `RETURN` of exactly one column; otherwise `syntax error: parse error: A COLLECT subquery must end with a single return column` |
+
+| Rule | Behavior |
+| --- | --- |
+| Outer variables | The body reads them without a scope clause |
+| Writes in the body | `syntax error: InvalidClauseComposition: writes are not allowed in subquery expressions` |
+| `UNION` in the body | Allowed, with the same column-name rule as a top-level `UNION` |
+
+## USE
+
+A store has three fixed namespaces: `neo4j` holds the graph, `system` answers administration commands, and `system_ontologies` is listed but not queryable. A statement without `USE` runs against the session namespace, `neo4j` unless `--namespace` says otherwise ([namespaces](/docs/concepts/namespaces)).
+
+| Form | Result |
+| --- | --- |
+| `USE neo4j <query>` | Runs against the graph |
+| `USE system <query>` | Runs a procedure call or `SHOW DATABASES`; `SHOW INDEXES` and `SHOW CONSTRAINTS` fail with `syntax error: InvalidClauseComposition: NotAllowedOnSystemDatabase: SHOW INDEXES and SHOW CONSTRAINTS are per-database catalogs and are not available on the system database`, and a `MATCH` fails with `semantic error: SemanticError: The following unsupported clauses were used: MATCH.` followed by the clauses `system` supports |
+| `USE system_ontologies <query>` | `semantic error: SemanticError: This database is not queryable. Use the db.ontology.* procedures on the user database 'neo4j' instead.` |
+| `USE <other name>` | `semantic error: DatabaseNotFound: Graph not found: <name>` |
+| `USE` in two `UNION` branches naming different namespaces | `semantic error: SemanticError: Multiple graphs in the same query not allowed here. This feature is only available on composite databases. Attempted to access graph <name>` |
+| `USE graph.byName(…)` | `semantic error: SemanticError: Dynamic graph lookup not allowed here. This feature is only available on composite databases. Attempted to access graph graph.byName(<argument>)` |
+| `USE` after another clause | `syntax error: InvalidPlacementOfUseClause: USE clause must be either the first clause in a query, or preceded by an importing WITH clause` |
+| `CALL { USE neo4j … }` | Runs; `USE` may open a subquery without a scope clause |
+| `CALL () { USE neo4j … }` | `syntax error: UndefinedVariable: variable 'neo4j' not defined` |
+
+## CALL procedure
+
+| Form | Result |
+| --- | --- |
+| `CALL db.labels()` as the whole statement | Every column the procedure yields |
+| `CALL db.labels() YIELD label` | The named columns |
+| `YIELD *` | Every column |
+| `YIELD label AS l` | The column renamed |
+| `YIELD … WHERE <predicate>` | The rows that pass the predicate |
+| Inside a larger query | Runs once per input row |
+| A column the procedure does not yield | ``syntax error: UnknownProcedureOutput: <procedure> does not return `<column>` `` |
+| A name that is not a procedure | `syntax error: ProcedureNotFound: <name>` |
+
+`SHOW PROCEDURES` lists the procedures with their signatures; the [procedures](/docs/reference/cypher/procedures) page describes them.
+
+## NEXT and WHEN
+
+| Form | Result | Rule |
+| --- | --- | --- |
+| `<query> NEXT <query>` | The second query runs on the first one's returned rows, with its column names as variables | `NEXT` at the start fails: `syntax error: parse error: InvalidNextStatement: NEXT must follow a statement, not begin one` |
+| `WHEN <predicate> THEN <query> … [ELSE <query>]` | The query of the first branch whose predicate is `true`; no `true` branch and no `ELSE` gives no rows | Starts a statement, a subquery body or a query after `NEXT`. Every branch returns the same columns: `syntax error: ColumnNameConflict: conditional branches must return the same columns` |
+
+## Examples
+
+The cells run in page order on one in-memory store, starting from the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+`ORDER BY` after a `UNION` sorts the last branch only:
+
+```cypher run name=union-last-branch
+MATCH (r:Project) RETURN r.name AS name
+UNION
+MATCH (p:Person) RETURN p.name AS name ORDER BY name DESC
+```
+
+Wrapped in `CALL () { … }`, the sort covers every row:
+
+```cypher run name=union-sorted
+CALL () {
+  MATCH (r:Project) RETURN r.name AS name
+  UNION
+  MATCH (p:Person) RETURN p.name AS name
+}
+RETURN name ORDER BY name
+```
+
+A scoped subquery counts per person; Noor, with no project, gets `0` because an aggregate always returns a row:
+
+```cypher run name=call-scope
+MATCH (p:Person)
+CALL (p) {
+  MATCH (p)-[:WORKS_ON]->(r:Project)
+  RETURN count(r) AS projects
+}
+RETURN p.name AS name, projects ORDER BY name
+```
+
+Without an aggregate, Noor's row is dropped, unless the call is `OPTIONAL`:
+
+```cypher run name=optional-call
+MATCH (p:Person)
+OPTIONAL CALL (p) {
+  MATCH (p)-[:WORKS_ON]->(r:Project)
+  RETURN r.name AS project
+}
+RETURN p.name AS name, project ORDER BY name, project
+```
+
+Batches that report their status. This writes a `Row` node for each value except the one that divides by zero:
+
+```cypher run name=in-transactions
+UNWIND [1, 0, 2] AS i
+CALL (i) { CREATE (:Row {inverse: 1 / i}) } IN TRANSACTIONS OF 1 ROWS
+  ON ERROR CONTINUE
+  REPORT STATUS AS s
+RETURN i, s.committed AS committed, s.errorMessage AS error
+```
+
+The three subquery expressions on one row per person:
+
+```cypher run name=subquery-expressions
+MATCH (p:Person)
+RETURN p.name AS name,
+       EXISTS { (p)-[:KNOWS]->() } AS knowsSomeone,
+       COUNT { (p)-[:WORKS_ON]->() } AS projects,
+       COLLECT { MATCH (p)-[:WORKS_ON]->(r) RETURN r.name ORDER BY r.name } AS projectNames
+ORDER BY name
+```
+
+```cypher run name=collect-two-columns expect=error
+RETURN COLLECT { MATCH (p:Person) RETURN p.name, p.role } AS pairs
+```
+
+`USE` names the namespace; `system` refuses a `MATCH`:
+
+```cypher run name=use-neo4j
+USE neo4j MATCH (p:Person) RETURN count(p) AS people
+```
+
+```cypher run name=use-system expect=error
+USE system MATCH (n) RETURN count(n) AS n
+```
+
+A procedure call, with its column renamed and filtered:
+
+```cypher run name=procedure
+CALL db.labels() YIELD label AS l WHERE l STARTS WITH 'Pro'
+RETURN l
+```
+
+`NEXT` passes the returned columns on, and `WHEN` picks a branch per row:
+
+```cypher run name=next-when
+MATCH (p:Person) RETURN p.name AS name, p.role AS role
+NEXT
+WHEN role = 'maintainer' THEN RETURN name, 'reviews' AS duty
+ELSE RETURN name, 'builds' AS duty
+```
+
+## See also
+
+- [Reading clauses](/docs/reference/cypher/reading-clauses): `MATCH`, `WITH`, `RETURN` and the rest of a single query.
+- [Writing clauses](/docs/reference/cypher/writing-clauses): what runs inside a writing subquery.
+- [Procedures](/docs/reference/cypher/procedures): the built-in procedures `CALL` runs.
+- [Namespaces](/docs/concepts/namespaces): the three namespaces `USE` can name.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): how statements and explicit transactions commit.

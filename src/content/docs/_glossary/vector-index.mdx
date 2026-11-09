@@ -1,0 +1,21 @@
+---
+id: vector-index
+term: "vector index"
+short: "An index over a property holding embeddings that answers nearest-neighbor searches exactly, by cosine or Euclidean similarity."
+aliases: []
+context: cypher
+see: reference/cypher/search
+related: ["search", "full-text-index", "index"]
+---
+
+A vector index answers "which entities are nearest to this vector": every search scores each indexed vector against the query and keeps the top `LIMIT`, so the result is exact, with ties ordered by element id. It covers one property of one label or relationship type, and `WITH [...]` lists extra properties that a search may filter on.
+
+`OPTIONS {indexConfig: {…}}` sets `vector.dimensions`, from 1 to 4096, and `vector.similarity_function`, `'cosine'` (the default) or `'euclidean'`, and accepts the `vector.hnsw.*` keys, which `SHOW INDEXES` reports but the search does not use. A stored vector of another length than `vector.dimensions` is kept without an error and never returned by a search.
+
+```cypher
+CREATE VECTOR INDEX doc_embedding IF NOT EXISTS
+FOR (d:Doc) ON (d.embedding)
+OPTIONS {indexConfig: {`vector.dimensions`: 3, `vector.similarity_function`: 'cosine'}}
+```
+
+The :term[SEARCH clause]{id=search} queries it, and `SHOW INDEXES` lists it with the type `VECTOR`.

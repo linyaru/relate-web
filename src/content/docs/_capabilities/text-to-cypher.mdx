@@ -1,0 +1,23 @@
+---
+id: text-to-cypher
+title: Text-to-Cypher
+order: 100
+problem: "Let a model turn a question into a Cypher statement over a graph whose schema it can read, and check the statement before it runs."
+capability: "The schema as data from the `db.schema` procedures and the MCP `get_schema` tool, `EXPLAIN` to plan a statement without running it, and read-only opens that refuse writes."
+intents:
+  - text to Cypher for my graph
+  - let an LLM write Cypher queries
+  - natural language questions over a graph
+  - give the model the graph schema
+  - validate a generated Cypher query before running it
+surfaces: [cypher, mcp, cli, agents]
+guides: [guides/agents/text-to-cypher, guides/cypher/tune-a-query, guides/agents/connect-over-mcp, guides/integrations/openai-agents-sdk, guides/integrations/mastra]
+recipes: [codebase-context-graph]
+reference: [reference/cypher/differences-from-neo4j, reference/cypher/overview, reference/errors, reference/cypher/schema-clauses#schema-procedures, reference/cypher/procedures#schema-procedures, reference/cypher/explain-and-profile]
+schema: null
+verify: reference/cypher/differences-from-neo4j#schema
+---
+
+A model that writes Cypher needs three things it cannot guess: the labels, relationship types and properties of this graph, the dialect this engine accepts, and a way to find out that a statement is wrong before it changes anything. Without them it writes plausible statements for a schema it imagined, often in a dialect from its training data.
+
+relate supplies each from the engine itself. `CALL db.schema.nodeTypeProperties()` returns every label's properties and their types, and over MCP the `get_schema` tool returns the labels, properties and relationship types for the model's context. `EXPLAIN` plans a statement without running it, so a write, a procedure or a `LOAD CSV` is only planned, and the plan comes back with the planner's notifications. A store opened `--read-only` refuses any write the model produces. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists the constructs a model trained on Neo4j examples reaches for that relate does not have, with the error each produces and what to write instead.

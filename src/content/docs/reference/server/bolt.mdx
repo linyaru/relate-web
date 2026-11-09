@@ -1,0 +1,336 @@
+---
+title: Bolt server
+description: The versions, handshake, authentication, messages, summaries, type mapping, failure codes, and limits of relate's Bolt server, compared with Neo4j.
+order: 20
+surfaces: [bolt]
+related: [guides/serve/bolt, reference/cli/serve, reference/errors#bolt-errors, reference/server/http, reference/cypher/differences-from-neo4j, reference/security#served-surfaces, reference/limitations#server]
+---
+
+`relate serve --bolt PORT` speaks :term[Bolt]{id=bolt}, Neo4j's binary client protocol, at versions 4.4 and 5.4, so Neo4j's drivers, `cypher-shell`, and Neo4j Browser can run statements against a relate :term[store]{id=store}. Neo4j's Java and Python drivers and `cypher-shell` refuse the default server agent and connect only when the server runs with `--bolt-identity Neo4j/5.26.0` ([Compatibility with Neo4j](#compatibility-with-neo4j)). The same port also serves Bolt over WebSocket for browser clients. Bolt is the transport only: the statements are relate's Cypher, with the differences listed in [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j). Every reply quoted on this page was captured from relate 0.16.1 with a raw Bolt client, PackStream values shown as JSON.
+
+## Synopsis
+
+```text
+relate serve --database PATH --bolt PORT [--host HOST] [--auth USER:PASSWORD] [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N] [--read-only[=FRESHNESS]]
+```
+
+| Item | Value |
+| --- | --- |
+| Protocol versions | Bolt 4.4 and Bolt 5.4, PackStream v1 |
+| Bind | `127.0.0.1:PORT`; `--host` changes the address, with no TLS on any address |
+| URL schemes | `bolt://` and `neo4j://` (a `ROUTE` request gets a routing table naming this one server) |
+| WebSocket | Bolt over WebSocket (`ws://`) on the same port, for browser clients |
+| Server agent | `Relate/0.16.1`, or the value of `--bolt-identity` (`RELATE_IDENTITY`) |
+| Authentication | The `basic` scheme against one user and password, shared with the other `relate serve` surfaces |
+| Namespaces | `neo4j` (the home namespace), `system` and `system_ontologies`, chosen per request with `db` |
+| Flags | On [relate serve](/docs/reference/cli/serve) and in [CLI flags](/docs/reference/cli/flags#serve-bolt) |
+
+At startup the server writes where it listens to stderr, with the credential's source:
+
+```text
+auth: basic (from --auth)
+serve: Bolt listening on bolt://127.0.0.1:8852 (auth: basic)
+```
+
+## Handshake
+
+A client opens with the magic bytes `60 60 B0 17` and four version proposals of four bytes each. The server reads them in the client's order, and the first proposal that covers Bolt 4.4 or Bolt 5.4 decides the reply. A proposal `00 RR mm MM` covers version `MM.m` when `m` lies between `mm - RR` and `mm`.
+
+| Proposals, in order | Reply | Result |
+| --- | --- | --- |
+| `00 00 04 04`, then zeros | `00 00 04 04` | Bolt 4.4 |
+| `00 00 04 05`, `00 00 04 04` | `00 00 04 05` | Bolt 5.4 |
+| `00 08 08 05` (5.8 down to 5.0), `00 00 04 04` | `00 00 04 05` | Bolt 5.4: the range covers 5.4 |
+| `00 00 01 FF` (the 5.7+ manifest marker), `00 00 04 04` | `00 00 04 04` | Bolt 4.4: the manifest marker never matches |
+| `00 00 00 05` (5.0 only) | `00 00 00 00` | The connection closes |
+| `00 03 03 04` (4.3 down to 4.0) | `00 00 00 00` | The connection closes |
+
+A refused handshake writes one line to the server's stderr, such as `bolt: no version proposal covers Bolt 4.4 or Bolt 5.4 (00000005 00000000 00000000 00000000); replying 00000000 and closing connection`. The whole negotiation must finish within 5 seconds of the connection being accepted.
+
+## HELLO
+
+| | Bolt 4.4 | Bolt 5.4 |
+| --- | --- | --- |
+| Required in the `HELLO` extra | `user_agent`, a non-empty string | `user_agent`, and `bolt_agent`, a map of string keys to string values |
+| Authentication | `scheme`, `principal` and `credentials` in the `HELLO` extra | A separate `LOGON` message; auth fields in `HELLO` are ignored |
+| `patch_bolt: ["utc"]` | Echoed in the `SUCCESS`; DateTime values then use the UTC structures | Ignored; the UTC structures always apply |
+| `SUCCESS` metadata | `server`, `connection_id` (`conn-<n>`), `hints` | The same; `hints` adds `telemetry.enabled: false` |
+| Session after `SUCCESS` | Open | Waiting for `LOGON` |
+
+The `SUCCESS` of a Bolt 4.4 `HELLO` that asked for the UTC patch, and of a Bolt 5.4 `HELLO`:
+
+```text
+SUCCESS {"server": "Relate/0.16.1", "connection_id": "conn-5", "hints": {"connection.recv_timeout_seconds": 120}, "patch_bolt": ["utc"]}
+SUCCESS {"server": "Relate/0.16.1", "connection_id": "conn-2", "hints": {"connection.recv_timeout_seconds": 120, "telemetry.enabled": false}}
+```
+
+`connection.recv_timeout_seconds: 120` tells the driver that a connection silent for 120 seconds is dead; while a statement or a commit runs longer than 60 seconds, the server sends a NOOP chunk (`00 00`) every 60 seconds to keep it alive.
+
+| Refused `HELLO` | `FAILURE` code | Message |
+| --- | --- | --- |
+| No `user_agent` | `Neo.ClientError.Request.Invalid` | `Illegal value for field "user_agent": Expected value to be non-null` |
+| Bolt 5.4, no valid `bolt_agent` | `Neo.ClientError.Request.Invalid` | `Illegal value for field "bolt_agent": Must be a map with string keys and string values.` |
+
+After a refused `HELLO`, every message but `HELLO` and `GOODBYE` answers `IGNORED`; a second `HELLO` fails and closes the connection.
+
+## Authentication
+
+| Source | Credential |
+| --- | --- |
+| `--auth USER:PASSWORD` | That user and password, with the `basic` scheme |
+| `RELATE_AUTH` | The same forms, read when `--auth` is absent |
+| `--auth none` | No credential is checked; every `LOGON` succeeds, and the auth fields of a 4.4 `HELLO` are ignored |
+| Neither | A generated token for the user `relate`, printed on stderr at startup; saved as `<store>.auth-token` (mode `0600`) beside a directory or `.rl` store and reused on restart; new on every start for `:memory:` |
+
+| Failed check | `FAILURE` code | Message | Then |
+| --- | --- | --- | --- |
+| Bolt 4.4 `HELLO` with a wrong or missing credential | `Neo.ClientError.Security.Unauthorized` | `authentication failed` | The connection closes |
+| Bolt 5.4 `LOGON` with a wrong credential or another scheme | `Neo.ClientError.Security.Unauthorized` | `The client is unauthorized due to authentication failure.` | The connection closes |
+
+A failed check waits 1 second before the `FAILURE` is sent, on that connection only. The credential is the one `relate serve` shares with its `--http` and `--mcp` listeners. There are no users or roles: `CALL dbms.showCurrentUser()` reports the authenticated user, or `relate` under `--auth none`, with the role `admin`. Every surface is plaintext, so a credential sent to a non-loopback `--host` crosses the network unencrypted.
+
+## Messages
+
+| Message | Versions | Behavior |
+| --- | --- | --- |
+| `HELLO` | 4.4, 5.4 | Opens the session ([HELLO](#hello)) |
+| `LOGON` | 5.4 | Authenticates with `{scheme, principal, credentials}`; `SUCCESS {}` opens the session |
+| `LOGOFF` | 5.4 | `SUCCESS {}` and back to waiting for `LOGON`; an open transaction is left as it stands |
+| `TELEMETRY` | 5.4 | `api` 0 to 3 answers `SUCCESS {}` and nothing is recorded; another integer fails with `Neo.DatabaseError.General.UnknownError`, a value that is not an integer with `Neo.ClientError.Request.Invalid` |
+| `RUN` | 4.4, 5.4 | Runs a statement with its parameter map and extra (`db`, `bookmarks`, and at 5.4 the notification filters) and buffers the whole result |
+| `PULL` | 4.4, 5.4 | `{n, qid}`: sends up to `n` records (`-1` for all) of the result `qid` names (absent or `-1` for the latest) |
+| `DISCARD` | 4.4, 5.4 | `{n, qid}`: drops up to `n` records and answers like `PULL` |
+| `BEGIN` | 4.4, 5.4 | Opens an explicit transaction; its extra's `db` sets the namespace for the transaction |
+| `COMMIT` | 4.4, 5.4 | Commits; `SUCCESS {bookmark}`, or `{}` when the transaction wrote nothing |
+| `ROLLBACK` | 4.4, 5.4 | Discards the transaction; `SUCCESS {}` |
+| `RESET` | 4.4, 5.4 | Rolls back an open transaction, drops open results and clears the failed state; messages pipelined ahead of it that have not started answer `IGNORED` |
+| `ROUTE` | 4.4, 5.4 | `SUCCESS {rt: {servers, ttl: 300, db}}`: this one server as `WRITE`, `READ` and `ROUTE`, in that order; `db` is the requested namespace or `neo4j` |
+| `GOODBYE` | 4.4, 5.4 | Closes the connection |
+
+In auto-commit, a new `RUN` replaces the open result. Inside a transaction, each `RUN` keeps its own result, numbered by `qid` from 0, until `COMMIT`, `ROLLBACK` or `RESET`.
+
+| Request out of order | Answer |
+| --- | --- |
+| `COMMIT` or `ROLLBACK` without `BEGIN`, `BEGIN` inside a transaction, `PULL` or `DISCARD` with no open result | One `FAILURE` with `Neo.ClientError.Request.Invalid` and `Message of type <Name> cannot be handled by a session in the <STATE> state.`, then the connection closes |
+| Any message before `LOGON` at 5.4 | The same `FAILURE`, naming the `AUTHENTICATION` state |
+| A message the negotiated version does not have, or one that is not a PackStream structure | No reply; the connection closes |
+| Any request after a `FAILURE`, until `RESET` | `IGNORED` |
+
+A `COMMIT` with no transaction open:
+
+```text
+FAILURE {"code": "Neo.ClientError.Request.Invalid", "message": "Message of type CommitMessage cannot be handled by a session in the READY state."}
+```
+
+## Results and summaries
+
+| Summary | Keys |
+| --- | --- |
+| `RUN` `SUCCESS` | `fields` (the column names); `columnTypes` (one type name per column, from the first row, `ANY` for a null or no rows); `t_first` (whole milliseconds until the result was ready); `qid` inside a transaction |
+| `PULL` or `DISCARD` that leaves records | Exactly `{has_more: true}` |
+| The `SUCCESS` that ends a result | `type`, `t_first`, `t_last` (whole milliseconds spent streaming), `parsing_time`, `planning_time` and `plan_execution_time` (floats, in seconds), `db`; plus `stats` when a counter is not zero, `bookmark` after an auto-commit statement that wrote, `notifications` when the statement has any, `plan` after `EXPLAIN` and `profile` after `PROFILE` |
+
+`columnTypes` is relate's own key; drivers ignore keys they do not know. Its names are `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `UUID`, `BINARY` and `ANY`.
+
+`stats` holds Neo4j's counters, only the ones that are not zero: `nodes-created`, `nodes-deleted`, `relationships-created`, `relationships-deleted`, `properties-set`, `labels-added`, `labels-removed`, `indexes-added`, `indexes-removed`, `constraints-added`, `constraints-removed`, and `contains-updates: true`. A read carries no `stats`.
+
+| `type` | Statement |
+| --- | --- |
+| `r` | A read |
+| `w` | A write that returns no columns, such as `MATCH … DETACH DELETE` |
+| `rw` | A write that returns columns, such as `CREATE … RETURN` |
+| `s` | A schema statement: `CREATE` or `DROP` of an index or constraint |
+
+`EXPLAIN` and `PROFILE` report the type of the statement they wrap. An auto-commit write, from `RUN` to the end of its result:
+
+```text
+RUN "CREATE (n:Temp {k: $k}) RETURN n.k AS k" {"k": 1} {}
+SUCCESS {"fields": ["k"], "columnTypes": ["INTEGER"], "t_first": 2}
+PULL {"n": -1}
+RECORD [1]
+SUCCESS {"bookmark": "relate:2", "stats": {"nodes-created": 1, "properties-set": 1, "labels-added": 1, "contains-updates": true}, "type": "rw", "t_first": 2, "t_last": 0, "parsing_time": 5.0583e-05, "planning_time": 2.583e-06, "plan_execution_time": 0.00207875, "db": "neo4j"}
+```
+
+### Plans and notifications
+
+After `EXPLAIN` the ending `SUCCESS` carries the plan under `plan`, after `PROFILE` under `profile`, never on the `RUN` `SUCCESS`. An `EXPLAIN` statement returns no records. A plan node has `operatorType` (with no suffix, such as `ProduceResults`), `args` (`Id`, `Details`, `EstimatedRows` when estimated, the measured values on a `PROFILE` plan, and on the root `string-representation`, `version`, `planner`, `planner-impl`, `planner-version`, `runtime`, `runtime-impl` and `runtime-version`), `identifiers`, `children` when it has any, and `warnings` such as `{"name": "CartesianProduct"}` when it has any. A plan nested deeper than PackStream's 128 levels is replaced by `planTruncated: true`.
+
+A notification entry has exactly `code`, `title`, `description` (the remedy appended as ` (remedy: <remedy>)`), `severity` and `category`. A statement without `EXPLAIN` or `PROFILE` derives none. At Bolt 5.4, `notifications_minimum_severity` (`INFORMATION`, `WARNING` or `OFF`) and `notifications_disabled_categories` in the `HELLO`, `BEGIN` or `RUN` extra filter the list; a statement's keys override the `HELLO`'s.
+
+### Bookmarks
+
+The `SUCCESS` that ends an auto-commit statement that wrote, and the `SUCCESS` of a `COMMIT` that wrote, carry a :term[bookmark]{id=bookmark}, `relate:<n>`: the store's commit sequence number, shared with every other surface and client that commits to the store. A read, a write that changed nothing and an `EXPLAIN` carry none. Bookmarks a client sends in `BEGIN` or `RUN` are accepted and ignored: one process serves one store, so every commit is already visible to the next statement on any connection.
+
+### Namespaces
+
+A `RUN` in auto-commit and a `BEGIN` choose their namespace with the extra's `db`; without `db`, or with `null` or `""`, it is `neo4j`, and the choice does not carry over to the next request. A `RUN` inside a transaction uses the namespace of its `BEGIN`. The ending `SUCCESS` names it in `db`. An unknown name fails the `RUN` with `Neo.ClientError.Database.DatabaseNotFound` and `semantic error: DatabaseNotFound: Graph not found: <name>`. The `system` namespace accepts only procedure calls (`CALL`, `YIELD`, `RETURN`) and `SHOW` commands.
+
+## Type mapping
+
+Results encode as PackStream values and structures, at any depth inside a list or map:
+
+| Cypher value | PackStream | Fields |
+| --- | --- | --- |
+| null, boolean, integer, float, string, list, map | The PackStream value | |
+| Node | `0x4E` | `id`, `labels`, `properties`; at 5.4 also `element_id` |
+| Relationship | `0x52` | `id`, `start`, `end`, `type`, `properties`; at 5.4 also `element_id`, `start_node_element_id`, `end_node_element_id` |
+| Relationship inside a path | `0x72` | `id`, `type`, `properties`; at 5.4 also `element_id` |
+| Path | `0x50` | `nodes`, `relationships` (the `0x72` form), `sequence` (per hop, the 1-based relationship index, negative against its direction, then the 0-based node index) |
+| Date | `0x44` | `days` since 1970-01-01 |
+| Time | `0x54` | `nanoseconds` since midnight, `tz_offset_seconds` |
+| LocalTime | `0x74` | `nanoseconds` since midnight |
+| LocalDateTime | `0x64` | `seconds`, `nanoseconds` |
+| DateTime with an offset | `0x49` at 5.4 and with the 4.4 UTC patch; `0x46` at 4.4 without it | `seconds`, `nanoseconds`, `tz_offset_seconds` |
+| DateTime with a zone name | `0x69` at 5.4 and with the 4.4 UTC patch; `0x66` at 4.4 without it | `seconds`, `nanoseconds`, `tz_id` |
+| Duration | `0x45` | `months`, `days`, `seconds`, `nanoseconds` |
+| 2D point | `0x58` | `srid`, `x`, `y`; coordinates always floats |
+| 3D point | `0x59` | `srid`, `x`, `y`, `z` |
+| Byte array | PackStream bytes (`CC`, `CD`, `CE`) | |
+| Vector, UUID | A string | |
+
+The 5.4 :term[element ids]{id=element-id} are the strings `elementId()` returns, such as `4:relate:n0` for a node and `5:relate:r0` for a relationship. Graph values from the `system` namespace have no element id, so a 5.4 result that holds one fails with `elements of this namespace have no element ids`. A Bolt 5.4 read of a node and a relationship:
+
+```text
+RECORD [{"struct": "0x4E", "fields": [0, ["Person"], {"name": "Ada", "role": "engineer"}, "4:relate:n0"]}, {"struct": "0x52", "fields": [0, 0, 3, "WORKS_ON", {"since": 2024}, "5:relate:r0", "4:relate:n0", "4:relate:n3"]}]
+```
+
+Parameters decode by the same table in reverse, temporal, duration, and point structures included. A byte array parameter lives only inside the statement: storing it as a property fails with `Neo.ClientError.Statement.TypeError`. A parameter the engine cannot represent fails the `RUN` with `Neo.ClientError.Request.Invalid` and a message naming its path, such as `unsupported parameter value for $p: Struct(0x46)`; this happens to the legacy DateTime structures `0x46` and `0x66` on a 5.4 connection. A point's SRID must be 4326, 4979, 7203, or 9157.
+
+## Failure codes
+
+Every `FAILURE` carries a Neo4j status code, so a driver classifies it as it would a Neo4j error. The message is the engine's own.
+
+| Failure | Code | Reported at |
+| --- | --- | --- |
+| Syntax error, an undefined variable, `TraversalDepthExceeded`, `SafeModeViolation` | `Neo.ClientError.Statement.SyntaxError` | `RUN` |
+| A parameter the statement names but the `RUN` lacks | `Neo.ClientError.Statement.ParameterMissing` | `RUN` |
+| An unknown procedure | `Neo.ClientError.Procedure.ProcedureNotFound` | `RUN` |
+| An unknown `db` | `Neo.ClientError.Database.DatabaseNotFound` | `RUN` |
+| A type error | `Neo.ClientError.Statement.TypeError` | The first `PULL` or `DISCARD` |
+| Division or modulo by zero | `Neo.ClientError.Statement.ArithmeticError` | The first `PULL` or `DISCARD` |
+| A uniqueness constraint violated | `Neo.ClientError.Schema.ConstraintValidationFailed` | The first `PULL` or `DISCARD` |
+| A rejected index or constraint `OPTIONS` value, such as a negative `vector.dimensions` | `Neo.ClientError.General.InvalidArguments`, message such as `semantic error: NumberOutOfRange` ([errors reference](/docs/reference/errors#cli-validation-error-argument)) | `RUN` |
+| A write-write :term[conflict]{id=conflict}, message `write-write conflict` | `Neo.TransientError.Transaction.Outdated`, retryable | The first `PULL` or `DISCARD` |
+| The logical graph size limit, the expression memory limit, or a result over 256 MiB | `Neo.ClientError.General.TransactionOutOfMemoryError` | The first `PULL`, or the `RUN` for the result cap |
+| A write on a store opened `--read-only` | `Neo.ClientError.Statement.SemanticError` | The first `PULL`, or the `COMMIT` of an explicit transaction |
+| Any other semantic or execution error | `Neo.ClientError.Statement.SemanticError` | `RUN` or the first `PULL` |
+| An engine-internal, storage, IO, or lock failure | `Neo.DatabaseError.General.UnknownError`, message `internal error` | Either |
+| A malformed message, a bad `n` or `qid`, an unconvertible parameter, a refused `HELLO`, an out-of-order request | `Neo.ClientError.Request.Invalid` | That message |
+| A failed authentication | `Neo.ClientError.Security.Unauthorized` | `HELLO` at 4.4, `LOGON` at 5.4 |
+
+A failure while the statement runs is reported at the first `PULL` or `DISCARD`: the `RUN` answers `SUCCESS` with its `fields` and `ANY` for every column type, and the `PULL` answers the `FAILURE` with no records. Inside a transaction, the failure also fails the transaction, and `ROLLBACK` or `RESET` ends it. The server never retries a conflict; a driver's managed transaction retries `Neo.TransientError` codes. The detail of an internal failure goes to the server's stderr, never to the client. Each error's cause and remedy is in the [Bolt errors](/docs/reference/errors#bolt-errors).
+
+```text
+RUN "RETURN 1/0 AS x" {} {}
+SUCCESS {"fields": ["x"], "columnTypes": ["ANY"], "t_first": 0}
+PULL {"n": -1}
+FAILURE {"code": "Neo.ClientError.Statement.ArithmeticError", "message": "type error: / by zero"}
+```
+
+## WebSocket
+
+The Bolt port also accepts a WebSocket upgrade (`ws://`), which the browser build of Neo4j's JavaScript driver and Neo4j Browser use. Authentication runs unchanged inside the WebSocket session, and WebSocket connections count against `--max-connections`.
+
+| Upgrade request | Answer |
+| --- | --- |
+| No `Origin` header | Accepted (`101 Switching Protocols`) |
+| An allowed `Origin` | Accepted |
+| Another `Origin` | `403 Forbidden`, then the connection closes |
+| Not a valid upgrade | `400 Bad Request`, then the connection closes |
+
+| Setting | Allowed origins |
+| --- | --- |
+| No `--ws-allow-origin`, authentication on | Loopback (`http` or `https` on `localhost`, `127.0.0.1` or `[::1]`, any port), `https://browser.neo4j.io` and `https://console.neo4j.io` |
+| No `--ws-allow-origin`, `--auth none` | Loopback only |
+| `--ws-allow-origin <url>`, repeatable | Only the origins named |
+| `--ws-allow-origin '*'` | Any origin |
+
+`--ws-max-connections N` caps concurrent WebSocket sessions (default unlimited, `RELATE_WS_MAX_CONNECTIONS`); an upgrade over the cap is closed with no response. A value that is not an origin URL or `*` stops the server before it starts, and so does `--bolt-identity` without `--bolt`:
+
+```bash verify
+relate serve --database :memory: --bolt 7687 --read-only --ws-allow-origin example.com
+echo "exit=$?"
+relate serve --database :memory: --http 7474 --read-only --bolt-identity Neo4j/5.26.0
+echo "exit=$?"
+```
+
+```text
+Error: serve --ws-allow-origin expects an origin URL (http(s)://…) or *, got "example.com"
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Run 'relate serve --help' for more information.
+exit=2
+Error: serve --bolt-identity configures the --bolt surface, which this run does not serve: pass --bolt PORT or drop --bolt-identity
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Run 'relate serve --help' for more information.
+exit=2
+```
+
+## Limits
+
+Every row is a limit. `relate serve` has no flag for the rows marked fixed.
+
+| Limit | Value | Over the limit |
+| --- | --- | --- |
+| Handshake | 5 seconds from accept to the end of version negotiation, WebSocket upgrade included; fixed | The connection closes |
+| Idle connection | 300 seconds waiting for the next part of a message; fixed | The connection closes, and an open transaction is rolled back |
+| Incoming message | 16 MiB in total across its chunks; fixed | The connection closes |
+| PackStream decoding | 128 nested levels and 262,144 values per message; fixed | The connection closes |
+| Result size | 256 MiB of retained data across the open results of a connection; fixed | `FAILURE`, `query result exceeds max-result-bytes limit of <N> bytes` |
+| Statement text | 4 MiB, nesting depth 500; fixed | A syntax error naming the limit |
+| Value nesting | 500 levels in the engine; 128 levels on the wire | A `FAILURE` |
+| Concurrent connections | 128, shared with the `--http` and `--mcp` listeners (`--max-connections`, `RELATE_MAX_CONNECTIONS`) | Accepted, then closed; no `FAILURE` |
+| WebSocket sessions | Unlimited unless `--ws-max-connections` is set | Closed with no response |
+| WebSocket upgrade request | 8192 bytes | The connection closes |
+| WebSocket frame | 1 MiB | The connection closes |
+| Failed authentication | One answer per second per connection | The `FAILURE` waits 1 second |
+| Traversal depth | An explicit hop bound up to 500 (`--max-traversal-depth`, 1 to 2000) | `TraversalDepthExceeded` at `RUN` |
+
+There is no statement timeout on `relate serve`, and no TLS: on a non-loopback `--host` the server starts with a warning that every surface is plaintext, and a TLS-terminating proxy in front of it is the way to encrypt.
+
+## Not supported
+
+| Feature | Instead |
+| --- | --- |
+| Bolt versions other than 4.4 and 5.4, the 5.7+ manifest handshake | A driver that proposes 4.4 or a 5.x range that includes 5.4 |
+| TLS (`bolt+s://`, `bolt+ssc://`) | A TLS-terminating proxy in front of a loopback `relate serve` |
+| Clustering, multiple servers in a routing table | One `relate serve` process per store |
+| Byte arrays stored as properties | A byte array as a parameter or a result |
+| Users, roles and per-namespace permissions | One shared credential, or `--auth none` |
+
+## Compatibility with Neo4j
+
+relate's engine repository keeps a compatibility record for this server (`docs/api/bolt/compatibility.md`), from three probes against Neo4j 2026.09.0 Community: a raw-socket wire probe at Bolt 4.4 with the boltkit tool, a probe through the neo4rs Rust driver 0.9.0-rc.10, and a probe at Bolt 5.4 on 2026-11-02. Each finding compares a driver-visible behavior of the two servers. A finding is compatible when the replies were equal, fixed when a change to relate made them equal, deferred when relate keeps a different reply on purpose, and not implemented when it was decided against. This table restates its counts:
+
+| Area | Findings | Compatible | Fixed | Deferred | Not implemented |
+| --- | --- | --- | --- | --- | --- |
+| Handshake | 6 | 5 | 0 | 0 | 1 |
+| Protocol | 34 | 11 | 22 | 1 | 0 |
+| Failures | 7 | 0 | 7 | 0 | 0 |
+| Values | 20 | 9 | 11 | 0 | 0 |
+| Cypher | 1 | 0 | 1 | 0 | 0 |
+| Driver probe | 57 | 25 | 32 | 0 | 0 |
+| All | 125 | 50 | 73 | 1 | 1 |
+
+The fixes made relate's replies match Neo4j's in summary metadata, bookmarks, several open results in one transaction, the receive-timeout hint and keep-alives, `HELLO` validation, protocol breaches, `RESET`, `ROUTE`, failure codes, missing parameters, temporal and point structures, byte array parameters, the UTC patch and the `w`/`rw` query types. The Bolt 5.4 probe settled the version replies, the 5.x `HELLO`, `LOGON` and `LOGOFF`, `TELEMETRY`, element ids, the UTC DateTime structures, and the notification filters.
+
+What still differs from a Neo4j server:
+
+| Difference | relate | Neo4j, as the record observed it |
+| --- | --- | --- |
+| Versions offered | 4.4 and 5.4 only | 2026.09.0 also answers proposals relate refuses, such as 4.3 and 5.0 |
+| Manifest handshake (`00 00 01 FF`) | Never answered; a later 4.4 proposal is | Answered by 2026.09.0 |
+| `RUN` `SUCCESS` | Adds `columnTypes` (the deferred finding) | No `columnTypes` |
+| Server agent | `Relate/0.16.1` by default | `Neo4j/<version>` |
+| Concurrent writers | The losing `COMMIT` fails with `Neo.TransientError.Transaction.Outdated`; the caller retries | 5.26: the second writer waits for the lock |
+| `SHOW SERVER` | Answers | 5.26: fails outside the system database |
+
+Two of these affect drivers, as the record states for the driver versions it tested. Neo4j's Java driver from 5.0 and Python driver 5.23 to 5.28 refuse a server agent that does not start with `Neo4j/`; `--bolt-identity Neo4j/5.26.0` sends that agent verbatim, and the record says those drivers then connect, which is a compatibility setting, not a claim of feature parity. The Go driver 5.28.5 does not check the agent. Code shared between relate and Neo4j can tell them apart with `CALL dbms.components()`, which on relate returns `Neo4j Kernel` with the version `2026.10-relate`, then `Cypher` with `5` and `25`, then `Relate` with the relate version.
+
+## See also
+
+- [relate serve](/docs/reference/cli/serve): every `serve` flag
+- [Serve a store over Bolt](/docs/guides/serve/bolt): connecting Neo4j's drivers and Neo4j Browser
+- [Bolt errors](/docs/reference/errors#bolt-errors): each error with its cause and remedy
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the Cypher the server runs
+- [HTTP Query API](/docs/reference/server/http): the JSON surface served by the same process
+- [Security](/docs/reference/security#served-surfaces): the defaults of every served surface

@@ -1,0 +1,35 @@
+---
+id: geospatial-memory
+title: Geospatial memory
+order: 50
+problem: "Let an agent answer what is near here, what is nearest, what is inside this map box, and where it went recently near a place."
+capability: "WGS-84 points stored as properties, distances in metres with `point.distance`, map boxes with `point.withinBBox`, and a `POINT` index, in the same graph as the rest of the memory."
+intents:
+  - places within 2 km of a location
+  - nearest places to the user
+  - geo-aware memory for a travel agent
+  - which places are inside this map box
+  - where did the agent go recently near here
+surfaces: [cypher, agents]
+guides: [guides/cypher/geospatial]
+recipes: [nearby-places]
+reference: [reference/cypher/overview, reference/cypher/functions#spatial-functions]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for geospatial memory: agents visit places, and places are in cities
+    accDescr {
+      An Agent VISITED a Place, and each visit records a timestamp and a
+      sequence number. A Place has a name, a kind and a location point, and is
+      IN a City.
+    }
+    Agent(("<b>Agent</b><br/>id")) -- "<b>VISITED</b><br/>ts · seq" --> Place(("<b>Place</b><br/>name · kind · loc"))
+    Place -- "<b>IN</b>" --> City(("<b>City</b><br/>name"))
+    class Agent l1
+    class Place l2
+    class City l3
+verify: nearby-places#within
+---
+
+A travel or field agent remembers places: the ones its users mention and the ones it visited. The useful questions about them are spatial (what is within 2 km, what is nearest, what is inside the map the user is looking at), and they often mix with the rest of memory, such as where this agent went recently near here.
+
+relate stores a location as a point property and answers those questions in Cypher. In the [nearby places recipe](/cookbook/nearby-places/) each place's `loc` is a WGS-84 point, so `point.distance` returns metres; `point.withinBBox` answers the map-box question, and a `POINT` index serves the lookups. Visits are `VISITED` relationships with a timestamp and a sequence number, so "recently, near here" is one statement that filters by distance and orders by time. relate does not reject a distance between points in different coordinate systems, so the recipe's query checks the caller's position before it compares distances.

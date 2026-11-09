@@ -1,0 +1,37 @@
+---
+id: bi-temporal-facts
+title: Bi-temporal facts
+order: 40
+problem: "Answer both what was true on a date and what the agent believed on that date, after late corrections and rejected decisions."
+capability: "Two time ranges on every fact, valid time and record time, written with `datetime()` and `MERGE` so nothing is deleted, and queried with chained comparisons."
+intents:
+  - what did the agent believe on a given day
+  - what was true on a date in my agent's memory
+  - track late corrections without losing history
+  - bitemporal data model in a graph
+  - as-of queries over a decision log
+surfaces: [cypher, agents]
+guides: [guides/agents/model-agent-memory]
+recipes: [bitemporal-decisions]
+reference: [reference/cypher/overview, reference/cypher/types-and-values#temporal-types]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for bi-temporal facts: decisions about entities, the decisions they replace, and reviews
+    accDescr {
+      A Decision is ABOUT an Entity and carries two time ranges: validFrom and
+      validTo for when it held, recordedAt and closedAt for when it was believed.
+      A Decision SUPERSEDES the one it replaces, and a Review REJECTS a
+      Decision.
+    }
+    Decision(("<b>Decision</b><br/>id · text · validFrom · validTo<br/>recordedAt · closedAt")) -- "<b>ABOUT</b>" --> Entity(("<b>Entity</b><br/>name"))
+    Decision -- "<b>SUPERSEDES</b>" --> Decision
+    Review(("<b>Review</b><br/>by · at · reason")) -- "<b>REJECTS</b>" --> Decision
+    class Decision l1
+    class Entity l2
+    class Review l3
+verify: bitemporal-decisions#as-of
+---
+
+News reaches an agent late. A decision that took effect on one date is logged a week later, a reviewer rejects another, and a change is planned ahead. With one timestamp per fact, the log can say what it believes now but not what it believed then, and an audit of a past action needs exactly that.
+
+The [bi-temporal decisions recipe](/cookbook/bitemporal-decisions/) gives every decision two intervals. Valid time, `validFrom` to `validTo`, is when the decision held in the world; record time, `recordedAt` and `closedAt`, is when the log wrote it and when it closed it. Nothing is deleted: a correction closes the old decision and links the new one with `SUPERSEDES`, and a retried session changes nothing because its writes use `MERGE`. One graph then answers "what was true on 20 January" and "what did the log believe on 20 January", and the two answers differ. [Model agent memory](/docs/guides/agents/model-agent-memory) applies the same two axes to an agent's facts.

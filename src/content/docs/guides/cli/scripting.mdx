@@ -1,0 +1,260 @@
+---
+title: Script the CLI
+description: Run relate from shell scripts with statements from files and stdin, machine-readable output, parameters, timeouts, transactions and exit codes.
+order: 30
+surfaces: [cli]
+prerequisites: [get-started/first-graph]
+related: [reference/cli/flags, reference/cli/exit-codes-and-errors, reference/errors, reference/cli/agent-mode, get-started/first-graph, guides/cli/output-formats, reference/cli/output-modes]
+---
+
+This guide shows you how to run relate from shell scripts: statements from a file or stdin, output a program can parse, parameters, a time bound per statement, all-or-nothing scripts, and exit codes to branch on. Each command opens the :term[store]{id=store}, runs, and exits, so a script is a sequence of ordinary commands.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- `bash`, or another POSIX shell.
+- The examples build `team.rl`, the people-and-projects store from [Your first graph in the CLI](/docs/get-started/first-graph), in a new, empty directory. The first step creates it there.
+
+## Pin the output mode
+
+Pass `--mode` on every scripted command. Without it, relate picks the output from where stdout goes, and a script can run in all three places:
+
+| Where stdout goes | Default output |
+| --- | --- |
+| A terminal | `table` |
+| A pipe or a file | `jsonl`, one JSON object per row |
+| A pipe or a file, with :term[agent mode]{id=agent-mode} on (a detected agent harness, `RELATE_AGENT_MODE=1` or `--agent-mode`) | `toon` |
+
+For a program, use `--mode envelope`: one JSON object per result set, the :term[envelope]{id=envelope}, with `columns`, `columnTypes`, `rows` and `truncated`. An empty result still lists its columns. The [output modes table](/docs/reference/cli/flags#output) lists the others.
+
+## Run statements from a file or stdin
+
+Make a new directory for the examples and move into it, so the first step starts from an empty store:
+
+```bash
+mkdir relate-scripting && cd relate-scripting
+```
+
+Write the statements to a file, each ending with `;`:
+
+```bash verify
+cat > seed.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+MATCH (n) RETURN count(n) AS nodes;
+EOF
+```
+
+Then redirect the file into `relate query`. With no statement argument, `query` reads a script from stdin:
+
+```bash verify
+relate query --database ./team.rl --mode envelope < seed.cypher
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+```
+
+Each statement prints its own envelope, so the output is JSON Lines. A pipe works the same way as a file:
+
+```bash verify
+printf 'MATCH (p:Person) RETURN count(p) AS people;\nMATCH (p:Project) RETURN count(p) AS projects;\n' | relate query --database ./team.rl --read-only --mode envelope
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":2}],"truncated":false}
+```
+
+For a short list, `-c` takes the statements as one argument, separated by `;`.
+
+Keep the word `query` in a command that reads stdin. Without it, a redirected script is not read at all: relate prints its help and exits 0, so the script looks like it succeeded.
+
+```bash
+# Avoid: prints the help text and exits 0; seed.cypher never runs
+relate --database ./team.rl < seed.cypher
+# Instead:
+relate query --database ./team.rl --mode envelope < seed.cypher
+```
+
+## Pass parameters
+
+`--param name=value` binds `$name`, and repeats for each parameter. A value that parses as JSON keeps its JSON type. A value that starts like JSON (a digit, `-`, `"`, `[` or `{`) but doesn't parse exits 2. Any other bare word is a string:
+
+```bash verify
+relate --mode envelope --param name=Ines --param since=2026 --param 'tags=["graph","cli"]' 'RETURN $name AS name, $since AS since, $tags AS tags'
+```
+
+```text
+{"columnTypes":["STRING","INTEGER","LIST"],"columns":["name","since","tags"],"notifications":[],"rows":[{"name":"Ines","since":2026,"tags":["graph","cli"]}],"truncated":false}
+```
+
+Single quotes keep the shell from expanding `$name` in the statement. To pass a string that starts like a number, such as a date or a version, JSON-quote it: `--param 'since="2026-11-07"'` binds the string `2026-11-07`, where a bare `since=2026-11-07` exits 2. A string that reads as a boolean or `null` needs the same quoting.
+
+For data in a JSON file, `--fetch-params name=<path>` reads the file, parses it, and binds the result. It also accepts an `http(s)` URL. This file holds two people, and the statement merges them into the store:
+
+```bash verify
+printf '[{"name": "Ines", "role": "engineer"}, {"name": "Kofi", "role": "maintainer"}]\n' > people.json
+relate --database ./team.rl --mode envelope --fetch-params people=people.json 'UNWIND $people AS p MERGE (n:Person {name: p.name}) SET n.role = p.role RETURN count(n) AS merged'
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["merged"],"notifications":[],"rows":[{"merged":2}],"truncated":false}
+```
+
+## Bound each statement with a timeout
+
+`--timeout` cancels any statement that runs longer than the duration: `500ms`, `10s`, `2m`, or a bare number of seconds. The bound applies to each statement of a script on its own, and a timed-out statement exits 7:
+
+```bash verify
+relate --mode envelope --timeout 100ms "UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs"
+echo "exit=$?"
+```
+
+```text
+Error: query timed out after 100ms
+{"error":{"code":"timeout","exit_code":7,"kind":"execution","message":"query timed out after 100ms","retryable":false}}
+exit=7
+```
+
+The first line is stderr; the error object is stdout. Without `--timeout`, a statement has no time bound.
+
+## Open the store read-only for reads
+
+A script step that only reads opens the store with `--read-only`. relate never writes or checkpoints a :term[read-only]{id=read-only} store, and a write fails before it changes anything:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope "CREATE (:Person {name: 'Zed'})"
+echo "exit=$?"
+```
+
+```text
+semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.
+{"error":{"code":"validation_error","exit_code":6,"kind":"semantic","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.","retryable":false}}
+exit=6
+```
+
+## Branch on exit codes
+
+Every failure exits with the :term[exit code]{id=exit-code} of its class. When a statement or the store open fails, `--mode envelope` also prints an error object on stdout whose `code` names the class. A usage error (exit 2: an unknown flag, or a bad `--param` or `--timeout` value) or a `--fetch-params` failure (exit 1) prints only its stderr line and leaves stdout empty, so branch on the exit code, not on stdout.
+
+The `case` at the end of this section branches on these codes:
+
+| Exit code | `code` | Meaning |
+| --- | --- | --- |
+| `0` | — | Success, including an empty result |
+| `5` | `conflict` | Write-write conflict, or another process holds the store |
+| `6` | `validation_error` | The statement was rejected: syntax, semantic, argument or type error, including a write on a read-only store |
+| `7` | `timeout` | A statement exceeded `--timeout` |
+
+`retryable` is `true` for a write-write conflict (exit 5) and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the shared pool (exit 1, kind `resource`; reachable when statements run concurrently, as under `relate serve`). A one-shot CLI run meets only the first. Running the same statement again can succeed after either. A locked store also exits 5, with `"retryable":false` until the other process exits. [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors) lists every code, including `1` and `2`, and the error object's fields.
+
+Capture the code with `|| status=$?`, which also keeps `set -e` from stopping the script, then branch on it:
+
+```bash verify
+status=0
+relate --database ./team.rl --read-only --mode envelope --timeout 5s "MATCH (p:Person) RETRUN p.name" > result.jsonl 2> error.txt || status=$?
+case "$status" in
+  0) echo "ok" ;;
+  5) echo "conflict" ;;
+  6) echo "rejected: $(head -n 1 error.txt)" ;;
+  7) echo "timed out" ;;
+  *) echo "failed with exit code $status" ;;
+esac
+```
+
+```text
+rejected: syntax error: parse error: unexpected token "RETRUN"
+```
+
+## Apply scripts in a loop
+
+A script stops at its first failing statement and exits with that statement's code. Statements before it are already committed, unless the script opens a transaction with `.begin` and ends it with `.commit`: then a failure rolls back everything since `.begin`. The [shell dot commands](/docs/reference/cli/dot-commands) lists `.begin`, `.commit`, `.rollback` and the others a script can use.
+
+This example applies a directory of migration scripts in order. Each one is a transaction, and the second has a typo:
+
+```bash verify
+mkdir -p migrations
+cat > migrations/001-ines.cypher <<'EOF'
+.begin
+MATCH (p:Person {name: 'Ines'}), (proj:Project {name: 'relate'})
+MERGE (p)-[:WORKS_ON {since: 2026}]->(proj);
+.commit
+EOF
+cat > migrations/002-teams.cypher <<'EOF'
+.begin
+MATCH (p:Person) SET p.team = 'core';
+MATCH (p:Person) RETRUN count(p) AS people;
+.commit
+EOF
+```
+
+The loop runs under `set -e`, so the first migration that fails stops it, and the shell exits with relate's code:
+
+```bash verify
+cat > migrate.sh <<'EOF'
+set -e
+for f in migrations/*.cypher; do
+  echo "applying $f"
+  relate query --database ./team.rl --mode envelope < "$f"
+done
+echo "all migrations applied"
+EOF
+bash migrate.sh
+echo "exit=$?"
+```
+
+```text
+applying migrations/001-ines.cypher
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+applying migrations/002-teams.cypher
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+syntax error: parse error: unexpected token "RETRUN"
+  MATCH (p:Person) RETRUN count(p) AS people
+                   ^
+statement 3 of 4 failed; 2 completed, not committed (open transaction); 1 not run
+{"error":{"code":"validation_error","column":18,"committed":0,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: unexpected token \"RETRUN\"   MATCH (p:Person) RETRUN count(p) AS people                    ^","retryable":false,"source":"MATCH (p:Person) RETRUN count(p) AS people","statement":3,"statements":4}}
+Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.
+exit=6
+```
+
+The progress line and the error object's `statement`, `statements` and `committed` say how far the script got. `.begin` counts as statement 1, and `"committed":0` means none of the migration's statements are durable: its `SET` was rolled back. "all migrations applied" never printed.
+
+## Verify
+
+Read the store back, read-only, with two statements in one `-c` argument. Ines works on `relate` from the first migration, and no one has a `team` from the second:
+
+```bash verify
+relate --database ./team.rl --read-only --mode envelope -c "MATCH (:Person {name: 'Ines'})-[w:WORKS_ON]->(proj:Project) RETURN proj.name AS project, w.since AS since; MATCH (p:Person) WHERE p.team IS NOT NULL RETURN count(p) AS with_team"
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["project","since"],"notifications":[],"rows":[{"project":"relate","since":2026}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["with_team"],"notifications":[],"rows":[{"with_team":0}],"truncated":false}
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| The `relate` help text, and exit code 0, instead of results | A script was redirected into `relate` without the word `query` | Run `relate query --database <path> --mode envelope < <script>` |
+| `Error: invalid --param value: parameter <name>: …`, exit code 2 | A `--param` value that starts like JSON (a digit, `-`, `"`, `[` or `{`) doesn't parse; a date such as `2026-11-07` counts | Quote the whole argument in single quotes and fix the JSON, or JSON-quote a string: `'since="2026-11-07"'` |
+| `Failed to open Relate: storage locked: <path>`, exit code 5 | Another process holds the store | Wait for it to exit, or read with `--read-only` (a directory store can be read beside its writer; a `.rl` file only while no writer holds it) |
+| `warning: result truncated to 100 rows (the statement returned <total>); pass --max-rows 0 for all rows` | With agent mode on (a detected agent harness, for example), a piped statement prints at most 100 rows, and the envelope says `"truncated":true` | Pass `--max-rows 0` to print every row, or bound the result with `LIMIT` |
+| `note: write statement changed nothing; the graph is unchanged` on stderr | Not an error: a write matched nothing, often a `MATCH` with no rows | Check the `MATCH`; the exit code stays 0 |
+
+## Related
+
+- [CLI flags](/docs/reference/cli/flags): every flag in this guide, its default, and its environment variable.
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit code table and the error object.
+- [Errors](/docs/reference/errors): every message, its cause, and its remedy.
+- [Agent mode](/docs/reference/cli/agent-mode): the defaults that change under an agent harness.

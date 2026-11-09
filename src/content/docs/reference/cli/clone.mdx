@@ -1,0 +1,202 @@
+---
+title: relate clone
+description: The relate clone command that copies a store into a new one, between directory and .rl layouts and between codecs, with its flags, refusals and exit codes.
+order: 70
+surfaces: [cli]
+related: [reference/cli/flags#relate-clone, reference/storage/formats, guides/storage/backup-and-restore, guides/storage/clone-and-convert, reference/cli/info, concepts/problems-relate-solves#single-file-graph, concepts/problems-relate-solves#migration-rehearsal]
+---
+
+`relate clone SOURCE DEST` copies a :term[store]{id=store} into a new store and exits. Each side is a :term[directory store]{id=directory-store}, or a :term[single-file store]{id=single-file-store} when its path ends in `.rl`, so one command copies, packs a directory into a `.rl` file, or unpacks one. The destination keeps the source's :term[codec]{id=codec} unless `--to-snapshot-format` names another. :term[Clone]{id=clone} opens the source read-only, copies the state visible when it opened, and never writes the source; it creates the destination, which must not exist yet, and prints nothing on success.
+
+## Synopsis
+
+```text
+relate clone [--wal-dir DIR] [--to-snapshot-format F] [--markdown-body-properties LIST] SOURCE DEST
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `SOURCE` | The store to copy: a directory store, or a path ending in `.rl`. Required. `:memory:` is refused |
+| `DEST` | The new store: a path ending in `.rl` makes a single-file store, any other path a directory store. Required. It must not exist, and its parent directory must. `:memory:` is refused |
+
+A directory store can be cloned while another process writes it: the clone takes the state committed when it opened and does not follow later commits. A `.rl` source is refused while another process holds it for writing. The destination's write-ahead log (WAL) starts at `<DEST>/wal` for a directory destination; a `.rl` destination holds its own.
+
+## Options
+
+<Flags command="clone" />
+
+`relate clone` takes only these three flags. A query-run flag after `clone`, such as `--read-only` or `--json`, exits 2 with `Error: unexpected argument to clone: <flag>`; `--read-only` before `clone` exits 2 with `Error: clone cannot be combined with a query or an access flag (--read-only)`.
+
+## Layouts
+
+Every pairing of the two durable layouts works; the in-memory store is refused on either side.
+
+| Source | Destination | Result |
+| --- | --- | --- |
+| Directory store | Directory store | A copy |
+| Directory store | `.rl` path | The store packed into one file |
+| `.rl` file | Directory store | The file unpacked into a folder |
+| `.rl` file | `.rl` path | A copy |
+| `:memory:` | Any | Exit code 1: `Failed to clone database: storage error: clone source must be a native directory or .rl bundle path` |
+| Any | `:memory:` | Exit code 1: `Failed to clone database: storage error: clone destination must be a native directory or .rl bundle path` |
+
+These examples run in a new, empty directory. This first command writes: it creates the directory store `./team` with three people, two projects and three `WORKS_ON` relationships:
+
+```bash verify
+relate --database ./team "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+The four layout pairings, then a read-only count of the relationships in each copy:
+
+```bash verify
+relate clone ./team ./team-copy
+relate clone ./team ./team.rl
+relate clone ./team.rl ./team-unpacked
+relate clone ./team.rl ./team-copy.rl
+for store in team-copy team.rl team-unpacked team-copy.rl; do
+  relate --database "./$store" --read-only --mode jsonl "MATCH (:Person)-[w:WORKS_ON]->(:Project) RETURN '$store' AS store, count(w) AS works"
+done
+```
+
+```text
+{"store":"team-copy","works":3}
+{"store":"team.rl","works":3}
+{"store":"team-unpacked","works":3}
+{"store":"team-copy.rl","works":3}
+```
+
+## Codecs
+
+Without `--to-snapshot-format`, the destination keeps the source's codec. With it, clone writes the state visible when it opened, which is the last checkpoint plus the WAL commits after it, in the `parquet`, `json` or `markdown` codec; the layout and the codec are chosen independently.
+
+| Source codec | `--to-snapshot-format` | Layouts in the example |
+| --- | --- | --- |
+| `parquet` | `json` | directory to directory, `.rl` to `.rl` |
+| `parquet` | `markdown` | directory to directory, `.rl` to directory |
+| `parquet` | `parquet` | directory to directory |
+| `json` | `parquet` | directory to directory |
+| `markdown` | `parquet` | directory to directory |
+| `markdown` | none (kept) | directory to `.rl` |
+
+Any other value exits 2 with `Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`. [Storage formats](/docs/reference/storage/formats#codecs) describes each codec's files.
+
+Each pairing in the table, with the codec `relate info` reports for every result:
+
+```bash verify
+relate clone --to-snapshot-format json ./team ./team-json
+relate clone --to-snapshot-format markdown ./team ./team-vault
+relate clone --to-snapshot-format parquet ./team ./team-parquet
+relate clone --to-snapshot-format parquet ./team-json ./from-json
+relate clone --to-snapshot-format parquet ./team-vault ./from-vault
+relate clone ./team-vault ./team-vault.rl
+relate clone --to-snapshot-format json ./team.rl ./team-json.rl
+relate clone --to-snapshot-format markdown ./team.rl ./vault-from-rl
+for store in team-json team-vault team-parquet from-json from-vault team-vault.rl team-json.rl vault-from-rl; do
+  printf '%s: ' "$store"
+  relate info --database "./$store" | grep '^codec:'
+done
+```
+
+```text
+team-json: codec: json
+team-vault: codec: markdown
+team-parquet: codec: parquet
+from-json: codec: parquet
+from-vault: codec: parquet
+team-vault.rl: codec: markdown
+team-json.rl: codec: json
+vault-from-rl: codec: markdown
+```
+
+The graph survives a round trip through the text codecs:
+
+```bash verify
+relate --database ./from-vault --read-only --mode jsonl "MATCH (p:Person)-[w:WORKS_ON]->(r:Project) RETURN p.name AS person, r.name AS project, w.since AS since ORDER BY since"
+```
+
+```text
+{"person":"Grace","project":"opencypher-tck","since":2022}
+{"person":"Grace","project":"relate","since":2023}
+{"person":"Ada","project":"relate","since":2024}
+```
+
+### Markdown body properties
+
+`--markdown-body-properties` names the properties a `markdown` destination writes as each note's body instead of its frontmatter: a comma-separated list for every label, or `Label=LIST` for one label, with several entries separated by `;` (`Person=role,bio;Project=language`). The first listed property is written as the bare body and the rest as `##` sections. Without the flag, the destination uses the source's recorded configuration, else the single property `body`. On a destination whose codec is not `markdown`, it exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored` (the codec named is the destination's).
+
+```bash verify
+relate clone --to-snapshot-format markdown --markdown-body-properties 'Person=role' ./team ./team-notes
+cat team-notes/Person/Ada.md
+```
+
+```text
+---
+type: Person
+name: Ada
+KNOWS:
+  - "[[Person/Grace]]"
+WORKS_ON:
+  - since: 2024
+    target: "[[Project/relate]]"
+---
+
+engineer
+```
+
+## WAL directory
+
+`--wal-dir DIR` names the source's WAL when it is not at `<SOURCE>/wal`. It applies to a directory source only; with a `.rl` source, which holds its own WAL, it exits 1 with `Failed to clone database: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)`. It does not move the destination's WAL.
+
+## What clone refuses
+
+| Input | Exit code | Message |
+| --- | --- | --- |
+| `DEST` exists | 1 | `Failed to clone database: storage error: clone destination already exists` |
+| `DEST`'s parent directory does not exist | 1 | `Failed to clone database: storage error: clone destination parent does not exist: <path>` |
+| A directory `SOURCE` that does not exist | 1 | `Failed to clone database: storage error: read-only open requires an existing database at <path>` |
+| A `.rl` `SOURCE` that does not exist | 1 | `Failed to clone database: storage error: database not found: <path>` |
+| A `.rl` `SOURCE` another process holds for writing | 1 | `Failed to clone database: storage locked: <path>` |
+| `:memory:` on either side | 1 | `clone source must be a native directory or .rl bundle path`, or `clone destination …`, after `Failed to clone database: storage error: ` |
+| `--wal-dir` with a `.rl` source | 1 | `Failed to clone database: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)` |
+| Fewer than two paths | 2 | `Error: clone requires SOURCE and DEST` |
+| A third path, or a flag clone does not take | 2 | `Error: unexpected argument to clone: <argument>` |
+
+A runtime refusal (exit code 1) prints one line on stderr and no error object. A usage error (exit code 2) prints the error line, the usage line and `Run 'relate clone --help' for more information.`
+
+## Errors and exit codes
+
+| Exit code | Meaning for `relate clone` |
+| --- | --- |
+| [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | The destination was created; nothing is printed |
+| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | The copy did not run or did not finish: a refusal in the table, or a storage or I/O error |
+| [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | Usage error: a missing or extra argument, an unknown flag, or a bad `--to-snapshot-format` value |
+
+## Examples
+
+An existing destination is never overwritten:
+
+```bash verify
+relate clone ./team ./team-copy
+echo "exit=$?"
+```
+
+```text
+Failed to clone database: storage error: clone destination already exists
+exit=1
+```
+
+## See also
+
+- [Storage formats](/docs/reference/storage/formats): the layouts and codecs clone converts between
+- [Back up and restore a store](/docs/guides/storage/backup-and-restore): clone as a backup that opens
+- [relate info](/docs/reference/cli/info): the layout, codec and counts of a clone, read without opening it
+- [CLI flags](/docs/reference/cli/flags#relate-clone): the clone flags beside every other command's

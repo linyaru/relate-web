@@ -1,0 +1,178 @@
+---
+title: Size a store and its memory
+label: Sizing and memory
+description: "Estimate the memory a relate graph needs from its counts, measure a real store's logical size, and cap growth with --logical-graph-size-limit."
+order: 10
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [reference/storage/limits-and-sizing, reference/performance, reference/cli/flags#logical-graph-size-limit, guides/operate/crash-and-recovery]
+---
+
+This guide shows you how to estimate the memory a store needs, measure the size of a real one, and cap its growth. relate holds the whole graph in memory: opening a :term[store]{id=store} loads its last :term[snapshot]{id=snapshot} and replays the :term[WAL]{id=wal} into RAM, and there is no buffer pool or spill to disk. The graph you query has to fit in the process's memory, with room for the statements that run on it.
+
+## Prerequisites
+
+- `relate` on your `PATH` ([Install relate](/docs/get-started/install)).
+- Either the node, relationship, and property counts you expect, or a store to measure.
+
+## Estimate from counts
+
+relate counts the size of a graph in logical bytes. The :term[logical graph size]{id=logical-graph-size} is its own tally of the live nodes, relationships, properties, and index entries. That tally is what `--logical-graph-size-limit` compares against. It leaves out the WAL buffers, statement working memory and allocator overhead, which the next section adds back.
+
+These figures were measured with the relate version this page is verified against: 10,000 elements of one shape written into a fresh `.rl` store, the store's logical size read with the method in [Measure a real store](#measure-a-real-store), and the difference divided by 10,000.
+
+| Element | Logical bytes each | Shape measured |
+| --- | --- | --- |
+| A node with one label | 212 | `(:Item)` |
+| Each further label on a node | 45 | `(:Item:Thing)` |
+| Integer or float properties on one node | 64 for 1, 128 for 2, 244 for 3, 256 for 4, 476 for 5, 512 for 8 | `{a: i, b: i, …}`, all integers; one float measured 64 |
+| A string property, instead of an integer | 8 more, plus the string's length in UTF-8 bytes | 8 and 1,000 ASCII characters; 8 two-byte characters |
+| A boolean property | 57 | `{b: true}` |
+| A list of 384 floats, such as an embedding | 3,147 (an average over 100 nodes) | `{v: [x IN range(1, 384) \| toFloat(x)]}` |
+| A relationship with no properties | 444 at 1 relationship per node, 344 at 5, 320 at 20 | one type, `(a)-[:LINKS]->(b)` |
+| A relationship property (integer) | 60 | `{w: j}` |
+| An entry in a range index on an integer property | 61 to 64 | `CREATE INDEX … ON (n.i)` |
+
+Property costs grow in steps, not one property at a time, so a node with 5 properties costs nearly as much as one with 8.
+
+## Work an example
+
+Take a memory graph for an agent: 1,000,000 `:Memory` nodes with an integer `id`, a 20-character `name` and an 8-character `kind`, 5,000,000 `RELATES_TO` relationships (5 out of each node) with an integer `since`, and a range index on `id`.
+
+| Part | Count | Bytes each | Logical bytes |
+| --- | --- | --- | --- |
+| Nodes: label, 3 properties, 28 bytes of strings (measured; the per-element table gives 500) | 1,000,000 | 502 | 502,000,000 |
+| Relationships at 5 per node, 1 integer property | 5,000,000 | 404 | 2,020,000,000 |
+| Index entries on `id` | 1,000,000 | 64 | 64,000,000 |
+| Total | | | 2,586,000,000 |
+
+A one-hundredth model of the same graph (10,000 nodes, 50,000 relationships, the same index) measured 25,901,217 logical bytes, which scales to 2,590,121,700: the estimate is within 0.2% of it.
+
+## Allow for process memory
+
+The process needs more memory than the logical size, and the most while a store opens. Two measurements of this release, both from [Performance](/docs/reference/performance#memory-per-node-and-relationship), which gives their harness and machines:
+
+| Measurement | Process memory for the graph |
+| --- | --- |
+| Once loaded: a served process after writes filled four graph shapes of about 33 MB logical each (the relate project's frozen memory-shape loadtest baseline, Linux x86_64 in a 2 GB, 2-CPU container) | 1.22 to 1.54 times the logical size |
+| Peak while opening a `.rl` store and decoding its snapshot: stores of 10,000 to 1,000,000 nodes on macOS arm64, median of 3 runs | 2.5 to 3.9 times the logical size; 2.5 at 1,000,000 nodes |
+
+For the worked example (2,586,000,000 logical bytes), that is about 3.2 to 4.0 GB once loaded, and about 6.5 GB while the store opens, at the 2.5 ratio of the largest measured store (rounded to 0.1 GB). The open is the peak, so size the machine from it. Statements need working memory on top: one value a statement builds, such as a list, may reach 256 MiB under the default `--expression-memory-limit`.
+
+The size on disk is not a guide to memory: in [Performance](/docs/reference/performance#memory-per-node-and-relationship), a 1,000,000-node `.rl` store of 187,416,576 bytes holds 1,390,890,109 logical bytes.
+
+## Measure a real store
+
+`relate info` reads a store's metadata without opening it, including the node and relationship counts at its last :term[checkpoint]{id=checkpoint}. To follow along, create the shared example graph first:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team.rl < team.cypher
+```
+
+Read its counts:
+
+```bash verify
+relate info --database ./team.rl
+```
+
+```text
+layout: .rl bundle
+superblock version: 1
+codec: parquet
+format version: 3
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 36864
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 1): 5
+relationships (at checkpoint LSN 1): 5
+indexes: 0
+constraints: 0
+```
+
+The counts go straight into the estimate. To read the logical size itself, try a write against a size limit of 1 byte: the refusal reports the live size as `used`. `--load` with a new `--database` path does it on a copy, `probe.rl`, so the original store is never opened for writing:
+
+```bash verify
+relate --load ./team.rl --database ./probe.rl --logical-graph-size-limit 1 --mode envelope "CREATE (:Probe)"
+```
+
+The first two lines are stderr, the last is the error object on stdout:
+
+```text
+--load ./team.rl: loaded into ./probe.rl
+capacity exceeded: used=6403 limit=1
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6403 limit=1","retryable":false}}
+```
+
+The example graph is 6,403 logical bytes. Remove the copy when you're done:
+
+```bash verify
+rm ./probe.rl
+```
+
+## Cap the graph's size
+
+`--logical-graph-size-limit SIZE` caps the logical size. It takes bytes, or a number with `mb` or `gb` (powers of 1000) or `mib` or `gib` (powers of 1024). The default is unlimited, and `0` means unlimited too. `RELATE_LOGICAL_GRAPH_SIZE_LIMIT` sets it for every run in an environment, and `relate serve` takes the same flag.
+
+Set the cap below the memory you can give the process, divided by the open-peak ratio from [Allow for process memory](#allow-for-process-memory). A write that would grow the graph past the cap then fails with an error you can read, instead of the operating system ending the process.
+
+This statement tries to add a node to `team.rl` under a cap of 6,500 bytes, which the 6,403-byte graph leaves no room for:
+
+```bash verify
+relate --database ./team.rl --logical-graph-size-limit 6500 --mode envelope "CREATE (:Person {name: 'Ines', role: 'engineer'})"
+echo "exit=$?"
+```
+
+```text
+capacity exceeded: used=6403 limit=6500
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6403 limit=6500","retryable":false}}
+exit=1
+```
+
+What the cap does when a write reaches it:
+
+| Situation | Result |
+| --- | --- |
+| A write whose counted change would take the graph past the cap | Fails before it reaches the WAL, with exit code 1, kind `capacity` and `retryable: false`; nothing is written. A `SET` counts as a change even when the new value is the same size, so it needs room under the cap |
+| `used` and `limit` in the message | The logical size the write was checked at, and the cap in bytes. For a `CREATE`, `used` is the live size, which [Measure a real store](#measure-a-real-store) relies on; for a `SET` it is higher than the live size (101 bytes higher in the runs for this page) |
+| A read | Runs; reads are never checked |
+| `DELETE` | Runs, and frees logical bytes at once |
+| Opening a store already over the cap | Loads the whole graph. Until deletes free enough room, every write except a `DELETE` fails, even a `SET` or `REMOVE` that doesn't grow the graph |
+
+## Verify
+
+Read the store under the same cap, read-only. The read runs, and the refused write left the 3 people as they were:
+
+```bash verify
+relate --database ./team.rl --read-only --logical-graph-size-limit 6500 --mode envelope "MATCH (p:Person) RETURN count(p) AS people"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`capacity exceeded: used=… limit=…`, exit code 1.** A write reached `--logical-graph-size-limit`. Raise the cap if the machine has the memory, delete data you no longer need, or split the graph across stores. The [errors reference](/docs/reference/errors#engine-graph-size-cap) has the entry.
+- **`This statement tried to commit a single WAL record of at least <used>.`** One commit's WAL record would be over the 64 MiB per-record cap, which is separate from the size limit. Commit the data in smaller transactions, such as batches of a bulk load ([WAL payload cap](/docs/reference/errors#engine-wal-payload-cap)).
+- **`Error: invalid --logical-graph-size-limit: semantic error: invalid memory limit unit 'kb'; use bytes, mb, mib, gb, or gib`, exit code 2.** The size has a unit relate doesn't accept. Write it in bytes or with one of the four units.
+- **The process ends with no relate error while the graph grows.** The operating system stopped it for memory. Under the default `full` durability mode, every write it acknowledged is in the WAL and comes back on the next open ([Recover from a crash](/docs/guides/operate/crash-and-recovery)). Size the machine from the open peak, and set a cap below it.
+
+## Related
+
+- [Limits and sizing](/docs/reference/storage/limits-and-sizing): every limit relate enforces, with its default.
+- [Performance](/docs/reference/performance): measured numbers per release, with their harness.
+- [`--logical-graph-size-limit`](/docs/reference/cli/flags#logical-graph-size-limit) in the flags reference.
+- [Choose a durability mode](/docs/guides/operate/durability-modes): what a crash can lose while the graph is in memory.

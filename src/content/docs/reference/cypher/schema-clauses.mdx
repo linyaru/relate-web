@@ -1,0 +1,275 @@
+---
+title: Schema clauses
+description: The exact grammar relate accepts for CREATE INDEX, CREATE CONSTRAINT, DROP, SHOW INDEXES, SHOW CONSTRAINTS and graph types, with defaults, naming and errors.
+order: 70
+surfaces: [cypher]
+related: [guides/cypher/indexes-and-constraints, reference/cypher/search, reference/cypher/procedures, reference/cypher/differences-from-neo4j, reference/cypher/writing-clauses, concepts/problems-relate-solves#text-to-cypher, concepts/problems-relate-solves#schema-as-files]
+---
+
+Schema statements manage the indexes, :term[constraints]{id=constraint} and :term[graph type]{id=graph-type} of a :term[store]{id=store}. An index speeds up lookups and searches; a constraint is a rule every write must satisfy; a graph type declares the node and relationship types of the whole graph and turns each declaration into constraints. Each statement takes effect when it commits. On success, `CREATE` and `DROP` return no rows, and the CLI prints nothing; `SHOW INDEXES` and `SHOW CONSTRAINTS` are how to see what changed.
+
+## Synopsis
+
+```text
+CREATE [RANGE] INDEX [<name>] [IF NOT EXISTS]
+  FOR (<v>:<Label>) ON (<v>.<property> [, <v>.<property> …]) [OPTIONS {…}]
+CREATE [RANGE] INDEX [<name>] [IF NOT EXISTS]
+  FOR ()-[<v>:<TYPE>]-() ON (<v>.<property> [, <v>.<property> …]) [OPTIONS {…}]
+CREATE TEXT INDEX [<name>] [IF NOT EXISTS]
+  FOR (<v>:<Label>) | ()-[<v>:<TYPE>]-() ON (<v>.<property>) [OPTIONS {…}]
+CREATE POINT INDEX [<name>] [IF NOT EXISTS]
+  FOR (<v>:<Label>) | ()-[<v>:<TYPE>]-() ON (<v>.<property>) [OPTIONS {…}]
+CREATE LOOKUP INDEX [<name>] [IF NOT EXISTS] FOR (<v>) ON EACH labels(<v>) [OPTIONS {…}]
+CREATE LOOKUP INDEX [<name>] [IF NOT EXISTS] FOR ()-[<v>]-() ON EACH type(<v>) [OPTIONS {…}]
+CREATE VECTOR INDEX …      (see the search reference)
+CREATE FULLTEXT INDEX …    (see the search reference)
+DROP INDEX <name> [IF EXISTS]
+SHOW [ALL | RANGE | TEXT | POINT | LOOKUP | VECTOR | FULLTEXT] INDEXES
+  [YIELD <column> [, …] | YIELD *] [WHERE <predicate>] [RETURN …]
+
+CREATE CONSTRAINT [<name>] [IF NOT EXISTS]
+  FOR (<v>:<Label>) | ()-[<v>:<TYPE>]-()
+  REQUIRE <property list> IS [NODE | RELATIONSHIP] UNIQUE
+        | <property list> IS NOT NULL
+        | <property list> IS [NODE | RELATIONSHIP] KEY
+        | <v>.<property> IS :: <type> | IS TYPED <type>
+  <property list> = <v>.<property> | (<v>.<property>, <v>.<property> …)
+DROP CONSTRAINT <name> [IF EXISTS]
+SHOW [<filter>] CONSTRAINTS [YIELD <column> [, …] | YIELD *] [WHERE <predicate>] [RETURN …]
+  <filter> = ALL | [NODE | REL | RELATIONSHIP] [[PROPERTY] UNIQUE | UNIQUENESS | EXIST | EXISTENCE | TYPE | KEY]
+
+CREATE GRAPH TYPE <name> [AS] { <element type or constraint> [, …] }
+ALTER CURRENT GRAPH TYPE SET { … } | SET GRAPH TYPE <name> | ADD { … } | ALTER { … } | DROP { … }
+SHOW CURRENT GRAPH TYPE [YIELD specification RETURN …]
+SHOW CURRENT GRAPH TYPE AS GRAPH [SINGLE | SEPARATE]
+```
+
+## Indexes
+
+| Kind | Statement | Entity | Properties | `SHOW INDEXES` `type` |
+| --- | --- | --- | --- | --- |
+| Range | `CREATE INDEX` or `CREATE RANGE INDEX` | Node label or :term[relationship type]{id=relationship-type} | One or more | `RANGE` |
+| Text | `CREATE TEXT INDEX` | Node label or relationship type | Exactly one | `TEXT` |
+| Point | `CREATE POINT INDEX` | Node label or relationship type | Exactly one, holding points | `POINT` |
+| Lookup | `CREATE LOOKUP INDEX … ON EACH labels(n)` or `… ON EACH type(r)` | Every node, or every relationship | None | `LOOKUP` |
+| Vector | `CREATE VECTOR INDEX` ([search](/docs/reference/cypher/search#index-statements)) | Node label or relationship type | One, holding vectors, plus `WITH [...]` filter properties | `VECTOR` |
+| Full-text | `CREATE FULLTEXT INDEX` ([search](/docs/reference/cypher/search#index-statements)) | Node label or relationship type | One or more strings, in `ON EACH [...]` | `FULLTEXT` |
+
+A new store has no indexes. A :term[point index]{id=point-index} narrows distance and bounding-box predicates on `point` values ([geospatial](/docs/guides/cypher/geospatial)).
+
+| Rule | Behavior |
+| --- | --- |
+| No name | relate generates one; `SHOW INDEXES` reports it |
+| `IF NOT EXISTS` | No error and no change when an index of that name exists, even with another definition |
+| A name another index uses | `semantic error: IndexAlreadyExists` |
+| A name a constraint uses | `semantic error: There already exists a constraint called '<name>'.` |
+| The same kind, entity and properties under another name, or a constraint already owning that index | `semantic error: EquivalentSchemaRuleAlreadyExists` |
+| More than one property on a text or point index | `syntax error: InvalidArguments: this index type requires one property` |
+| `OPTIONS {…}` | One key is accepted, `indexConfig`, whose settings depend on the index kind; any other key, `indexProvider` included, fails with `syntax error: InvalidIndexOption` |
+| `CREATE BTREE INDEX` | `syntax error: parse error: UnsupportedIndexType: BTREE indexes were removed; use RANGE, POINT, TEXT, FULLTEXT, LOOKUP, or VECTOR` |
+| `DROP INDEX` on a missing name | ``semantic error: NoSuchIndex: `<name>` ``; with `IF EXISTS`, nothing happens and no error is raised |
+| `DROP INDEX` on an index a constraint owns | `Unable to drop '<name>': the index belongs to a constraint.` (CLI exit code 1) |
+| State after `CREATE` | `SHOW INDEXES` reports `state` `ONLINE` and `populationPercent` `100.0` |
+
+### SHOW INDEXES columns
+
+| Column | Holds |
+| --- | --- |
+| `id` | `0` for every index; `name` identifies an index |
+| `name` | The index name |
+| `state` | `ONLINE` |
+| `populationPercent` | `100.0` |
+| `type` | `RANGE`, `TEXT`, `POINT`, `LOOKUP`, `VECTOR` or `FULLTEXT` |
+| `entityType` | `NODE` or `RELATIONSHIP` |
+| `labelsOrTypes` | The label or type, `null` for a lookup index |
+| `properties` | The properties, `null` for a lookup index |
+| `indexProvider` | The provider name, such as `range-1.0` |
+| `owningConstraint` | The constraint that owns the index, or `null` |
+| `lastRead`, `readCount` | Read tracking |
+| `options`, `createStatement`, `failureMessage`, `trackedSince` | Only with `YIELD *` or by name |
+
+## Constraints
+
+| Constraint | `REQUIRE` form | Entity | `SHOW CONSTRAINTS` `type` | Owns an index |
+| --- | --- | --- | --- | --- |
+| Uniqueness | `IS UNIQUE`, `IS NODE UNIQUE`, `IS RELATIONSHIP UNIQUE` | Node or relationship; one property or a list | `NODE_PROPERTY_UNIQUENESS`, `RELATIONSHIP_PROPERTY_UNIQUENESS` | Yes |
+| Existence | `IS NOT NULL` | Node or relationship; one property or a list | `NODE_PROPERTY_EXISTENCE`, `RELATIONSHIP_PROPERTY_EXISTENCE` | No |
+| Key | `IS KEY`, `IS NODE KEY`, `IS RELATIONSHIP KEY` | Node or relationship; one property or a list | `NODE_KEY`, `RELATIONSHIP_KEY` | Yes |
+| Property type | `IS :: <type>`, `IS TYPED <type>`; a union such as `STRING \| INTEGER` | Node or relationship; one property | `NODE_PROPERTY_TYPE`, `RELATIONSHIP_PROPERTY_TYPE` | No |
+
+| Rule | Behavior |
+| --- | --- |
+| No name | relate generates one, such as `constraint_unique_Person_name` |
+| `IF NOT EXISTS` | No error and no change when a constraint of that name exists |
+| A name another constraint uses | `semantic error: ConstraintAlreadyExists` |
+| A name an index uses | `semantic error: DuplicatedIndexName` |
+| The same rule under another name | `semantic error: EquivalentSchemaRuleAlreadyExists` |
+| A uniqueness or key constraint on the label and properties of an existing range index | `semantic error: AlreadyExists: there already exists an index (:<Label> {<property>, …}). A constraint cannot be created until the index has been dropped.` A text index on the same property does not block it |
+| More than one property in `IS ::` or `IS TYPED` | `syntax error: InvalidConstraintSyntax: only single property IS TYPED constraints are supported` |
+| Existing data breaks the rule | The `CREATE CONSTRAINT` fails with the violation message and creates nothing |
+| A uniqueness constraint and a missing property | Allowed: uniqueness applies to entities that have the property |
+| `DROP CONSTRAINT` | Removes the constraint and the index it owns |
+| `DROP CONSTRAINT` on a missing name | `semantic error: ConstraintNotFound`; with `IF EXISTS`, nothing happens and no error is raised |
+| `DROP CONSTRAINT` on a constraint a graph type created | `DependentConstraintManagedIndividually: dependent constraints cannot be dropped` (CLI exit code 1) |
+
+### Constraint violations
+
+A write that breaks a constraint fails, and the statement changes nothing. The message names the constraint and the rule:
+
+| Rule broken | Message |
+| --- | --- |
+| Uniqueness, or a key's uniqueness | ``semantic error: ConstraintValidationFailed: `<name>` uniqueness`` |
+| Existence, or a key property missing | ``semantic error: ConstraintValidationFailed: `<name>` requires properties`` |
+| Property type | ``semantic error: ConstraintValidationFailed: `<name>` property type`` |
+| A graph type's implied label | `ConstraintValidationFailed: node with label <label> must also have label <label>` |
+
+Under the CLI the first three exit with code 6, the implied-label violation with code 1.
+
+### SHOW CONSTRAINTS filters and columns
+
+The `<filter>` in the synopsis has an entity part and a kind part, both optional. `NODE` limits the list to node constraints, `REL` or `RELATIONSHIP` to relationship constraints; `PROPERTY` before `UNIQUE`, `UNIQUENESS`, `EXIST`, `EXISTENCE` or `TYPE` changes nothing in the result.
+
+| Kind part | Lists |
+| --- | --- |
+| None, or `ALL` | Every constraint, or every constraint of the entity part |
+| `UNIQUE`, `UNIQUENESS` | Uniqueness constraints; key constraints are not included |
+| `EXIST`, `EXISTENCE` | Existence constraints |
+| `KEY` | Key constraints |
+| `TYPE` | Property type constraints |
+| `PROPERTY KEY` | `syntax error: parse error: InvalidConstraintTypeFilter: PROPERTY cannot combine with the KEY filter` |
+| `PROPERTY` alone | `syntax error: parse error: InvalidConstraintTypeFilter: PROPERTY must be followed by UNIQUE[NESS], EXIST[ENCE], or TYPE` |
+
+The columns are `id` (`0` for every constraint), `name`, `type`, `entityType`, `labelsOrTypes`, `properties`, `ownedIndex`, `propertyType` and `enforcedLabel`; `YIELD *` adds `options`, `createStatement` and `classification`.
+
+## Graph types
+
+A graph type lists node element types, `(:<Label> => {<property> :: <type> [NOT NULL], …})`, and relationship element types, `(:<Label> =>)-[:<TYPE> => {…}]->(:<Label> =>)`. The `=>` (or `IMPLIES`) after a label is required before a property block. A property declaration can end in `IS KEY` or `IS UNIQUE`, and a `CONSTRAINT … REQUIRE …` entry can sit in the list. A graph type is open: nodes with labels it does not declare are accepted.
+
+| Statement | Effect |
+| --- | --- |
+| `CREATE GRAPH TYPE <name> { … }` | Registers a named type. It does not apply it. A second `CREATE` with the same name replaces it without an error |
+| `ALTER CURRENT GRAPH TYPE SET GRAPH TYPE <name>` | Makes the named type current; an unknown name fails with `semantic error: GraphTypeNotFound` |
+| `ALTER CURRENT GRAPH TYPE SET { … }` | Replaces the current type |
+| `ALTER CURRENT GRAPH TYPE ADD { … }` | Adds element types |
+| `ALTER CURRENT GRAPH TYPE ALTER { … }` | Redefines element types that exist |
+| `ALTER CURRENT GRAPH TYPE DROP { (:<Label> =>) }` | Removes element types and their constraints |
+| `SHOW CURRENT GRAPH TYPE` | One row, `specification`: the current type as text, `{}` when none is set |
+| `SHOW CURRENT GRAPH TYPE AS GRAPH` | One row with `nodes` and `relationships` lists |
+
+Setting a type creates the constraints it implies, which `SHOW CONSTRAINTS` lists under generated names, including `RELATIONSHIP_SOURCE_LABEL` and `RELATIONSHIP_TARGET_LABEL` for a relationship's endpoints. Data that breaks the new type makes the `ALTER` fail with the violation message. Constraints created with `CREATE CONSTRAINT` while a type is current appear in its specification. Optional properties, default values and inheritance between element types are preview features ([Cypher overview](/docs/reference/cypher/overview#preview-features)).
+
+## Schema procedures
+
+| Procedure | Yields | Notes |
+| --- | --- | --- |
+| `db.schema.nodeTypeProperties()` | `nodeType`, `nodeLabels`, `propertyName`, `propertyTypes`, `mandatory` | Inferred from the stored nodes: one row per label set and property |
+| `db.schema.relTypeProperties()` | `relType`, `propertyName`, `propertyTypes`, `mandatory` | The same for relationships |
+| `db.schema.visualization([<boolean or map>])` | `nodes`, `relationships` | The argument defaults to `true`. One virtual node per label and one virtual relationship per label-type-label combination; `false` limits it to combinations in the data |
+| `db.labels()` | `label` | The labels in use |
+| `db.relationshipTypes()` | `relationshipType` | The relationship types in use |
+| `db.propertyKeys()` | `propertyKey` | The property keys in use |
+| `db.awaitIndexes([<seconds>])` | Nothing | Returns when every index is online; the timeout defaults to 300 seconds |
+
+The [procedures](/docs/reference/cypher/procedures) page lists the rest.
+
+## Examples
+
+The cells run in page order on one in-memory store, starting from the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+One index of three kinds, then the list:
+
+```cypher run name=create-indexes
+CREATE INDEX works_on_since IF NOT EXISTS FOR ()-[w:WORKS_ON]-() ON (w.since);
+CREATE TEXT INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role);
+CREATE LOOKUP INDEX node_labels IF NOT EXISTS FOR (n) ON EACH labels(n)
+```
+
+```cypher run name=show-indexes
+SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties
+RETURN name, type, entityType, labelsOrTypes, properties
+ORDER BY name
+```
+
+A uniqueness constraint owns an index, so the index cannot be dropped on its own:
+
+```cypher run name=unique-constraint
+CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE
+```
+
+```cypher run name=drop-owned-index expect=error
+DROP INDEX person_name
+```
+
+A second Ada breaks the constraint, and the write fails:
+
+```cypher run name=violation expect=error
+CREATE (:Person {name: 'Ada', role: 'designer'})
+```
+
+A constraint that existing data breaks is not created: two people share the role `engineer`:
+
+```cypher run name=create-violated expect=error
+CREATE CONSTRAINT person_role_unique FOR (p:Person) REQUIRE p.role IS UNIQUE
+```
+
+Constraints listed by filter:
+
+```cypher run name=show-constraints
+SHOW UNIQUE CONSTRAINTS YIELD name, type, labelsOrTypes, properties, ownedIndex
+RETURN name, type, labelsOrTypes, properties, ownedIndex
+```
+
+`DROP CONSTRAINT` removes the constraint and its index; a missing name with `IF EXISTS` is no error:
+
+```cypher run name=drop-constraint
+DROP CONSTRAINT person_name;
+DROP CONSTRAINT person_name IF EXISTS;
+SHOW INDEXES YIELD name RETURN collect(name) AS indexes
+```
+
+A graph type for the example graph, registered and then made current:
+
+```cypher run name=graph-type
+CREATE GRAPH TYPE team {
+  (p:Person => {name :: STRING NOT NULL, role :: STRING}),
+  (r:Project => {name :: STRING NOT NULL, language :: STRING}),
+  (p)-[:WORKS_ON => {since :: INTEGER}]->(r)
+};
+ALTER CURRENT GRAPH TYPE SET GRAPH TYPE team;
+SHOW CURRENT GRAPH TYPE YIELD specification RETURN specification
+```
+
+A person without a name now fails:
+
+```cypher run name=graph-type-violation expect=error
+CREATE (:Person {role: 'engineer'})
+```
+
+The inferred node schema:
+
+```cypher run name=node-type-properties
+CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes, mandatory
+RETURN nodeType, propertyName, propertyTypes, mandatory
+ORDER BY nodeType, propertyName
+```
+
+## See also
+
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): choosing and adding them, step by step.
+- [Search](/docs/reference/cypher/search): vector and full-text index options and the `SEARCH` clause.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): `DROP INDEX` and `DROP CONSTRAINT` print nothing on success.
+- [Procedures](/docs/reference/cypher/procedures): every built-in procedure.
+- [Writing clauses](/docs/reference/cypher/writing-clauses): the writes constraints check.

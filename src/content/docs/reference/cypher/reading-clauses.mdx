@@ -1,0 +1,248 @@
+---
+title: Reading clauses
+description: MATCH, OPTIONAL MATCH, WHERE, RETURN, ORDER BY, SKIP, LIMIT, WITH and UNWIND in relate, with their grammar, null and ordering rules, and errors.
+order: 40
+surfaces: [cypher]
+related: [reference/cypher/patterns, reference/cypher/writing-clauses, reference/cypher/composing-clauses, reference/cypher/expressions, reference/cypher/differences-from-neo4j]
+---
+
+Reading clauses find rows and shape them. `MATCH` and `OPTIONAL MATCH` bind variables from patterns, `WHERE` filters, `WITH` and `RETURN` project, `ORDER BY`, `SKIP` and `LIMIT` sort and page, and `UNWIND` turns a list into rows. relate runs them with Cypher 25 semantics by default, and also accepts the :term[GQL]{id=gql} spellings `FOR`, `LET` and `FILTER`. A :term[statement]{id=statement} that only reads is a :term[query]{id=query}; the pattern syntax inside `MATCH` is on the [patterns](/docs/reference/cypher/patterns) page.
+
+## Synopsis
+
+```text
+[OPTIONAL] MATCH <pattern> [, <pattern> …] [WHERE <predicate>]
+
+WITH [DISTINCT] <expression> AS <alias> [, …] | *
+  [GROUP BY <key>, … | GROUP BY () | GROUP BY ALL]
+  [ORDER BY <expression> [ASC | ASCENDING | DESC | DESCENDING] [, …]]
+  [SKIP <n> | OFFSET <n>] [LIMIT <n>]
+  [WHERE <predicate>]
+
+UNWIND <list> AS <variable>
+FOR <variable> IN <list>
+LET <variable> = <expression> [, …]
+FILTER [WHERE] <predicate>
+
+RETURN [DISTINCT | ALL] <expression> [AS <alias>] [, …] | *
+  [GROUP BY <key>, … | GROUP BY () | GROUP BY ALL]
+  [ORDER BY <expression> [ASC | ASCENDING | DESC | DESCENDING] [, …]]
+  [SKIP <n> | OFFSET <n>] [LIMIT <n>]
+
+ORDER BY <expression> [ASC | ASCENDING | DESC | DESCENDING] [, …]
+SKIP <n> | OFFSET <n>
+LIMIT <n>
+```
+
+## Clauses
+
+| Clause | Takes | Produces | Notes |
+| --- | --- | --- | --- |
+| `MATCH` | One or more patterns | One row per way the patterns match; no match, no rows | Comma-separated patterns form a cartesian product, joined on shared variables. Within one `MATCH`, each relationship is matched at most once per row |
+| `OPTIONAL MATCH` | One or more patterns | The input row with the new variables bound, or bound to `null` when nothing matches | Its `WHERE` filters the optional part only; a row whose optional part fails the filter is kept with `null`s |
+| `WHERE` | A predicate | The rows where it is `true` | A row where the predicate is `null` is dropped, the same as `false`. Follows `MATCH`, `OPTIONAL MATCH` or `WITH` |
+| `WITH` | Projection items | A new row per input row, holding only the projected variables | Every expression needs `AS`; a bare variable does not. Variables not projected go out of scope |
+| `RETURN` | Projection items | The result columns | A column without `AS` is named after its expression text, such as `p.name`. Two columns with one name fail |
+| `ORDER BY` | Sort keys | The rows sorted | `ASC` is the default. After `DISTINCT` or an aggregation, a sort key can use the projected values, the projected expressions, and aggregates over the group; other row variables are out of scope. Also a clause of its own between other clauses, as in GQL |
+| `SKIP`, `OFFSET` | A non-negative integer | All but the first `n` rows | `OFFSET` is the GQL spelling of `SKIP`. Also a clause of its own between other clauses, as in GQL |
+| `LIMIT` | A non-negative integer | At most `n` rows | `LIMIT 0` returns no rows. Also a clause of its own between other clauses, as in GQL |
+| `UNWIND` | A list and a variable name | One row per element | `[]` and `null` give no rows; a value that is not a list gives one row |
+| `FOR` | A variable name and a list | The same rows as `UNWIND` | GQL spelling; the variable comes first. `FOR <list> AS <variable>` is a parse error. The CLI accepts it; the WebAssembly build the cells on this page use does not ([example](#examples)) |
+| `LET` | `<variable> = <expression>` pairs | The input row with new variables | A pair cannot refer to another pair of the same `LET`; a second `LET` can refer to the first |
+| `FILTER` | A predicate | The rows where it is `true` | A clause of its own; `WHERE` after it is optional |
+
+### Projection
+
+| Form | Result |
+| --- | --- |
+| `RETURN *`, `WITH *` | Every variable in scope, as one column each |
+| `RETURN DISTINCT`, `WITH DISTINCT` | Duplicate rows removed |
+| `RETURN ALL` | Every row kept; the default, written out |
+| Aggregate beside plain items | Plain items are the grouping keys: `RETURN p.role AS role, count(*) AS people` counts per role |
+| `GROUP BY <key>, …` | The listed aliases are the grouping keys, in place of the inferred ones |
+| `GROUP BY ()` | One group: aggregates over every row |
+| `GROUP BY ALL` | Every plain item is a key, as without `GROUP BY` |
+
+### WHERE predicates
+
+| Predicate | Form | `true` when |
+| --- | --- | --- |
+| Comparison | `=`, `<>`, `<`, `>`, `<=`, `>=` | The comparison holds; a comparison with `null` is `null` |
+| Boolean | `AND`, `OR`, `XOR`, `NOT` | Three-valued: `null AND false` is `false`, `null OR true` is `true`, otherwise `null` propagates |
+| String | `STARTS WITH`, `ENDS WITH`, `CONTAINS` | Case-sensitive match on strings |
+| Regular expression | `<string> =~ '<regex>'` | The whole string matches |
+| Null test | `IS NULL`, `IS NOT NULL` | The value is (or is not) `null` |
+| List membership | `<value> IN <list>` | The list holds the value |
+| Label test | `n:Person`, `n:Person\|Project`, `n IS LABELED Person` | The node carries the labels; the [label expression](/docs/reference/cypher/patterns#label-expressions) operators apply |
+| Pattern | `(p)-[:KNOWS]->()`, `NOT (p)-[:WORKS_ON]->()` | The pattern has (or has no) match from the bound variables |
+| Subquery | `EXISTS { … }` | The subquery returns a row ([composing clauses](/docs/reference/cypher/composing-clauses#subquery-expressions)) |
+
+Operators beyond these, and their precedence, are on the [expressions](/docs/reference/cypher/expressions) page.
+
+## Ordering and nulls
+
+| Rule | Behavior |
+| --- | --- |
+| `null` in an ascending sort | Last |
+| `null` in a descending sort | First |
+| Mixed types, ascending | Maps, then nodes, relationships, lists, paths, vectors, points, temporal values, durations, strings, booleans, numbers, and `null` last |
+| Integers and floats | Compared as numbers: `1 < 2.5 < 3` |
+| Equal keys | No defined order between them; a second key makes the order stable |
+| `ORDER BY` in a `UNION` | Sorts the last branch only ([composing clauses](/docs/reference/cypher/composing-clauses#union)) |
+
+## SKIP and LIMIT values
+
+The value is an integer expression that does not depend on the row: a literal, a parameter, or arithmetic on them.
+
+| Value | Result |
+| --- | --- |
+| A non-negative integer | Skips or keeps that many rows |
+| `0` | `SKIP 0` keeps every row; `LIMIT 0` returns none |
+| A float literal | `syntax error: InvalidArgumentType: SKIP requires an integer value` (the `LIMIT` form names `LIMIT`) |
+| A negative integer | `syntax error: NegativeIntegerArgument: LIMIT must not be negative` (the `SKIP` form names `SKIP`) |
+| `null`, or a float at run time | `type error: InvalidArgumentType: SKIP/LIMIT must be an integer` |
+| An expression over a row variable | `syntax error: NonConstantExpression: LIMIT must be a non-negative integer constant` |
+| A parameter not supplied | `semantic error: ParameterMissing: Expected parameter(s): <names>` |
+
+## Errors
+
+| Message | Cause |
+| --- | --- |
+| `syntax error: NoExpressionAlias: expressions in WITH must be aliased with AS` | A `WITH` item that is an expression has no `AS` |
+| `syntax error: ColumnNameConflict: multiple result columns with the same name '<name>'` | Two `RETURN` items share a name |
+| `syntax error: UndefinedVariable: variable '<name>' not defined` | The variable is out of scope: not projected by the previous `WITH`, or a row variable used in `ORDER BY` after `RETURN DISTINCT` or an aggregation without being returned |
+| `syntax error: parse error: expected binding variable in FOR, got "<token>"` | `FOR` written in the `UNWIND` order |
+
+Under the CLI each of these exits with code 6; the [exit code table](/docs/reference/cli/exit-codes-and-errors) lists the rest.
+
+## Examples
+
+The cells run in page order on one in-memory store, starting from the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+`OPTIONAL MATCH` keeps Noor, who works on no project, and its `WHERE` drops only Grace's 2022 match:
+
+```cypher run name=optional-match
+MATCH (p:Person)
+OPTIONAL MATCH (p)-[w:WORKS_ON]->(r:Project) WHERE w.since >= 2023
+RETURN p.name AS person, r.name AS project
+ORDER BY person, project
+```
+
+Within one `MATCH`, the two `WORKS_ON` relationships must differ, so nobody is paired with themselves:
+
+```cypher run name=coworkers
+MATCH (a:Person)-[:WORKS_ON]->(:Project)<-[:WORKS_ON]-(b:Person)
+RETURN a.name AS person, b.name AS coworker
+ORDER BY person
+```
+
+No person has a `team` property, so both comparisons are `null` for every row, and `WHERE` keeps none:
+
+```cypher run name=null-predicate
+MATCH (p:Person)
+WHERE p.team = 'core' OR p.team <> 'core'
+RETURN count(p) AS people
+```
+
+A descending sort puts `null` first:
+
+```cypher run name=order-nulls
+MATCH (p:Person)
+OPTIONAL MATCH (p)-[w:WORKS_ON]->()
+RETURN p.name AS person, w.since AS since
+ORDER BY since DESC
+```
+
+Values of different types sort by type first:
+
+```cypher run name=order-types
+UNWIND [3, null, 'relate', 2.5, true, [1], {k: 1}] AS value
+RETURN value
+ORDER BY value
+```
+
+`WITH` aggregates, and its `WHERE` filters on the aggregate:
+
+```cypher run name=with-where
+MATCH (p:Person)
+WITH p.role AS role, count(*) AS people
+WHERE people > 1
+RETURN role, people
+```
+
+`SKIP` and `LIMIT` page through a sorted result; a float is refused:
+
+```cypher run name=skip-limit
+MATCH (p:Person)
+RETURN p.name AS name
+ORDER BY name
+SKIP 1 LIMIT 1
+```
+
+```cypher run name=skip-float expect=error
+MATCH (p:Person) RETURN p.name AS name ORDER BY name SKIP 1.0
+```
+
+`ORDER BY` and `LIMIT` also stand as clauses of their own, between `MATCH` and `RETURN`:
+
+```cypher run name=order-limit-clauses
+MATCH (p:Person)
+ORDER BY p.name DESC
+LIMIT 2
+RETURN p.name AS name
+```
+
+`UNWIND` gives one row per element: the empty list and `null` give none, and a string gives one:
+
+```cypher run name=unwind
+UNWIND [[1, 2], [], null, 'solo'] AS item
+UNWIND item AS value
+RETURN value
+```
+
+`LET` and `FILTER` in one pipeline:
+
+```cypher run name=let-filter
+UNWIND ['Ada', 'Noor'] AS name
+MATCH (p:Person {name: name})
+LET projects = COUNT { (p)-[:WORKS_ON]->() }
+FILTER projects > 0
+RETURN p.name AS name, projects
+```
+
+`FOR` on the CLI. The WebAssembly build the cells on this page run on rejects it with `semantic error: SemanticError: preview feature 'gql-for' is not enabled: set RELATE_PREVIEW=gql-for`; the CLI accepts it without an opt-in, and its `RELATE_PREVIEW` has no `gql-for` name.
+
+```bash verify
+relate --mode table "FOR name IN ['Ada', 'Grace', null] RETURN name"
+```
+
+```text
++---------+
+| name    |
++---------+
+| "Ada"   |
+| "Grace" |
+| <null>  |
++---------+
+```
+
+## See also
+
+- [Patterns](/docs/reference/cypher/patterns): node, relationship and path patterns, label expressions, and quantifiers.
+- [Composing clauses](/docs/reference/cypher/composing-clauses): `UNION`, `CALL` subqueries and subquery expressions.
+- [Writing clauses](/docs/reference/cypher/writing-clauses): `CREATE`, `MERGE`, `SET` and `DELETE`.
+- [Expressions](/docs/reference/cypher/expressions): operators, `CASE`, comprehensions, and precedence.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the Neo4j habits that fail in relate.

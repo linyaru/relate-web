@@ -1,0 +1,135 @@
+---
+title: Project
+description: relate's license, how the project takes contributions, what pre-1.0 and preview features promise, how releases are cut, and the platforms each artifact runs on.
+order: 80
+surfaces: [cli, python, node, browser, rust, java, go, swift, c]
+related: [reference/changelog, reference/security, reference/privacy-and-telemetry, get-started/install, reference/limitations]
+---
+
+relate is open source under the Apache License 2.0. It is pre-1.0: under semantic versioning, any 0.x release can change behavior, a patch release included, and every change that can break working code is marked in the changelog. Releases are cut by hand and signed; the CLI ships for macOS, Linux, and Windows, and the clients cover Python, Node.js, the browser, Rust, Java, Go, Swift, and C. This page records those facts and where each comes from.
+
+## Synopsis
+
+| Fact | Value |
+| --- | --- |
+| License | Apache License 2.0 |
+| Source | [github.com/relatedb/relate](https://github.com/relatedb/relate), public at launch |
+| Version these pages track | 0.16.1 |
+| Stability | Pre-1.0; any release can change behavior, and breaking changes are marked |
+| Contributions | Issues; no pull requests from outside the maintainer team |
+| Release cadence | None published |
+| Bug reports and questions | Issues on the repository, open at launch |
+| Security reports | No address yet; see [Security](/docs/reference/security#reporting-a-vulnerability) |
+
+`relate --version` prints the version and the license:
+
+```bash verify
+relate --version
+```
+
+```text
+Relate v0.16.1
+License: Apache 2.0 (binary)
+```
+
+## License
+
+The repository's `LICENSE` file is the Apache License, Version 2.0, and the binary's `--version` names it. The Rust crates (the Cargo workspace's `license` field) and the Node.js package (`package.json`) declare `Apache-2.0`.
+
+## Governance
+
+The repository states how it takes contributions:
+
+| Contribution | Accepted |
+| --- | --- |
+| Bug reports, feature requests and questions, as issues | Yes |
+| Pull requests from outside the maintainer team | No; pull requests are turned off for accounts without write access |
+| Issues written with an AI tool | Yes, when the tool is disclosed in the issue and a person who hit the problem has checked it |
+| Issues filed by an agent with no person involved | May be closed without warning |
+
+Only the maintainer team merges changes. Design decisions are recorded as architecture decision records in the repository's `docs/adr/` directory. The repository publishes no governance document, steering body, or foundation membership.
+
+## Versioning and stability
+
+relate follows semantic versioning, and is pre-1.0:
+
+| Promise | What it means |
+| --- | --- |
+| Any release can break | Under semantic versioning, anything can change in a 0.x release, a patch release included. 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C application binary interface (ABI) with an incompatible typed one. |
+| Breaking changes are marked | A change that can make working code or statements fail is marked **Breaking** in the [changelog](/docs/reference/changelog) entry of the release that ships it, with its replacement when there is one. |
+| Deprecations are listed | A feature that still works but is to be removed is listed under Deprecated in the release that deprecates it. |
+| One version number | The binary and every client package carry the same version number. |
+| Preview features are opt-in | A preview feature runs only when its name is in `RELATE_PREVIEW`, read once when a store opens. An unknown name fails the open. A preview feature's syntax can change between releases. When it graduates, its gate is removed and it works without the opt-in. |
+| Stores migrate forward | A store written by an older release is upgraded in place the first time a newer release opens it. There is no downgrade: an older binary rejects a store a newer one has opened. |
+
+A :term[preview feature]{id=preview-feature} named in `RELATE_PREVIEW` that the engine does not know fails the open with exit code 1:
+
+```bash verify
+RELATE_PREVIEW=time-travel relate "RETURN 1 AS ok"
+```
+
+```text
+Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature 'time-travel' (known features: hybrid-search, local-callables, graph-type-opt-props, graph-type-default-values, graph-type-implied-labels, ontology, obfuscated-literals, mixed-label-syntax, float16-coordinate-types, chronological-comparisons, complex-search-patterns, coll-zip, coll-has, gql-stddev-aliases)
+{"error":{"code":"fatal_error","exit_code":1,"kind":"semantic","message":"semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature 'time-travel' (known features: hybrid-search, local-callables, graph-type-opt-props, graph-type-default-values, graph-type-implied-labels, ontology, obfuscated-literals, mixed-label-syntax, float16-coordinate-types, chronological-comparisons, complex-search-patterns, coll-zip, coll-has, gql-stddev-aliases)","retryable":false}}
+```
+
+The first line is stderr. The second is the error object on stdout, which a run with piped output prints after the message.
+
+## Releases
+
+| Step | What happens |
+| --- | --- |
+| Cut | A maintainer starts the release workflow by hand and picks a patch, minor, or major bump. The version comes from the existing tags plus that bump. |
+| Build and sign | The CLI binaries, the C libraries and the client packages build from one commit. The macOS binaries are signed and notarized. The tag is pushed only after every build passes. |
+| Publish | The release carries every artifact, a `SHA256SUMS` manifest and its signature, `SHA256SUMS.sig`. `https://relatedb.ai/releases.json`, which `relate upgrade` reads, is rewritten to list the new release. |
+| Recover | A release that fails after its tag is pushed is not redone under the same version; the next release takes the next version. |
+
+The project publishes no release cadence and no support period for older releases. [Security](/docs/reference/security) describes the signing; the [changelog](/docs/reference/changelog) lists each release.
+
+## Platforms
+
+| Artifact | macOS arm64 | macOS amd64 | Linux arm64 | Linux amd64 | Windows amd64 | Requires |
+| --- | --- | --- | --- | --- | --- | --- |
+| CLI binary, `relate-<os>-<arch>` from the first relate-named release | Yes | Yes | Yes | Yes | Yes (`.exe`) | Linux: glibc |
+| `install.sh` | Yes | Yes | Yes | Yes | No | `curl`, `ssh-keygen` |
+| `relate upgrade` | Yes | Yes | Yes | Yes | No | — |
+| Python client, `relate-db` | Yes | Yes | Yes | Yes | Yes | Python 3.9 or later |
+| Node.js client, `@relate/relate` | Yes | Yes | Yes | Yes | Yes | Node.js 18 or later |
+| Java client, `com.relate:relate` | Yes | Yes | Yes | Yes | Yes | Java 17 or later; the native library is in the jar |
+| Go client | Yes | Yes | Yes | Yes | Yes | cgo, and the C library for the target; on Windows, a MinGW import library generated from the DLL |
+| C library, `relate-ffi-<target>.tar.gz` (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) | Yes | Yes | Yes | Yes | Yes | — |
+| Swift package, `Relate` | Yes | Yes | — | — | — | macOS 13 or later; iOS 16 or later |
+
+Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser :term[store]{id=store} needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
+
+Nothing is published to a package registry yet. The names in the table are the names each package is to be published under at launch:
+
+| Registry | Name |
+| --- | --- |
+| PyPI | `relate-db` (`import relate`) |
+| npm | `@relate/relate`, `@relate/relate-wasm` |
+| Maven Central | `com.relate:relate` |
+| Go modules | `github.com/relatedb/relate/clients/go` |
+| SwiftPM | `Relate`, from `github.com/relatedb/relate` |
+| Release downloads | `github.com/relatedb/relate/releases` |
+
+## Questions and bug reports
+
+Questions and bug reports go to the issues of [github.com/relatedb/relate](https://github.com/relatedb/relate/issues). The repository is private until launch, so before then there is no public tracker. A useful bug report holds:
+
+| Part | Detail |
+| --- | --- |
+| Version and platform | The output of `relate --version`, the operating system, and the architecture |
+| Reproduction | The smallest statement or command that shows the problem, and what was expected instead |
+| Store | How it was opened: a directory, a `.rl` file or `:memory:`, and the snapshot format and durability mode if they are not the defaults |
+| Client | For a client issue, the package version and how it was installed |
+
+A wrong or missing docs page is reported as [`/docs/feedback.md`](/docs/feedback.md) describes; the person the agent works for decides whether a report is sent. The address that page and [Security](/docs/reference/security#reporting-a-vulnerability) use is to be published at launch.
+
+## See also
+
+- [Changelog](/docs/reference/changelog): every release, with breaking changes marked
+- [Security](/docs/reference/security): release signing, verification, and vulnerability reports
+- [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what the CLI reports, and how to turn it off
+- [Install relate](/docs/get-started/install): the install commands for each platform and package
+- [Limitations](/docs/reference/limitations): what relate does not do, platform coverage included

@@ -83,3 +83,7 @@ with the Durable Object replaced by the stateless handler.
 
 - Amended by ADR-0015: five tools plus resources and prompts; `run_recipe`,
   the capabilities manifest and content hashes are dropped.
+- Amended by ADR-0026 (capability catalog): no outcome cards on the docs
+  landing; verify may name a docs cell, a language sample or a CLI verify
+  step as well as a recipe cell, or be null where no recorded run
+  exercises the capability.

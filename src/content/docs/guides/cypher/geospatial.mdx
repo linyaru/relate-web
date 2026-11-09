@@ -1,0 +1,201 @@
+---
+title: Geospatial queries
+description: Store locations as points, measure distances in meters, find places within a radius or a map box, and speed both up with a point index.
+order: 27
+surfaces: [cypher, cli]
+prerequisites: [get-started/first-graph]
+related: [cookbook/nearby-places, concepts/problems-relate-solves#geospatial-memory, reference/cypher/functions, reference/cypher/types-and-values, guides/cypher/indexes-and-constraints, guides/cypher/tune-a-query]
+---
+
+This guide shows you how to store locations as `point` values, measure the distance between them, find the places within a radius or inside a map box, and add a :term[point index]{id=point-index} that narrows those searches. The cells run in page order on one in-memory :term[store]{id=store}, in your browser and in the docs build; the index steps also run in a terminal, where the plan and its counters are visible.
+
+## Prerequisites
+
+- A first look at Cypher, such as [your first graph](/docs/get-started/first-graph).
+- For the terminal steps, relate on your `PATH` ([install](/docs/get-started/install)).
+
+## Load some places
+
+This cell writes eight places: six near a riverside office in Portland, Oregon, and two in Seattle, Washington, to the north. Each place has a `loc` :term[property]{id=property} built with `point()` from a latitude and a longitude.
+
+```cypher run name=seed
+CREATE (:Place {name: 'Riverside Office', kind: 'office', loc: point({latitude: 45.5231, longitude: -122.6765})}),
+       (:Place {name: 'Bean There', kind: 'cafe', loc: point({latitude: 45.5262, longitude: -122.6789})}),
+       (:Place {name: 'Ferry Cafe', kind: 'cafe', loc: point({latitude: 45.5122, longitude: -122.6587})}),
+       (:Place {name: 'Hilltop Roasters', kind: 'cafe', loc: point({latitude: 45.5428, longitude: -122.7011})}),
+       (:Place {name: 'Harbor Library', kind: 'library', loc: point({latitude: 45.5190, longitude: -122.6730})}),
+       (:Place {name: 'Eastside Cafe', kind: 'cafe', loc: point({latitude: 45.5155, longitude: -122.6205})}),
+       (:Place {name: 'Pier Cafe', kind: 'cafe', loc: point({latitude: 47.6097, longitude: -122.3331})}),
+       (:Place {name: 'North Library', kind: 'library', loc: point({latitude: 47.6205, longitude: -122.3493})})
+```
+
+List them with their coordinates to check the load:
+
+```cypher run name=places
+MATCH (p:Place)
+RETURN p.name AS name, p.kind AS kind, p.loc.latitude AS latitude, p.loc.longitude AS longitude
+ORDER BY name
+```
+
+## Search an area on a plane
+
+The explorer draws the places on a plane, longitude across and latitude up, and searches them with two cells on this page: the radius search from [Find places within a radius](#find-places-within-a-radius) and the box search from [Find places inside a map box](#find-places-inside-a-map-box). Drag the circle or the box, or focus it and press the arrow keys to move it and `+` or `-` to resize it. Each move runs the search again on this page's store with the shape's position as its :term[parameters]{id=parameter}, and the places it returns light up with their names. The statement and its parameters show under the plane as they ran, with `PROFILE` in front so the plan reports what the scan read.
+
+The point index button runs the statement from [Add a point index](#add-a-point-index), or drops the index, and searches again. With eight places the times are too small to show the index at work; the scan's database hits show it: the scan reads every place without the index and only the places the index returns with it. The two Seattle places lie beyond the plane; without the index the scan still reads them.
+
+:::geo-explorer{points=places radius=radius box=bbox index=create-index}
+:::
+
+## Read a point
+
+A point built from `latitude` and `longitude` is a geographic point on the WGS-84 coordinate system, spatial reference id (SRID) 4326. Its parts are properties of the value:
+
+```cypher run name=read-point
+MATCH (p:Place {name: 'Riverside Office'})
+RETURN p.loc.srid AS srid, p.loc.crs AS crs, p.loc.latitude AS latitude, p.loc.longitude AS longitude
+```
+
+| `point()` map | Coordinate system | SRID | Distance unit |
+| --- | --- | --- | --- |
+| `{latitude, longitude}` | `wgs-84` | 4326 | meters, along the Earth's surface |
+| `{latitude, longitude, height}` | `wgs-84-3d` | 4979 | meters |
+| `{x, y}` | `cartesian` | 7203 | the coordinates' own unit, as a straight line |
+| `{x, y, z}` | `cartesian-3d` | 9157 | the coordinates' own unit |
+
+On a geographic point, `x` is the longitude and `y` the latitude. A latitude outside -90 to 90 fails with `InvalidArgumentValue: point() latitude must be in the range [-90, 90]`, after `type error:` in the cells and `semantic error:` on the CLI. The check also catches a latitude and longitude passed the wrong way round wherever the longitude is beyond 90 degrees either way, as in Portland. Points are the whole geospatial surface: there are no polygons or lines, so store a shape as an ordinary property and do the geometry in your program.
+
+## Measure a distance
+
+`point.distance(a, b)` between two geographic points returns meters, by the haversine formula with an Earth radius of 6,378,140 m:
+
+```cypher run name=distance
+MATCH (a:Place {name: 'Riverside Office'}), (b:Place {name: 'Pier Cafe'})
+RETURN round(point.distance(a.loc, b.loc) / 1000, 1) AS km
+```
+
+Between two cartesian points it returns the straight-line distance: `point.distance(point({x: 0, y: 0}), point({x: 3, y: 4}))` is `5.0`. Between points of two different coordinate systems it returns `null`, with no error.
+
+## Find places within a radius
+
+Compare the distance from a center with the radius in meters. The center and the radius are parameters, so the same statement serves any position:
+
+```json data=here
+{"lat": 45.5231, "lon": -122.6765, "radius": 2000}
+```
+
+```cypher run name=radius params=here
+MATCH (p:Place)
+WHERE point.distance(p.loc, point({latitude: $lat, longitude: $lon})) < $radius
+RETURN p.name AS name, p.kind AS kind,
+       round(point.distance(p.loc, point({latitude: $lat, longitude: $lon}))) AS meters
+ORDER BY meters
+```
+
+Keep `point.distance(<property>, <center>)` on the left of the comparison, inside the `WHERE`, as the cell does. That is the shape a point index serves; a distance computed in a `WITH` and filtered later is checked on every place instead.
+
+## Find the nearest places
+
+Order by distance and take the first few. Bounding the search with a radius first lets a point index narrow it, and keeps the result near:
+
+```cypher run name=nearest params=here
+MATCH (p:Place {kind: 'cafe'})
+WHERE point.distance(p.loc, point({latitude: $lat, longitude: $lon})) < 5000
+RETURN p.name AS cafe, round(point.distance(p.loc, point({latitude: $lat, longitude: $lon})) / 1000, 1) AS km
+ORDER BY km
+LIMIT 3
+```
+
+## Find places inside a map box
+
+`point.withinBBox(<point>, <lower-left>, <upper-right>)` is true when the point lies inside the box the two corners span. For geographic points, the corners are latitude and longitude pairs, so the box is a latitude and longitude rectangle. Its south, west, north and east limits are parameters:
+
+```json data=box
+{"south": 45.50, "west": -122.70, "north": 45.53, "east": -122.65}
+```
+
+```cypher run name=bbox params=box
+MATCH (p:Place)
+WHERE point.withinBBox(p.loc, point({latitude: $south, longitude: $west}), point({latitude: $north, longitude: $east}))
+RETURN p.name AS name
+ORDER BY name
+```
+
+A box whose lower-left longitude is greater than its upper-right longitude crosses the antimeridian, at longitude 180. Mixing coordinate systems among the three points returns `null`.
+
+## Add a point index
+
+A point index keeps the points of one label and property in an R-tree, so a radius or box predicate reads only the nearby nodes:
+
+```cypher run name=create-index
+CREATE POINT INDEX place_loc IF NOT EXISTS FOR (p:Place) ON (p.loc)
+```
+
+The plan does not name the index: `EXPLAIN` shows the same `NodeByLabelScan` with a `WHERE` filter before and after it, because the index works inside that filter. `PROFILE` shows the difference in the scan's database hits. To see it in a terminal, write the same places to a new store, `places.rl`. This command writes:
+
+```bash verify
+relate --database ./places.rl "CREATE (:Place {name: 'Riverside Office', kind: 'office', loc: point({latitude: 45.5231, longitude: -122.6765})}),
+       (:Place {name: 'Bean There', kind: 'cafe', loc: point({latitude: 45.5262, longitude: -122.6789})}),
+       (:Place {name: 'Ferry Cafe', kind: 'cafe', loc: point({latitude: 45.5122, longitude: -122.6587})}),
+       (:Place {name: 'Hilltop Roasters', kind: 'cafe', loc: point({latitude: 45.5428, longitude: -122.7011})}),
+       (:Place {name: 'Harbor Library', kind: 'library', loc: point({latitude: 45.5190, longitude: -122.6730})}),
+       (:Place {name: 'Eastside Cafe', kind: 'cafe', loc: point({latitude: 45.5155, longitude: -122.6205})}),
+       (:Place {name: 'Pier Cafe', kind: 'cafe', loc: point({latitude: 47.6097, longitude: -122.3331})}),
+       (:Place {name: 'North Library', kind: 'library', loc: point({latitude: 47.6205, longitude: -122.3493})})"
+```
+
+Profile the radius search, read-only, and print only the scan's `DbHits` counter from the plan in the :term[envelope]{id=envelope}. Without an index, the scan reads all eight places:
+
+```bash verify
+relate --database ./places.rl --read-only --mode envelope "PROFILE MATCH (p:Place) WHERE point.distance(p.loc, point({latitude: 45.5231, longitude: -122.6765})) < 2000 RETURN p.name AS name" | grep -o '"DbHits":[0-9]*' | tail -n 1
+```
+
+```text
+"DbHits":8
+```
+
+Create the index. This command writes it to `places.rl`:
+
+```bash verify
+relate --database ./places.rl "CREATE POINT INDEX place_loc IF NOT EXISTS FOR (p:Place) ON (p.loc)"
+```
+
+The same search now reads only the four places the index returns:
+
+```bash verify
+relate --database ./places.rl --read-only --mode envelope "PROFILE MATCH (p:Place) WHERE point.distance(p.loc, point({latitude: 45.5231, longitude: -122.6765})) < 2000 RETURN p.name AS name" | grep -o '"DbHits":[0-9]*' | tail -n 1
+```
+
+```text
+"DbHits":4
+```
+
+The index serves `point.withinBBox(<property>, …)` and `point.distance(<property>, <center>) < <bound>` (or `<=`) in a `WHERE`, with the center a literal, a parameter or a variable bound before the `MATCH`. Ordering by distance with `LIMIT` and no radius reads every node of the label. [Tune a query](/docs/guides/cypher/tune-a-query) covers reading a profile.
+
+## Verify
+
+`SHOW INDEXES` lists the point index and its state:
+
+```cypher run name=verify
+SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state
+WHERE type = 'POINT'
+RETURN name, type, labelsOrTypes, properties, state
+```
+
+An `ONLINE` index and four places within 2 km of the office mean the index is in place and the radius search finds what the map shows.
+
+## If it goes wrong
+
+| Message or symptom | Cause | Remedy |
+| --- | --- | --- |
+| `type error: InvalidArgumentValue: point() latitude must be in the range [-90, 90]` (the CLI prints `semantic error:` in front instead) | The latitude is out of range, often because latitude and longitude are swapped. | Pass `{latitude: <lat>, longitude: <lon>}` by name. |
+| `syntax error: InvalidPoint: the map is not a valid POINT. Use either Cartesian ('x' and 'y') or geographic ('latitude' and 'longitude') coordinates` | The map lacks one of the two keys of a kind, as in `{x: 1, latitude: 2}`. | Give `x` and `y`, or `latitude` and `longitude`. |
+| A distance or `withinBBox` returns `null` | The points use different coordinate systems, or one is `null`. | Compare `p.loc.srid` on both sides, and build every point the same way. |
+| `syntax error: UnknownFunction: unknown function distance()` | The older Neo4j name. | Use `point.distance()`. |
+| `PROFILE` reads every node after the index exists | The distance is computed in a `WITH` and filtered later, or the search has no radius. | Put `point.distance(<property>, <center>) < <bound>` in the `WHERE` of the `MATCH`. |
+
+## Related
+
+- [Nearby places for an agent](/cookbook/nearby-places/): radius, nearest-k, map-box and recent-visit questions over 80 places, with a point index.
+- [Problems relate solves](/docs/concepts/problems-relate-solves#geospatial-memory): geospatial memory for an agent, and its data model.
+- [Functions](/docs/reference/cypher/functions): `point()`, `point.distance()` and `point.withinBBox()`.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): every index kind relate creates, and how to list and drop them.

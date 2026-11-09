@@ -1,0 +1,19 @@
+---
+id: parameter
+term: "parameter"
+short: "A named value a statement refers to as `$name` and the caller binds separately, such as with `--param name=value` on the CLI."
+aliases: []
+context: cypher
+see: guides/cypher/parameters
+related: ["statement"]
+---
+
+A parameter keeps a value out of the statement text: the statement says `$name`, and the value travels beside it. The same statement then runs with any value, and a value never changes what the statement means, so text from a user or a model cannot turn into Cypher.
+
+On the CLI, `--param N=V` binds one parameter and repeats for more. `V` is read as JSON, so `--param n=3` is an integer and `--param ids=[1,2]` a list, and a bare word is a string. `--fetch-params N=SRC` reads JSON from a file or fetches it from an http or https URL and binds it as `N`. The clients take a map of parameters with each statement, and Bolt and the HTTP Query API carry them in the request.
+
+```bash
+relate --database ./team.rl --read-only --param name=Ada "MATCH (p:Person {name: \$name}) RETURN p.role AS role"
+```
+
+The backslash keeps the shell from expanding `$name`.

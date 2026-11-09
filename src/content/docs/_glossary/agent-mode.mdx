@@ -1,9 +1,15 @@
 ---
 id: agent-mode
-term: agent mode
-short: "CLI defaults for agent harnesses, on when one is detected and stdout is not a terminal: at most 100 rows printed per statement, with the cut reported."
+term: "agent mode"
+short: "CLI defaults for a detected agent harness on a non-terminal stdout, or forced on: at most 100 rows printed per statement, the cut reported, TOON in a pipe."
 aliases: []
 context: agents
 see: reference/cli/agent-mode
-related: ["envelope", "exit-code"]
+related: ["agent-harness", "row-cap", "toon", "envelope"]
 ---
+
+Agent mode changes two defaults of a query run and nothing else. The :term[row cap]{id=row-cap} defaults to 100 rows per statement, with the cut reported on stderr and in-band. With stdout piped and no output flag, the output mode is :term[TOON]{id=toon} instead of `jsonl`. An explicit `--mode` or `--max-rows` overrides either default, and writes, exit codes and the envelope's fields stay the same.
+
+The CLI decides once per run, from the first rule that applies: `--agent-mode` or `--no-agent-mode`, then `RELATE_AGENT_MODE=1` or `0`, then detection, which turns it on when an :term[agent harness]{id=agent-harness} is detected and stdout is not a terminal. The two explicit forms print a one-line announcement on stderr; detection is silent.
+
+One consequence follows from the `toon` default: with stdout piped and no output flag, a failed statement prints no error object, only the stderr message and the exit code. A run that needs the error object on stdout passes `--mode envelope`.

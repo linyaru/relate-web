@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "plan",
+  "hash": "2e8f87cc081c444cb3798ae476df11a0cee6013efbd7df162555fbf85d637991",
+  "inputs": [],
+  "live": "the plan is drawn as a tree, and PROFILE runs the statement on the page's database in your browser and adds each operator's rows, time and database hits as bars; the index button creates the index on the page's database, plans the statement with and without it side by side with the changes, and drops it again; a PROFILE downloads as a speedscope file.",
+  "engine": true,
+  "text": "The plan recorded for cell `plan`, as `relate --mode table` prints it:\n\n```text\nQuery: MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(r:Project) RETURN r.name AS project\nPlan:\n+------------------+----+-------------------------------------+\n| Operator         | Id | Details                             |\n+------------------+----+-------------------------------------+\n| + ProduceResults | 0  | 1 item(s)                           |\n+------------------+----+-------------------------------------+\n| | + Expand       | 1  | (r:Project)<-[:WORKS_ON]-(p:Person) |\n+------------------+----+-------------------------------------+\nNotifications:\nId 1: INFORMATION 03C91 Relate.Notification.Statement.MissingIndex: the equality predicate on name filters :Person without a range index on (:Person {name}) Remedy: CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)\n```\n\nNotifications, each with its remedy:\n\n- [`03C91` Missing index](/docs/reference/errors#notif-03c91) on operator 1: the equality predicate on name filters :Person without a range index on (:Person {name}). Remedy: `CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)`\n\nIn a browser, the viewer's comparison runs `CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)` on the page's in-memory database only.",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "02c1a29d00712dea243194a7cded81b5e46e065a6dd043fa09c0a6e1dd32c475"
+}

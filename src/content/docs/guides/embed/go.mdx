@@ -1,0 +1,544 @@
+---
+title: Use the Go client
+label: Go
+description: Add the relate Go module, point cgo at the C library, open stores in each mode, bind parameters, run transactions, and read stats and errors.
+order: 70
+surfaces: [go]
+prerequisites: [get-started/go]
+related: [reference/api/go, get-started/go, reference/api/c, reference/errors, concepts/transactions-and-concurrency, guides/storage/choose-a-store-layout, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+This guide shows you how to use the relate Go :term[client]{id=client} in an app: the module, how cgo finds the C library, which store to open and how, which Go types values arrive as, how to group writes and retry a conflict, what a result reports about itself, and how to branch on an error. The client calls the engine in your process through cgo; there is no server. Every program on this page writes to a store it creates, using the team graph from the [Go tutorial](/docs/get-started/go).
+
+## Prerequisites
+
+- Go 1.22 or later and a C compiler, so cgo can build. The programs on this page were built with Go 1.27.3 on macOS.
+- The relate C library for your platform: `librelate_ffi` and its header, `relate.h`. Each release attaches them as `relate-ffi-<target>.tar.gz` (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`), holding the shared library, the static library, and the header.
+
+## Add the client
+
+The module path is `github.com/relatedb/relate/clients/go` and the package name is `relate`:
+
+```bash
+go get github.com/relatedb/relate/clients/go
+```
+
+```go
+import relate "github.com/relatedb/relate/clients/go"
+```
+
+The module path is a launch-day target; [Project](/docs/reference/project#platforms) lists what each release publishes.
+
+## Point cgo at the C library
+
+The package is cgo code that includes `relate.h` and links `-lrelate_ffi`. Its own search paths exist only inside the relate source repository, so a project of yours tells cgo where the extracted archive is:
+
+```bash
+export CGO_CFLAGS="-I<directory holding relate.h>"
+export CGO_LDFLAGS="-L<directory holding librelate_ffi> -lrelate_ffi"
+go build ./...
+```
+
+A binary linked that way loads the shared library at run time. On Linux, put its directory in `LD_LIBRARY_PATH`, or add `-Wl,-rpath,<directory>` to `CGO_LDFLAGS`. On macOS the library's install name is the absolute path it was built at, so an rpath does not help: put its directory in `DYLD_LIBRARY_PATH`. To ship one self-contained binary instead, on either system, link the static library: put `librelate_ffi.a` alone in a directory, since the linker prefers a shared library when both are present, and on macOS add the framework it needs:
+
+```bash
+export CGO_LDFLAGS="-L<directory holding only librelate_ffi.a> -lrelate_ffi -framework CoreFoundation"
+go build ./...
+```
+
+On Windows, cgo links with MinGW, so generate a MinGW import library from `relate_ffi.dll` first, with `gendef` and `dlltool`. The package needs cgo: with `CGO_ENABLED=0` its files are left out, and the build fails with `undefined: relate.Open`.
+
+## Open a store
+
+`relate.Open(path)` opens a store for writing and creates it when it is missing; `relate.OpenReadOnly(path)` loads an existing one once. The path decides the layout:
+
+| Call | Opens | Notes |
+| --- | --- | --- |
+| `relate.Open(":memory:")` | An in-memory store | Gone when the database closes |
+| `relate.Open("./team")` | A directory store | Created when missing; another process may read it with `OpenReadOnly` while you write |
+| `relate.Open("./team.rl")` | A single-file store | Created when missing; opens only while no other process writes it |
+| `relate.OpenReadOnly(path)` | An existing store, :term[read-only]{id=read-only} | Refuses writes and `Checkpoint`; a missing store is an error, never created |
+| `db.ConnectNamespace("system")` | A connection in another namespace | `Connect()` is `ConnectNamespace("neo4j")`; names match case-insensitively |
+
+:::warning[Close each handle once]
+`Close` frees the native handle at once, and the client keeps no record of it. A second `Close`, or any call on a closed `*Database` or `*Connection`, uses freed memory and can crash the process. There is no finalizer either: a :term[store]{id=store} file stays locked until its `Close`.
+:::
+
+Defer `Close` right after a successful open, connections before their database. This program writes `team.rl`, closes it, and reads it back read-only:
+
+```go run name=open
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+	"os"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`
+
+func write(path string) error {
+	db, err := relate.Open(path)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_, err = conn.Query(team)
+	return err
+}
+
+func main() {
+	if err := write("./team.rl"); err != nil {
+		log.Fatal(err)
+	}
+	_, statErr := os.Stat("team.rl")
+	fmt.Println("team.rl exists:", statErr == nil)
+
+	db, err := relate.OpenReadOnly("./team.rl")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	res, err := conn.Query("MATCH (p:Person) RETURN count(p) AS people")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("people:", res.Rows[0][0])
+
+	_, err = conn.Query("CREATE (:Person {name: 'Lin'})")
+	var e *relate.Error
+	if errors.As(err, &e) {
+		fmt.Println("refused:", e.GQLStatus, e.Code)
+	}
+}
+```
+
+A `*Database` may be shared between goroutines. A `*Connection` serves one call at a time and the client adds no lock, so serialize the calls that share one, or open one connection per goroutine.
+
+## Bind parameters and read typed values
+
+`conn.QueryParams(statement, params)` takes a `map[string]any`; `conn.Query(statement)` is the same with a nil map. Signed and unsigned integers bind as `INTEGER` (an unsigned value above `math.MaxInt64` is refused), strings as `STRING`, slices and arrays as `LIST`, string-keyed maps as `MAP`, and a struct as a `MAP` of its exported fields, keyed by their `json` tag names. A temporal, point or vector has no Go type to bind from: pass its parts and build it in the statement, with `date($joined)` or `vector($focus, 3, FLOAT32)`. `time.Time` is refused, because it has no exported fields. Cells decode to `int64`, `float64`, `string`, `[]any`, `map[string]any`, and the package's own types for graph and temporal values:
+
+```go run name=params
+package main
+
+import (
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`
+
+type profile struct {
+	Joined string    `json:"joined"`
+	Focus  []float64 `json:"focus"`
+	Note   string    `json:"note,omitempty"`
+}
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.Query(team); err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := conn.QueryParams(`
+		MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+		RETURN p, w.since AS since ORDER BY since`,
+		map[string]any{"project": "relate"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, row := range res.Rows {
+		person := row[0].(relate.Node)
+		since := row[1].(int64)
+		fmt.Println(person.Properties["name"], person.Labels, "since", since)
+	}
+
+	res, err = conn.QueryParams(`
+		MATCH (p:Person {name: $name})
+		SET p.joined = date($profile.joined), p.focus = vector($profile.focus, 3, FLOAT32)
+		RETURN p.joined AS joined, p.focus AS focus, elementId(p) AS id`,
+		map[string]any{"name": "Noor", "profile": profile{Joined: "2025-03-01", Focus: []float64{0.25, 0.5, 1}}})
+	if err != nil {
+		log.Fatal(err)
+	}
+	joined := res.Rows[0][0].(relate.Date)
+	focus := res.Rows[0][1].(relate.Vector)
+	fmt.Printf("joined %04d-%02d-%02d\n", joined.Year, joined.Month, joined.Day)
+	fmt.Println("focus", focus.DType, focus.Floats)
+
+	byID, err := conn.QueryParams("MATCH (p) WHERE elementId(p) = $id RETURN p.name AS name",
+		map[string]any{"id": res.Rows[0][2]})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("by element id:", byID.Rows[0][0])
+}
+```
+
+A refused value fails before the statement runs, with a plain `error` that names the parameter, such as `parameter "x": struct type time.Time has no exported fields to bind`. An element id round-trips through a parameter. The [Go API](/docs/reference/api/go#values) has the Go type of every Cypher kind in both directions.
+
+## Group writes in a transaction
+
+Outside a transaction, each statement commits on its own. `conn.Begin()` opens an explicit :term[transaction]{id=transaction}; `conn.Commit()` applies its statements together and returns its :term[bookmark]{id=bookmark}, `"relate:<n>"`, or `""` when it wrote nothing; `conn.Rollback()` discards them, and so does `Close` on a connection with a transaction open. When another connection commits a change to the same node first, `Commit` returns a `*relate.Error` with `Retryable` true: re-run the whole unit of work. This program commits one change, rolls one back, and retries a unit of work that loses a conflict on its first attempt:
+
+```go run name=transaction
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`
+
+func inTransaction(conn *relate.Connection, work func(attempt int) error) (string, error) {
+	for attempt := 1; ; attempt++ {
+		if err := conn.Begin(); err != nil {
+			return "", err
+		}
+		err := work(attempt)
+		if err == nil {
+			var bookmark string
+			if bookmark, err = conn.Commit(); err == nil {
+				return bookmark, nil
+			}
+		} else {
+			conn.Rollback()
+		}
+		var e *relate.Error
+		if !errors.As(err, &e) || !e.Retryable || attempt == 3 {
+			return "", err
+		}
+		fmt.Printf("attempt %d: %s\n", attempt, e.Message)
+	}
+}
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	other, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer other.Close()
+	if _, err := conn.Query(team); err != nil {
+		log.Fatal(err)
+	}
+
+	bookmark, err := inTransaction(conn, func(int) error {
+		if _, err := conn.Query(`MATCH (n:Person {name: 'Noor'}), (t:Project {name: 'opencypher-tck'})
+			CREATE (n)-[:WORKS_ON {since: 2025}]->(t)`); err != nil {
+			return err
+		}
+		_, err := conn.Query("MATCH (n:Person {name: 'Noor'}) SET n.role = 'engineer'")
+		return err
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("committed:", bookmark)
+
+	conn.Begin()
+	conn.Query("MATCH (a:Person {name: 'Ada'}) DETACH DELETE a")
+	conn.Rollback()
+	people, _ := conn.Query("MATCH (p:Person) RETURN count(p) AS n")
+	fmt.Println("people:", people.Rows[0][0])
+
+	bookmark, err = inTransaction(conn, func(attempt int) error {
+		_, err := conn.Query("MATCH (p:Project {name: 'relate'}) SET p.reviews = coalesce(p.reviews, 0) + 1")
+		if err == nil && attempt == 1 {
+			_, err = other.Query("MATCH (p:Project {name: 'relate'}) SET p.reviews = 10")
+		}
+		return err
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	reviews, _ := conn.Query("MATCH (p:Project {name: 'relate'}) RETURN p.reviews AS n")
+	fmt.Println("committed:", bookmark, "reviews:", reviews.Rows[0][0])
+}
+```
+
+A failed `Commit` ends the transaction, so the loop begins a new one. Compare bookmarks by their number, never as strings: `"relate:10"` sorts before `"relate:9"`. An auto-commit write carries its bookmark in `res.Bookmark`. [Transactions and concurrency](/docs/concepts/transactions-and-concurrency) explains what a transaction isolates.
+
+## Read result metadata
+
+A `*relate.Result` holds every row, decoded before the call returns, and these fields beside `Columns` and `Rows`:
+
+| Field | Value |
+| --- | --- |
+| `QueryType` | `QueryTypeRead` (`"r"`), `QueryTypeWrite` (`"w"`), `QueryTypeReadWrite` (`"rw"`) or `QueryTypeSchema` (`"s"`) |
+| `Namespace` | The namespace the statement ran in: its `USE` target, else the connection's |
+| `Bookmark` | An auto-commit write's bookmark, `"relate:<n>"`; the [Go API](/docs/reference/api/go#result) lists when it is `""` |
+| `Stats` | The 11 mutation counters, zeros included |
+| `Notifications` | The planner's notifications, filled by `EXPLAIN` and `PROFILE`; an empty slice on a plain run |
+| `Plan` | The plan document under `EXPLAIN` or `PROFILE`, else `nil` |
+
+The result has no column types or timings.
+
+```go run name=metadata
+package main
+
+import (
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`
+
+func run(conn *relate.Connection, label, statement string) *relate.Result {
+	res, err := conn.Query(statement)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%s: type=%s namespace=%s bookmark=%q columns=%v\n", label, res.QueryType, res.Namespace, res.Bookmark, res.Columns)
+	return res
+}
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	created := run(conn, "create", team)
+	s := created.Stats
+	fmt.Println("  nodes", s.NodesCreated, "relationships", s.RelationshipsCreated, "properties", s.PropertiesSet, "labels", s.LabelsAdded)
+	run(conn, "read", "MATCH (p:Person) RETURN p.name AS name")
+	updated := run(conn, "update", "MATCH (p:Person {name: 'Ada'}) SET p.role = 'lead' RETURN p.role AS role")
+	fmt.Println("  properties", updated.Stats.PropertiesSet)
+	index := run(conn, "index", "CREATE INDEX person_name FOR (p:Person) ON (p.name)")
+	fmt.Println("  indexes", index.Stats.IndexesAdded)
+	run(conn, "routed", "USE system SHOW DATABASES YIELD name RETURN name")
+
+	explained := run(conn, "explain", "EXPLAIN MATCH (a:Person), (b:Project) RETURN a.name, b.name")
+	fmt.Println("plan root:", explained.Plan.Root.Operator)
+	for _, n := range explained.Notifications {
+		fmt.Println(n.GQLStatus, n.Severity, n.Title)
+		fmt.Println("remedy:", n.Remedy)
+	}
+}
+```
+
+The counters follow Neo4j's counting: one per label on each node and one per property written, with schema statements in the index and constraint counters. `EXPLAIN` plans without running, so its counters are all zero. [Notifications](/docs/reference/cypher/notifications) lists every notification kind.
+
+## Handle errors
+
+A failure the engine reports is a `*relate.Error`, whether it comes from a statement or from the call itself. Match it with `errors.As` and branch on its fields, never on `Message`:
+
+| Field | Holds |
+| --- | --- |
+| `Code` | The Neo4j status code, such as `Neo.ClientError.Statement.ParameterMissing` |
+| `GQLStatus` | The five-character GQLSTATUS |
+| `Stage` | `StageCompile`, `StageRuntime`, or `StageInternal` for a failure at the C boundary |
+| `Retryable` | True exactly when re-running the same work can succeed |
+| `Message` | The engine's message; `Error()` returns it |
+
+The client's own refusals, a parameter it cannot bind or a result shape that breaks the C contract, are plain `error` values, not `*relate.Error`.
+
+```go run name=errors
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+const team = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)`
+
+const roleOf = "MATCH (p:Person {name: $name}) RETURN p.role AS role"
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.Query(team); err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = conn.Query(roleOf)
+	var e *relate.Error
+	if errors.As(err, &e) {
+		fmt.Println("message:", e.Message)
+		fmt.Println("code:", e.Code)
+		fmt.Println("gql_status:", e.GQLStatus, "stage:", e.Stage, "retryable:", e.Retryable)
+	}
+
+	_, err = db.ConnectNamespace("archive")
+	if errors.As(err, &e) {
+		fmt.Println("connect:", e.Message)
+	}
+
+	_, err = conn.QueryParams(roleOf, map[string]any{"name": make(chan int)})
+	fmt.Println("plain error:", err, "| *relate.Error:", errors.As(err, &e))
+
+	res, err := conn.QueryParams(roleOf, map[string]any{"name": "Noor"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(res.Rows[0][0])
+}
+```
+
+After a `StageInternal` failure the handle may be unusable: close it and open a new one. The [errors reference](/docs/reference/errors#engine-parameter-missing) lists every engine message with its cause and codes.
+
+## Verify
+
+Ask the engine which release the program linked:
+
+```go run name=verify
+package main
+
+import (
+	"fmt"
+	"log"
+
+	relate "github.com/relatedb/relate/clients/go"
+)
+
+func main() {
+	db, err := relate.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	res, err := conn.Query("CALL dbms.components() YIELD name, versions WHERE name = 'Relate' RETURN versions[0] AS version")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("relate", res.Rows[0][0])
+}
+```
+
+A version means cgo found the header and the library, and the program ran a statement through the engine.
+
+## If it goes wrong
+
+| Error | Cause | Remedy |
+| --- | --- | --- |
+| `fatal error: 'relate.h' file not found` | cgo has no include path to the header | Set `CGO_CFLAGS="-I<directory holding relate.h>"` |
+| `ld: library 'relate_ffi' not found` | The linker has no path to the library | Set `CGO_LDFLAGS="-L<directory> -lrelate_ffi"` |
+| `undefined: relate.Open` | cgo is off (`CGO_ENABLED=0`, or cross-compiling) | Build with `CGO_ENABLED=1` and a C compiler for the target |
+| On macOS, `dyld[<pid>]: Library not loaded: <absolute build path>/librelate_ffi.dylib` when the binary starts | The binary looks for the shared library at the absolute path it was built at, and the library is not there | Set `DYLD_LIBRARY_PATH` to the library's directory, or link the static library |
+| `*relate.Error` `internal error` (`Neo.DatabaseError.General.UnknownError`, `StageInternal`) from `Open` or `OpenReadOnly` | Another process or an unclosed `*Database` holds the store for writing, or `OpenReadOnly` named a path with no store | Close the other writer, open a directory store read-only beside its writer, or fix the path |
+| `*relate.Error` `semantic error: WriteOnReadOnlyAccessDatabase: …` (`42N18`) | A write or `Checkpoint` on a database opened with `OpenReadOnly` | Open with `relate.Open` for writes |
+
+## Related
+
+- [Go API](/docs/reference/api/go): every exported identifier, value mapping, and error.
+- [Embed relate in a Go app](/docs/get-started/go): the first program, step by step.
+- [C ABI](/docs/reference/api/c): the library and header the Go client links.
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): in memory, a directory or one `.rl` file.
+- [Errors](/docs/reference/errors): every engine error message, its codes, and its remedy.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem this client solves.

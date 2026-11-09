@@ -1,0 +1,23 @@
+---
+id: single-file-graph
+title: Single-file graph
+order: 140
+problem: "Keep a whole graph in one file that can be copied, attached, checked in or handed to another program."
+capability: "The `.rl` store: one file holding the snapshot and the write-ahead log, created on the first open, compacted by `relate clone`, and read into memory with `--load`."
+intents:
+  - store a graph in a single file
+  - ship a graph database with my app
+  - share a graph as one file
+  - portable graph database file format
+  - check a graph into git as one file
+surfaces: [cli, python, node]
+guides: [guides/storage/choose-a-store-layout, guides/storage/backup-and-restore, guides/storage/clone-and-convert]
+recipes: []
+reference: [reference/storage/formats, reference/cli/clone]
+schema: null
+verify: guides/storage/choose-a-store-layout#open-layouts
+---
+
+A graph that travels, attached to an issue, shipped with an application, handed from one agent run to the next, is easier to handle as one file than as a folder of data files and logs. The file has to hold everything, including commits not yet checkpointed, so a copy is never missing its newest writes.
+
+A store whose path ends in `.rl` is one file holding the same tree as a directory store, its write-ahead log included. relate creates it on the first writable open, and every client spells it the same way. A plain copy taken while no process has the file open is a complete backup, and `relate clone` writes a compact copy holding only the current state, since a `.rl` file keeps the most space it has needed. `--load` reads the file into an in-memory copy, which is read-only, without holding the file. One writer locks the whole file, so a reader cannot open it beside a running writer; [Choose a store layout](/docs/guides/storage/choose-a-store-layout) compares it with the directory store, which allows that.

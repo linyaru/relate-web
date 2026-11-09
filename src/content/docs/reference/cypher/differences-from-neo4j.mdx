@@ -1,0 +1,145 @@
+---
+title: Differences from Neo4j
+description: Where relate's Cypher differs from what Neo4j habits suggest, with the exact error each habit produces in relate and the form to write instead.
+order: 20
+surfaces: [cypher, cli, python]
+related: [reference/cypher/overview, reference/cypher/search, reference/limitations, reference/errors, concepts/cypher-dialect, concepts/namespaces, guides/agents/text-to-cypher, guides/migrate/from-neo4j]
+---
+
+relate speaks Neo4j's :term[Cypher]{id=cypher}, including much of Cypher 25, inside your process. It runs embedded, with no procedure libraries such as APOC and no user accounts, and serves a network surface only when `relate serve` starts one, so a statement or a connection string written from Neo4j habits can fail in relate. The table lists those habits with the error relate returns, character for character, and the form that works. Everything not in the table behaves as the [Cypher overview](/docs/reference/cypher/overview) describes.
+
+## Synopsis
+
+Each row is one habit. The relate column quotes the message relate returns: the CLI prints it on stderr and, under `--mode json`, `jsonl` or `envelope`, in the error object's `message` on stdout; a client raises it. The [examples](#examples) run each one.
+
+The Neo4j column gives the habit's origin in Neo4j as of 2026-11-07, for current releases under Cypher 25 unless a row names a release. It summarizes Neo4j's behavior and was not checked against a Neo4j server; the relate and Write instead columns were checked against relate.
+
+## Differences
+
+| Feature | Neo4j | relate | Write instead |
+| --- | --- | --- | --- |
+| APOC functions | The APOC library adds `apoc.*` functions | No APOC. `syntax error: UnknownFunction: unknown function apoc.text.join()` | A built-in function, such as `string.join(list, ', ')`; `SHOW FUNCTIONS` lists them all |
+| APOC procedures | The APOC library adds `apoc.*` procedures | `syntax error: ProcedureNotFound: apoc.meta.schema` | `CALL db.schema.nodeTypeProperties()`, `CALL db.schema.relTypeProperties()` or `CALL db.schema.visualization()` for the schema; `SHOW PROCEDURES` lists the rest |
+| Graph Data Science procedures | The GDS library adds `gds.*` procedures | `syntax error: ProcedureNotFound: gds.pageRank.stream` | Cypher patterns and aggregation, or an algorithm in your own code over a query result |
+| Index procedures | Neo4j 5 releases created vector indexes with the procedure `db.index.vector.createNodeIndex` | `syntax error: ProcedureNotFound: db.index.vector.createNodeIndex` | `CREATE VECTOR INDEX <name> FOR (n:<Label>) ON (n.<property>) OPTIONS {indexConfig: {…}}`, or `CREATE FULLTEXT INDEX` |
+| `db.index.vector.queryNodes` | A procedure for top-k vector queries | Runs, and is deprecated: `EXPLAIN` reports ``The procedure `db.index.vector.queryNodes` is deprecated.`` with the remedy ``Use the `SEARCH` clause instead.`` The three other search procedures report the same | `MATCH (n:<Label>) SEARCH n IN (VECTOR INDEX <name> FOR $vector LIMIT <k>) SCORE AS score` |
+| The `SEARCH` score | The `SEARCH` clause | `LIMIT` is required, and the score exists only through `SCORE AS`: `syntax error: UndefinedVariable: variable 'score' not defined` | `SEARCH n IN (… LIMIT <k>) SCORE AS score`; the [search reference](/docs/reference/cypher/search#rules-of-the-search-clause) has every rule |
+| Cosine similarity range | `vector.similarity.cosine` returns 0 to 1 | The same range: `1.0` same direction, `0.5` orthogonal, `0.0` opposite. A threshold taken from a raw cosine (−1 to 1) is on another scale | Convert a raw-cosine threshold `t` to `(1 + t) / 2`; `vector_distance(a, b, COSINE)` returns the raw cosine distance |
+| Drivers and `bolt://` | A server; drivers connect to `bolt://` or `neo4j://` | Embedded: no server unless one is started. `Failed to open Relate: storage error: unsupported URI scheme bolt:// (engine URIs are :memory:, a filesystem path, or file://)` (exit code 1); the Python client raises `OperationalError` with the message that follows `Failed to open Relate: ` | Open the store in your process with a client, `relate.connect("./graph.rl")`, or serve it to a Neo4j driver with `relate serve --bolt <port> --database ./graph.rl --read-only` |
+| Several databases | `CREATE DATABASE`, then `USE <name>` | Three fixed :term[namespaces]{id=namespace}: `neo4j`, `system`, `system_ontologies`. `semantic error: DatabaseNotFound: Graph not found: movies`; `semantic error: UnsupportedAdministrationCommand: Unsupported administration command: CREATE DATABASE movies` | One store per graph: `--database ./movies.rl`; [Namespaces](/docs/concepts/namespaces) explains the three names |
+| Users, roles, and privileges | `CREATE USER`, roles, `GRANT` | No user management. `CREATE USER bob SET PASSWORD 'secret'` fails with `syntax error: parse error: expected a pattern` | File permissions on the store, `--read-only`, and `relate serve --auth <user>:<password>` on a served store |
+| Many writers on one database | The server takes writes from many clients | One writing process per store. A second opener fails with `Failed to open Relate: storage locked: <path>` (exit code 5) | One process owns the store. Beside that writer, a directory store opens with `--read-only`; a `.rl` file opens read-only only after the writer exits. Otherwise go through `relate serve` |
+| `DROP INDEX`, `DROP CONSTRAINT` | The result summary counts what was removed | The CLI prints nothing on success. A missing name fails: ``semantic error: NoSuchIndex: `<name>` ``, `semantic error: ConstraintNotFound` | `SHOW INDEXES` or `SHOW CONSTRAINTS` before and after; `IF EXISTS` for a drop that may find nothing |
+| `LOAD CSV` sources | Files from the server's import directory, and `http` and `https` URLs | Local files under the `--load-csv-dir` directory only, denied by default. Anything else: `LOAD CSV file unavailable` (exit code 1) | Download the file first, then `--load-csv-dir <dir>`; see [import a CSV](/docs/guides/cypher/import-csv) |
+| Long explicit path bounds | No fixed ceiling on `*1..N` | More than 500 hops: `syntax error: TraversalDepthExceeded: This query allows paths up to <n> hops. This is a safety limit protecting against excessive traversal (not a database limit) — lower the path bound, or raise it with --max-traversal-depth (up to 2000).`, where `<n>` is the statement's own bound, not the limit | A lower bound, or `--max-traversal-depth <n>` up to 2000 |
+| Browser and shell commands | `:param`, `:use` and other colon commands in Neo4j Browser and `cypher-shell` | Not Cypher: `syntax error: parse error: unexpected token ":"` | `--param <name>=<value>` on the CLI, a parameters map in a client |
+| `id()` | Deprecated | Runs, and is deprecated: `EXPLAIN` reports ``The function `id()` is deprecated.`` with the remedy ``Use `elementId` instead.`` | `elementId(n)` |
+| `CALL { … } IN CONCURRENT TRANSACTIONS` | Batches run in parallel | Accepted; the batches run one after another in the embedded engine | No change needed |
+| Default Cypher version | Set by the server's version and configuration | `CYPHER 25` for every namespace, as `SHOW DATABASES` reports in `defaultLanguage` | A `CYPHER 5` prefix on a statement that needs Cypher 5 behavior |
+
+## Examples
+
+The examples run in page order on one in-memory :term[store]{id=store} with the shared example graph:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+An APOC function fails, and the built-in returns the same string:
+
+```cypher run name=apoc-function expect=error
+MATCH (p:Person) RETURN apoc.text.join(collect(p.name), ', ') AS names
+```
+
+```cypher run name=string-join
+MATCH (p:Person) WITH p ORDER BY p.name RETURN string.join(collect(p.name), ', ') AS names
+```
+
+An APOC schema procedure fails; the `db.schema` procedures describe the same graph:
+
+```cypher run name=apoc-procedure expect=error
+CALL apoc.meta.schema() YIELD value RETURN value
+```
+
+```cypher run name=schema
+CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes
+RETURN nodeType, propertyName, propertyTypes
+ORDER BY nodeType, propertyName
+```
+
+An index procedure fails; `CREATE VECTOR INDEX` is the statement:
+
+```cypher run name=index-procedure expect=error
+CALL db.index.vector.createNodeIndex('person_focus', 'Person', 'focus', 3, 'cosine')
+```
+
+A database name other than the three namespaces fails, and so does creating one:
+
+```cypher run name=use-database expect=error
+USE movies MATCH (n) RETURN count(n) AS n
+```
+
+```cypher run name=create-database expect=error
+CREATE DATABASE movies
+```
+
+```cypher run name=namespaces
+SHOW DATABASES YIELD name, defaultLanguage RETURN name, defaultLanguage
+```
+
+A path bound beyond the default limit of 500 hops fails before the statement runs:
+
+```cypher run name=path-bound expect=error
+MATCH (a:Person)-[:KNOWS*1..1000]->(b:Person) RETURN count(*) AS n
+```
+
+The cosine scale, and the raw cosine distance next to it:
+
+```cypher run name=cosine
+RETURN vector.similarity.cosine([1, 0], [0, 1]) AS orthogonal,
+       vector.similarity.cosine([1, 0], [-1, 0]) AS opposite,
+       vector_distance(vector([1, 0], 2, FLOAT32), vector([0, 1], 2, FLOAT32), COSINE) AS rawDistance
+```
+
+A `bolt://` address is not a store, on the CLI:
+
+```bash verify
+relate --database bolt://localhost:7687 --mode envelope "RETURN 1 AS ok"
+```
+
+The first line is stderr, the second the error object on stdout:
+
+```text
+Failed to open Relate: storage error: unsupported URI scheme bolt:// (engine URIs are :memory:, a filesystem path, or file://)
+{"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: unsupported URI scheme bolt:// (engine URIs are :memory:, a filesystem path, or file://)","retryable":false}}
+```
+
+`LOAD CSV` does not fetch a URL, even with a directory allowed:
+
+```bash verify
+mkdir import
+relate --load-csv-dir ./import --mode envelope "LOAD CSV FROM 'https://example.com/people.csv' AS row RETURN row"
+```
+
+```text
+LOAD CSV file unavailable
+{"error":{"code":"fatal_error","exit_code":1,"kind":"execution","message":"LOAD CSV file unavailable","retryable":false}}
+```
+
+## See also
+
+- [Cypher overview](/docs/reference/cypher/overview): what the dialect covers, and the preview features.
+- [Search](/docs/reference/cypher/search): the `SEARCH` clause and the vector functions.
+- [Limitations](/docs/reference/limitations): the scope choices behind several rows.
+- [Errors](/docs/reference/errors): every message with its :term[exit code]{id=exit-code} and remedy.
+- [The Cypher dialect](/docs/concepts/cypher-dialect): why the dialect differs where it does.
+- [Migrate from Neo4j](/docs/guides/migrate/from-neo4j): the features beyond the dialect, such as APOC, GDS and clustering, with what to use instead.

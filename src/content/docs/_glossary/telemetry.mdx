@@ -1,0 +1,19 @@
+---
+id: telemetry
+term: "telemetry"
+short: "The anonymous usage metrics the `relate` CLI sends: on by default, off with `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0` or `relate telemetry off`."
+aliases: []
+context: cli
+see: reference/privacy-and-telemetry
+related: ["agent-mode"]
+---
+
+The release CLI sends four kinds of event, about startup, query runs, commands and help, each carrying command shapes and a random install ID. Query text, store paths and parameter values are never collected: the code that builds an event has no field to hold them. The first statement run with metrics on prints one notice line on stderr, once per install.
+
+Three switches turn it off: `DO_NOT_TRACK=1`, `RELATE_TELEMETRY=0`, or `relate telemetry off`, which persists the setting. `relate telemetry status` prints the effective state and the layer that decided it.
+
+The client libraries, the C library, the WebAssembly build and the statements a served store runs send nothing. `relate serve` sends one command event when the server exits.
+
+```bash
+relate telemetry status
+```

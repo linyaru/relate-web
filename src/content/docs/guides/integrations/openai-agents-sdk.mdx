@@ -1,0 +1,200 @@
+---
+title: Use relate with the OpenAI Agents SDK
+label: OpenAI Agents SDK
+description: Back an OpenAI Agents SDK function tool with relate, planning each model-written statement with EXPLAIN on a read-only connection before it runs.
+order: 50
+surfaces: [python, agents, mcp]
+prerequisites: [get-started/python]
+related: [get-started/python, guides/agents/agent-safety, guides/integrations/vercel-ai-sdk, reference/errors#engine-parameter-missing, concepts/problems-relate-solves#text-to-cypher, concepts/problems-relate-solves#graph-queries-over-mcp]
+---
+
+This guide shows you how to back an OpenAI Agents SDK function tool with relate, so a model can write Cypher against a graph and can't change it. The tool opens the :term[store]{id=store} :term[read-only]{id=read-only} on each call, plans the model's :term[statement]{id=statement} with `EXPLAIN`, and runs it only when the :term[plan]{id=plan} says it reads. Engine errors go back to the model as data, so it can correct its statement. Everything before the agent loop runs without a credential.
+
+## Prerequisites
+
+- Python 3.10 or later, with the relate :term[client]{id=client} and the SDK: `pip install relate-db openai-agents`. The package is `relate-db`; the import is `import relate`. The SDK code on this page was checked against `openai-agents` 0.24.0, as of 2026-11-08.
+- For [Give the tool to an agent](#give-the-tool-to-an-agent) only: `OPENAI_API_KEY` in the environment. The SDK records a trace of each run and exports it to OpenAI; `OPENAI_AGENTS_DISABLE_TRACING=1` turns that off.
+- relate on your `PATH` for [Verify](#verify) and [Connect over MCP instead](#connect-over-mcp-instead) ([Install relate](/docs/get-started/install)).
+
+## Write the tool
+
+The program has three parts. A setup block writes the small team graph the Get started pages use into `./team`, a directory store, standing in for the app that owns the data. The `read_graph` tool takes a statement and its parameters from the model. The last block invokes the tool the way the SDK's runner does, with no model, three times: a read, a delete, and a read that forgets its parameter:
+
+```python run name=graph-tool title="graph_tool.py"
+import asyncio
+import json
+
+import relate
+from agents import function_tool
+from agents.tool_context import ToolContext
+from pydantic import BaseModel, Field
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+STORE = "./team"
+MAX_ROWS = 50
+
+# Setup: the app that owns ./team writes the team graph once, on a writable connection.
+with relate.connect(STORE) as owner:
+    if owner.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"] == 0:
+        owner.execute(TEAM)
+
+
+class Param(BaseModel):
+    name: str = Field(description="The parameter's name, without the $")
+    value: str | int | float | bool
+
+
+@function_tool
+def read_graph(statement: str, params: list[Param]) -> str:
+    """Run one read-only Cypher statement against the team graph and return its rows as JSON.
+
+    The graph has Person and Project nodes and WORKS_ON, MAINTAINS and KNOWS relationships.
+
+    Args:
+        statement: One Cypher statement that only reads.
+        params: Values for the statement's $parameters.
+    """
+    values = {p.name: p.value for p in params}
+    try:
+        # Read-only: the engine refuses every write on this connection.
+        with relate.connect(STORE, read_only=True) as conn:
+            # EXPLAIN plans the statement without running it; query type "r" is a pure read.
+            kind = conn.execute(f"EXPLAIN {statement}", values).consume().query_type
+            if kind != "r":
+                return json.dumps({"error": f'refused: the statement\'s query type is "{kind}", and this tool runs only reads ("r")'})
+            cur = conn.execute(statement, values)
+            rows = [row.data() for row in cur.fetchmany(MAX_ROWS + 1)]
+    except relate.Error as e:
+        return json.dumps({"error": str(e), "gql_status": e.gql_status})
+    return json.dumps({"columns": cur.columns, "rows": rows[:MAX_ROWS], "truncated": len(rows) > MAX_ROWS}, default=str)
+
+
+async def call(tool, arguments: dict) -> str:
+    """Invoke a function tool the way the Runner does, without a model."""
+    args = json.dumps(arguments)
+    ctx = ToolContext(context=None, tool_name=tool.name, tool_call_id="check", tool_arguments=args)
+    return await tool.on_invoke_tool(ctx, args)
+
+
+# Check: what the model sees, then three calls.
+print(read_graph.name, json.dumps(read_graph.params_json_schema["required"]))
+print(asyncio.run(call(read_graph, {
+    "statement": "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since",
+    "params": [{"name": "project", "value": "relate"}],
+})))
+print(asyncio.run(call(read_graph, {
+    "statement": "MATCH (p:Person {name: $name}) DETACH DELETE p",
+    "params": [{"name": "name", "value": "Ada"}],
+})))
+print(asyncio.run(call(read_graph, {"statement": "MATCH (p:Person {name: $name}) RETURN p.role AS role", "params": []})))
+
+with relate.connect(STORE, read_only=True) as conn:
+    print("people:", conn.execute("MATCH (p:Person) RETURN count(p) AS people").single()["people"])
+```
+
+The read returns its rows. The delete never runs: its plan says it writes, so the tool refuses it. The third call names `$name` without a value, and the engine's error comes back as the tool's answer with its GQLSTATUS code. The count shows all three people, Ada included. The parts that matter:
+
+- **`params` is a list of `Param`.** The SDK builds a strict JSON schema for every function tool, and a strict schema can't describe a `dict` of arbitrary keys. A list of name-and-value objects can, and the tool turns it back into the dict the client takes.
+- **A connection per call.** The SDK runs a synchronous tool with `asyncio.to_thread`, on a worker thread, and a relate connection belongs to the thread that opened it. Opening inside the tool keeps the open, the plan and the run on one thread, and each call sees every commit the app made before it.
+- **`call`** builds the `ToolContext` the runner would pass and awaits the tool's `on_invoke_tool`, so the check exercises the same argument parsing and validation a model's call goes through.
+
+Each layer of the guard refuses something different:
+
+| Layer | Refuses | Enforced by |
+| --- | --- | --- |
+| `relate.connect(path, read_only=True)` | Every write and checkpoint on that connection; a path with no store | The engine |
+| The `EXPLAIN` check (`query_type` must be `"r"`) | Writes (`"w"`, `"rw"`) and schema statements (`"s"`), before they run | The tool |
+| `MAX_ROWS` | Rows beyond the first 50, with `"truncated": true` in the result | The tool |
+
+A narrower tool skips model-written Cypher altogether: a fixed statement whose arguments are only the values, such as a project name for `$project`. Keep the read-only connection either way.
+
+## Give the tool to an agent
+
+Replace the check block at the end of `graph_tool.py` with an agent and a run. This part needs `OPENAI_API_KEY`:
+
+```python
+from agents import Agent, Runner
+
+team_agent = Agent(
+    name="Team analyst",
+    instructions="Answer questions about the team graph with the read_graph tool. Pass every value as a parameter.",
+    tools=[read_graph],
+)
+result = Runner.run_sync(team_agent, "Who works on relate, and since when?")
+print(result.final_output)
+```
+
+`Agent` uses the SDK's default model unless `model` names one; in 0.24.0 the default is `gpt-5.6-luna`, and `OPENAI_DEFAULT_MODEL` changes it. The runner stops after 10 turns by default (`max_turns`), so a model that keeps retrying a refused statement ends the run with `MaxTurnsExceeded` instead of looping.
+
+## Connect over MCP instead
+
+The SDK can also reach relate's MCP server, which gives the agent relate's own read tool instead of one you write. `MCPServerStdio` starts `relate serve` as a child process when the `async with` block opens, and stops it when the block ends:
+
+```python
+import asyncio
+
+from agents import Agent, Runner
+from agents.mcp import MCPServerStdio
+
+
+async def main():
+    async with MCPServerStdio(params={
+        "command": "relate",
+        "args": ["serve", "--mcp", "stdio", "--database", "./team", "--read-only"],
+    }) as relate_mcp:
+        team_agent = Agent(name="Team analyst", instructions="Answer questions about the team graph.", mcp_servers=[relate_mcp])
+        result = await Runner.run(team_agent, "How many people are on the team?")
+        print(result.final_output)
+
+
+asyncio.run(main())
+```
+
+To allow writes, remove `"--read-only"`.
+
+Opened read-only, the server lists two tools, `read_cypher` and `get_schema`, and leaves out `write_cypher`; `read_cypher` takes the Cypher as `statement` and refuses writes either way. [The MCP server reference](/docs/reference/server/mcp) lists each tool's arguments and refusals.
+
+## Verify
+
+The program's last line already counts the people on a read-only connection. The same check from the CLI, read-only, in the directory the program ran in, names them:
+
+```bash
+relate --database ./team --read-only --mode envelope "MATCH (p:Person) WITH p ORDER BY p.name RETURN collect(p.name) AS people"
+```
+
+```text
+{"columnTypes":["LIST"],"columns":["people"],"notifications":[],"rows":[{"people":["Ada","Grace","Noor"]}],"truncated":false}
+```
+
+Ada is still there: the delete the tool refused never reached the store.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `additionalProperties should not be set for object types. This could be because you're using an older version of Pydantic, or because you configured additional properties to be allowed. If you really need this, update the function or output tool to not use a strict schema.` (`agents.exceptions.UserError`, when the tool is defined) | A function tool takes a `dict` parameter, which a strict schema can't describe | Take a list of name-and-value objects, as `Param` does. |
+| ``Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.`` (`openai.OpenAIError`) | The runner called the model with no credential set | Set `OPENAI_API_KEY`. The check block needs none. |
+| `{"error": "semantic error: ParameterMissing: Expected parameter(s): name", "gql_status": "42N02"}` (the tool's answer) | The model's statement names a `$parameter` it didn't pass in `params` | Nothing to fix in the tool: the model reads the error and calls again with the value. |
+| `storage error: read-only open requires an existing database at <path>` (in the tool's `error`) | `STORE` names a directory that holds no store; a read-only open never creates one | Create the store with a writable open first, as the setup block does, or fix the path. |
+
+The [errors reference](/docs/reference/errors) lists every engine error with its GQLSTATUS code.
+
+## Related
+
+- [Embed relate in a Python app](/docs/get-started/python): the client's connections, parameters, transactions, and errors.
+- [Use relate with the Vercel AI SDK](/docs/guides/integrations/vercel-ai-sdk): the same guard from Node.js.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, backups, and the permission matrix.
+- [Text to Cypher](/docs/concepts/problems-relate-solves#text-to-cypher): checking a model's statement before it runs.
+- [Graph queries over MCP](/docs/concepts/problems-relate-solves#graph-queries-over-mcp): the read-only MCP server for agent frameworks and hosts.

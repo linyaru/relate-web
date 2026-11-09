@@ -1,0 +1,18 @@
+---
+id: schema-folder
+term: "schema folder"
+short: "The text copy of a store's schema under `.cypherlite/schema/`: indexes and constraints, the graph type and the ontology, rewritten at each checkpoint."
+aliases: []
+context: storage
+see: reference/storage/formats
+related: ["index", "constraint", "graph-type", "ontology", "checkpoint"]
+---
+
+Every checkpoint of a durable store writes its schema as text under `.cypherlite/schema/`. `schema.cypher` holds one `CREATE INDEX` or `CREATE CONSTRAINT` statement per entry of the catalog, as `SHOW INDEXES` and `SHOW CONSTRAINTS` render it. `graph-type.cypher` holds the :term[graph type]{id=graph-type} when the store has one, and `ontology.json` or `ontology.yaml` the :term[ontology]{id=ontology} document when one is set. A reviewer or an agent reads the schema from one file, and a schema change shows in a diff.
+
+The folder is a mirror, never a source. Editing it does not change the store; the schema changes through Cypher statements, and the next checkpoint rewrites the folder. On open, the files are compared byte for byte with the schema the last checkpoint wrote, and a changed, missing or extra file fails the open with an error naming it. The repair the message gives is to delete `.cypherlite/schema/` and reopen.
+
+```text
+.cypherlite/schema/schema.cypher
+CREATE RANGE INDEX `person_name` FOR (n:`Person`) ON (n.`name`);
+```

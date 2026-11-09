@@ -1,0 +1,17 @@
+---
+id: push
+term: "push"
+short: "`relate push`: the command that copies a scoped subgraph of a store into Neo4j or Aura over the HTTP Query API; the mirror of `relate pull`."
+aliases: []
+context: cli
+see: reference/cli/push
+related: ["pull", "clone", "constraint"]
+---
+
+`relate push` reads a store and writes a part of it into a Neo4j or Aura database. The part is what `--query` statements return, the nodes with the labels in `--labels`, the relationships of the types in `--types`, or, with none of the three, the whole store. `--to` names an env file or a Query API URI.
+
+The remote write is batched (`--batch-size`, default 5000) and merges on keys: by default the key each label's uniqueness or key :term[constraint]{id=constraint} gives, overridden by `--merge-key` and `--rel-key`. `--nodes-update` and `--rels-update` choose between `add`, `replace` and `skip` for rows that exist. `--dry-run` prints the plan without touching the remote.
+
+```bash
+relate push --to .env --database ./graph.rl --labels Person --dry-run
+```

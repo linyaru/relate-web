@@ -5,15 +5,19 @@
 // concatenated into the llms-full.txt files. Node-only, no astro:content, so
 // a check can render any page from its file.
 
+import type { Parent, Root, RootContent } from 'mdast';
 import { stringify as toYaml } from 'yaml';
 
 import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
+import { pageCliVerified } from './checks/cli.ts';
 import type { Engine, GlossaryTerm } from './content.ts';
 import { renderConstructs, type ToMarkdown } from './constructs.ts';
 import { CANONICAL_PHRASE } from './llms.ts';
 import type { LinkContext } from './links.ts';
-import { pageUrl, typeOf } from './model.ts';
+import { pageUrl, typeOf, VERIFIERS, type Verifier } from './model.ts';
 import { parsePage, stringifyMarkdown } from './parse.ts';
+import { hasCells, readResults } from './results.ts';
+import { readSidecar, sampleVerifiers } from './samples.ts';
 
 /** The authored frontmatter the twin reads (the content schema validates it). */
 export interface PageData {
@@ -45,6 +49,48 @@ export const changelogUrl = (version: string) => `${CANONICAL_ORIGIN}/docs/refer
 export const versionLine = (verified: string) =>
   `> Verified against relate ${verified}. If your \`relate --version\` is newer, read ${changelogUrl(verified)}`;
 
+function hasVerifyFence(tree: Root): boolean {
+  let found = false;
+  const visit = (node: Root | RootContent) => {
+    if (node.type === 'code' && node.lang === 'bash' && /(?:^|\s)verify(?:\s|$)/.test(node.meta ?? '')) found = true;
+    if (!found && 'children' in node) for (const c of (node as Parent).children) visit(c as RootContent);
+  };
+  visit(tree);
+  return found;
+}
+
+/**
+ * The checks this page's examples passed at the docs' engine version, in
+ * VERIFIERS order (the twin's generated `verified_by`, DOCS-PLAN.md §6):
+ * `cypher` when the page has cells and its results sidecar was recorded on
+ * that version (docs:check replays them); `python` / `node` when the page has
+ * samples of that language and every one has an output recorded by the client
+ * at that version from the code as it now reads (docs:samples, the sample's
+ * `source_sha256`); `cli` when the page has `bash verify` fences, every one
+ * of them is the step docs:cli-check last replayed (cli.json `page_steps`),
+ * and the CLI recordings were made with that version. The claim is only as
+ * strong as those runs.
+ */
+export function verifiedBy(file: string, body: string, tree: Root, version: string): Verifier[] {
+  const out = new Set<Verifier>();
+  try {
+    if (hasCells(body) && readResults(file)?.verified === version) out.add('cypher');
+  } catch {
+    // A malformed sidecar fails the build where the cells render.
+  }
+  try {
+    for (const v of sampleVerifiers(body, readSidecar(file), version)) out.add(v);
+  } catch {
+    // Reported by docs:check (checks/samples.ts).
+  }
+  try {
+    if (hasVerifyFence(tree) && pageCliVerified(file, version)) out.add('cli');
+  } catch {
+    // An unreadable cli.json is reported by docs:check (checks/cli.ts).
+  }
+  return VERIFIERS.filter((v) => out.has(v));
+}
+
 /** The page's twin. `body` is its MDX without frontmatter; `lastUpdated` is `YYYY-MM-DD`. */
 export function renderTwin(page: { id: string; file: string; body: string; data: PageData; lastUpdated: string }, ctx: TwinContext): Twin {
   const { id, data } = page;
@@ -56,6 +102,7 @@ export function renderTwin(page: { id: string; file: string; body: string; data:
     glossary: ctx.glossary,
     components: ctx.components,
   });
+  const checks = verifiedBy(page.file, page.body, tree, ctx.engine.verified);
   const front: Record<string, unknown> = {
     title: data.title,
     // The canonical phrase (DOCS-PLAN.md §3.9) opens every twin's description, so authors never type it.
@@ -65,6 +112,7 @@ export function renderTwin(page: { id: string; file: string; body: string; data:
     status: data.status ?? 'stable',
     ...(data.since ? { since: data.since } : {}),
     verified: ctx.engine.verified,
+    ...(checks.length ? { verified_by: checks } : {}),
     canonical_url: `${CANONICAL_ORIGIN}${pageUrl(id)}`,
     prerequisites: data.prerequisites ?? [],
     related: data.related ?? [],

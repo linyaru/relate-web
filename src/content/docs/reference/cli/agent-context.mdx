@@ -1,0 +1,154 @@
+---
+title: relate agent-context
+description: The relate agent-context command that prints a compact text briefing of the installed binary, its commands, query-run flags and exit codes, quoted in full.
+order: 90
+surfaces: [cli, agents]
+related: [reference/cli/agent-mode#the-agent-context-briefing, reference/cli, reference/cli/exit-codes-and-errors, get-started/agent-quickstart#read-the-briefing, guides/agents/drive-relate-from-an-agent, concepts/agent-native]
+---
+
+`relate agent-context` prints a compact plain-text briefing of the binary that runs it: its version, one line per command it contains, the names of its query-run flags, and its exit code table. With a command word, it prints that command's usage line, flags, examples, and the exit code table instead. The briefing is built from the same command table as `--help`, so it describes the installed binary and no other: the version it prints is the version that answers. It reads no store, needs no network, and takes no flags beyond `--help`.
+
+## Synopsis
+
+```text
+relate agent-context [COMMAND]
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `COMMAND` | Optional. One command word: `query`, `clone`, `info`, `pull`, `push`, `skill`, `upgrade`, `telemetry`, `run`, `serve`, `agent-context` or `extension`. `update` names `upgrade`, its alias |
+
+| Run | Prints |
+| --- | --- |
+| `relate agent-context` | The version line, the command index, the query-run flag names, the exit code table |
+| `relate agent-context <command>` | `<command> — <summary>`, the usage line, a `Flags:` list when the command has its own flags, an `Examples:` list, the exit code table |
+| `relate agent-context --help` | The command's help page, exit code 0 |
+
+The output is plain text in every run, with :term[agent mode]{id=agent-mode} on or off. `RELATE_HELP_EXAMPLES=0`, which drops the examples from every `--help` page, leaves the briefing's `Examples:` list in place.
+
+## The briefing
+
+These examples run in a new, empty directory. The whole briefing, 26 lines:
+
+```bash verify
+relate agent-context
+```
+
+```text
+relate v0.16.1 — agent context
+
+Commands (detail: relate agent-context <COMMAND>):
+  query          Run a statement session (oneshot, stdin, or shell)
+  clone          Copy a database into a new store and exit
+  info           Print store metadata for a database without opening it
+  pull           Copy a Neo4j/Aura subgraph into a database
+  push           Copy a database subgraph into Neo4j/Aura
+  skill          Install, inspect, or remove the embedded agent skill bundle
+  upgrade        Update the relate binary (alias: update)
+  telemetry      Manage anonymous usage metrics (on, off, status)
+  run            Run an installed extension action into a store the host owns
+  serve          Host the HTTP Query API and MCP surfaces on a database
+  agent-context  Print the compact agent briefing (commands, flags, exit codes)
+  extension      Scaffold, install, check, list, or remove command extensions
+
+Query-run flags (relate [OPTIONS] [QUERY]):
+  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command
+
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+| Section | Holds |
+| --- | --- |
+| Version line | `relate v<version> — agent context`: the version of the binary that printed it |
+| `Commands` | Each command compiled into this binary, with the one-line summary `relate --help` prints. A build without a command leaves its line out |
+| `Query-run flags` | The names of the flags that the path-first form and `relate query` accept; no arguments or defaults |
+| `Exit codes` | Each :term[exit code]{id=exit-code}, its `code` name as the :term[error object]{id=error-object} carries it, and what it means |
+
+The flag list names flags only. `relate agent-context query` repeats them with the usage line, the [relate query page](/docs/reference/cli/query) describes the session they apply to, and the [flags page](/docs/reference/cli/flags#query-run-flags) gives each one's argument, default, and environment variable.
+
+The briefing needs no network and names the release that answers; the [agent quickstart](/docs/get-started/agent-quickstart#read-the-briefing) and [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent) use it, and the [skill bundle](/docs/guides/agents/install-the-skill) lists it among its commands.
+
+## One command
+
+A command word narrows the briefing to that command:
+
+```bash verify
+relate agent-context info
+```
+
+```text
+info — Print store metadata for a database without opening it
+Usage: relate info --database PATH [--json]
+Flags:
+  --database
+  --json
+Examples:
+  # Describe a database without opening it, as JSON
+  relate info --database ./mydata --json
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+## Errors and exit codes
+
+| Exit code | When |
+| --- | --- |
+| [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | The briefing printed |
+| [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | An unknown command word, or more than one word |
+
+An unknown word, or anything that is not a command word, exits 2:
+
+```bash verify
+relate agent-context --json
+echo "exit=$?"
+```
+
+```text
+Error: agent-context: unknown command '--json' (expected one of: query, clone, info, pull, push, skill, upgrade, telemetry, run, serve, agent-context, extension)
+Usage: relate agent-context [COMMAND]
+Run 'relate agent-context --help' for more information.
+exit=2
+```
+
+A second word exits 2 with `Error: unexpected argument to agent-context: <word>` and the same two lines.
+
+## Examples
+
+A command with no flags of its own, such as `telemetry`, prints no `Flags:` list:
+
+```bash verify
+relate agent-context telemetry
+```
+
+```text
+telemetry — Manage anonymous usage metrics (on, off, status)
+Usage: relate telemetry on|off|status
+Examples:
+  # See whether anonymous usage metrics are on
+  relate telemetry status
+Exit codes:
+  0  success: success, including an empty result
+  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error
+  2  usage_error: unknown flag, bad or missing value, extra positional
+  5  conflict: write-write conflict, or the store is locked by another opener
+  6  validation_error: the statement is rejected: syntax, semantic or type error
+  7  timeout: a statement exceeded --timeout
+```
+
+## See also
+
+- [Agent mode](/docs/reference/cli/agent-mode): detection, the row cap and the envelope, the rest of the agent-facing CLI
+- [relate CLI](/docs/reference/cli): every command with its usage line
+- [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): the exit code table with the error object's fields
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): the briefing, the envelope and the row cap from the agent's side

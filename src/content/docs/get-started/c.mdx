@@ -1,0 +1,572 @@
+---
+title: Embed relate in a C program
+label: C
+description: A first C program on relate.h and librelate_ffi, which opens a store, binds parameters, runs transactions, reads result metadata, and checks an error's code.
+order: 65
+surfaces: [c]
+related: [get-started/python, get-started/rust, guides/embed/c, reference/api/c, reference/errors, concepts/transactions-and-concurrency, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+By the end of this page, you'll have a C program that keeps a small graph of people and projects in one file. It reads the graph with parameters and reports errors by their GQLSTATUS code. Along the way we write inside a :term[transaction]{id=transaction}, roll one back, and read what a result says about itself. It takes about fifteen minutes. The engine is a library linked into your program, so there is no server to start, and every step writes to a store it creates.
+
+## Prerequisites
+
+- A C compiler with `stdint.h` (C99 or later).
+- macOS or Linux on amd64 or arm64, or Windows on amd64: the platforms the library is built for.
+- A terminal and a text editor. The relate CLI is not needed: the library is the engine.
+
+## Get the header and library
+
+Each release attaches a `relate-ffi-<target>.tar.gz` archive (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`) per platform, holding `include/relate.h` and the static and shared libraries. Unpack it into a directory, `<dir>` in the command, then compile each program on this page against the header and link the shared library. On macOS and Linux, the rpath lets the program find the library when it runs:
+
+```bash
+cc -I<dir>/include version.c -L<dir> -lrelate_ffi -Wl,-rpath,<dir> -o version
+./version
+```
+
+Each program on this page is a whole file, built with that command. The library has no version constant of its own, so this first one asks the engine which release it is, then prints the version of the C application binary interface (ABI) the header describes:
+
+```c run name=version title="version.c"
+#include <stdio.h>
+#include "relate.h"
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return 1;
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return 1;
+    if (relate_query_params(conn,
+            "CALL dbms.components() YIELD name, versions "
+            "WHERE name = 'Relate' RETURN versions[0] AS version",
+            NULL, &r, &err) != RELATE_OK) return 1;
+    size_t len = 0;
+    const char *version = relate_value_string(relate_value_at(r, 0, 0), &len);
+    printf("%.*s\n", (int)len, version);
+    printf("ABI version %d\n", relate_abi_version());
+    relate_destroy_result(r);
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+Notice the version: the programs on this page were checked against that release, and their recorded output comes from it.
+
+## Open a store
+
+A :term[store]{id=store} is where relate keeps a graph. `:memory:` is a store that lives in the process and forgets everything when it closes. A path ending in `.rl` is a :term[single-file store]{id=single-file-store}, which `relate_database_open()` creates when nothing is there yet.
+
+```c run name=open
+#include <stdio.h>
+#include "relate.h"
+
+int main(void) {
+    relate_database memory = NULL, team = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &memory, &err) != RELATE_OK) return 1;
+    if (relate_connect_namespace(memory, NULL, &conn, &err) != RELATE_OK) return 1;
+    if (relate_query_params(conn, "RETURN 'hello' AS greeting", NULL, &r, &err) != RELATE_OK) return 1;
+    size_t len = 0;
+    const char *greeting = relate_value_string(relate_value_at(r, 0, 0), &len);
+    printf("%.*s\n", (int)len, greeting);
+    relate_destroy_result(r);
+    relate_disconnect(conn);
+    relate_database_close(memory);
+
+    if (relate_database_open("./team.rl", &team, &err) != RELATE_OK) return 1;
+    relate_database_close(team);
+    FILE *f = fopen("team.rl", "rb");
+    printf("team.rl exists: %s\n", f ? "yes" : "no");
+    if (f) fclose(f);
+    return 0;
+}
+```
+
+`relate_database_open()` opens a store, `relate_connect_namespace()` opens a connection on it (`NULL` picks the default namespace), and `relate_query_params()` runs one :term[statement]{id=statement} and hands back its whole result. Each call returns `RELATE_OK` or `RELATE_ERROR`, and each handle is yours to free: the result with `relate_destroy_result()`, then the connection, then the store. Notice that `team.rl` now exists.
+
+## Create the graph
+
+Our graph is three people and two projects: who works on what, since when, and who maintains `relate`. One `CREATE` statement writes all of it. The rest of this page uses the same statement, as `TEAM`, on an in-memory store, so each program runs on its own.
+
+```c run name=create
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+/* Print a caller-owned error string, free it, and return 1. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+/* One counter from the result's stats, a JSON object such as {"nodes_created":5,...}. */
+static long long stat(relate_query_result r, const char *name) {
+    char key[64];
+    snprintf(key, sizeof key, "\"%s\":", name);
+    const char *at = strstr(relate_result_stats(r), key);
+    return at ? strtoll(at + strlen(key), NULL, 10) : -1;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (relate_query_params(conn, TEAM, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    printf("nodes created: %lld\n", stat(r, "nodes_created"));
+    printf("relationships created: %lld\n", stat(r, "relationships_created"));
+    relate_destroy_result(r);
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+A write returns no rows, so we read its counters from `relate_result_stats()`, a JSON object string that belongs to the result. Five nodes and five relationships: the whole team.
+
+## Read it back with parameters
+
+A statement names each value it needs as `$name`. `relate_params_new()` returns a builder, `relate_params_put_string()` binds one value by name, and `relate_query_params()` takes the builder. The statement text stays the same while the values change, and a value never becomes part of the Cypher.
+
+```c run name=params
+#include <stdio.h>
+#include <string.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+static const char *TEAM_OF =
+    "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) "
+    "RETURN p.name AS name, w.since AS since ORDER BY since";
+
+/* Print a caller-owned error string, free it, and return 1. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (relate_query_params(conn, TEAM, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    relate_destroy_result(r);
+
+    const char *projects[] = {"relate", "opencypher-tck"};
+    for (int i = 0; i < 2; i++) {
+        relate_params params = relate_params_new();
+        if (relate_params_put_string(params, "project", projects[i], strlen(projects[i]), &err) != RELATE_OK)
+            return fail("put_string", err);
+        if (relate_query_params(conn, TEAM_OF, params, &r, &err) != RELATE_OK) return fail("query", err);
+        printf("%s\n", projects[i]);
+        for (long long row = 0; row < relate_row_count(r); row++) {
+            size_t len = 0;
+            int64_t since = 0;
+            const char *name = relate_value_string(relate_value_at(r, row, 0), &len);
+            relate_value_int(relate_value_at(r, row, 1), &since);
+            printf("  %.*s since %lld\n", (int)len, name, (long long)since);
+        }
+        relate_destroy_result(r);
+        relate_params_free(params);
+    }
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+`relate_value_at(r, row, col)` returns a cell as a value handle, and `relate_value_string()` and `relate_value_int()` read it as a C string with its length or as an `int64_t`. Notice that Noor isn't listed: she maintains `relate` through a `MAINTAINS` relationship, and the pattern asks for `WORKS_ON`.
+
+## Change it in a transaction
+
+A connection commits each statement on its own until `relate_conn_begin()`. From then on, every statement on that connection is part of one transaction, `relate_conn_commit()` keeps it, and `relate_conn_rollback()` throws it away. This program adds Lin to the team and commits, then deletes every project and rolls back.
+
+```c run name=transaction
+#include <stdio.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+/* Print a caller-owned error string, free it, and return 1. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+/* Run a statement whose rows are not needed; 0 when it succeeded. */
+static int exec(relate_connection conn, const char *cypher) {
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_query_params(conn, cypher, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    int failed = relate_result_is_error(r);
+    if (failed) fprintf(stderr, "statement failed: %s\n", relate_result_error_json(r));
+    relate_destroy_result(r);
+    return failed;
+}
+
+/* The count a one-row, one-column INT result holds. */
+static long long count(relate_connection conn, const char *cypher) {
+    relate_query_result r = NULL;
+    char *err = NULL;
+    int64_t n = -1;
+    if (relate_query_params(conn, cypher, NULL, &r, &err) != RELATE_OK) {
+        fail("query", err);
+        return -1;
+    }
+    relate_value_int(relate_value_at(r, 0, 0), &n);
+    relate_destroy_result(r);
+    return n;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    char *err = NULL, *bookmark = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (exec(conn, TEAM)) return 1;
+
+    if (relate_conn_begin(conn, &err) != RELATE_OK) return fail("begin", err);
+    if (exec(conn, "MATCH (tck:Project {name: 'opencypher-tck'}) "
+                   "CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)")) return 1;
+    if (relate_conn_commit(conn, &bookmark, &err) != RELATE_OK) return fail("commit", err);
+    printf("committed: %s\n", bookmark ? "yes" : "no");
+    relate_free_string(bookmark);
+    printf("people after commit: %lld\n", count(conn, "MATCH (p:Person) RETURN count(p) AS n"));
+
+    if (relate_conn_begin(conn, &err) != RELATE_OK) return fail("begin", err);
+    if (exec(conn, "MATCH (p:Project) DETACH DELETE p")) return 1;
+    printf("projects inside the transaction: %lld\n", count(conn, "MATCH (p:Project) RETURN count(p) AS n"));
+    if (relate_conn_rollback(conn, &err) != RELATE_OK) return fail("rollback", err);
+    printf("projects after rollback: %lld\n", count(conn, "MATCH (p:Project) RETURN count(p) AS n"));
+
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+Inside the transaction, the delete is visible: zero projects. After the rollback, both are back, and Lin, who was committed, stays. The commit hands back a :term[bookmark]{id=bookmark}, the commit's place in the store's history as `relate:<n>`, or `NULL` when the transaction wrote nothing. That string is the caller's, so the program frees it with `relate_free_string()`.
+
+## Read result metadata
+
+A result describes itself as well as holding rows: its column names, how many rows it has, what kind of statement it was, the namespace it ran in, and what it changed.
+
+```c run name=metadata
+#include <stdio.h>
+#include <string.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+/* Print a caller-owned error string, free it, and return 1. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (relate_query_params(conn, TEAM, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    relate_destroy_result(r);
+
+    relate_params params = relate_params_new();
+    if (relate_params_put_string(params, "project", "relate", strlen("relate"), &err) != RELATE_OK)
+        return fail("put_string", err);
+    if (relate_query_params(conn,
+            "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) "
+            "RETURN p.name AS name, w.since AS since ORDER BY since", params, &r, &err) != RELATE_OK)
+        return fail("query", err);
+    for (long long c = 0; c < relate_column_count(r); c++) {
+        printf("column %lld: %s\n", c, relate_column_name(r, c));
+    }
+    printf("rows: %lld\n", relate_row_count(r));
+    printf("query type: %s\n", relate_result_query_type(r));
+    printf("namespace: %s\n", relate_result_namespace(r));
+    relate_destroy_result(r);
+    relate_params_free(params);
+
+    if (relate_query_params(conn, "MATCH (n:Person {name: 'Noor'}) SET n.role = 'lead'",
+                            NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    printf("query type: %s\n", relate_result_query_type(r));
+    printf("stats: %s\n", relate_result_stats(r));
+    relate_destroy_result(r);
+
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+`relate_result_query_type()` is `r` for a read and `w` for a write that returns no columns. The C ABI has no list of column types: each cell carries its own kind, which `relate_value_kind()` names. Notice that `properties_set` is `1`: the `SET` changed Noor's role.
+
+## Catch an error
+
+A statement that fails does not make the call fail. `relate_query_params()` returns `RELATE_OK` with an error result, `relate_result_is_error()` is `1`, and `relate_result_error_json()` holds the error as JSON. A statement that uses `$name` without a value is rejected before it runs:
+
+```c run name=error
+#include <stdio.h>
+#include <string.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+static const char *ROLE_OF = "MATCH (p:Person {name: $name}) RETURN p.role AS role";
+
+/* Print a caller-owned error string, free it, and return 1. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+/* Copy the string member `name` of a flat JSON object into out, or "" when it is absent. */
+static void json_string(const char *json, const char *name, char *out, size_t size) {
+    char key[64];
+    snprintf(key, sizeof key, "\"%s\":\"", name);
+    const char *at = strstr(json, key);
+    size_t n = 0;
+    if (at) {
+        at += strlen(key);
+        while (at[n] && at[n] != '"' && n + 1 < size) n++;
+        memcpy(out, at, n);
+    }
+    out[n] = '\0';
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_database_open(":memory:", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) return fail("connect", err);
+    if (relate_query_params(conn, TEAM, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    relate_destroy_result(r);
+
+    /* No value for $name: the call succeeds, and the result is an error result. */
+    if (relate_query_params(conn, ROLE_OF, NULL, &r, &err) != RELATE_OK) return fail("query", err);
+    if (relate_result_is_error(r)) {
+        const char *json = relate_result_error_json(r);
+        char gql_status[16];
+        json_string(json, "gql_status", gql_status, sizeof gql_status);
+        printf("%s\n", json);
+        if (strcmp(gql_status, "42N02") == 0) printf("a parameter is missing\n");
+    }
+    relate_destroy_result(r);
+
+    relate_params params = relate_params_new();
+    if (relate_params_put_string(params, "name", "Noor", strlen("Noor"), &err) != RELATE_OK)
+        return fail("put_string", err);
+    if (relate_query_params(conn, ROLE_OF, params, &r, &err) != RELATE_OK) return fail("query", err);
+    size_t len = 0;
+    const char *role = relate_value_string(relate_value_at(r, 0, 0), &len);
+    printf("%.*s\n", (int)len, role);
+    relate_destroy_result(r);
+    relate_params_free(params);
+
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return 0;
+}
+```
+
+The message says what's missing. The JSON's fields are what code branches on:
+
+| Field | This error | Meaning |
+| --- | --- | --- |
+| `gql_status` | `42N02` | The GQLSTATUS code; the other clients report the same code for the same error |
+| `code` | `Neo.ClientError.Statement.ParameterMissing` | The Neo4j status code for the same error |
+| `stage` | `compile` | Where it was found: `compile` before any work, `runtime` while producing rows, `internal` when it is not the statement's fault |
+| `retryable` | `false` | Whether running it again can succeed; `true` for a write-write conflict, never for a mistake in the statement |
+
+The [errors reference](/docs/reference/errors#engine-parameter-missing) lists this message with its cause and remedy. With the value bound, the same statement finds Noor's role.
+
+## Put it together
+
+`team.c` puts the steps together in one program. It opens `team.rl`, creates the graph only when the store has no people yet, and prints who works on each project. An error anywhere ends it with the error and exit status 1.
+
+```c run name=program title="team.c"
+#include <stdio.h>
+#include <string.h>
+#include "relate.h"
+
+static const char *TEAM =
+    "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),"
+    "       (grace:Person {name: 'Grace', role: 'engineer'}),"
+    "       (noor:Person {name: 'Noor', role: 'maintainer'}),"
+    "       (relate:Project {name: 'relate', language: 'Rust'}),"
+    "       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),"
+    "       (ada)-[:WORKS_ON {since: 2024}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2023}]->(relate),"
+    "       (grace)-[:WORKS_ON {since: 2022}]->(tck),"
+    "       (noor)-[:MAINTAINS]->(relate),"
+    "       (ada)-[:KNOWS]->(grace)";
+
+static const char *TEAM_OF =
+    "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) "
+    "RETURN p.name AS name, w.since AS since ORDER BY since";
+
+/* Print an error and return 1; err is a caller-owned string or NULL. */
+static int fail(const char *what, char *err) {
+    fprintf(stderr, "%s failed: %s\n", what, err ? err : "(no detail)");
+    relate_free_string(err);
+    return 1;
+}
+
+/* Run one statement; an error result is reported and freed, and NULL comes back. */
+static relate_query_result run(relate_connection conn, const char *cypher, relate_params params) {
+    relate_query_result r = NULL;
+    char *err = NULL;
+    if (relate_query_params(conn, cypher, params, &r, &err) != RELATE_OK) {
+        fail("query", err);
+        return NULL;
+    }
+    if (relate_result_is_error(r)) {
+        fprintf(stderr, "relate error: %s\n", relate_result_error_json(r));
+        relate_destroy_result(r);
+        return NULL;
+    }
+    return r;
+}
+
+static int ensure_team(relate_connection conn) {
+    relate_query_result r = run(conn, "MATCH (p:Person) RETURN count(p) AS n", NULL);
+    if (!r) return 1;
+    int64_t people = 0;
+    relate_value_int(relate_value_at(r, 0, 0), &people);
+    relate_destroy_result(r);
+    if (people == 0) {
+        if (!(r = run(conn, TEAM, NULL))) return 1;
+        relate_destroy_result(r);
+        printf("created the team graph\n");
+    } else {
+        printf("found %lld people\n", (long long)people);
+    }
+    return 0;
+}
+
+static int report(relate_connection conn, const char *project) {
+    char *err = NULL;
+    relate_params params = relate_params_new();
+    if (relate_params_put_string(params, "project", project, strlen(project), &err) != RELATE_OK) {
+        relate_params_free(params);
+        return fail("put_string", err);
+    }
+    relate_query_result r = run(conn, TEAM_OF, params);
+    relate_params_free(params);
+    if (!r) return 1;
+    printf("%s\n", project);
+    for (long long row = 0; row < relate_row_count(r); row++) {
+        size_t len = 0;
+        int64_t since = 0;
+        const char *name = relate_value_string(relate_value_at(r, row, 0), &len);
+        relate_value_int(relate_value_at(r, row, 1), &since);
+        printf("  %.*s since %lld\n", (int)len, name, (long long)since);
+    }
+    relate_destroy_result(r);
+    return 0;
+}
+
+int main(void) {
+    relate_database db = NULL;
+    relate_connection conn = NULL;
+    char *err = NULL;
+    if (relate_database_open("./team.rl", &db, &err) != RELATE_OK) return fail("open", err);
+    if (relate_connect_namespace(db, NULL, &conn, &err) != RELATE_OK) {
+        relate_database_close(db);
+        return fail("connect", err);
+    }
+    int status = ensure_team(conn) || report(conn, "relate") || report(conn, "opencypher-tck");
+    relate_disconnect(conn);
+    relate_database_close(db);
+    return status;
+}
+```
+
+Each statement is durable in `team.rl` when `relate_query_params()` returns. Run it a second time and it prints `found 3 people` instead of creating the graph again, then the same report. If another process has `team.rl` open for writing, the open fails: the program prints `open failed:` and the error JSON, whose message is the fixed `internal error`, since no file path crosses the ABI, and exits with status 1.
+
+To read the file with no chance of changing it, open it with `relate_database_open_read_only()` instead. A write then comes back as an error result with GQLSTATUS `42N18`, and a path with no store behind it is an error instead of a new store.
+
+## What you built
+
+You have a C program that keeps a graph of people and projects in `team.rl`, one file you can copy or archive. It reads with parameters, writes inside transactions, knows a read from a write by its query type, and reports errors by GQLSTATUS code. Ada, Grace, and Noor are waiting in that file for the next run.
+
+## Next
+
+- [Embed relate in a Python app](/docs/get-started/python): the same steps, the same graph, in Python.
+- [Use the C ABI](/docs/guides/embed/c): value kinds, the parameter putters, the error channel and the ownership rules in depth.
+- [C ABI](/docs/reference/api/c): every function in `relate.h`.
+- [Errors](/docs/reference/errors): every error message, its cause, its remedy, and its codes.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.

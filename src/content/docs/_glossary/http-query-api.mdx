@@ -1,0 +1,19 @@
+---
+id: http-query-api
+term: "HTTP Query API"
+short: "The JSON-over-HTTP statement endpoint `relate serve --http <port>` hosts, in the shape of Neo4j's Query API v2: `POST /db/<name>/query/v2`."
+aliases: []
+context: surfaces
+see: reference/security
+related: ["bolt", "surface", "transaction", "pull", "push"]
+---
+
+The HTTP Query API takes a statement and its parameters as JSON and answers with the result as JSON. relate speaks the request and response shape of Neo4j's Query API v2, so existing Query API clients work against it: `POST /db/<name>/query/v2` runs a statement, managed transactions group several, and `GET /` returns a discovery document.
+
+`relate serve --http <port>` hosts it on one store, on `127.0.0.1` by default, without TLS, behind the same basic-auth credential as the other served surfaces. Browser origins are allowed from loopback and the hosted Neo4j Browser and Console by default, and `--origin` adds others. An idle managed transaction expires after 60 seconds, and at most 128 are open at once, by default.
+
+```bash
+relate serve --http 7474 --database ./team.rl --read-only
+```
+
+`relate pull` and `relate push` use the same API as a client, to read from and write to Neo4j or Aura.

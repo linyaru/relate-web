@@ -1,0 +1,197 @@
+---
+title: Use relate with PydanticAI
+label: PydanticAI
+description: Give a PydanticAI agent a tool that reads a relate graph on a read-only connection, and run the agent through the tool before any model call.
+order: 40
+surfaces: [python, agents, mcp]
+prerequisites: [get-started/python]
+related: [get-started/python, guides/agents/agent-safety, guides/agents/connect-over-mcp, reference/errors#engine-write-on-read-only, concepts/problems-relate-solves#graph-queries-over-mcp, guides/integrations/langgraph]
+---
+
+This guide shows you how to give a PydanticAI agent a tool that reads a relate graph. The tool opens the :term[store]{id=store} :term[read-only]{id=read-only} on every call and runs one fixed :term[statement]{id=statement} with a parameter, so the model supplies a value, never Cypher, and the engine refuses any write on the connection. Everything before the model call runs without a credential, because PydanticAI's `FunctionModel` stands in for the model and drives the agent through the tool.
+
+## Prerequisites
+
+- Python 3.11 or later (`pydantic-ai` 2.66.0 requires it), with the relate :term[client]{id=client} and PydanticAI: `pip install relate-db pydantic-ai`. The package is `relate-db`; the import is `import relate`. The PydanticAI code on this page was checked against `pydantic-ai` 2.66.0, as of 2026-11-08.
+- For [Give the tool to a model](#give-the-tool-to-a-model) only: a model credential, such as `ANTHROPIC_API_KEY` in the environment. `pip install pydantic-ai` installs the Anthropic, Google, and OpenAI provider packages with it.
+- relate on your `PATH` for [Verify](#verify) and [Connect over MCP instead](#connect-over-mcp-instead) ([Install relate](/docs/get-started/install)).
+
+## Write the tool
+
+The program has three parts. A setup block writes the small team graph the Get started pages use into `./team`, a directory store, standing in for the app that owns the data. A directory store lets the tool read while the app writes; a :term[single-file store]{id=single-file-store} that a writer holds refuses a read-only open. The agent declares `TeamGraph` as its dependency type, and the `team_of` tool reads the store's path from `ctx.deps`. The last block runs the agent with a scripted stand-in for the model, then tries a write on a read-only connection:
+
+```python run name=team-agent title="team_agent.py"
+from dataclasses import dataclass
+
+import relate
+from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart, ToolReturnPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+TEAM = """
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+"""
+
+TEAM_OF = """
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, p.role AS role, w.since AS since
+ORDER BY since
+"""
+
+# Setup: the app that owns ./team writes the team graph once, on a writable connection.
+with relate.connect("./team") as owner:
+    if owner.execute("MATCH (p:Person) RETURN count(p) AS n").single()["n"] == 0:
+        owner.execute(TEAM)
+
+
+@dataclass
+class TeamGraph:
+    path: str
+
+
+agent = Agent(deps_type=TeamGraph, instructions="Answer questions about the team with the team_of tool.")
+
+
+@agent.tool
+def team_of(ctx: RunContext[TeamGraph], project: str) -> list[dict]:
+    """List the people who work on a project, with their role and the year they started.
+
+    Args:
+        project: The project's exact name, such as "relate".
+    """
+    # Read-only: the engine refuses every write on this connection.
+    with relate.connect(ctx.deps.path, read_only=True) as conn:
+        rows = [row.data() for row in conn.execute(TEAM_OF, {"project": project})]
+        if not rows:
+            names = [r["name"] for r in conn.execute("MATCH (p:Project) RETURN p.name AS name ORDER BY name")]
+            raise ModelRetry(f"No one works on a project named {project!r}. Projects: {', '.join(names)}.")
+    return rows
+
+
+def scripted(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """Stands in for a model: asks for an unknown project, then for relate, then answers."""
+    last = messages[-1].parts[-1]
+    if isinstance(last, ToolReturnPart) and isinstance(last.content, list):
+        people = ", ".join(f"{p['name']} since {p['since']}" for p in last.content)
+        return ModelResponse(parts=[TextPart(f"On relate: {people}.")])
+    if len(messages) == 1:
+        tool = info.function_tools[0]
+        print("tool:", tool.name, "|", tool.description, "|", tool.parameters_json_schema["properties"])
+        return ModelResponse(parts=[ToolCallPart("team_of", {"project": "relate-engine"})])
+    print("retry:", last.content)
+    return ModelResponse(parts=[ToolCallPart("team_of", {"project": "relate"})])
+
+
+# Check: run the agent with the scripted stand-in, so no model is called.
+result = agent.run_sync("Who works on relate?", model=FunctionModel(scripted), deps=TeamGraph("./team"))
+print(result.output)
+
+# Check: a write on a read-only connection fails in the engine.
+with relate.connect("./team", read_only=True) as conn:
+    try:
+        conn.execute("CREATE (:Person {name: 'Mallory'})")
+    except relate.OperationalError as e:
+        print(e.gql_status, e)
+    print("people:", conn.execute("MATCH (p:Person) RETURN count(p) AS people").single()["people"])
+```
+
+The scripted model prints the tool as the model sees it, asks for a project that doesn't exist, reads the retry message, asks again, and answers from the rows. The write fails in the engine with `42N18`, and the count shows the three people the setup wrote. The parts that matter:
+
+- **A connection per call.** PydanticAI runs a synchronous tool on a worker thread, and a relate connection belongs to the thread that opened it. Opening inside the tool keeps the open and the statement on one thread, and each call sees every commit the app made before it. Each open reads the store from disk. For a large store, one connection owned by a dedicated thread avoids that cost, as the `Memory` class in [the LangGraph guide](/docs/guides/integrations/langgraph#write-the-program) does. A long-lived read-only connection sees only the commits made before it opened.
+- **The docstring is the schema.** PydanticAI takes the tool's description and the `project` parameter's description from the docstring; the `tool:` line shows both.
+- **`ModelRetry`** sends its message back to the model as the tool's answer, in this program with the projects that do exist, so the model can correct itself; the `retry:` line shows it. A tool gets one retry by default; `@agent.tool(retries=3)` allows more.
+- **`FunctionModel`** is a model in name only: a Python function that receives the messages and the tool definitions and returns the next response. A test can drive the agent through every tool path with it and never make a model call.
+
+Each layer of the guard refuses something different:
+
+| Layer | Refuses | Enforced by |
+| --- | --- | --- |
+| `relate.connect(path, read_only=True)` | Every write and checkpoint on that connection; a path with no store | The engine |
+| The fixed statement `TEAM_OF` | Any Cypher the model writes: the model passes only `project`, which binds as `$project` | The tool |
+
+A read-only connection sees the graph as it was when it opened, which is why the tool opens one per call instead of keeping one for the life of the agent.
+
+## Give the tool to a model
+
+Replace the check block at the end of `team_agent.py` with a run on a real model. This part needs the model's credential:
+
+```python
+result = agent.run_sync(
+    "Who works on relate, and since when?",
+    model="anthropic:claude-opus-5-5",
+    deps=TeamGraph("./team"),
+)
+print(result.output)
+```
+
+`model` takes any model name PydanticAI accepts, as `<provider>:<model>`. The model can call `team_of`, read the rows, and answer in its own words.
+
+## Connect over MCP instead
+
+For an agent that writes its own reads instead of calling one fixed statement, give it relate's MCP server as a toolset. `MCPToolset` takes a FastMCP client; `pip install pydantic-ai` installs FastMCP with it (`fastmcp-slim`, from 3.3 up to but not including 5, with `pydantic-ai` 2.66.0; checked with 4.1.6):
+
+```python
+from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPToolset
+
+relate_mcp = MCPToolset(Client(StdioTransport(
+    "relate", ["serve", "--mcp", "stdio", "--database", "./team", "--read-only"],
+)))
+agent = Agent("anthropic:claude-opus-5-5", toolsets=[relate_mcp])
+print(agent.run_sync("How many people are on the team?").output)
+```
+
+To allow writes, remove `"--read-only"`.
+
+The agent starts `relate serve` when a run begins and stops it when the run ends. Opened read-only, the server lists two tools, `read_cypher` and `get_schema`, and leaves out `write_cypher`; `read_cypher` takes the Cypher as `statement` and refuses writes either way. [The MCP server reference](/docs/reference/server/mcp) lists each tool's arguments and refusals.
+
+## Verify
+
+The program's last line already counts the people on a read-only connection. The same check from the CLI, read-only, in the directory the program ran in, also shows the rows the tool returned:
+
+```bash
+relate --database ./team --read-only --mode table "MATCH (p:Person) OPTIONAL MATCH (p)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY name"
+```
+
+```text
++---------+--------+
+| name    | since  |
++---------+--------+
+| "Ada"   | 2024   |
+| "Grace" | 2023   |
+| "Noor"  | <null> |
++---------+--------+
+```
+
+Three people: the refused write left no `Mallory` behind. Ada and Grace work on `relate`, as the agent's answer said. Noor has no `WORKS_ON` relationship to it, because she maintains it.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `storage error: read-only open requires an existing database at <path>` (`relate.OperationalError`) | `TeamGraph.path` names a directory that holds no store; a read-only open never creates one | Create the store with a writable open first, as the setup block does, or fix the path. |
+| `storage locked: <path>` (`relate.OperationalError`) | The store is a single-file `.rl` store that another connection holds for writing, and a read-only open refuses it | Keep the data in a directory store, as `./team` is, so the tool reads beside the writer. |
+| ``Set the `ANTHROPIC_API_KEY` environment variable or pass it via `AnthropicProvider(api_key=...)` to use the Anthropic provider. To try Pydantic AI without an API key, use the built-in test model: `Agent('test')`. See https://pydantic.dev/docs/ai/guides/testing/`` (`pydantic_ai.exceptions.UserError`) | The run names an Anthropic model and no credential is set | Set the credential, or keep `FunctionModel` for runs that must not call a model. |
+| `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` (`relate.OperationalError`, `gql_status` `42N18`) | A write reached the read-only connection | Expected: the guard held. Writes belong on the app's own writable connection. |
+| `Tool 'team_of' exceeded max retries count of 1. Consider raising the retry limit, or see the docs on tool retries: https://pydantic.dev/docs/ai/tools-toolsets/tools-advanced/#tool-retries` (`pydantic_ai.exceptions.UnexpectedModelBehavior`) | The model asked for a project that doesn't exist on two calls in a row, and a tool gets one retry by default | Raise the limit with `@agent.tool(retries=3)`, or with `retries=` on `Agent`. |
+
+The [errors reference](/docs/reference/errors) lists the Python exception class for each engine error.
+
+## Related
+
+- [Embed relate in a Python app](/docs/get-started/python): the client's connections, parameters, transactions, and errors.
+- [Use relate with LangGraph](/docs/guides/integrations/langgraph): tools that write an agent's memory, on one connection owned by a dedicated thread.
+- [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, backups, and the permission matrix.
+- [Connect over MCP](/docs/guides/agents/connect-over-mcp): the same read-only server in Claude Code, Cursor, and other agent hosts.
+- [Graph queries over MCP](/docs/concepts/problems-relate-solves#graph-queries-over-mcp): the problem this page solves, with the other pages that solve it.

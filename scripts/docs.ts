@@ -8,7 +8,16 @@
 //                                   checks on dist/      (after npm run build)
 //   node scripts/docs.ts --vocab    write the Vale vocabulary from the glossary
 //   node scripts/docs.ts --lint     write the vocabulary, then run Vale on the
-//                                   docs prose and STYLE.md (npm run docs:lint)
+//                                   docs prose, the glossary bodies (their
+//                                   frontmatter blanked) and STYLE.md
+//                                   (npm run docs:lint)
+//   node scripts/docs.ts --record   rewrite every page's results sidecar and
+//                                   (DOCS_ONLY=<id>[,…] limits it to those pages)
+//                                   static graph forms from a run of its cells
+//                                   on public/wasm, then its interactive
+//                                   elements' static forms; review the diff
+//
+// DIST=<dir> points the --built checks at a build other than ./dist.
 //
 // From the source (no build needed):
 //   - frontmatter: the schema of DOCS-PLAN.md §5 on every page (planned ones
@@ -21,19 +30,22 @@
 //     A link to a docs page that has no file yet is a warning, not an error:
 //     the page renders it as text until the page exists (src/lib/docs/links.ts)
 //   - words (STYLE.md §4.4, §4.5, §4.9), in prose only, never in code: banned
-//     words, the one-name-per-thing synonyms and every glossary alias, the
+//     words, the one-name-per-thing synonyms the glossary cannot express and
+//     every glossary alias (the glossary is the banned-synonym list), the
 //     product name, a "Note:" prefix, exclamation marks, self-reference words
 //     ("above", "as mentioned"), link text ("here"), bare URLs
 //   - headings: sentence case, no trailing punctuation, no `!`/`?`, no skipped
 //     level, no H1 in the body (the title is the H1)
 //   - fences: every block has a language; shell blocks have no `$` prompt; a
-//     `run` fence is Cypher
+//     `run` fence is a Cypher cell or a verified sample (`python run`, `js run`,
+//     `rust run`, `java run`, `go run`, `swift run`, `c run`)
 //   - page shape: the required sections for the page's type (README.md)
 //   - the twin round-trip (3a), rendered from the source exactly as the build
 //     renders it (src/lib/docs/twin.ts): it parses, carries the frontmatter
 //     fields with `verified` equal to _data/engine.json, holds every fenced
 //     block the page has, each diagram's fence is followed by its description,
-//     and the Terms section lists every linked term
+//     and the Terms section lists exactly the linked terms, in order of first
+//     use, with their short definitions (the glossary's Twin check)
 //   - trust (3d, ADR-0013): every bash/sh/json/toml/yaml block that mentions
 //     `relate serve`, `mcp` or a host config also has `--read-only`, and so
 //     does every `relate … --database` command in a markdown block; the
@@ -41,11 +53,70 @@
 //     reader in the imperative outside a fence (heuristic below); no twin
 //     carries prompt-injection phrasing; results sidecars and data files were
 //     recorded against the current engine
+//   - cells (item 2, src/lib/docs/checks/cells.ts): every page's `cypher run`
+//     cells run in page order on one in-memory database on public/wasm, each
+//     as its info string says, and match the page's results sidecar entry for
+//     entry; each recorded graph has a fresh, inert static form (light and
+//     dark) and its first node expands in the graph view; public/wasm is the
+//     engine _data/engine.json names. The example page is included
+//   - samples (src/lib/docs/checks/samples.ts): every verified sample
+//     (```python run, ```js run, ```rust run, ```java run, ```go run,
+//     ```swift run, ```c run) has a recorded "text" entry in its page's sidecar, ids are unique
+//     and clash with no cell, no stale entries; the outputs themselves are
+//     replayed by scripts/docs-samples.ts (npm run docs:samples)
+//   - CLI facts (src/lib/docs/checks/cli.ts): every recorded run in _data/ is
+//     well formed; each quoted message is in its recorded output and agrees
+//     with the recorded exit code and error object; the recorded agent-context
+//     lists exactly cli.json's commands and flags; the recorded version names
+//     _data/engine.json's; nothing is still disputed; `verify` only on bash
+//     fences (npm run docs:cli-check replays them against a binary)
 //   - diagrams (3f): every `mermaid` block has `accTitle` and a multi-line
 //     `accDescr`, and a fresh light and dark rendering whose hash matches and
 //     whose SVG is inert (src/lib/cookbook/diagrams.ts); stray renderings
-//   - the glossary (STYLE.md §4.11): ids, well-formed `short` definitions,
-//     `related` and `see` resolve, unused terms; the Vale vocabulary is current
+//   - the glossary (DOCS-PLAN.md §4.11, src/lib/docs/checks/glossary.ts): ids,
+//     the Short-definitions rule, `context`, `related` and `see` resolve,
+//     aliases distinct; every term has a body (the full definition) that
+//     renders, and its prose passes the word rules; every :term id on a page
+//     resolves (Glossary links); a term no page links is reported (Unused
+//     terms); a page that uses a term three or more times without linking it
+//     gets one warning listing them (First use, while the page links fewer
+//     than five terms); the Vale vocabulary is current
+//   - generated pages (src/lib/docs/checks/generated.ts): each renders with a
+//     well-formed twin that passes the imperative and injection checks; the
+//     glossary covers every term; the changelog data is valid with
+//     #since-<verified>; feedback.md names no address
+//   - the skill (3b, src/lib/docs/checks/skill.ts): public/skills/relate/ is
+//     upstream's bundle at the commit in _data/skill.json with the engine's
+//     version stamped (skipped with a note when no upstream checkout is
+//     present; RELATE_UPSTREAM, default ../relate), its description carries
+//     the canonical phrase (a warning until upstream adopts it), its version
+//     is the engine's, every relative link and cited URL resolves, the 0.2.0
+//     and legacy skills indexes validate, /skill.md is complete, and
+//     docs-artifacts.json.sig verifies when it exists
+//   - the docs graph (item 3, src/lib/docs/checks/graph.ts): the seed script
+//     replays on public/wasm; no orphan page; every cli.json command and flag
+//     named on a reference page (a warning until the CLI reference exists);
+//     no published page with a planned prerequisite; every :term id exists;
+//     no page that is its own prerequisite; the search indexes exist and the
+//     seed sets as many section vectors as the artifact has current ones.
+//     Severities per rule: DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>,…
+//   - the embeddings (3e, src/lib/docs/checks/embeddings.ts): every section has a
+//     vector in _data/embeddings.json whose SHA-256 matches its text now, no
+//     orphaned or malformed vector, the recipe's questions current, and the
+//     `docs` block of the query-the-relate-docs recipe equal to the subset the
+//     graph gives; DOCS_EMBEDDINGS_SEVERITY=warning|off lowers them locally
+//   - the task skills (src/lib/docs/checks/skill.ts checkTaskSkills and
+//     checkTaskSkillCypher): frontmatter, citations, prose, read-only opens,
+//     the review record in _data/skill.json, every cypher fence on public/wasm;
+//     the skills CLI install form names a skill
+//   - the capability catalog (src/lib/docs/checks/capabilities.ts): every
+//     _capabilities/ file well formed, its citations and verify run resolve,
+//     the generated section of concepts/problems-relate-solves current
+//   - surfaces.json is well formed (src/components/docs/matrix.ts validate)
+//   - interactive elements (src/lib/docs/checks/elements.ts): each element's
+//     files exist (build file, browser module, browser case file); every
+//     directive passes its element's validate and has a current, non-empty
+//     recorded static form; every cell word names a browser module
 //
 // From dist/ (--built, after `npm run build`):
 //   - every published page has its HTML page and its `.md` twin; each built
@@ -56,6 +127,14 @@
 //     in the built HTML; the playground is built
 //   - every link in /docs/llms.txt resolves to a built file; the landing twin
 //     passes the imperative and injection checks
+//   - every generated page has its HTML and both twins, appears in llms.txt
+//     and the sitemap, and the changelog feed parses
+//   - the built skills indexes' digests and docs-artifacts.json's hashes match
+//     the served bytes; the legacy files equal /skills/relate/; security.txt,
+//     when built, has Contact and an unexpired Expires
+//   - the script budget (src/lib/docs/checks/budget.ts): every built docs page
+//     runs under 60 KB of JavaScript before its lazy chunks; the three largest
+//     are printed
 //
 // The imperative heuristic (trust check, ADR-0013): in a twin, outside fenced
 // blocks, headings and tables, a sentence of three or more words whose first
@@ -77,8 +156,9 @@
 // Exits 1 when there is any error, printing every finding by file and line.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import GithubSlugger from 'github-slugger';
@@ -90,7 +170,7 @@ import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { parse as parseYaml } from 'yaml';
 
-import { COMPONENT_TWINS } from '../src/components/docs/registry.ts';
+import { COMPONENT_ANCHORS, COMPONENT_TWINS } from '../src/components/docs/registry.ts';
 import {
   DOCS_RENDER_COMMAND,
   diagramDescription,
@@ -101,7 +181,7 @@ import {
 } from '../src/lib/cookbook/diagrams.ts';
 import { COOKBOOK_DIR, loadRecipes } from '../src/lib/cookbook/load.ts';
 import { CANONICAL_ORIGIN } from '../src/lib/cookbook/links.ts';
-import { GLOSSARY_ID, type ComponentProps } from '../src/lib/docs/constructs.ts';
+import { type ComponentProps } from '../src/lib/docs/constructs.ts';
 import {
   DOCS_DIR,
   engine as readEngine,
@@ -120,6 +200,7 @@ import { CANONICAL_PHRASE } from '../src/lib/docs/llms.ts';
 import {
   DOC_TYPES,
   GENERATED_FIELDS,
+  GENERATED_IDS,
   pageUrl,
   SECTION_IDS,
   sectionOf,
@@ -129,9 +210,26 @@ import {
   typeOf,
   type DocType,
 } from '../src/lib/docs/model.ts';
+import { aliasRules, readGlossary as readGlossaryEntries } from '../src/lib/docs/glossary.ts';
 import { parsePage } from '../src/lib/docs/parse.ts';
 import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
+import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
+import { checkElements, recordElements } from '../src/lib/docs/checks/elements.ts';
+import { kb, measureDocs, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
+import { elementFileId } from '../src/lib/docs/elements.ts';
+import { cliCheck } from '../src/lib/docs/checks/cli.ts';
+import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
+import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
+import { blankFrontmatter, bodyFences, checkFirstUse, checkGlossaryFiles, checkGlossaryLinks, checkUnusedTerms, linkedTerms, twinTermsProblems } from '../src/lib/docs/checks/glossary.ts';
+import { checkGraph } from '../src/lib/docs/checks/graph.ts';
+import { checkSamples } from '../src/lib/docs/checks/samples.ts';
+import { checkSkill, checkTaskSkillCypher } from '../src/lib/docs/checks/skill.ts';
+import { IMPERATIVE_VERBS, INJECTION } from '../src/lib/docs/skill.ts';
+import { SURFACES_FILE, validate as validateSurfaces, type SurfacesData } from '../src/components/docs/matrix.ts';
+import { feedbackMarkdown, GENERATED, generatedContext } from '../src/lib/docs/generated/index.ts';
+import { resultGraphCell } from '../src/lib/docs/results.ts';
+import { clientEnv, parseSampleInfo } from '../src/lib/docs/samples.ts';
 
 // ---------------------------------------------------------------------------
 // Findings
@@ -195,27 +293,25 @@ const BANNED_WORDS: WordRule[] = [
   },
 ];
 
-/** STYLE.md §4.4 "One name per thing"; the glossary aliases are added at run time. */
+/**
+ * STYLE.md §4.4 "One name per thing": the glossary is the source (each term's
+ * `aliases`, glossary.ts aliasRules, added at run time). This list keeps only
+ * what a glossary alias cannot say: a preferred word that is not a term
+ * (agent, Neo4j, WebAssembly), two preferred terms for one word (plugin), or
+ * a pattern with an exception ("edge case", "bind a parameter").
+ */
 const SYNONYMS: { phrase: RegExp; say: string; label: string }[] = [
-  { phrase: /\bdatabase files?\b/gi, say: 'store', label: 'database file' },
-  { phrase: /\bgraph files?\b/gi, say: 'store', label: 'graph file' },
-  { phrase: /\bdb\b/gi, say: 'store', label: 'db' },
-  { phrase: /(?<![\w`])\.cl\b/g, say: '.rl', label: '.cl' },
-  { phrase: /\bvert(?:ex|ices)\b/gi, say: 'node', label: 'vertex' },
   { phrase: /\bedges?\b(?! case)/gi, say: 'relationship', label: 'edge' },
   // The noun only: "bind a parameter" and "without binding it" are fine.
   { phrase: /\b(?:a|the|python|node(?:\.js)?|go|rust|java|swift|c|language|native|wasm)\s+bindings?\b|\bbindings\b/gi, say: 'client (a language package) or surface (a front door)', label: 'binding' },
   { phrase: /\bplug-?ins?\b/gi, say: 'skill, or extension for a `relate run` package', label: 'plugin' },
-  { phrase: /\badd-ons?\b/gi, say: 'extension', label: 'add-on' },
   { phrase: /\bbots?\b/gi, say: 'agent', label: 'bot' },
-  { phrase: /\bOpenCypher\b/g, say: 'openCypher', label: 'OpenCypher' },
-  { phrase: /\bcypher\b/g, say: 'Cypher', label: 'cypher' },
   { phrase: /\bneo4j\b/g, say: 'Neo4j', label: 'neo4j' },
   { phrase: /\bWasm\b/g, say: 'WebAssembly, then WASM', label: 'Wasm' },
 ];
 
 const PRODUCT_NAME: WordRule = {
-  re: /\bRelate ?DB\b|\bthe relate database\b|\bRelate\b/g,
+  re: /\bRelate ?DB\b|\bthe relate database\b|(?<!\bNeo4j Desktop )\bRelate\b/g,
   rule: 'product-name',
   severity: 'error',
   message: (m) => `"${m}": the name is "relate", lowercase, even at the start of a sentence (STYLE.md §4.4)`,
@@ -238,14 +334,14 @@ const PROPER_NOUNS = new Set([
   'Cypher', 'Python', 'Rust', 'Java', 'Go', 'Swift', 'Bolt', 'Docker', 'Linux', 'Windows', 'Mac', 'Unix',
   'Ubuntu', 'Debian', 'Alpine', 'Homebrew', 'Maven', 'Gradle', 'Neo4j', 'Node', 'Claude', 'Codex',
   'Cursor', 'Gemini', 'Copilot', 'Windsurf', 'Cline', 'Vercel', 'Cloudflare', 'Obsidian', 'Markdown',
-  'Kuzu', 'Jupyter', 'Pydantic', 'Ollama', 'Anthropic', 'Mermaid', 'Pagefind', 'Apple', 'Intel', 'English',
+  'Kuzu', 'Jupyter', 'Pydantic', 'Ollama', 'Mastra', 'Anthropic', 'Mermaid', 'Pagefind', 'Apple', 'Intel', 'English',
   'Spring', 'Kafka', 'Spark', 'Snowflake', 'Postgres', 'Aura',
 ]);
 
 /** Multi-word names whose later words are capitalized (STYLE.md §4.4 names "HTTP Query API"). */
 const PROPER_PHRASES = [
-  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'Gemini CLI',
-  'Neo4j Desktop', 'GitHub Actions', 'Cloudflare Pages', 'Cloudflare Workers', 'Web Analytics',
+  'HTTP Query API', 'Claude Code', 'Claude Agent SDK', 'Claude Desktop', 'Vercel AI SDK', 'OpenAI Agents SDK', 'Vercel Sandbox', 'Gemini CLI',
+  'Neo4j Desktop', 'Neo4j Browser', 'GitHub Actions', 'Cloudflare Pages', 'Cloudflare Workers', 'Web Analytics',
 ];
 
 // ---------------------------------------------------------------------------
@@ -259,19 +355,10 @@ const PROMPT_LANGS = new Set(['text', 'markdown', 'md', 'prompt', 'txt']);
 const INSTALLS = /install\.sh|pip install|npm (?:install|i)\b|npx |brew install|relate skill install|cargo install|go install/i;
 const SEMVER = /\b\d+\.\d+\.\d+\b/g;
 
-/** Sentence-initial verbs that make a twin sentence an instruction (the imperative heuristic). */
-const IMPERATIVE_VERBS = new Set([
-  'run', 'install', 'copy', 'use', 'read', 'open', 'add', 'pass', 'call', 'paste', 'execute', 'download',
-  'remove', 'delete', 'edit', 'replace', 'configure', 'enable', 'disable', 'click', 'tell', 'ask', 'create',
-  'write', 'try', 'ignore', 'disregard', 'forget',
-]);
+// IMPERATIVE_VERBS (sentence-initial verbs that make a twin sentence an
+// instruction) and INJECTION come from src/lib/docs/skill.ts, one copy of the
+// trust patterns for the pages, the task skills and the capability catalog.
 const INSTRUCTIVE_TYPES = new Set<DocType>(['tutorial', 'how-to']);
-
-const INJECTION: RegExp[] = [
-  /\b(?:ignore|disregard|forget|override)\b[^.]{0,40}\b(?:previous|prior|earlier|above|system|your|all)\b[^.]{0,20}\b(?:instructions?|prompts?|rules|limits|guidelines|directions)\b/i,
-  /\byou are (?:an? |now (?:an? )?)?(?:AI|assistant|language model|LLM|chatbot)\b/i,
-  /\bas an AI\b/i,
-];
 
 // ---------------------------------------------------------------------------
 // Rules: page shapes (src/content/docs/README.md "Sections")
@@ -311,30 +398,12 @@ interface Site {
   builtIds: Map<string, Set<string>> | null;
   /** The ids of glossary terms some page links with `:term`. */
   termsUsed: Set<string>;
+  /** The build the --built checks read: DIST, else ./dist. Every check that reads dist/ takes it from here. */
+  dist: string;
 }
 
-const errorIds = (() => {
-  let cached: Set<string> | null = null;
-  return () => {
-    if (cached) return cached;
-    cached = new Set();
-    const file = join(DOCS_DIR, '_data/errors.json');
-    if (!existsSync(file)) return cached;
-    const walk = (v: unknown) => {
-      if (Array.isArray(v)) v.forEach(walk);
-      else if (v && typeof v === 'object') {
-        const o = v as Record<string, unknown>;
-        if (typeof o.id === 'string') cached!.add(o.id);
-        Object.values(o).forEach(walk);
-      }
-    };
-    walk(JSON.parse(readFileSync(file, 'utf8')));
-    return cached;
-  };
-})();
-
 /** The anchors a page's HTML will carry, from its source: heading slugs, cell ids, generated tables. */
-function sourceAnchors(id: string, tree: Root, source: string, glossaryIds: Iterable<string>): Set<string> {
+function sourceAnchors(tree: Root, source: string): Set<string> {
   const out = new Set<string>();
   const slugger = new GithubSlugger();
   let cell = 0;
@@ -354,8 +423,7 @@ function sourceAnchors(id: string, tree: Root, source: string, glossaryIds: Iter
       }
     }
   });
-  if (/<Errors\b/.test(source)) errorIds().forEach((e) => out.add(e));
-  if (id === GLOSSARY_ID) for (const g of glossaryIds) out.add(g);
+  for (const [name, anchors] of Object.entries(COMPONENT_ANCHORS)) if (new RegExp(`<${name}\\b`).test(source)) anchors().forEach((a) => out.add(a));
   return out;
 }
 
@@ -401,7 +469,7 @@ function checkHref(href: string, site: Site, from: string | null): LinkVerdict {
   if (docsId !== null) {
     if (/\.(txt|json|svg|png|md)$/.test(href.split(/[?#]/)[0])) return assetVerdict(href);
     if (docsId === '') return { ok: true };
-    if (site.published.has(docsId)) {
+    if (site.published.has(docsId) || GENERATED_IDS.has(docsId)) {
       const hash = href.includes('#') ? href.slice(href.indexOf('#') + 1) : '';
       return hash ? anchorVerdict(`/docs/${docsId}`, docsId, hash, site) : { ok: true };
     }
@@ -437,7 +505,7 @@ function checkHref(href: string, site: Site, from: string | null): LinkVerdict {
 function assetVerdict(href: string): LinkVerdict {
   const path = decodeURIComponent(href.split(/[?#]/)[0]);
   const candidates = [join(ROOT, 'public', path), join(ROOT, 'public', path, 'index.html')];
-  if (args.built) candidates.push(join(ROOT, 'dist', path), join(ROOT, 'dist', path, 'index.html'));
+  if (args.built) candidates.push(join(DIST, path), join(DIST, path, 'index.html'));
   if (candidates.some((c) => existsSync(c))) return { ok: true };
   // Generated endpoints (twins, llms.txt) exist only after a build.
   if (!args.built && /^\/(?:docs|cookbook)\/.*\.(?:md|txt|json)$|^\/(?:llms\.txt|sitemap\.xml)$/.test(path)) return { ok: true };
@@ -564,6 +632,8 @@ function checkSource(page: PageFile, text: string, site: Site) {
   const lineOf = (node: { position?: { start: { line: number } } }) => (node.position?.start.line ?? 1) + offset;
   const blocks: Prose[] = [];
   const paragraphs: Prose[] = [];
+  /** Paragraphs and table cells, for the glossary's First-use count. */
+  const termProse: string[] = [];
   let lastDepth = 1;
   const headings: string[] = [];
 
@@ -592,6 +662,7 @@ function checkSource(page: PageFile, text: string, site: Site) {
           const p = { text: proseOf(node), line, ignore };
           blocks.push(p);
           paragraphs.push(p);
+          if (!ignore.has('glossary-first-use')) termProse.push(p.text);
           if (/^\s*Note:/.test(p.text) && !ignore.has('note-prefix')) {
             report(file, line, 'error', 'note-prefix', 'a "Note:" prefix in body text; use a `:::note` callout (STYLE.md §4.4)');
           }
@@ -600,6 +671,7 @@ function checkSource(page: PageFile, text: string, site: Site) {
         }
         case 'tableCell':
           blocks.push({ text: proseOf(node), line, ignore });
+          if (!ignore.has('glossary-first-use')) termProse.push(proseOf(node));
           checkLinks(node, file, line, ignore, site, id);
           break;
         case 'code':
@@ -620,9 +692,12 @@ function checkSource(page: PageFile, text: string, site: Site) {
   visit(tree, new Set());
 
   for (const block of blocks) checkWords(block, file);
+  // The glossary (DOCS-PLAN.md §4.11): every :term id resolves; a term used often but never linked is reported.
+  checkGlossaryLinks(file, body, offset, new Set(site.glossary.keys()), report);
+  if (!id.startsWith('_example/')) checkFirstUse(file, termProse, new Set(linkedTerms(body).map((t) => t.id)), MAX_TERMS, report);
   checkExclamations(paragraphs, blocks, file, type);
   if (type) checkShape(type, headings, paragraphs, tree, file);
-  site.anchors.set(id, sourceAnchors(id, tree, body, site.glossary.keys()));
+  site.anchors.set(id, sourceAnchors(tree, body));
 }
 
 function checkWords(block: Prose, file: string) {
@@ -645,15 +720,10 @@ let synonymCache: { phrase: RegExp; say: string; source: string }[] | null = nul
 function synonymRules() {
   if (synonymCache) return synonymCache;
   const out = SYNONYMS.map((s) => ({ phrase: s.phrase, say: `"${s.say}"`, source: 'STYLE.md §4.4', label: s.label.toLowerCase() }));
-  for (const file of glossaryFiles()) {
-    const { data } = splitFrontmatter(readFileSync(file, 'utf8'), rel(file));
-    const term = String(data.term ?? '');
-    for (const alias of Array.isArray(data.aliases) ? data.aliases : []) {
-      const a = String(alias).trim();
-      if (!a || out.some((o) => o.label === a.toLowerCase())) continue;
-      const pattern = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      out.push({ phrase: new RegExp(`(?<![\\w-])${pattern}(?![\\w-])`, 'gi'), say: `"${term}"`, source: `glossary: ${String(data.id ?? '')}`, label: a.toLowerCase() });
-    }
+  // The glossary's aliases (DOCS-PLAN.md §4.11): each flagged with its preferred term.
+  for (const a of aliasRules(readGlossaryEntries())) {
+    if (out.some((o) => o.label === a.alias.toLowerCase())) continue;
+    out.push({ phrase: a.phrase, say: `"${a.term}"`, source: `glossary: ${a.id}`, label: a.alias.toLowerCase() });
   }
   synonymCache = out;
   return out;
@@ -723,7 +793,13 @@ function checkFence(node: Code, file: string, line: number, ignore: Set<string>,
   if (node.lang && /^(?:bash|sh|shell|zsh)$/.test(node.lang) && /^\s*\$ /m.test(node.value)) {
     hit('fence-prompt', 'a shell block with a `$` prompt; blocks are copyable, so drop it (STYLE.md §4.6)');
   }
-  if (node.lang !== 'cypher' && /^run\b/.test(node.meta ?? '')) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher`);
+  if (node.lang !== 'cypher' && /^run\b/.test(node.meta ?? '')) {
+    try {
+      if (!parseSampleInfo(node.lang, node.meta)) hit('fence-run', `a \`run\` fence in \`${node.lang ?? 'no language'}\`; runnable cells are Cypher, verified samples are \`python run\`, \`js run\`, \`rust run\`, \`java run\`, \`go run\`, \`swift run\` or \`c run\``);
+    } catch (e) {
+      hit('fence-run', (e as Error).message);
+    }
+  }
   if (node.lang === 'cypher') {
     try {
       parseRunInfo(node.lang, node.meta);
@@ -855,10 +931,8 @@ function checkTwin(page: PageFile, text: string, site: Site, links: { pages: Set
   if (termCount > MAX_TERMS && !id.startsWith('_example/')) {
     report(file, null, 'warning', 'terms-cap', `the page links ${termCount} glossary terms; the Terms section holds at most ${MAX_TERMS} (DOCS-PLAN.md §3.1), so link the rest as plain text`);
   }
-  const termIds = new Set([...body.matchAll(/:term\[[^\]]*\]\{[^}]*\bid=([a-z0-9-]+)/g)].map((m) => m[1]));
-  if (termIds.size !== termCount) {
-    report(file, null, 'error', 'twin', `the page links ${termIds.size} glossary term(s), the twin's Terms section lists ${termCount}`);
-  }
+  // The twin's Terms section lists exactly the page's linked terms, in order of first use (DOCS-PLAN.md §4.11).
+  for (const problem of twinTermsProblems(markdown, linkedTerms(body).map((t) => t.id), site.glossary)) report(file, null, 'error', 'twin', problem);
   twinProse(twinTree, typeOf(id), file);
 }
 
@@ -1001,6 +1075,8 @@ function strayRenderings(pages: PageFile[]) {
     if (!existsSync(dir)) continue;
     const slugs = pages.filter((p) => join(dirname(p.file), 'diagrams') === dir).map((p) => p.file.split(sep).pop()!.replace(/\.mdx$/, ''));
     for (const name of readdirSync(dir)) {
+      // A cell's static graph form, or an element's static form: the cells and elements checks own them.
+      if (slugs.some((s) => resultGraphCell(s, name) !== null || elementFileId(s, name) !== null)) continue;
       if (!slugs.some((s) => isDiagramFileOf(s, name))) report(join(dir, name), null, 'warning', 'diagram', 'a rendering no page draws; delete it');
     }
   }
@@ -1014,41 +1090,37 @@ function glossaryFiles(): string[] {
   return readdirSync(GLOSSARY_DIR).filter((n) => n.endsWith('.mdx')).sort().map((n) => join(GLOSSARY_DIR, n));
 }
 
+/**
+ * The glossary (DOCS-PLAN.md §4.11, src/lib/docs/checks/glossary.ts): the
+ * term files and their bodies, and unused terms; the bodies' prose also gets
+ * the word rules (banned words, synonyms and aliases, self-reference), as a
+ * page's prose does. Runs after the pages, so `site.termsUsed` is complete.
+ */
 function checkGlossary(site: Site) {
-  const ids = new Set(site.glossary.keys());
-  for (const file of glossaryFiles()) {
-    const err = (msg: string) => report(file, 1, 'error', 'glossary', msg);
-    let data: Record<string, unknown>;
+  const entries = readGlossaryEntries();
+  const gsite = { pages: new Set([...site.published.keys(), ...GENERATED_IDS]), termsUsed: site.termsUsed };
+  checkGlossaryFiles(gsite, report, (ref) => checkPageRef(ref, site), entries);
+  checkUnusedTerms(gsite, report, entries);
+  for (const e of entries) {
+    if (!e.body) continue;
+    const raw = readFileSync(e.file, 'utf8');
+    const fm = frontmatterLines(raw);
+    const offset = fm + Math.max(0, raw.split('\n').slice(fm).findIndex((l) => l.trim()));
+    let tree: Root;
     try {
-      data = splitFrontmatter(readFileSync(file, 'utf8'), rel(file)).data;
-    } catch (e) {
-      err((e as Error).message);
-      continue;
+      tree = parsePage(e.body);
+    } catch {
+      continue; // checkGlossaryFiles reports it
     }
-    const stem = file.split(sep).pop()!.replace(/\.mdx$/, '');
-    const id = String(data.id ?? '');
-    if (id !== stem) err(`\`id: ${id}\` differs from the file name (${stem}.mdx)`);
-    if (!/^[a-z0-9-]+$/.test(id)) err(`\`id: ${id}\` uses lowercase letters, digits and - only`);
-    const term = typeof data.term === 'string' ? data.term : '';
-    if (!term) err('`term` is required');
-    const short = typeof data.short === 'string' ? data.short.trim() : '';
-    if (!short) err('`short` is required');
-    else {
-      if (short.length >= 160) err(`\`short\` is ${short.length} characters; keep it under 160`);
-      if (!short.endsWith('.')) err('`short` ends with a period');
-      if (/\]\(|https?:\/\//.test(short)) err('`short` is plain text; no links');
-      if (term && short.toLowerCase().startsWith(term.toLowerCase())) err('`short` does not start with the term itself');
-    }
-    if (!['cypher', 'storage', 'cli', 'agents', 'surfaces', 'engine'].includes(String(data.context))) {
-      err(`\`context: ${String(data.context)}\` is not one of cypher, storage, cli, agents, surfaces, engine`);
-    }
-    for (const r of Array.isArray(data.related) ? data.related : []) if (!ids.has(String(r))) err(`related term \`${String(r)}\` has no _glossary/${String(r)}.mdx`);
-    for (const a of Array.isArray(data.aliases) ? data.aliases : []) if (String(a).toLowerCase() === term.toLowerCase()) err(`alias "${String(a)}" is the term itself`);
-    if (typeof data.see === 'string') {
-      const verdict = checkPageRef(data.see, site);
-      if (!verdict.ok) report(file, 1, verdict.severity, verdict.severity === 'error' ? 'glossary' : 'link-pending', `see: ${verdict.message}`);
-    }
-    if (!site.termsUsed.has(id)) report(file, 1, 'warning', 'glossary-unused', `no page links \`${id}\` with :term[…]{id=${id}}`);
+    visitAll(tree, (node) => {
+      if (node.type !== 'paragraph' && node.type !== 'tableCell') return;
+      const line = (node.position?.start.line ?? 1) + offset;
+      checkWords({ text: proseOf(node), line, ignore: new Set() }, e.file);
+    });
+    // A body's fences get the page fences' trust rules (ADR-0013): a block that
+    // starts relate serve, MCP or a host config carries --read-only. A body
+    // holds no comments, so nothing lifts the rule.
+    for (const f of bodyFences(tree)) trustFence(f.lang, f.value, e.file, f.line + offset, new Set(), site);
   }
 }
 
@@ -1094,7 +1166,7 @@ function checkVersions(site: Site) {
   if (lag(site.engine.version, site.engine.verified) > 1) {
     report(ENGINE_FILE, null, 'error', 'trust-lag', `verified ${site.engine.verified} lags the engine ${site.engine.version} by more than one minor; re-verify the pages`);
   }
-  for (const name of ['errors.json', 'cli.json']) {
+  for (const name of ['errors.json', 'cli.json', 'surfaces.json']) {
     const file = join(DOCS_DIR, '_data', name);
     if (!existsSync(file)) continue;
     let data: { verified?: unknown };
@@ -1109,12 +1181,20 @@ function checkVersions(site: Site) {
       report(file, null, 'error', 'trust-lag', `verified ${v} lags the engine ${site.engine.version} by more than one minor`);
     }
   }
+  // <Matrix /> fails the build on an invalid surfaces file, but only on a page that uses it.
+  if (existsSync(SURFACES_FILE)) {
+    try {
+      for (const p of validateSurfaces(JSON.parse(readFileSync(SURFACES_FILE, 'utf8')) as SurfacesData)) report(SURFACES_FILE, null, 'error', 'data', p);
+    } catch (e) {
+      report(SURFACES_FILE, null, 'error', 'data', `not JSON: ${(e as Error).message}`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Built-site checks (--built)
 
-const DIST = join(ROOT, 'dist');
+const DIST = process.env.DIST ? resolvePath(process.env.DIST) : join(ROOT, 'dist');
 const decodeEntities = (s: string) =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&amp;/g, '&');
 
@@ -1128,6 +1208,10 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
     const file = join(DIST, pageUrl(p.id), 'index.html');
     if (existsSync(file)) out.set(pageUrl(p.id), htmlIds(readFileSync(file, 'utf8')));
   }
+  for (const id of GENERATED_IDS) {
+    const file = join(DIST, pageUrl(id), 'index.html');
+    if (existsSync(file)) out.set(pageUrl(id), htmlIds(readFileSync(file, 'utf8')));
+  }
   for (const slug of site.recipes.keys()) {
     const file = join(DIST, 'cookbook', slug, 'index.html');
     if (existsSync(file)) out.set(`/cookbook/${slug}/`, htmlIds(readFileSync(file, 'utf8')));
@@ -1135,11 +1219,29 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
   return out;
 }
 
+/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs page's eager JavaScript, and the three largest printed. */
+function checkBudget() {
+  const rows = measureDocs(DIST);
+  for (const { page, scripts } of rows) {
+    const file = join(DIST, page, 'index.html');
+    if (scripts.bytes > PAGE_JS_BUDGET) {
+      const top = scripts.files.slice(0, 3).map((f) => `${f.path} ${kb(f.bytes)}`).join(', ');
+      report(file, null, 'error', 'js-budget', `${page} runs ${kb(scripts.bytes)} of JavaScript before its lazy chunks, over the ${kb(PAGE_JS_BUDGET)} budget (inline ${kb(scripts.inline)}; ${top})`);
+    }
+    for (const m of scripts.missing) report(file, null, 'error', 'js-budget', `${page} loads ${m}, which is not in the build`);
+  }
+  if (rows.length) {
+    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs page(s):`);
+    for (const { page, scripts } of rows.slice(0, 3)) console.log(`  ${kb(scripts.bytes).padStart(9)}  ${page}  (${scripts.files.length} file(s), inline ${kb(scripts.inline)})`);
+  }
+}
+
 function checkBuilt(site: Site) {
   if (!existsSync(join(DIST, 'docs'))) {
     report(DIST, null, 'error', 'built', 'dist/docs/ does not exist; run `npm run build` before `docs:check -- --built`');
     return;
   }
+  checkBudget();
   if (!existsSync(join(DIST, 'playground/index.html'))) report(DIST, null, 'error', 'built', 'dist/playground/index.html is missing; links to /playground/ would 404');
   for (const p of site.published.values()) {
     const htmlFile = join(DIST, pageUrl(p.id), 'index.html');
@@ -1219,13 +1321,25 @@ function lint(): number {
     const sync = spawnSync('vale', ['--config', valeIni, 'sync'], { cwd: ROOT, stdio: 'inherit' });
     if (sync.status !== 0) return sync.status ?? 1;
   }
-  const files = [
-    ...pageFiles().map((p) => p.file),
-    ...glossaryFiles(),
-    join(DOCS_DIR, 'STYLE.md'),
-  ].map(rel);
+  const files = [...pageFiles().map((p) => p.file), join(DOCS_DIR, 'STYLE.md')].map(rel);
   const run = spawnSync('vale', ['--config', valeIni, ...files], { cwd: ROOT, stdio: 'inherit' });
-  return run.status ?? 1;
+  // The glossary's term files: Vale 3.25.1 lints front-matter string values,
+  // and a term's id, context and see are lowercase identifiers the vocabulary's
+  // case check flags (`context: cypher`). Vale reads copies of the files with
+  // the frontmatter blanked out instead, so the bodies get every Vale rule and
+  // the lines and the printed paths stay the real ones.
+  const tmp = mkdtempSync(join(tmpdir(), 'relate-docs-lint-'));
+  try {
+    const terms = glossaryFiles().map(rel);
+    for (const f of terms) {
+      mkdirSync(dirname(join(tmp, f)), { recursive: true });
+      writeFileSync(join(tmp, f), blankFrontmatter(readFileSync(join(ROOT, f), 'utf8')));
+    }
+    const runTerms = terms.length ? spawnSync('vale', ['--config', valeIni, ...terms], { cwd: tmp, stdio: 'inherit' }) : { status: 0 };
+    return Math.max(run.status ?? 1, runTerms.status ?? 1);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1236,14 +1350,29 @@ const { values: args } = parseArgs({
     built: { type: 'boolean', default: false },
     vocab: { type: 'boolean', default: false },
     lint: { type: 'boolean', default: false },
+    record: { type: 'boolean', default: false },
   },
 });
 
-function main(): number {
+async function main(): Promise<number> {
   if (args.lint) return lint();
   if (args.vocab) {
     console.log(writeVocabulary() ? `updated ${rel(VOCAB_FILE)}` : `${rel(VOCAB_FILE)} is current`);
     return 0;
+  }
+  if (args.record) {
+    const pages = pageFiles();
+    const only = process.env.DOCS_ONLY ? new Set(process.env.DOCS_ONLY.split(',').map((s) => s.trim()).filter(Boolean)) : null;
+    const published = new Map(
+      pages.filter((p) => p.data.status !== 'planned' && (!only || only.has(p.id))).map((p) => [p.id, p]),
+    );
+    let changed = await recordCells({ engine: readEngine(), published }, report, (line) => console.log(line));
+    // After the cells: an element's static form is made from the page's recordings.
+    changed += await recordElements({ published, only }, report, (line) => console.log(line));
+    const errors = findings.filter((f) => f.severity === 'error');
+    for (const f of errors) console.error(`${f.file}${f.line ? `:${f.line}` : ''}  ${f.message}`);
+    console.log(`docs --record: ${changed} file(s) changed${errors.length ? `, ${errors.length} page problem(s) left unrecorded` : ''}`);
+    return errors.length ? 1 : 0;
   }
 
   const pages = pageFiles();
@@ -1259,6 +1388,7 @@ function main(): number {
     anchors: new Map(),
     builtIds: null,
     termsUsed: new Set(),
+    dist: DIST,
   };
   const texts = new Map(pages.map((p) => [p.id, readFileSync(p.file, 'utf8')]));
   const unparsable = new Set<string>();
@@ -1267,7 +1397,7 @@ function main(): number {
   for (const p of published.values()) {
     const { body } = splitFrontmatter(texts.get(p.id)!, rel(p.file));
     try {
-      site.anchors.set(p.id, sourceAnchors(p.id, parsePage(body), body, site.glossary.keys()));
+      site.anchors.set(p.id, sourceAnchors(parsePage(body), body));
     } catch (e) {
       const where = (e as { line?: number }).line;
       report(p.file, typeof where === 'number' ? where + frontmatterLines(texts.get(p.id)!) : null, 'error', 'parse', `the page is not valid MDX: ${(e as Error).message}`);
@@ -1277,7 +1407,17 @@ function main(): number {
   if (args.built && existsSync(join(DIST, 'docs'))) site.builtIds = loadBuiltIds(site);
 
   checkVersions(site);
-  const links = { pages: new Set(published.keys()) };
+  cliCheck(site, report);
+  // The generated pages (glossary, changelog) count as published, with the anchors they render.
+  const genCtx = generatedContext();
+  for (const g of GENERATED) {
+    try {
+      site.anchors.set(g.meta.id, g.render(genCtx).anchors);
+    } catch {
+      // checkGenerated reports it.
+    }
+  }
+  const links = { pages: new Set([...published.keys(), ...GENERATED_IDS]) };
   for (const p of pages) {
     checkFrontmatter(p, site);
     if (p.data.status === 'planned' || unparsable.has(p.id)) continue;
@@ -1293,7 +1433,24 @@ function main(): number {
     checkDiagrams(p, splitFrontmatter(text, rel(p.file)).body);
   }
   strayRenderings([...published.values()]);
+  await checkCells(site, report);
+  await checkElements(site, report);
+  checkSamples(site, report, clientEnv());
   checkGlossary(site);
+  checkGenerated(site, report, DIST);
+  for (const g of GENERATED) {
+    try {
+      twinProse(parseMarkdown(splitFrontmatter(g.render(genCtx).markdown, g.meta.id).body), 'reference', join(ROOT, 'src/lib/docs/generated', `${g.meta.id.split('/').at(-1)}.ts`));
+    } catch {
+      // checkGenerated reports it.
+    }
+  }
+  twinProse(parseMarkdown(splitFrontmatter(feedbackMarkdown(genCtx), 'feedback.md').body), 'reference', join(ROOT, 'src/lib/docs/generated/feedback.ts'));
+  checkSkill(site, report);
+  await checkTaskSkillCypher(report);
+  checkGraph(site, report);
+  checkEmbeddings(site, report);
+  (await import('../src/lib/docs/checks/capabilities.ts')).checkCapabilities(site, report); // the capability catalog (DOCS-PLAN.md §3.8)
   if (existsSync(VOCAB_FILE) || glossaryFiles().length) {
     const current = existsSync(VOCAB_FILE) ? readFileSync(VOCAB_FILE, 'utf8') : '';
     if (current !== vocabulary()) report(VOCAB_FILE, null, 'error', 'vocab', 'the Vale vocabulary is stale; run `node scripts/docs.ts --vocab` (or `npm run docs:lint`)');
@@ -1338,4 +1495,4 @@ function print(published: number, planned: number): number {
   return errors ? 1 : 0;
 }
 
-process.exit(main());
+process.exit(await main());

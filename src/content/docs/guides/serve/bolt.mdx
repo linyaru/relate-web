@@ -1,0 +1,214 @@
+---
+title: Serve a store over Bolt
+label: Bolt
+description: Serve a store to Neo4j drivers and tools over Bolt with relate serve, covering the Bolt versions, the driver identity, bookmarks, and temporal values.
+order: 20
+surfaces: [bolt, cli, python]
+prerequisites: [get-started/install]
+related: [reference/server/bolt, reference/cli/serve, guides/serve/auth-and-tls, guides/serve/http-query-api, reference/cypher/differences-from-neo4j, reference/errors#bolt-unauthorized, concepts/problems-relate-solves#shared-store-across-processes]
+---
+
+This guide shows you how to serve a relate :term[store]{id=store} over :term[Bolt]{id=bolt}, Neo4j's binary protocol, with `relate serve --bolt <port>`, so Neo4j's official drivers and tools can run Cypher against it. The server speaks Bolt 4.4 and Bolt 5.4. The examples use the Neo4j Python driver; the other official drivers connect the same way.
+
+## Prerequisites
+
+- relate on your `PATH`: `relate --version` prints its version ([Install relate](/docs/get-started/install)).
+- A Neo4j driver. The examples use the Neo4j Python driver (`pip install neo4j`, which installs a 6.x release). Their output comes from driver 5.28.2; drivers 6.0.3 through 6.4.0, also run for this page, print the same, except the protocol version, which 6.x prints as `(5, 4)`.
+- A store to serve. The first step creates `graph.rl`.
+
+## Create a store to serve
+
+This command writes a new `graph.rl` holding the shared example graph: three people, two projects, and who works on what.
+
+```bash verify
+relate --database ./graph.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+## Start the server
+
+Give `--bolt` a port; it has no default, and `7687` is the port Neo4j tools try first. The server binds `127.0.0.1` and runs until SIGINT or SIGTERM:
+
+```bash
+relate serve --bolt 7687 --database ./graph.rl --read-only --bolt-identity Neo4j/5.26.0
+```
+
+To allow writes, remove `--read-only`.
+
+On stderr, relate prints that the store is open read-only, then `auth: generated token for user relate: <token>`, `auth: persisted at ./graph.rl.auth-token (reused on restart)`, and `serve: Bolt listening on bolt://127.0.0.1:7687 (auth: basic)`. The token file holds one line, `relate:<token>`: the user name and the password a driver sends. [Authentication and TLS](/docs/guides/serve/auth-and-tls) covers setting your own credential.
+
+## Set the server identity
+
+Some Neo4j drivers check the server's agent string when they connect and refuse one that does not start with `Neo4j/`. relate's own is `Relate/<version>`, so without `--bolt-identity` the Python driver 5.28.2 stops with `neo4j.exceptions.UnsupportedServerProduct: Relate/0.16.1`. The Python driver 6.x does not check: 6.0.3 through 6.4.0 connected without the flag and reported `Relate/0.16.1` as the agent. `--bolt-identity Neo4j/5.26.0` (or `RELATE_IDENTITY`) makes the server send that string instead. It is sent as written and claims no Neo4j feature parity; the Cypher relate runs is its own ([differences from Neo4j](/docs/reference/cypher/differences-from-neo4j)).
+
+Per driver, from relate's compatibility notes as of relate 0.16.1 and the runs for this page:
+
+| Driver | Versions named | Needs `--bolt-identity` |
+| --- | --- | --- |
+| Neo4j Python driver 5.x | 5.23 through 5.28; this page ran 5.28.2 | Yes |
+| Neo4j Python driver 6.x | 6.0.3, 6.1.0, 6.2.0, 6.3.1 and 6.4.0, run for this page | No |
+| Neo4j Java driver | 5.28.5; every 5.x and 6.x release checks the agent string | Yes |
+| Neo4j Go driver | v5.28.5 | No |
+
+`cypher-shell` checks the agent string too, and the same flag admits it.
+
+## Connect from a driver
+
+The driver reads the credential from the token file and runs a :term[statement]{id=statement} with a :term[parameter]{id=parameter}. `database_` names the namespace; `neo4j` is the default, and `system` and `system_ontologies` are the other two.
+
+```python title="team.py"
+from pathlib import Path
+
+from neo4j import GraphDatabase
+
+# The token file beside the store holds one line: relate:<token>
+user, password = Path("graph.rl.auth-token").read_text().strip().split(":", 1)
+
+with GraphDatabase.driver("bolt://127.0.0.1:7687", auth=(user, password)) as driver:
+    records, summary, keys = driver.execute_query(
+        "MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) "
+        "RETURN p.name AS name ORDER BY name",
+        project="relate",
+        database_="neo4j",
+    )
+    print([record["name"] for record in records])
+    print(summary.server.agent, summary.server.protocol_version)
+```
+
+Run it from the directory that holds `graph.rl`:
+
+```text
+['Ada', 'Grace']
+Neo4j/5.26.0 5.4
+```
+
+The second line is the agent string `--bolt-identity` set and the Bolt version the two sides agreed; a 6.x driver prints that line as `Neo4j/5.26.0 (5, 4)`. The `neo4j://` scheme works too: the server answers routing requests with itself as the only member.
+
+## Connect Neo4j Browser
+
+Neo4j Browser speaks Bolt over WebSocket, which the server answers on the Bolt port, so Browser needs no extra listener. Its version check reads `dbms.components()`, not the agent string, so it connects with or without `--bolt-identity`. The hosted Browser's origin, `https://browser.neo4j.io`, is on the server's default WebSocket allow list whenever authentication is on.
+
+1. Start the server as in [Start the server](#start-the-server).
+2. Open `https://browser.neo4j.io`, choose the `neo4j://` protocol, and enter `127.0.0.1:7687` as the connection URL.
+3. Enter the user `relate` and, as the password, the token from `graph.rl.auth-token`, then connect.
+
+Browser connects over `ws://127.0.0.1:7687` and opens the `neo4j` namespace. With `--auth none` the allow list narrows to loopback origins, so the hosted Browser also needs `--ws-allow-origin https://browser.neo4j.io`.
+
+For this page, `https://browser.neo4j.io` in Chrome 157, on November 8, 2026, was connected to a server started with `--auth none --ws-allow-origin https://browser.neo4j.io` and no `--bolt-identity`, so no credential was entered. Chrome refused the connection until the site held Chrome's local network access permission; once granted, Browser reported `Connected to neo4j://127.0.0.1:8845`, and the statement from `team.py`, with `'relate'` in place of `$project`, returned `"Ada"` and `"Grace"`. With authentication on, the hosted origin was checked at the WebSocket upgrade: the server answered `101`, and `403` to an origin off the list.
+
+## Know which Bolt versions answer
+
+| Item | What relate does |
+| --- | --- |
+| Versions | Bolt 4.4 and Bolt 5.4 only. The first version in the driver's proposal list that covers one of them wins, so a driver that offers a 5.x range gets 5.4 |
+| Authentication | At 5.4, in the `LOGON` message; at 4.4, in `HELLO` |
+| Transactions | `BEGIN`, `COMMIT` and `ROLLBACK` are real transactions; a `RUN` outside one commits on its own |
+| Not served | The Bolt 5.7 manifest handshake (drivers fall back to a version list), reactive sessions, and byte arrays stored as properties |
+| WebSocket | Served on the same port. Browser origins allowed by default: loopback, `https://browser.neo4j.io` and `https://console.neo4j.io`, or loopback only with `--auth none`; `--ws-allow-origin <url>` replaces the list |
+
+The relate project's compatibility probes compared these behaviors with Neo4j 2026.09.0 (Community) at Bolt 4.4 and Bolt 5.4. The [Bolt server reference](/docs/reference/server/bolt) lists every message.
+
+## Write, and read the bookmark
+
+A :term[bookmark]{id=bookmark} marks a commit's place in the store's commit sequence, `relate:<n>`. The server returns one after an auto-commit write and after the `COMMIT` of a transaction that wrote. Bookmarks a driver sends back are accepted and ignored: there is one store, and every commit is visible to the next statement on any connection.
+
+Writes need a server started without `--read-only`. This command opens `graph.rl` for writing:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+relate serve --bolt 7687 --database ./graph.rl --bolt-identity Neo4j/5.26.0
+```
+
+This program writes a new person in one explicit transaction, with a date and a date-time from Python as parameters, then reads them back:
+
+```python title="writes.py"
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+from neo4j import GraphDatabase
+
+user, password = Path("graph.rl.auth-token").read_text().strip().split(":", 1)
+
+with GraphDatabase.driver("bolt://127.0.0.1:7687", auth=(user, password)) as driver:
+    with driver.session(database="neo4j") as session:
+        # An explicit transaction: both statements commit together.
+        with session.begin_transaction() as tx:
+            tx.run(
+                "MATCH (p:Project {name: $project}) "
+                "CREATE (:Person {name: $name, role: 'engineer', joined: $joined})-[:WORKS_ON {since: 2026}]->(p)",
+                project="relate", name="Lin", joined=date(2026, 11, 7),
+            )
+            tx.run("MATCH (p:Person {name: 'Lin'}) SET p.seen = $seen",
+                   seen=datetime(2026, 11, 7, 9, 30, tzinfo=timezone.utc))
+            tx.commit()
+        print(session.last_bookmarks())
+
+        record = session.run(
+            "MATCH (p:Person {name: 'Lin'}) "
+            "RETURN p.joined AS joined, p.joined + duration('P1D') AS next_day, p.seen AS seen"
+        ).single()
+        print(type(record["joined"]).__name__, record["joined"], record["next_day"])
+        print(type(record["seen"]).__name__, record["seen"])
+```
+
+The number in the bookmark depends on how many commits the store has seen:
+
+```text
+<Bookmarks values={'relate:2'}>
+Date 2026-11-07 2026-11-08
+DateTime 2026-11-07T09:30:00.000000000+00:00
+```
+
+The date and the date-time crossed the wire as Bolt temporal structures, were stored as a `DATE` and a `ZONED DATETIME`, and came back as the driver's `neo4j.time` types. Times, local date-times, durations, and points cross the same way. When two transactions write the same data, the later commit fails with the transient error `Neo.TransientError.Transaction.Outdated`; the server never retries, and a driver's managed transaction (`execute_write`, `execute_query`) retries it.
+
+## Verify
+
+A driver is not needed to check that the port speaks Bolt. This step starts the server read-only on port 8843, with the HTTP Query API beside it on port 8842. It reads the HTTP discovery document, which names the Bolt address, then sends the Bolt handshake from bash, offering 5.4 and then 4.4, and compares the server's 4-byte answer with version 5.4. Then it stops the server:
+
+```bash verify
+relate serve --bolt 8843 --http 8842 --database ./graph.rl --read-only 2> serve.log &
+server=$!
+until curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done
+curl -s -w '\n' http://127.0.0.1:8842/
+exec 3<>/dev/tcp/127.0.0.1/8843
+printf '\x60\x60\xb0\x17\x00\x00\x04\x05\x00\x00\x04\x04\x00\x00\x00\x00\x00\x00\x00\x00' >&3
+head -c 4 <&3 > reply.bin
+exec 3>&-
+printf '\x00\x00\x04\x05' | cmp -s - reply.bin && echo "Bolt 5.4 agreed"
+kill $server
+wait $server
+```
+
+```text
+{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8843"}
+Bolt 5.4 agreed
+```
+
+`bolt_direct` names the Bolt listener, and the handshake agreed on Bolt 5.4. With a driver, `team.py` printing `['Ada', 'Grace']` is the same check end to end.
+
+## If it goes wrong
+
+**A Neo4j Python driver 5.x or a Java driver raises `UnsupportedServerProduct: Relate/0.16.1` or `UntrustedServerException`.** The driver checks the agent string. Start the server with `--bolt-identity Neo4j/5.26.0`.
+
+**The driver raises `AuthError` with `Neo.ClientError.Security.Unauthorized` and `The client is unauthorized due to authentication failure.`** The user or password does not match the server's credential. Read both from `<store>.auth-token`, or use the `user:password` from `--auth` or `RELATE_AUTH`.
+
+**A write fails with `Neo.ClientError.Statement.SemanticError` and a message that begins `semantic error: WriteOnReadOnlyAccessDatabase`.** The server opened the store `--read-only`. Restart it without `--read-only` to accept writes.
+
+**The driver raises `ServiceUnavailable` with `Connection refused`.** No server listens on that address: check the port in the startup line and that the server is still running.
+
+## Related
+
+- [Bolt server reference](/docs/reference/server/bolt): every message, field, and failure code.
+- [`relate serve`](/docs/reference/cli/serve): every flag, including `--bolt-identity` and the WebSocket limits.
+- [Authentication and TLS](/docs/guides/serve/auth-and-tls): credentials, and `bolt+s://` through a TLS proxy.
+- [Serve the HTTP Query API](/docs/guides/serve/http-query-api): the same store over JSON and HTTP.
+- [Bolt errors](/docs/reference/errors#bolt-unauthorized): each failure a driver can raise.
+- [Shared store across processes](/docs/concepts/problems-relate-solves#shared-store-across-processes): one server owning a store for several clients.

@@ -1,0 +1,17 @@
+---
+id: plan
+term: "plan"
+short: "The tree of operators the planner chooses to run a statement; `EXPLAIN` shows it without running, `PROFILE` runs and adds rows and time per operator."
+aliases: []
+context: cypher
+see: guides/cypher/tune-a-query
+related: ["notification", "index", "statement"]
+---
+
+Before a statement runs, the planner turns it into a tree of operators: a scan or an index seek to find the starting nodes, expands along relationships, filters, aggregations, and `ProduceResults` at the root. `EXPLAIN <statement>` returns the plan without running anything, so writes, procedures and `LOAD CSV` are only planned. `PROFILE <statement>` runs it and adds what each operator did: rows, time, database hits, and memory.
+
+```bash
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Person {name: 'Ada'}) RETURN p.role AS role"
+```
+
+In `--mode table` the plan prints as a table with one row per operator; in the :term[envelope]{id=envelope} it is the `plan` object. `PROFILE`'s `Est/Actual` column compares the planner's estimate with the rows produced. The planner rewrites `MATCH` patterns; other clauses run in the order written.

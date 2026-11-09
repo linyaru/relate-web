@@ -1,0 +1,408 @@
+---
+title: Run relate in the browser
+label: Browser
+description: A first web page on relate's WebAssembly package, which runs the engine in a module worker, reads with parameters, and keeps the graph in OPFS.
+order: 55
+surfaces: [browser, cypher]
+related: [guides/embed/browser, reference/api/wasm, get-started/node, get-started/python, get-started/first-graph, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+By the end of this page, you'll have a web page that keeps a small graph of people and projects in the browser and still has it after a reload. The engine runs in a module worker, so the page never waits on it, and the graph lives in the browser's Origin Private File System (OPFS). It takes about fifteen minutes. There is no server to run: relate's WebAssembly (WASM) build is the database, and the page serves it as static files.
+
+## Prerequisites
+
+- Node.js 18 or later, with `npm`, and a project that builds with Vite. This page was checked with Vite 5.4.21 and Chrome 157.
+- A browser with module workers and OPFS. The steps were run in Chrome 157; this page makes no claim about other browsers.
+
+## Install the package
+
+The package is `@relate/relate-wasm`. Install it in your project's directory:
+
+```bash
+npm install @relate/relate-wasm
+```
+
+The package holds the engine (`relate_bg.wasm`), its JavaScript glue (`relate.js`), the glue's `snippets/` directory, and `trap.js`, which tells a crash in the engine apart from an ordinary error.
+
+Every Cypher block on this page is a cell. It runs in your browser on the same WASM build, in an in-memory :term[store]{id=store}, and its recorded result sits under it. This one asks the engine for its version, since the package exports no version function:
+
+```cypher run name=version
+CALL dbms.components() YIELD name, versions
+WHERE name = 'Relate'
+RETURN versions[0] AS version
+```
+
+Notice the version: the cells on this page were recorded with that release.
+
+## Serve the engine as static files
+
+The glue fetches `relate_bg.wasm` from beside itself, and imports `snippets/` the same way. A bundler that renames or inlines those files breaks that, so we keep them out of the bundle. Vite copies everything under `public/` to the site as it is:
+
+```bash
+mkdir -p public/relate
+cp -R node_modules/@relate/relate-wasm/{relate.js,relate_bg.wasm,trap.js,snippets} public/relate/
+```
+
+The page loads `/relate/relate.js` at runtime, so Vite never bundles it. Vite's dev server sends `relate_bg.wasm` as `application/wasm`; any server you deploy to needs to do the same, or the glue falls back to a slower load and logs a warning.
+
+## Open a store
+
+The engine runs in a module worker. A worker has its own thread, so a long :term[statement]{id=statement} never freezes the page, and only a dedicated worker can open a store in OPFS. Create `worker.js`:
+
+```js title="worker.js"
+// worker.js: owns the database. The page sends {id, statement, params}
+// and gets back {id, envelope}.
+const engine = (file) => new URL(`/relate/${file}`, self.location.origin).href;
+
+const ready = (async () => {
+  const relate = await import(/* @vite-ignore */ engine('relate.js'));
+  await relate.default();
+  return new relate.RelateDb();
+})();
+
+self.onmessage = async (event) => {
+  const { id, statement, params } = event.data;
+  const db = await ready;
+  const envelope = JSON.parse(db.execute(statement, params ? JSON.stringify(params) : null));
+  self.postMessage({ id, envelope });
+};
+```
+
+`relate.default()` loads the engine, and `new RelateDb()` opens an in-memory store: it lives in the worker and forgets everything when the worker ends. The handler is set before the engine finishes loading, so no message is lost; each one waits on `ready`. `/* @vite-ignore */` tells Vite to leave the import alone.
+
+The page talks to the worker. Create `main.js`, with a `run()` helper that sends one statement and resolves with its result:
+
+```js title="main.js"
+const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+const pending = new Map();
+let nextId = 0;
+
+worker.onmessage = (event) => {
+  const { id, envelope } = event.data;
+  const { resolve, reject } = pending.get(id);
+  pending.delete(id);
+  if (envelope.error) reject(new Error(envelope.error));
+  else resolve(envelope);
+};
+
+function run(statement, params) {
+  return new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, statement, params });
+  });
+}
+
+const out = document.getElementById('out');
+run("RETURN 'hello' AS greeting").then(({ rows }) => {
+  out.textContent = rows[0].greeting;
+});
+```
+
+And an `index.html` beside them:
+
+```html title="index.html"
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Team graph</title>
+  </head>
+  <body>
+    <pre id="out"></pre>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
+```
+
+Start Vite's dev server with `npx vite` and open the address it prints. The page shows:
+
+```text
+hello
+```
+
+Notice that the page has no engine code at all: it posts a statement and gets an :term[envelope]{id=envelope} back, the result as one JSON object.
+
+The worker can open a store that survives the worker, too. `RelateDb.open("opfs://<name>")` opens one in OPFS, the browser's private storage for the site, and creates it when nothing is there yet. It takes the place of a :term[single-file store]{id=single-file-store}, which the browser build cannot open. The name is 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`. The call returns a Promise, and only a dedicated worker may make it; on the page's own thread it rejects with:
+
+```text
+Error: storage error: OPFS needs a dedicated worker
+```
+
+The program at the end of this page opens `opfs://team`.
+
+## Create the graph
+
+Our graph is three people and two projects: who works on what, since when, and who maintains `relate`. One `CREATE` statement writes all of it:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+From the page, the same statement goes through `run()`. In `main.js`, replace the `run("RETURN 'hello' AS greeting")` call at the end with the statement, as the constant `TEAM`, and a call that sends it. A write returns no rows, so its counters are in `stats`:
+
+```js
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+const created = await run(TEAM);
+out.textContent = `nodes created: ${created.stats.nodes_created}`;
+```
+
+`main.js` is a module, so `await` works at its top level. The page shows:
+
+```text
+nodes created: 5
+```
+
+Five nodes and five relationships: the whole team.
+
+## Read it back with parameters
+
+A statement names each value it needs as `$name`. `run()` takes the values as an object and the worker passes them to `execute()` as JSON text, so a value never becomes part of the Cypher. The cell takes its :term[parameters]{id=parameter} from the JSON block in it:
+
+```json data=project
+{"project": "relate"}
+```
+
+```cypher run name=params params=project
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+```
+
+From the page, the rows are objects keyed by the names in `RETURN`. Add this to the end of `main.js`; the store is in memory, so the page writes the graph again on every load before it reads:
+
+```js
+const TEAM_OF = `
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+`;
+const team = await run(TEAM_OF, { project: 'relate' });
+out.textContent = JSON.stringify(team.rows);
+```
+
+```text
+[{"name":"Grace","since":2023},{"name":"Ada","since":2024}]
+```
+
+Notice that Noor isn't listed: she maintains `relate` through a `MAINTAINS` relationship, and the pattern asks for `WORKS_ON`.
+
+## Change it in a script
+
+The browser build has no explicit transactions: every statement commits on its own, and `BEGIN` is a syntax error. To run several statements in one call, `executeScript()` takes a script and returns one envelope per statement it ran. It stops at the first error, and the statements before it stay committed.
+
+This script adds Lin to the team, then tries to delete a project named by a parameter it never gets:
+
+```cypher run name=script expect=error
+MATCH (tck:Project {name: 'opencypher-tck'})
+CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck);
+MATCH (p:Project {name: $project}) DETACH DELETE p
+```
+
+The second statement failed before it ran, so both projects are still there. Lin, who came first, stayed:
+
+```cypher run name=after-script
+MATCH (p:Person)
+RETURN count(p) AS people, COUNT { MATCH (:Project) } AS projects
+```
+
+Four people and two projects. When several writes must land together or not at all, put them in one statement.
+
+## Read result metadata
+
+An envelope describes its result as well as holding it. `columns` lists the column names in order, `columnTypes` the engine's type for each, `stats` the eleven counters, and `notifications` what the planner noticed; `plan` holds the plan for an `EXPLAIN` or `PROFILE`, and `null` otherwise. `elapsed_ms`, `parse_ms`, `plan_ms` and `execute_ms` time the statement and change on every run.
+
+Add to the end of `main.js`:
+
+```js
+const meta = await run(TEAM_OF, { project: 'relate' });
+out.textContent = `${JSON.stringify(meta.columns)} ${JSON.stringify(meta.columnTypes)}`;
+```
+
+```text
+["name","since"] ["STRING","INTEGER"]
+```
+
+[The envelope keys](/docs/reference/api/wasm#the-envelope) lists every key with its meaning.
+
+## Catch an error
+
+An error in a statement never throws. It comes back in the envelope as `error`, a string that starts with the error's kind (`semantic error`) and its name (`ParameterMissing`), and `run()` turns it into a rejected Promise. A statement that uses `$name` without a value:
+
+```cypher run name=error expect=error
+MATCH (p:Person {name: $name})
+RETURN p.role AS role
+```
+
+From the page, added to the end of `main.js`:
+
+```js
+try {
+  await run('MATCH (p:Person {name: $name}) RETURN p.role AS role');
+} catch (err) {
+  out.textContent = err.message;
+}
+```
+
+```text
+semantic error: ParameterMissing: Expected parameter(s): name
+```
+
+The [errors reference](/docs/reference/errors#engine-parameter-missing) lists this message with its cause and remedy. The engine's state is unchanged, and the next statement runs as usual. The one failure that does throw is a trap: a crash inside the engine, after which that engine instance can't be used again. `isWasmTrap(err)` from `trap.js` says which it was; the program at the end reports a trap like any other failure.
+
+## Put it together
+
+The finished program opens `opfs://team`, creates the graph only when the store has no people yet, and prints who works on each project. Replace `worker.js` with this version, which opens the OPFS store and reports a trap separately:
+
+```js title="worker.js"
+// worker.js: owns the team graph in OPFS. The page sends {id, statement, params}
+// and gets back {id, envelope}, or {id, failed, trap} when a call throws.
+const engine = (file) => new URL(`/relate/${file}`, self.location.origin).href;
+
+let isWasmTrap = () => false;
+
+const ready = (async () => {
+  const [relate, trap] = await Promise.all([
+    import(/* @vite-ignore */ engine('relate.js')),
+    import(/* @vite-ignore */ engine('trap.js')),
+  ]);
+  isWasmTrap = trap.isWasmTrap;
+  await relate.default();
+  return relate.RelateDb.open('opfs://team');
+})();
+
+self.onmessage = async (event) => {
+  const { id, statement, params } = event.data;
+  try {
+    const db = await ready;
+    const envelope = JSON.parse(db.execute(statement, params ? JSON.stringify(params) : null));
+    self.postMessage({ id, envelope });
+  } catch (err) {
+    self.postMessage({ id, failed: String(err?.message ?? err), trap: isWasmTrap(err) });
+  }
+};
+```
+
+And `main.js`:
+
+```js title="main.js"
+// main.js: the page. It never touches the engine; every statement goes to
+// the worker and comes back as an envelope.
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const TEAM_OF = `
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since
+`;
+
+const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+const pending = new Map();
+let nextId = 0;
+
+worker.onmessage = (event) => {
+  const { id, envelope, failed } = event.data;
+  const { resolve, reject } = pending.get(id);
+  pending.delete(id);
+  if (failed) reject(new Error(failed));
+  else if (envelope.error) reject(new Error(envelope.error));
+  else resolve(envelope);
+};
+
+function run(statement, params) {
+  return new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, statement, params });
+  });
+}
+
+const lines = [];
+const print = (...parts) => {
+  lines.push(parts.join(' '));
+  document.getElementById('out').textContent = lines.join('\n');
+};
+
+async function main() {
+  const { rows } = await run('MATCH (p:Person) RETURN count(p) AS n');
+  if (rows[0].n === 0) {
+    await run(TEAM);
+    print('created the team graph');
+  } else {
+    print('found', rows[0].n, 'people');
+  }
+  for (const project of ['relate', 'opencypher-tck']) {
+    print(project);
+    const result = await run(TEAM_OF, { project });
+    for (const row of result.rows) print(' ', row.name, 'since', row.since);
+  }
+}
+
+main().catch((err) => print('relate error:', err.message));
+```
+
+Open the page. The first load creates the graph:
+
+```text
+created the team graph
+relate
+  Grace since 2023
+  Ada since 2024
+opencypher-tck
+  Grace since 2022
+```
+
+Reload it, and the graph is still there:
+
+```text
+found 3 people
+relate
+  Grace since 2023
+  Ada since 2024
+opencypher-tck
+  Grace since 2022
+```
+
+Each statement is durable in OPFS when `execute()` returns. One worker at a time holds a store: while one has `opfs://team` open, another worker of the same site that opens it, read-only or not, gets `storage locked: opfs://team`. A reload ends the old page's worker, which releases the store. `npx vite build` writes the same site to `dist/`, with `relate/` copied in beside it.
+
+## What you built
+
+You have a web page that keeps a graph of people and projects in the browser, with no server behind it. The engine runs off the page's thread, reads with parameters, reports errors from its envelope, and keeps the graph in OPFS across reloads. Ada, Grace and Noor are now in your browser's storage, and they'll still be there tomorrow.
+
+## Next
+
+- [Use relate from a web page](/docs/guides/embed/browser): bundling, workers, OPFS and result shapes for an app of your own.
+- [WebAssembly API](/docs/reference/api/wasm): every export, the envelope, and what the browser build leaves out.
+- [Embed relate in a Node.js app](/docs/get-started/node): the same steps, the same graph, on Node.js with files and transactions.
+- [Your first graph in the CLI](/docs/get-started/first-graph): the same graph from the command line.

@@ -1,0 +1,299 @@
+---
+title: Rust API
+label: Rust
+description: The relate crate's public API at its root, with Database, Connection, OpenOptions, QueryResult, the Value mapping, error variants and codes, and features.
+order: 40
+surfaces: [rust]
+related: [guides/embed/rust, get-started/rust, reference/api/c, reference/errors, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+The `relate` crate is the engine as a Rust library: a `Database` opens a :term[store]{id=store}, a `Connection` runs statements on it, and each statement returns a `QueryResult` of `Value` rows or a `relate::Error`. This page lists what the crate exports at its root (every name is `relate::<name>`), as of the source build the docs are verified against. The C application binary interface (ABI) and the Python client are built on the same `Database`. The guide [Use the Rust crate](/docs/guides/embed/rust) covers the same API with runnable programs.
+
+## Synopsis
+
+```text
+use relate::{Database, OpenOptions, Value};
+
+Database::open(uri) -> Result<Database>
+Database::open_with(uri, OpenOptions) -> Result<Database>
+Database::clone(source, dest, CloneOptions) -> Result<()>
+db.connect() -> Result<Connection>
+conn.query(cypher) -> Result<QueryResult>
+conn.query_with_params(cypher, BTreeMap<String, Value>) -> Result<QueryResult>
+conn.begin() -> Result<()>
+conn.commit() -> Result<Option<String>>
+conn.rollback() -> Result<()>
+relate::error_info(&Error) -> ErrorInfo
+```
+
+`relate::Result<T>` is `std::result::Result<T, relate::Error>`. A `uri` is `":memory:"`, a filesystem path or a `file://` URI: a path ending in `.rl` (or the legacy `.cl`) is a :term[single-file store]{id=single-file-store}, any other path a directory store. An `s3://` URI is refused at open.
+
+## Cargo features
+
+The crate is `relate`, in the workspace at version 0.16.1, with `rust-version` 1.88 and edition 2021. Before crates.io publication it is a Git dependency, `cargo add --git https://github.com/relatedb/relate relate`.
+
+| Feature | Default | Effect |
+| --- | --- | --- |
+| `parquet` | on | Compiles the Parquet snapshot codec and its Arrow and Parquet dependencies. Without it, new stores use the JSON codec, and opening a Parquet store or asking for `SnapshotCodecKind::Parquet` fails at open with `Error::Storage` carrying `parquet snapshot codec is not compiled into this build (enable the "parquet" feature)`; there is no fallback to JSON. The feature postdates the `v0.16.1` tag, at which Parquet is always compiled. |
+| `research` | off | Research-only kernels; outside the public API |
+
+## Database
+
+An open store. `Database` is `Send` and `Sync`; dropping it stops the background checkpoint and durability threads, and a `Connection` still alive keeps the store open.
+
+| Constructor | Opens |
+| --- | --- |
+| `open(uri)` | Writable; creates a missing store. Loads the snapshot, then replays the WAL. |
+| `open_read_only(uri)` | `OpenMode::ReadOnly`: an existing store, loaded once; never writes, checkpoints, or migrates it |
+| `open_ephemeral(uri)` | `OpenMode::Ephemeral`: loads an existing store into memory, then releases the source file or directory; writes and checkpoints are refused |
+| `open_with(uri, OpenOptions)` | With the settings in [OpenOptions](#openoptions) |
+| `open_with_wal_dir(uri, Option<PathBuf>)` | Writable, with a directory store's WAL in another directory |
+| `open_vfs(Arc<dyn Vfs>, OpenOptions)` | On a caller-supplied virtual file system, as the WebAssembly build does; `OpenMode::Follow` is refused |
+| `clone(source, dest, CloneOptions)` | Not an open: copies a store into a new one. Each side's layout follows its path (`.rl` or a directory). The source opens read-only and is never written; `dest` must not exist, and a failed clone removes it. `:memory:` is refused on both sides, and a writer-held `.rl` source fails with `Error::Locked`. |
+
+| Method | Returns |
+| --- | --- |
+| `connect()` | A `Connection` in the `neo4j` namespace |
+| `connect_namespace(&str)` | A `Connection` whose session namespace is `neo4j`, `system` or `system_ontologies`, matched case-insensitively; another name fails with `Error::DatabaseNotFound` |
+| `connect_typed(Namespace)` | The same, with a `Namespace` value |
+| `checkpoint()` | Writes a :term[checkpoint]{id=checkpoint}: a snapshot, then the closed :term[WAL]{id=wal} segments recycled; on a read-only handle, the read-only error |
+| `checkpoint_if_writable()` | `checkpoint()`, or success without writing on a read-only or follow handle |
+| `snapshot_data_bytes()` | The size of the latest snapshot, WAL excluded; `0` before the first checkpoint, and on `:memory:` until an explicit `checkpoint()` |
+| `memory_usage()` | `(logical bytes of the live graph and its indexes, the configured limit or None)` |
+| `is_read_only()`, `is_follower()`, `is_safe_mode()` | The handle's mode |
+| `needs_reopen()` | `true` when a `FollowGapPolicy::Yield` follower stopped at a gap; new queries then fail with the retryable `follow-gap` limit |
+| `promote()`, `demote()`, `is_draining()` | Take or hand back the writer lease between a writer and a follower of the same directory store |
+| `register_procedure(Procedure)` | Registers a procedure that later statements can `CALL` |
+| `register_cdc_slot(&str)`, `ack_cdc_slot(&str, u64)`, `drop_cdc_slot(&str)`, `cdc_slots()`, `cdc_records_after(u64, usize)` | Change data capture: a slot holds WAL recycling until its consumer acknowledges a log sequence number (LSN); `cdc_records_after` returns at most `limit` records after an LSN without blocking |
+| `set_apply_only(bool)`, `apply_only()`, `apply_replicated(&WalRecord)` | A read replica: Cypher writes refused, records applied from another store's WAL |
+| `ontology_document()`, `commit_ontology_set(String)`, `commit_ontology_drop()` | The store's ontology document, read, replaced, or dropped |
+| `token_pool()`, `on_token_ceiling(hook)` | The shared workspace pool's reservations, when admission is on |
+| `enable_commit_timing()`, `clear_commit_timing()`, `commit_timing_report()` | A histogram of commit steps; empty unless `RELATE_COMMIT_TIMING=1` |
+| `leak_without_checkpoint()` | Drops the handle without the final checkpoint, as a crash after the WAL sync would |
+
+## `OpenOptions`
+
+The settings of `Database::open_with`, a struct with public fields and `Default`. `OpenOptions::with_mode(mode)` is the default with `mode` set. An `Option` field left `None` reads the environment variable its Default cell names, then takes the default; `wal_dir` and `load_csv_max_bytes` read none. A set variable that does not parse fails the open.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `mode` | `OpenMode` | `Writable` | How the open attaches to the store |
+| `durability_mode` | `Option<DurabilityMode>` | `RELATE_DURABILITY_MODE`, else `Full` | When a commit is acknowledged; not persisted with the store |
+| `checkpoint_interval` | `Option<Duration>` | `RELATE_CHECKPOINT_INTERVAL_SECS`, else 300 seconds (`DEFAULT_CHECKPOINT_INTERVAL_SECS`) | The checkpoint timer, which runs when the WAL has work; `Duration::ZERO` turns it off |
+| `wal_dir` | `Option<PathBuf>` | `<store>/wal` | A directory store's WAL directory; ignored for `:memory:` |
+| `snapshot_codec` | `Option<SnapshotCodecKind>` | `RELATE_SNAPSHOT_FORMAT`, else Parquet (JSON without the `parquet` feature) | A new store's codec: `Parquet`, `Json` or `Markdown`. An existing directory store keeps its own; a different one is an error. |
+| `markdown_body_properties` | `Option<MarkdownBodyProperties>` | `RELATE_MARKDOWN_BODY_PROPERTIES`, else the store's recorded setting, else `body` | The properties a `Markdown` store writes as note bodies; set on another codec, the open fails |
+| `logical_graph_size_limit` | `Option<u64>` | `RELATE_LOGICAL_GRAPH_SIZE_LIMIT`, else unlimited | Limit: the live graph plus its indexes, in logical bytes; `Some(0)` is unlimited. A growing write over it fails with `Error::Capacity`. |
+| `expression_memory_limit` | `Option<u64>` | `RELATE_EXPRESSION_MEMORY_LIMIT`, else 256 MiB | Limit: one value an expression builds; `Some(0)` turns it off |
+| `concurrent_logical_workspace_limit` | `Option<u64>` | `RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT`, else admission off | Limit: a shared workspace pool; a positive value turns query admission on; `Some(0)` fails the open |
+| `max_traversal_depth` | `Option<u32>` | `RELATE_MAX_TRAVERSAL_DEPTH`, else 500 (`MAX_TRAVERSAL_DEPTH`) | Limit: the largest explicit hop bound a statement may ask for, 1 through 2000 (`MAX_TRAVERSAL_DEPTH_CEILING`) |
+| `safe_mode` | `bool` | `false` | Refuses a new named node without a label, and a `MATCH` read without `LIMIT` or a reducing aggregate; never switched on by detection |
+| `load_csv_dir` | `Option<PathBuf>` | `RELATE_LOAD_CSV_DIR`, else denied | The existing directory local `LOAD CSV` may read |
+| `load_csv_max_bytes` | `Option<u64>` | 8 MiB | Limit: bytes read per CSV source, up to 64 MiB; does not grant file access by itself |
+| `follow_gap` | `FollowGapPolicy` | `Reload` | What a follower does when a checkpoint removes WAL records it has not applied |
+
+| Enum | Variants |
+| --- | --- |
+| `OpenMode` | `Writable` (the default: takes the writer lease, appends and checkpoints); `ReadOnly` (loads once, refuses every write, never creates a store; a directory store opens beside its writer, a `.rl` store only while no writer holds it); `Follow` (read-only, then tails a directory store's WAL; refused for `:memory:` and `.rl`); `Ephemeral` (loads into memory and releases the source) |
+| `DurabilityMode` | `Full` (the default: the WAL is synced before each group commit is acknowledged); `EverySecond` (acknowledged after apply, synced about once a second, so a crash can lose about the last second); `Snapshot` (acknowledged after apply; a crash can lose every write since the last completed checkpoint). Parses from `full`, `everysecond` and `snapshot`. |
+| `FollowGapPolicy` | `Reload` (the default: loads the snapshot and surviving WAL beside the live graph, then swaps); `Yield` (stops following and sets `needs_reopen()`) |
+| `Namespace` | `Neo4j` (the user graph, the only writable one); `System` (`SHOW` and administration commands); `SystemOntologies` (read only through the `db.ontology.*` procedures) |
+
+`CloneOptions` holds `wal_dir` (a directory source's WAL; refused for a `.rl` source), `to_snapshot_format` (transcode the copy to another codec; default keeps the source's) and `markdown_body_properties`.
+
+## Connection
+
+One session on a `Database`. `Connection` is `Send` but not `Sync`; every method that runs a statement takes `&mut self`.
+
+| Method | Contract |
+| --- | --- |
+| `query(cypher)`, `execute(cypher)` | Runs one statement with no parameters; `execute` is the same call |
+| `query_with_params(cypher, BTreeMap<String, Value>)` | Runs one statement with named parameters; a missing one fails before execution with `Error::ParameterMissing` |
+| `query_with_params_cancellable(cypher, params, CancelToken)` | The same, stoppable from another thread: a cancelled statement returns `Error::Cancelled` and the connection stays usable |
+| `begin()` | Starts an explicit transaction; one per connection, and a nested `begin` fails with `semantic error: already in a transaction` |
+| `commit()` | Publishes the transaction as one WAL commit; returns its bookmark `relate:<n>`, or `None` when it wrote nothing. After a failed statement in the transaction it fails with `semantic error: transaction failed; rollback required`. |
+| `rollback()` | Discards the transaction; with none open, `semantic error: no transaction` |
+| `in_transaction()` | Whether a transaction is open |
+| `explain_plan(cypher)` | The statement's plan as a `PlanNode`, without running it and without binding parameters |
+| `namespace()`, `set_namespace(&str)` | The session namespace; it changes only between transactions, and inside one the change fails with `semantic error: TransactionError: Cannot change the namespace while a transaction is open.` |
+| `set_principal(Option<&str>)`, `principal()` | A display-only identity that `dbms.showCurrentUser()` reports; it grants nothing. Unset, the placeholder is `relate`. |
+| `pull_lookup(source, PullKind, remote_id)`, `pull_bind(…)` | The identity map behind `relate pull`: the local id of a pulled remote element |
+| `assume_worker_stack_on_caller_thread()` | Runs bounded reads on the calling thread instead of the query worker; the caller guarantees a stack of `QUERY_WORKER_STACK_BYTES` |
+| `query_staged(…)`, `commit_with_heartbeat(Heartbeat)` | The [staged entry points](#staged-runs) |
+
+## QueryResult
+
+`QueryResult.header` is a `ResultHeader`, the metadata every statement announces; a staged run's `ExecutionFailure` carries the same struct. Its public fields are `columns`, `column_types`, `query_type`, `namespace` and `elapsed`; its parse, plan and execute split is read through the `QueryResult` methods.
+
+| Field or method | Holds |
+| --- | --- |
+| `rows` | `Vec<Vec<Value>>`, each row in `RETURN` order |
+| `header.columns` | The column names |
+| `header.column_types` | One type name per column, from the first row: `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `BINARY` or `ANY`; `ANY` for a first value that is null and for every column of an empty result. `UUID` is a reserved name that is never stamped: a UUID column reports `STRING`. |
+| `header.query_type` | `QueryType::Read`, `Write`, `ReadWrite` or `Schema`, from the plan before execution; `as_str()` gives `r`, `w`, `rw` or `s`. `EXPLAIN` and `PROFILE` report the statement they wrap. |
+| `header.namespace` | The namespace the statement ran in: its `USE` target, else the session namespace |
+| `header.elapsed`, `elapsed_ms()` | The engine's wall-clock time for parse, plan and run, excluding row handling |
+| `parse_ms()`, `plan_ms()`, `execute_ms()` | Three disjoint parts of the elapsed time; their sum never exceeds it |
+| `stats` | `QueryStats`, each counter an `i64`: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `properties_removed`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed`, `node_labels_added`, `node_labels_removed`, `properties_written` |
+| `bookmark` | An auto-commit write's bookmark, `relate:<n>`; `None` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `effect` | `StatementEffect`: whether a write ran (`attempted()`), changed something (`applied()`), or changed nothing (`changed_nothing()`) |
+| `plan`, `plan_root()` | The plan tree after `EXPLAIN` or `PROFILE`; `None` on a plain run |
+| `notifications()` | The notifications derived with the plan; empty on a plain run |
+| `receipt` | The peak logical workspace, when admission is on |
+
+## Value
+
+A parameter or a result cell. `Value` is `Send`, `Sync` and `Clone`; strings, lists, maps, vectors and byte arrays share their payload behind an `Arc`, so a clone never copies it.
+
+| Variant | Cypher type | Column type |
+| --- | --- | --- |
+| `Null` | `null` | `ANY` |
+| `Bool(bool)` | `BOOLEAN` | `BOOLEAN` |
+| `Int(i64)` | `INTEGER` | `INTEGER` |
+| `Float(f64)` | `FLOAT` | `FLOAT` |
+| `String(Arc<str>)` | `STRING` | `STRING` |
+| `List(Arc<Vec<Value>>)` | `LIST` | `LIST` |
+| `Map(Arc<BTreeMap<String, Value>>)` | `MAP` | `MAP` |
+| `Node(Arc<Node>)` | `NODE`: `id`, `labels`, `properties` | `NODE` |
+| `Relationship(Arc<Relationship>)` | `RELATIONSHIP`: `id`, `start`, `end`, `rel_type`, `properties` | `RELATIONSHIP` |
+| `Path(Arc<Path>)` | `PATH`: `nodes`, `rels` | `PATH` |
+| `Temporal(Temporal::Date)` | `DATE` | `DATE` |
+| `Temporal(Temporal::Time { time, offset })`, `Temporal(Temporal::LocalTime)` | `ZONED TIME`, `LOCAL TIME` | `TIME` |
+| `Temporal(Temporal::DateTime { utc, offset, zone })`, `Temporal(Temporal::LocalDateTime)` | `ZONED DATETIME`, `LOCAL DATETIME` | `DATETIME` |
+| `Temporal(Temporal::Duration { months, days, nanos })` | `DURATION` | `DURATION` |
+| `Point(PointValue)` | `POINT`: `srid`, `x`, `y`, `z` | `POINT` |
+| `Vector { coord, values }` | `VECTOR` | `VECTOR` |
+| `Uuid(u128)` | A UUID; `column_types` reports it as `STRING` | `STRING` |
+| `Bytes(Arc<[u8]>)` | A byte array; it enters only as a parameter, and storing it as a property fails with a type error | `BINARY` |
+
+`Temporal::CivilDate` and `Temporal::CivilDateTime` hold dates outside the range of the standard date types. `node_element_id`, `rel_element_id`, `parse_node_element_id` and `parse_rel_element_id` convert between numeric ids and :term[element ids]{id=element-id}, the strings `elementId()` returns.
+
+## Errors
+
+`relate::Error` is an enum; its `Display` is the message every surface prints. `error_info(&e)` returns `ErrorInfo { neo4j_code, gql_status, stage, retryable }`, the one classification that the CLI, Python, the C ABI, Bolt, and HTTP all derive from. `stage` is an `ErrorStage`: `Compile` (rejected before any work), `Runtime` (found while producing rows) or `Internal` (not the statement's fault).
+
+| Variant | `Display` begins | `neo4j_code` | `gql_status` | `stage` | `retryable` |
+| --- | --- | --- | --- | --- | --- |
+| `Syntax(String)` | `syntax error: ` | `Neo.ClientError.Statement.SyntaxError` | `42N06` | `Compile` | `false` |
+| `ProcedureNotFound { name }` | `syntax error: ProcedureNotFound: ` | `Neo.ClientError.Procedure.ProcedureNotFound` | `42N06` | `Compile` | `false` |
+| `ParameterMissing(String)` | `semantic error: ParameterMissing: ` | `Neo.ClientError.Statement.ParameterMissing` | `42N02` | `Compile` | `false` |
+| `DatabaseNotFound { name }` | `semantic error: DatabaseNotFound: Graph not found: ` | `Neo.ClientError.Database.DatabaseNotFound` | `42N00` | `Compile` | `false` |
+| `ArgumentError(String)` | `semantic error: ` | `Neo.ClientError.General.InvalidArguments` | `42000` | `Compile` | `false` |
+| `Semantic(String)` | `semantic error: ` | `Neo.ClientError.Statement.SemanticError` | `42000` | `Runtime` | `false` |
+| `Execution(String)` | the message | `Neo.ClientError.Statement.SemanticError` | `42000` | `Runtime` | `false` |
+| `UniquenessViolation { name }` | ``semantic error: ConstraintValidationFailed: `<name>` uniqueness`` | `Neo.ClientError.Schema.ConstraintValidationFailed` | `42000` | `Runtime` | `false` |
+| `Type(String)`, `TypeError(String)`, `InvalidArgumentType(String)` | `type error: ` | `Neo.ClientError.Statement.TypeError` | `22G03` | `Runtime` | `false` |
+| `Arithmetic(DivisionByZero)`, `Arithmetic(ModuloByZero)` | `type error: / by zero`, `type error: % by zero` | `Neo.ClientError.Statement.ArithmeticError` | `22G03` | `Runtime` | `false` |
+| `Arithmetic(RoundingNecessary)` | `ArithmeticError: rounding necessary` | `Neo.ClientError.Statement.ArithmeticError` | `42000` | `Runtime` | `false` |
+| `Cancelled` | `query cancelled` | `Neo.ClientError.Transaction.TransactionTimedOut` | `42000` | `Runtime` | `false` |
+| `Conflict` | `write-write conflict` | `Neo.TransientError.Transaction.Outdated` | `42000` | `Runtime` | `true` |
+| `Capacity { used, limit, kind }` | `capacity exceeded: ` (`CapacityKind::Graph`), or a sentence naming the limit (`Expression`, `WalPayload`) | `Neo.ClientError.General.TransactionOutOfMemoryError` | `42000` | `Runtime` | `false` |
+| `ResourceLimit { name, limit, retryable: true, .. }` | `resource limit exceeded: ` | `Neo.TransientError.General.MemoryPoolOutOfMemoryError` | `42000` | `Runtime` | `true` |
+| `ResourceLimit { retryable: false, .. }` | `resource limit exceeded: ` | `Neo.ClientError.General.TransactionOutOfMemoryError` | `42000` | `Runtime` | `false` |
+| `Storage(String)` | `storage error: ` | `Neo.DatabaseError.General.UnknownError` | `42000` | `Internal` | `false` |
+| `Locked(String)` | `storage locked: ` | `Neo.DatabaseError.General.UnknownError` | `42000` | `Internal` | `false` |
+| `Io(String)` | `io error: ` | `Neo.DatabaseError.General.UnknownError` | `42000` | `Internal` | `false` |
+| `Internal(String)` | `internal error: ` | `Neo.DatabaseError.General.UnknownError` | `50N42` | `Internal` | `false` |
+
+The `gql_status` shown for `Syntax`, `Semantic` and `Execution` is the default: a payload naming a more specific class carries that class's code, such as `42N18` for `semantic error: WriteOnReadOnlyAccessDatabase: …`. `Error::WAL_PAYLOAD_CAP_BYTES` is 64 MiB, the largest single commit record. `ResourceLimit` names are the constants `Error::CONCURRENT_LOGICAL_WORKSPACE_LIMIT`, `Error::WRITER_DRAINING` and `Error::FOLLOW_GAP`. A write-write conflict is never retried by the engine. The [errors reference](/docs/reference/errors) lists the messages with their causes and remedies.
+
+## Plans and notifications
+
+| Type | Holds |
+| --- | --- |
+| `PlanNode` | `operator`, `details`, `identifiers`, `children`, `estimated_rows`, `id`, `warnings`, `metrics` under `PROFILE`, `statement_echo` (the wrapped statement without its `EXPLAIN` or `PROFILE` keyword), and `token_estimate` (the plan's peak logical workspace, `None` unless admission is on); `to_value()` gives the tree as a `Value` |
+| `ClauseMetrics` | One operator's `PROFILE` figures: `rows`, `db_hits`, `memory_bytes`, `expression_built_bytes`, `time_ns`, `reads`, `start`, `phases`, `batched` (whether the clause ran as batch operators), `zone_skips` (batch filter evaluations skipped by chunk min/max metadata), `frontier` (the breadth-first frontier's counts of relationships visited, levels completed and endpoints accepted) and `frontier_decline` (why a frontier run fell back, when it did) |
+| `PlanWarning` | A typed warning on one operator, such as a Cartesian product, or a row count 10 or more times its estimate under `PROFILE` |
+| `PlanArtifacts` | A result's plan tree with the notifications derived from it |
+| `Notification` | `kind()`, `code()` (`Neo.ClientNotification.*` for a kind with a Neo4j counterpart, `Relate.Notification.*` for an engine-own kind), `gql_status()`, `severity()`, `category()`, `title()`, `description()`, `remedy()`, `operator_id()`; `NotificationKind`, `NotificationSeverity` and `NotificationCategory` are its vocabularies |
+
+`notification_to_wire_json`, `notifications_to_wire_json` and `notification_to_neo4j_json` serialize notifications as the other surfaces send them. The [notifications reference](/docs/reference/cypher/notifications) lists the codes.
+
+## Staged runs
+
+Upstream documents these entry points for network transports, which report planning failures and execution failures at different points; relate's Bolt server is their in-tree user.
+
+| Item | Contract |
+| --- | --- |
+| `Connection::query_staged(cypher, params, CancelToken, Option<Heartbeat>)` | `Err` for a failure before execution (parse, planning, a missing parameter); `Ok(Executed::Rows(QueryResult))` for a finished result; `Ok(Executed::Failed(ExecutionFailure))` for a failure while executing, with the planned `header` and the `error`. `Executed::into_result()` gives the `query` shape. |
+| `Connection::commit_with_heartbeat(Heartbeat)` | `commit()`, ticking the heartbeat on the calling thread while the flush runs |
+| `Heartbeat::every(interval, tick)` | A callback run once per elapsed `interval` while a statement or commit runs on the query worker; a zero interval fails with `semantic error: heartbeat interval must be non-zero` |
+
+## Other root exports
+
+| Group | Names |
+| --- | --- |
+| Cancellation | `CancelToken` (`new()`, `cancel()`, `is_cancelled()`; clones share one flag) |
+| Graph values | `Node`, `Relationship`, `Path`, `PropertyMap`, `Temporal` |
+| Error parts | `ErrorInfo`, `ErrorStage`, `ArithmeticFailure`, `CapacityKind`, `client_message`, `log_internal_original`, `INTERNAL_ERROR_INFO`, `INTERNAL_MESSAGE` (`internal error`, the text the trust boundaries substitute for an internal error) |
+| Storage | `SnapshotCodecKind`, `MarkdownBodyProperties`, `WalRecord`, `CdcSlot`, `cypher_to_value`, `value_to_cypher` |
+| Limits | `MAX_TRAVERSAL_DEPTH` (500), `MAX_TRAVERSAL_DEPTH_CEILING` (2000), `MAX_VALUE_DEPTH`, `DEFAULT_CHECKPOINT_INTERVAL_SECS` (300), `QUERY_WORKER_STACK_BYTES`, `parse_memory_limit`, `parse_expression_memory_limit`, `parse_positive_memory_limit`, `require_positive_memory_limit`, `require_traversal_depth`, `traversal_depth_exceeded_message`, `value_depth_exceeded`, `next_depth` |
+| Settings | `durability_mode_from_setting`, `expression_limit_from_setting`, `workspace_limit_from_setting`, `reject_cypherlite_env` (fails when a retired `CYPHERLITE_*` variable is set, naming its `RELATE_*` replacement) |
+| Surface helpers | `execute_wire`, `run_script_wire`, `query_result_to_wire`, `query_result_to_cypher_rows`, `query_stats_to_wire`, `plan_wire_json`, `timing_stamp_ms`, `params_from_json`, `params_from_value`, `params_from_map`, `binding_error_metadata`: the shared conversions the other surfaces build their envelopes and parameters with |
+| Admission | `ExecutionReceipt`, `TokenEstimate`, `TokenOutcome`, `TokenPoolSnapshot` |
+| Executor facts | `QueryStats`, `StatementEffect`, `StoreReads`, `PhaseTimes`, `FrontierCounters`, `FrontierRunDecline`, `WalkStart`, `StartReason`, `PullKind`, `Procedure`, `QueryType` |
+| UUIDs | `uuid_hyphenated`, `uuid_parse` |
+
+## Limits
+
+The limits come from the engine and are the same on every surface: a statement's text is at most 4194304 bytes (`syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes`), one value a statement builds is bounded by the expression memory cap, and a file-backed store has one writing open across every process. [Limits and sizing](/docs/reference/storage/limits-and-sizing) lists each limit with its default and the setting that changes it.
+
+## Capabilities
+
+<Matrix columns={["rust"]} />
+
+## Example
+
+This program writes the team graph to an in-memory store, reads it back with a parameter, and classifies an error:
+
+```rust run name=example
+use std::collections::BTreeMap;
+
+use relate::{error_info, Database, Error, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    let params = BTreeMap::from([("name".to_string(), Value::String("Grace".into()))]);
+    let result = conn.query_with_params(
+        "MATCH (p:Person {name: $name})-[w:WORKS_ON]->(proj:Project) \
+         RETURN proj.name AS project, w.since AS since ORDER BY since",
+        params,
+    )?;
+    println!("{:?} {:?} {}", result.header.columns, result.header.column_types,
+        result.header.query_type.as_str());
+    for row in &result.rows {
+        println!("{row:?}");
+    }
+
+    let err = conn.query("RETURN 1 / 0 AS x").unwrap_err();
+    let info = error_info(&err);
+    println!("{err:?}: {err}");
+    println!("{} {} {:?} {}", info.neo4j_code, info.gql_status, info.stage, info.retryable);
+    println!("conflict retryable: {}", error_info(&Error::Conflict).retryable);
+    Ok(())
+}
+```
+
+## See also
+
+- [Use the Rust crate](/docs/guides/embed/rust): the same API, task by task, with runnable programs.
+- [C ABI](/docs/reference/api/c): the library the Node.js, Java, Go and Swift clients wrap, over this crate.
+- [Errors](/docs/reference/errors): every message with its cause and remedy.
+- [Storage formats](/docs/reference/storage/formats): what each store layout and codec writes to disk.
+- [Choose a durability mode](/docs/guides/operate/durability-modes): the loss window of each `DurabilityMode`.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the crate solves.

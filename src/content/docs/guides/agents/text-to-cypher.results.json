@@ -1,0 +1,464 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "node-schema": {
+      "kind": "table",
+      "text": "| nodeType   | propertyName | propertyTypes       |\n|------------|--------------|---------------------|\n| \":Person\"  | \"name\"       | [\"STRING NOT NULL\"] |\n| \":Person\"  | \"role\"       | [\"STRING NOT NULL\"] |\n| \":Project\" | \"language\"   | [\"STRING NOT NULL\"] |\n| \":Project\" | \"name\"       | [\"STRING NOT NULL\"] |\n4 rows",
+      "table": {
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\":Person\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]"
+          ],
+          [
+            "\":Person\"",
+            "\"role\"",
+            "[\"STRING NOT NULL\"]"
+          ],
+          [
+            "\":Project\"",
+            "\"language\"",
+            "[\"STRING NOT NULL\"]"
+          ],
+          [
+            "\":Project\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "nodeType": ":Person",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "nodeType": ":Person",
+            "propertyName": "role",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "nodeType": ":Project",
+            "propertyName": "language",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "nodeType": ":Project",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "rel-schema": {
+      "kind": "table",
+      "text": "| relType        | propertyName | propertyTypes        |\n|----------------|--------------|----------------------|\n| \"[:KNOWS]\"     | null         | []                   |\n| \"[:MAINTAINS]\" | null         | []                   |\n| \"[:WORKS_ON]\"  | \"since\"      | [\"INTEGER NOT NULL\"] |\n3 rows",
+      "table": {
+        "columns": [
+          "relType",
+          "propertyName",
+          "propertyTypes"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"[:KNOWS]\"",
+            "null",
+            "[]"
+          ],
+          [
+            "\"[:MAINTAINS]\"",
+            "null",
+            "[]"
+          ],
+          [
+            "\"[:WORKS_ON]\"",
+            "\"since\"",
+            "[\"INTEGER NOT NULL\"]"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "ANY",
+          "LIST"
+        ],
+        "columns": [
+          "relType",
+          "propertyName",
+          "propertyTypes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "propertyName": null,
+            "propertyTypes": [],
+            "relType": "[:KNOWS]"
+          },
+          {
+            "propertyName": null,
+            "propertyTypes": [],
+            "relType": "[:MAINTAINS]"
+          },
+          {
+            "propertyName": "since",
+            "propertyTypes": [
+              "INTEGER NOT NULL"
+            ],
+            "relType": "[:WORKS_ON]"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "patterns": {
+      "kind": "table",
+      "text": "| source     | type        | target      |\n|------------|-------------|-------------|\n| [\"Person\"] | \"KNOWS\"     | [\"Person\"]  |\n| [\"Person\"] | \"MAINTAINS\" | [\"Project\"] |\n| [\"Person\"] | \"WORKS_ON\"  | [\"Project\"] |\n3 rows",
+      "table": {
+        "columns": [
+          "source",
+          "type",
+          "target"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\"]",
+            "\"KNOWS\"",
+            "[\"Person\"]"
+          ],
+          [
+            "[\"Person\"]",
+            "\"MAINTAINS\"",
+            "[\"Project\"]"
+          ],
+          [
+            "[\"Person\"]",
+            "\"WORKS_ON\"",
+            "[\"Project\"]"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "source",
+          "type",
+          "target"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "source": [
+              "Person"
+            ],
+            "target": [
+              "Person"
+            ],
+            "type": "KNOWS"
+          },
+          {
+            "source": [
+              "Person"
+            ],
+            "target": [
+              "Project"
+            ],
+            "type": "MAINTAINS"
+          },
+          {
+            "source": [
+              "Person"
+            ],
+            "target": [
+              "Project"
+            ],
+            "type": "WORKS_ON"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "apoc": {
+      "kind": "table",
+      "text": "error: syntax error: ProcedureNotFound: apoc.meta.schema",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: ProcedureNotFound: apoc.meta.schema",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "explain-guess": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [
+          {
+            "category": "UNRECOGNIZED",
+            "code": "Neo.ClientNotification.Statement.UnknownLabelWarning",
+            "description": "The label `Company` does not exist in this database.",
+            "gql_status": "01N50",
+            "remedy": "Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.",
+            "severity": "WARNING",
+            "title": "Unknown label"
+          },
+          {
+            "category": "UNRECOGNIZED",
+            "code": "Neo.ClientNotification.Statement.UnknownRelationshipTypeWarning",
+            "description": "The relationship type `WORKS_AT` does not exist in this database.",
+            "gql_status": "01N51",
+            "remedy": "Check the spelling; the type exists after the first write that creates it.",
+            "severity": "WARNING",
+            "title": "Unknown relationship type"
+          }
+        ],
+        "plan": {
+          "profiled": false,
+          "root": {
+            "actual": null,
+            "children": [
+              {
+                "actual": null,
+                "children": [],
+                "details": "(c:Company)<-[:WORKS_AT]-(p:Person)",
+                "estimated_rows": null,
+                "identifiers": [],
+                "operator": "Expand",
+                "warnings": []
+              }
+            ],
+            "details": "2 item(s), keys: company, aggregation",
+            "estimated_rows": null,
+            "identifiers": [],
+            "operator": "EagerAggregation",
+            "warnings": []
+          },
+          "schema": "relate.plan/v1",
+          "statement": "MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN c.name AS company, count(p) AS people"
+        },
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "verify": {
+      "kind": "table",
+      "text": "| project          | people |\n|------------------|--------|\n| \"relate\"         | 2      |\n| \"opencypher-tck\" | 1      |\n2 rows",
+      "table": {
+        "columns": [
+          "project",
+          "people"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"relate\"",
+            "2"
+          ],
+          [
+            "\"opencypher-tck\"",
+            "1"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "project",
+          "people"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "people": 2,
+            "project": "relate"
+          },
+          {
+            "people": 1,
+            "project": "opencypher-tck"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "loop": {
+      "kind": "text",
+      "text": "(:Person {name: STRING NOT NULL, role: STRING NOT NULL})\n(:Project {language: STRING NOT NULL, name: STRING NOT NULL})\n(:Person)-[:KNOWS]->(:Person)\n(:Person)-[:MAINTAINS]->(:Project)\n(:Person)-[:WORKS_ON]->(:Project)\nproblems:\n  01N50: The label `Company` does not exist in this database.\n  01N51: The relationship type `WORKS_AT` does not exist in this database.\nno problems\n[{'project': 'relate', 'people': 2}, {'project': 'opencypher-tck', 'people': 1}]",
+      "table": null,
+      "graph": null,
+      "expectError": false,
+      "verified": "0.16.1",
+      "source_sha256": "84be8aa8782914557eff937c45947f2627066aacf364ad4658d48fdf5220affc"
+    }
+  }
+}

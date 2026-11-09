@@ -1,0 +1,541 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-indexes": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 3",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "show-indexes": {
+      "kind": "table",
+      "text": "| name             | type     | entityType     | labelsOrTypes | properties |\n|------------------|----------|----------------|---------------|------------|\n| \"node_labels\"    | \"LOOKUP\" | \"NODE\"         | null          | null       |\n| \"person_role\"    | \"TEXT\"   | \"NODE\"         | [\"Person\"]    | [\"role\"]   |\n| \"works_on_since\" | \"RANGE\"  | \"RELATIONSHIP\" | [\"WORKS_ON\"]  | [\"since\"]  |\n3 rows",
+      "table": {
+        "columns": [
+          "name",
+          "type",
+          "entityType",
+          "labelsOrTypes",
+          "properties"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"node_labels\"",
+            "\"LOOKUP\"",
+            "\"NODE\"",
+            "null",
+            "null"
+          ],
+          [
+            "\"person_role\"",
+            "\"TEXT\"",
+            "\"NODE\"",
+            "[\"Person\"]",
+            "[\"role\"]"
+          ],
+          [
+            "\"works_on_since\"",
+            "\"RANGE\"",
+            "\"RELATIONSHIP\"",
+            "[\"WORKS_ON\"]",
+            "[\"since\"]"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING",
+          "ANY",
+          "ANY"
+        ],
+        "columns": [
+          "name",
+          "type",
+          "entityType",
+          "labelsOrTypes",
+          "properties"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "entityType": "NODE",
+            "labelsOrTypes": null,
+            "name": "node_labels",
+            "properties": null,
+            "type": "LOOKUP"
+          },
+          {
+            "entityType": "NODE",
+            "labelsOrTypes": [
+              "Person"
+            ],
+            "name": "person_role",
+            "properties": [
+              "role"
+            ],
+            "type": "TEXT"
+          },
+          {
+            "entityType": "RELATIONSHIP",
+            "labelsOrTypes": [
+              "WORKS_ON"
+            ],
+            "name": "works_on_since",
+            "properties": [
+              "since"
+            ],
+            "type": "RANGE"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "unique-constraint": {
+      "kind": "table",
+      "text": "(no rows) · constraints added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 1,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "drop-owned-index": {
+      "kind": "table",
+      "text": "error: Unable to drop 'person_name': the index belongs to a constraint.",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "Unable to drop 'person_name': the index belongs to a constraint.",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "violation": {
+      "kind": "table",
+      "text": "error: semantic error: ConstraintValidationFailed: `person_name` uniqueness",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: ConstraintValidationFailed: `person_name` uniqueness",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "create-violated": {
+      "kind": "table",
+      "text": "error: semantic error: ConstraintValidationFailed: `person_role_unique` uniqueness",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: ConstraintValidationFailed: `person_role_unique` uniqueness",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "show-constraints": {
+      "kind": "table",
+      "text": "| name          | type                       | labelsOrTypes | properties | ownedIndex    |\n|---------------|----------------------------|---------------|------------|---------------|\n| \"person_name\" | \"NODE_PROPERTY_UNIQUENESS\" | [\"Person\"]    | [\"name\"]   | \"person_name\" |\n1 row",
+      "table": {
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "ownedIndex"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"person_name\"",
+            "\"NODE_PROPERTY_UNIQUENESS\"",
+            "[\"Person\"]",
+            "[\"name\"]",
+            "\"person_name\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "ownedIndex"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labelsOrTypes": [
+              "Person"
+            ],
+            "name": "person_name",
+            "ownedIndex": "person_name",
+            "properties": [
+              "name"
+            ],
+            "type": "NODE_PROPERTY_UNIQUENESS"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "drop-constraint": {
+      "kind": "table",
+      "text": "| indexes                                          |\n|--------------------------------------------------|\n| [\"node_labels\", \"person_role\", \"works_on_since\"] |\n1 row · constraints removed: 1",
+      "table": {
+        "columns": [
+          "indexes"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "[\"node_labels\", \"person_role\", \"works_on_since\"]"
+          ]
+        ],
+        "summary": "1 row · constraints removed: 1"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST"
+        ],
+        "columns": [
+          "indexes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "indexes": [
+              "node_labels",
+              "person_role",
+              "works_on_since"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "graph-type": {
+      "kind": "table",
+      "text": "| specification                                                                                                                                                                                                          |\n|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| \"{\\n  (:`Person` => {`name` :: STRING NOT NULL, `role` :: STRING}),\\n  (:`Project` => {`language` :: STRING, `name` :: STRING NOT NULL}),\\n  (:`Person` =>)-[:`WORKS_ON` => {`since` :: INTEGER}]->(:`Project` =>)\\n}\" |\n1 row · constraints added: 9",
+      "table": {
+        "columns": [
+          "specification"
+        ],
+        "numeric": [
+          false
+        ],
+        "rows": [
+          [
+            "\"{\\n  (:`Person` => {`name` :: STRING NOT NULL, `role` :: STRING}),\\n  (:`Project` => {`language` :: STRING, `name` :: STRING NOT NULL}),\\n  (:`Person` =>)-[:`WORKS_ON` => {`since` :: INTEGER}]->(:`Project` =>)\\n}\""
+          ]
+        ],
+        "summary": "1 row · constraints added: 9"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING"
+        ],
+        "columns": [
+          "specification"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "specification": "{\n  (:`Person` => {`name` :: STRING NOT NULL, `role` :: STRING}),\n  (:`Project` => {`language` :: STRING, `name` :: STRING NOT NULL}),\n  (:`Person` =>)-[:`WORKS_ON` => {`since` :: INTEGER}]->(:`Project` =>)\n}"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "graph-type-violation": {
+      "kind": "table",
+      "text": "error: semantic error: ConstraintValidationFailed: `constraint_238af3a3` requires properties",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "semantic error: ConstraintValidationFailed: `constraint_238af3a3` requires properties",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "node-type-properties": {
+      "kind": "table",
+      "text": "| nodeType   | propertyName | propertyTypes       | mandatory |\n|------------|--------------|---------------------|-----------|\n| \":Person\"  | \"name\"       | [\"STRING NOT NULL\"] | true      |\n| \":Person\"  | \"role\"       | [\"STRING NOT NULL\"] | true      |\n| \":Project\" | \"language\"   | [\"STRING NOT NULL\"] | true      |\n| \":Project\" | \"name\"       | [\"STRING NOT NULL\"] | true      |\n4 rows",
+      "table": {
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\":Person\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Person\"",
+            "\"role\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Project\"",
+            "\"language\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ],
+          [
+            "\":Project\"",
+            "\"name\"",
+            "[\"STRING NOT NULL\"]",
+            "true"
+          ]
+        ],
+        "summary": "4 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "nodeType",
+          "propertyName",
+          "propertyTypes",
+          "mandatory"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "mandatory": true,
+            "nodeType": ":Person",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Person",
+            "propertyName": "role",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Project",
+            "propertyName": "language",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          },
+          {
+            "mandatory": true,
+            "nodeType": ":Project",
+            "propertyName": "name",
+            "propertyTypes": [
+              "STRING NOT NULL"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

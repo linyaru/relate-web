@@ -1,0 +1,156 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "explain-aggregation": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": {
+          "profiled": false,
+          "root": {
+            "actual": null,
+            "children": [
+              {
+                "actual": null,
+                "children": [
+                  {
+                    "actual": null,
+                    "children": [],
+                    "details": "(proj:Project)<-[:WORKS_ON]-(p:Person)",
+                    "estimated_rows": null,
+                    "identifiers": [],
+                    "operator": "Expand",
+                    "warnings": []
+                  }
+                ],
+                "details": "2 item(s), keys: proj, aggregation, WHERE filter",
+                "estimated_rows": null,
+                "identifiers": [],
+                "operator": "EagerAggregation",
+                "warnings": []
+              }
+            ],
+            "details": "2 item(s), ordered, limit",
+            "estimated_rows": null,
+            "identifiers": [],
+            "operator": "ProduceResults",
+            "warnings": []
+          },
+          "schema": "relate.plan/v1",
+          "statement": "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) WITH proj, count(p) AS people WHERE people > 1 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5"
+        },
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "explain-optional": {
+      "kind": "table",
+      "text": "(no rows)",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": {
+          "profiled": false,
+          "root": {
+            "actual": null,
+            "children": [
+              {
+                "actual": null,
+                "children": [
+                  {
+                    "actual": null,
+                    "children": [],
+                    "details": "(p:Person)",
+                    "estimated_rows": 3,
+                    "identifiers": [],
+                    "operator": "NodeByLabelScan",
+                    "warnings": []
+                  }
+                ],
+                "details": "(p)-[:KNOWS]->(f), optional",
+                "estimated_rows": 1,
+                "identifiers": [],
+                "operator": "Optional(Expand)",
+                "warnings": []
+              }
+            ],
+            "details": "2 item(s)",
+            "estimated_rows": null,
+            "identifiers": [],
+            "operator": "ProduceResults",
+            "warnings": []
+          },
+          "schema": "relate.plan/v1",
+          "statement": "MATCH (p:Person) OPTIONAL MATCH (p)-[:KNOWS]->(f) RETURN p.name AS name, f.name AS friend"
+        },
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

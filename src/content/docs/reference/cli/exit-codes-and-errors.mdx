@@ -1,0 +1,225 @@
+---
+title: Exit codes and errors
+description: The exit code of every relate CLI run at its own anchor, the error object a failed query run prints in the JSON modes, and how the two fit together.
+order: 30
+surfaces: [cli, agents]
+related: [reference/errors, reference/cli/agent-mode, guides/cli/scripting, guides/agents/drive-relate-from-an-agent]
+---
+
+Every `relate` run ends with an :term[exit code]{id=exit-code} from one closed table, and each code has an anchor on this page, `https://relatedb.ai/docs/reference/cli/exit-codes-and-errors#exit-<n>`. A failed query run prints its message on stderr; in the `json`, `jsonl`, `envelope` and `speedscope` output modes it also prints one :term[error object]{id=error-object} on stdout, whose `code` names the class and whose `exit_code` equals the process exit code. The [errors reference](/docs/reference/errors) holds one row per error message.
+
+## Synopsis
+
+A failed statement in `--mode envelope`, with the exit code echoed:
+
+```bash verify
+relate --mode envelope "MATCH (n RETURN n"
+echo "exit=$?"
+```
+
+The first three lines are stderr, the fourth is stdout:
+
+```text
+syntax error: parse error: expected RightParen, got "RETURN" (RETURN)
+  MATCH (n RETURN n
+           ^
+{"error":{"code":"validation_error","column":10,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)   MATCH (n RETURN n            ^","retryable":false,"source":"MATCH (n RETURN n"}}
+exit=6
+```
+
+| Run | stderr | stdout | Exit code |
+| --- | --- | --- | --- |
+| Query run that succeeds | Diagnostics only: warnings, notes, `table`-mode plans | The results | 0 |
+| Query run that fails, in `json`, `jsonl`, `envelope` or `speedscope` | The message | Any rows already printed, then one error object | 1, 5, 6, or 7 |
+| Query run that fails, in `table`, `csv`, `markdown`, `cypher` or `toon` (agent mode's piped default) | The message | Nothing extra | 1, 5, 6, or 7 |
+| Usage error, in any mode | `Error: <message>`. An unknown flag, an unexpected argument, a missing value, a `--read-only` value not attached, or an unknown `--namespace` adds the usage line and a `--help` hint; a value rejected after parsing (`--mode`, `--timeout`, `--width`, `--max-rows`, `--param`, `--command` with a positional query, `RELATE_AGENT_MODE`) prints the `Error:` line alone | Nothing | 2 |
+| A command (`clone`, `skill`, `info`, …) | Its own messages | Its own output; never an error object | 0, 1, or 2 |
+
+A run of several statements stops at the first one that fails and exits with that statement's code.
+
+## Exit codes
+
+<ExitCodes />
+
+`relate agent-context` prints the same table for the installed binary, without the reserved rows. Each entry in the Error kinds column links that kind's own anchor in the errors reference, such as [`#cli-validation-error-syntax`](/docs/reference/errors#cli-validation-error-syntax) for a syntax error and [`#cli-timeout`](/docs/reference/errors#cli-timeout) for a timeout.
+
+## The error object
+
+A query run (a one-shot statement or a piped script) that fails in `--mode json`, `--mode jsonl`, `--mode envelope` or `--mode speedscope` prints one compact JSON object on stdout, after any rows already written, on one line. Its keys are sorted alphabetically, as in every JSON mode.
+
+```json
+{"error":{"code":"validation_error","exit_code":6,"kind":"syntax","message":"syntax error: …","retryable":false}}
+```
+
+| Field | Type | Present | Meaning |
+| --- | --- | --- | --- |
+| `code` | string | always | The class name from the exit code table: `fatal_error`, `conflict`, `validation_error` or `timeout` |
+| `exit_code` | number | always | The process exit code, equal to the table row of `code` |
+| `kind` | string | always | The engine's error variant: `syntax`, `semantic`, `argument`, `type`, `execution`, `conflict`, `capacity`, `resource`, `storage`, `locked`, `io` or `internal` |
+| `message` | string | always | The text also printed on stderr, sanitized to one line |
+| `retryable` | boolean | always | `true` for a write-write conflict and for a `--concurrent-logical-workspace-limit` refusal while other statements hold the workspace pool; a locked store is `false` until its other opener exits |
+| `statement` | number | multi-statement runs | The 1-based index of the failed statement |
+| `statements` | number | with `statement` | How many statements the input held |
+| `committed` | number | with `statement` | How many earlier statements are durable; `0` inside an open `.begin` transaction |
+| `column` | number | syntax errors, when known | The 1-based character column within `source` |
+| `source` | string | syntax errors, when known | The statement line the parser echoed |
+| `line` | number | syntax errors, when the parser gave a position but no source line | The 1-based line within the statement |
+
+A position field is left out, never `null` or `0`, when the position is unknown. New fields may be added; existing fields and `code` values are never renamed or given a new meaning.
+
+The CLI error object carries no GQL status code. Where an engine error has one, its row in the errors reference names it, and the [GQL status index](/docs/reference/errors#gql-status-index) lists every status at its own anchor (`#gql-42n02`). The Python exception classes and the HTTP, Bolt and MCP errors are on the same page.
+
+## How the exit code and the error object relate
+
+`code` and `exit_code` always name the same row. `kind` says which engine error variant produced it, so one exit code covers several kinds:
+
+| `kind` | `code` | Exit code | `retryable` |
+| --- | --- | --- | --- |
+| `syntax`, `semantic`, `argument`, `type` | `validation_error` | 6 | `false` |
+| `execution`, `capacity`, `storage`, `io`, `internal` | `fatal_error` | 1 | `false` |
+| `semantic`, for a store that fails to open on an invalid engine setting such as `RELATE_PREVIEW` | `fatal_error` | 1 | `false` |
+| `resource`, a `--concurrent-logical-workspace-limit` refusal | `fatal_error` | 1 | `true` while other statements hold the shared pool; `false` when the statement alone exceeds the limit |
+| `execution`, for a statement cancelled by `--timeout` | `timeout` | 7 | `false` |
+| `conflict` | `conflict` | 5 | `true` |
+| `locked` | `conflict` | 5 | `false` |
+
+Exit codes 0 and 2 never come with an error object: 0 is success, and a usage error is caught before any statement runs. The message of each error, with its cause and remedy, is in the [CLI errors](/docs/reference/errors#cli-errors) and [engine errors](/docs/reference/errors#engine-errors) tables.
+
+### A failure in four output modes
+
+The statement in this cell divides by zero, which the engine rejects as a type error:
+
+```cypher run name=divide expect=error
+RETURN 1/0 AS x
+```
+
+The terminal prints what relate prints for the same statement in `table`, `envelope`, `jsonl` and `toon`, with the exit code. The statement runs in the browser on the engine the page loads, on an empty database opened read-only, as `relate --read-only` opens one. The exit code and the error's class follow from the error kind through the classes in the errors reference. Its presets include a syntax error, a missing parameter, a refused write and a run of three statements that stops at the second.
+
+:::terminal{cell=divide}
+:::
+
+## Recorded runs
+
+Each run shows stderr and stdout as one stream, in the order relate wrote them, then the exit code. A path inside the run's directory prints as `<dir>`.
+
+### Exit 0: success
+
+An empty result is a success too: the envelope keeps its columns and `rows` is `[]`.
+
+```bash verify
+relate --mode envelope "RETURN 1 AS ok"
+echo "exit=$?"
+relate --mode envelope "MATCH (n:Nope) RETURN n.p AS p"
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+exit=0
+{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"rows":[],"truncated":false}
+exit=0
+```
+
+### Exit 1: a store that does not exist
+
+A `--read-only` open never creates a :term[store]{id=store}, so a missing path fails the open with the error kind `storage`:
+
+```bash verify
+relate --database ./missing.rl --read-only --mode envelope "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Failed to open Relate: storage error: database not found: <dir>/missing.rl
+{"error":{"code":"fatal_error","exit_code":1,"kind":"storage","message":"storage error: database not found: <dir>/missing.rl","retryable":false}}
+exit=1
+```
+
+The stderr line carries the prefix `Failed to open Relate:`; the object's `message` does not.
+
+### Exit 2: a usage error
+
+An unknown flag exits before the store opens, so even `--mode envelope` prints no error object:
+
+```bash verify
+relate --mode envelope --bogus "RETURN 1 AS ok"
+echo "exit=$?"
+```
+
+```text
+Error: unknown flag: --bogus
+Usage: relate [OPTIONS] [--database PATH] [QUERY]
+Run 'relate --help' for more information.
+exit=2
+```
+
+A command's usage error names that command's usage line and help. The [flags page](/docs/reference/cli/flags#how-flags-are-parsed) lists the parsing rules behind these errors.
+
+### Exit 5: a locked store
+
+A second process opening a store another process holds for writing fails with the error kind `locked`. This run is recorded with a second `relate query` holding `s.rl` open:
+
+```text
+Failed to open Relate: storage locked: <dir>/s.rl
+{"error":{"code":"conflict","exit_code":5,"kind":"locked","message":"storage locked: <dir>/s.rl","retryable":false}}
+```
+
+`retryable` is `false`: the same open fails until the other process exits. A directory store can be opened with `--read-only` beside its writer; [Share one store between two processes](/docs/guides/operate/two-processes-one-store) covers the options.
+
+### Exit 6: a rejected statement
+
+The error kinds `syntax`, `semantic`, `argument` and `type` exit 6. A type error raised while the statement runs is one of them:
+
+```bash verify
+relate --mode envelope "RETURN 1/0 AS x"
+echo "exit=$?"
+```
+
+```text
+type error: / by zero
+{"error":{"code":"validation_error","exit_code":6,"kind":"type","message":"type error: / by zero","retryable":false}}
+exit=6
+```
+
+A syntax error adds `column` and `source`, shown in the [synopsis](#synopsis). A write on a `--read-only` store is a `semantic` error, also exit 6.
+
+### Exit 7: a timeout
+
+```bash verify
+relate --mode envelope --timeout 100ms "UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs"
+echo "exit=$?"
+```
+
+```text
+Error: query timed out after 100ms
+{"error":{"code":"timeout","exit_code":7,"kind":"execution","message":"query timed out after 100ms","retryable":false}}
+exit=7
+```
+
+### A multi-statement run that stops
+
+When a run of several statements stops at a failure, stderr gains one line saying how far it got, and the error object gains `statement`, `statements` and `committed`:
+
+```bash verify
+relate --mode envelope "CREATE (:T {n: 1}); RETRN 2; RETURN 3 AS x"
+echo "exit=$?"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+syntax error: parse error: unexpected token "RETRN"
+  RETRN 2
+  ^
+statement 2 of 3 failed; 1 completed and committed; 1 not run
+{"error":{"code":"validation_error","column":1,"committed":1,"exit_code":6,"kind":"syntax","message":"syntax error: parse error: unexpected token \"RETRN\"   RETRN 2   ^","retryable":false,"source":"RETRN 2","statement":2,"statements":3}}
+exit=6
+```
+
+The first statement's write is committed; the third statement never ran. A run of several statements has no all-or-nothing flag, so `committed` is what a caller reads to know what changed.
+
+## See also
+
+- [Errors](/docs/reference/errors): every message, with its cause, remedy, retry advice, and exit code
+- [Agent mode](/docs/reference/cli/agent-mode): the envelope a successful run prints
+- [Script the CLI](/docs/guides/cli/scripting): branching on exit codes in a shell script
+- [Drive relate from an agent](/docs/guides/agents/drive-relate-from-an-agent): reading the error object from an agent

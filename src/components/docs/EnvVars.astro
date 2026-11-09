@@ -1,0 +1,17 @@
+---
+// <EnvVars />: the CLI's environment variables, generated from _data/cli.json. The
+// table model and the twin live in envvars.ts; this renders the same rows as HTML
+// (src/lib/docs/generated/table.ts), each <tr> at its entry's stable id, with
+// the first cell linking to itself.
+import { publishedIds } from '../../lib/docs/content.ts';
+import { tableHtml } from '../../lib/docs/generated/table.ts';
+import { table } from './envvars.ts';
+
+const html = tableHtml(table(Astro.props as Record<string, string>), publishedIds(), { table: 'ref-table', anchor: 'ref-anchor' });
+---
+<div class="docs-ref" set:html={html} />
+
+<style>
+  /* A deep link to a row (#<id>) marks it, as on the errors page. */
+  .docs-ref :global(tr:target) { background: var(--bg-alt); }
+</style>

@@ -1,0 +1,23 @@
+---
+id: graph-queries-over-mcp
+title: Graph queries over MCP
+order: 110
+problem: "Give a coding agent or an agent framework a graph it can query through MCP, without letting it change the data."
+capability: "`relate serve --mcp stdio` on a store opened `--read-only`, which lists the `read_cypher` and `get_schema` tools and leaves out `write_cypher`."
+intents:
+  - MCP server for a graph database
+  - let Claude Code query my graph
+  - read-only graph tool for an agent
+  - connect Cursor to a local graph
+  - graph tools for the Claude Agent SDK
+surfaces: [mcp, agents, cli]
+guides: [guides/agents/connect-over-mcp, guides/serve/mcp, guides/integrations/claude-agent-sdk, guides/agents/agent-safety, guides/integrations/pydantic-ai, guides/integrations/openai-agents-sdk]
+recipes: []
+reference: [reference/server/mcp, reference/cli/serve, reference/cli/flags#relate-serve, reference/errors#mcp-read-query-only]
+schema: null
+verify: guides/integrations/claude-agent-sdk#options
+---
+
+An agent host such as Claude Code, Cursor or Codex reaches outside data through MCP servers it starts itself. A graph the agent can query that way becomes a tool it calls during a task, and a tool that can write is a tool that can damage the data it was meant to read.
+
+`relate serve --mcp stdio --database <store> --read-only` starts a server on the host's standard input and output. Opened read-only it lists two tools, `read_cypher` and `get_schema`, takes no writer lease and leaves out `write_cypher`; `read_cypher` refuses writes and schema changes either way. Every host's configuration block in [Connect over MCP](/docs/guides/agents/connect-over-mcp) starts the same command. For several clients or a host that connects to a URL, `relate serve --mcp <port>` serves over HTTP and asks for HTTP Basic authentication by default.

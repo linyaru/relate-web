@@ -6,8 +6,8 @@
 // per entry, so an agent can grep a message.
 //
 // Props (literals): `surface` picks the table.
-//   (none)           every error entry (cli, engine, http, bolt, mcp) in one table
-//   "cli" | "engine" | "http" | "bolt" | "mcp"   that surface's errors
+//   (none)           every error entry (cli, engine, http, bolt, mcp, client) in one table
+//   "cli" | "engine" | "http" | "bolt" | "mcp" | "client"   that surface's errors (client: the refusals a client library raises itself)
 //   "gql-status"     the GQL status index: one row per status, linking its entries
 //   "python"         the Python exception classes
 //   "notifications"  the notifications EXPLAIN and PROFILE report
@@ -22,10 +22,12 @@ import { join } from 'node:path';
 
 import type { ComponentProps } from '../../lib/docs/constructs.ts';
 import { DOCS_DIR, publishedIds } from '../../lib/docs/content.ts';
-import { absoluteUrl, resolveHref } from '../../lib/docs/links.ts';
+import { codeSpan, NONE, tableMarkdown, type Table } from '../../lib/docs/generated/table.ts';
+
+export { codeSpan, type Table };
 
 export const ERRORS_FILE = join(DOCS_DIR, '_data/errors.json');
-export const ERROR_SURFACES = ['cli', 'engine', 'http', 'bolt', 'mcp'] as const;
+export const ERROR_SURFACES = ['cli', 'engine', 'http', 'bolt', 'mcp', 'client'] as const;
 export const TABLES = [...ERROR_SURFACES, 'gql-status', 'python', 'notifications'] as const;
 export type TableName = (typeof TABLES)[number];
 
@@ -84,6 +86,7 @@ export interface ErrorsData {
   http: ErrorEntry[];
   bolt: ErrorEntry[];
   mcp: ErrorEntry[];
+  client: ErrorEntry[];
   python: { hierarchy: PythonClass[]; attributes: string[]; disputed?: boolean; readings?: Reading[] };
   notifications: Notification[];
   gql_status_index: Record<string, string[]>;
@@ -95,28 +98,6 @@ let cached: ErrorsData | null = null;
 export function errorsData(): ErrorsData {
   cached ??= JSON.parse(readFileSync(ERRORS_FILE, 'utf8')) as ErrorsData;
   return cached;
-}
-
-/**
- * A table: column labels and rows. Each cell is a list of inline-markdown
- * parts (the page stacks them; the twin joins them into one line). A row's `id`
- * is its anchor.
- */
-export interface Table {
-  columns: string[];
-  rows: { id: string; cells: string[][] }[];
-  /** Inline-markdown paragraphs printed after the table. */
-  notes: string[];
-}
-
-const NONE = '—';
-
-/** `s` as a code span, with a fence longer than any backtick run inside it. */
-export function codeSpan(s: string): string {
-  const longest = Math.max(0, ...[...s.matchAll(/`+/g)].map((m) => m[0].length));
-  const tick = '`'.repeat(longest + 1);
-  const pad = s.startsWith('`') || s.endsWith('`') ? ' ' : '';
-  return `${tick}${pad}${s}${pad}${tick}`;
 }
 
 const entryLink = (id: string) => `[${id}](${ERRORS_PAGE}#${id})`;
@@ -214,27 +195,6 @@ export function table(props: ComponentProps): Table {
 
 // ---------- The twin ----------
 
-/** Links in a twin cell: absolute, or text only when the target is not built or not public. */
-function twinLinks(md: string, pages: Set<string>): string {
-  return md.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label: string, href: string) => {
-    const resolved = resolveHref(href, { pages });
-    return resolved === null ? label : `[${label}](${absoluteUrl(resolved)})`;
-  });
-}
-
-/** Parts as one line: a sentence is followed by a space, anything else by "; ". */
-const joinParts = (parts: string[]) => parts.reduce((acc, p) => (acc ? `${acc}${/[.!?:]$/.test(acc) ? ' ' : '; '}${p}` : p), '');
-
-/** A cell for a GFM table row: parts joined into one line, no line breaks, pipes escaped. */
-const twinCell = (parts: string[], pages: Set<string>) => twinLinks(joinParts(parts), pages).replace(/\s*\n\s*/g, ' ').replace(/\|/g, '\\|');
-
 export function toMarkdown(props: ComponentProps): string {
-  const pages = publishedIds();
-  const t = table(props);
-  const lines = [
-    `| ${t.columns.join(' | ')} |`,
-    `| ${t.columns.map(() => '---').join(' | ')} |`,
-    ...t.rows.map((r) => `| ${r.cells.map((c) => twinCell(c, pages)).join(' | ')} |`),
-  ];
-  return [lines.join('\n'), ...t.notes.map((n) => twinLinks(n, pages))].join('\n\n');
+  return tableMarkdown(table(props), publishedIds());
 }

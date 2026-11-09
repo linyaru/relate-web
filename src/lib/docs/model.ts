@@ -29,7 +29,17 @@ export const STATUSES = ['stable', 'preview', 'planned'] as const;
 export type Status = (typeof STATUSES)[number];
 
 /** Frontmatter fields the build generates; a page may not set them. */
-export const GENERATED_FIELDS = ['verified', 'canonical_url', 'last_updated'] as const;
+export const GENERATED_FIELDS = ['verified', 'verified_by', 'canonical_url', 'last_updated'] as const;
+
+/**
+ * The checks a page's examples can have passed at the docs' engine version,
+ * in the order the twin's generated `verified_by` lists them (DOCS-PLAN.md §6):
+ * Cypher cells (docs:check), Python, Node.js, Rust, Java, Go, Swift and C
+ * samples (docs:samples; samples.ts SAMPLE_VERIFIER), and `bash verify`
+ * commands (docs:cli-check).
+ */
+export const VERIFIERS = ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c', 'cli'] as const;
+export type Verifier = (typeof VERIFIERS)[number];
 
 /** The section a page id belongs to, or null (a page outside the four sections). */
 export function sectionOf(id: string): SectionId | null {
@@ -63,3 +73,53 @@ export function tokenLabel(n: number): string {
   if (n < 1000) return `~${Math.max(10, Math.round(n / 10) * 10)} tokens`;
   return `~${(Math.round(n / 100) / 10).toFixed(1).replace(/\.0$/, '')}k tokens`;
 }
+
+/**
+ * Pages the build generates from data rather than from an `.mdx` file
+ * (src/lib/docs/generated/): each has an HTML page at its id's URL and a
+ * markdown twin, sits in the sidebar, llms.txt and the sitemap like an
+ * authored page, and counts as published for links. Plain data, so the
+ * content reader, the link resolver and Node checks can import it.
+ */
+export interface GeneratedPageMeta {
+  id: string;
+  title: string;
+  description: string;
+  /** Sidebar order within its group, as an authored page's `order`. */
+  order: number;
+  surfaces: Surface[];
+}
+
+export const GENERATED_PAGES: readonly GeneratedPageMeta[] = [
+  {
+    id: 'reference/glossary',
+    title: 'Glossary',
+    description: 'Every term the relate docs define, in alphabetical order, with its short and full definition, other names in use, related terms and the page that covers it.',
+    order: 900,
+    surfaces: [],
+  },
+  {
+    id: 'reference/changelog',
+    title: 'Changelog',
+    description: 'What each relate release added, changed, deprecated, removed and fixed, newest first, with the deprecation policy and a JSON feed.',
+    order: 910,
+    surfaces: [],
+  },
+  {
+    id: 'reference/server/docs-mcp-usage',
+    title: 'Hosted docs MCP usage',
+    description: 'Calls, refusals, failures and completion rate per tool of the hosted docs MCP server, calls by client family, the period counted, and what is never logged.',
+    order: 20,
+    surfaces: ['mcp', 'agents'],
+  },
+];
+
+/** The ids of the generated pages. */
+export const GENERATED_IDS: ReadonlySet<string> = new Set(GENERATED_PAGES.map((p) => p.id));
+
+/** The changelog's JSON feed, site-relative. */
+export const CHANGELOG_FEED_URL = '/docs/changelog.json';
+/** The changelog twin's short alias (DOCS-PLAN.md §5 "Endpoints"). */
+export const CHANGELOG_MD_URL = '/docs/changelog.md';
+/** The agent-facing page on reporting a wrong or missing page (DOCS-PLAN.md §3.2, ADR-0013). */
+export const FEEDBACK_URL = '/docs/feedback.md';

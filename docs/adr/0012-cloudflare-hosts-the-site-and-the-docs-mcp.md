@@ -64,3 +64,8 @@ is retired at launch as `LAUNCH.md` already lists.
   the Pages custom domain, the site moves to one Worker with static assets
   (same platform, one deploy). Cloudflare's cache ignores `Vary`, so the
   markdown branch uses its own cache key or `Cache-Control: private`.
+- ADR-0028 (embeddings): the query side of hybrid search is Workers AI
+  (`@cf/baai/bge-small-en-v1.5`), the same weights as the committed
+  section vectors. ADR-0029 (evals and usage data): the usage page is
+  built from the Worker's log lines through the Workers Observability
+  telemetry API.

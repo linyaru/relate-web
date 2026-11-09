@@ -1,0 +1,19 @@
+---
+id: pull
+term: "pull"
+short: "`relate pull`: the command that copies a subgraph from Neo4j or Aura into a store, over the HTTP Query API, from Cypher that returns graph elements."
+aliases: []
+context: cli
+see: reference/cli/pull
+related: ["push", "clone", "http-query-api"]
+---
+
+`relate pull` runs one or more Cypher statements against a Neo4j or Aura database and writes the nodes, relationships and paths they return into `--database`, a directory store or a `.rl` file, never `:memory:`. Every statement must return graph elements. All of them run in one process, with one checkpoint at the end.
+
+The connection comes from `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`, read from an env file with `--from` or from the process environment. `--param` binds a parameter of the source statement. Basic auth to a non-loopback `http://` address is refused unless `--allow-plaintext` is given.
+
+```bash
+relate pull --from .env --query 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100' --database ./graph
+```
+
+It writes to the local store, and reads the remote one only through the statements given.

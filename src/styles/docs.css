@@ -66,7 +66,7 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 /* ---------- Grid: sidebar | content | on this page ---------- */
 .docs-grid { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 48px; }
 .docs-grid.has-toc { grid-template-columns: 236px minmax(0, 1fr); }
-.docs-main { min-width: 0; max-width: 780px; padding-bottom: 32px; }
+.docs-main { min-width: 0; max-width: 780px; padding-bottom: 32px; container: docs-main / inline-size; }
 .docs-grid > .docs-toc { grid-column: 2; grid-row: 1; }
 .docs-grid > .docs-main { grid-column: 2; grid-row: 2; }
 .docs-grid > .docs-sidebar { grid-column: 1; grid-row: 1 / span 2; }
@@ -164,9 +164,31 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 .docs-body th, .docs-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 .docs-body th { background: var(--bg-alt); }
 .docs-body img { max-width: 100%; height: auto; }
+/* Glossary terms (ADR-0009): a plain link in tables and tabs, the toggletip on a term's first use. */
 .docs-shell a.term { color: inherit; text-decoration: underline dotted var(--fg-muted); text-underline-offset: 3px; }
 .docs-shell a.term:hover { color: var(--accent); }
 span.term { text-decoration: underline dotted var(--fg-muted); text-underline-offset: 3px; cursor: help; }
+.docs-shell button.term {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  text-decoration: underline dotted var(--fg-muted); text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+.docs-shell button.term:hover { color: var(--accent); }
+.docs-shell button.term:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+/* The panel: a popover in the top layer; centred where anchor positioning is not supported. */
+.term-tip {
+  max-width: min(22rem, calc(100vw - 32px)); padding: 10px 14px; margin: auto;
+  background: var(--bg-alt); color: var(--fg); border: 1px solid var(--border-strong); border-radius: 6px;
+  box-shadow: var(--shadow-overlay); font-size: 15px; line-height: 1.5; text-align: left;
+}
+.term-tip:popover-open { display: block; }
+.term-tip-name { display: block; font-weight: 600; margin-bottom: 2px; }
+.term-tip-short { display: block; color: var(--fg-muted); }
+.term-tip-more { display: inline-block; margin-top: 6px; color: var(--accent); }
+.term-tip code { font-size: 0.9em; }
+/* Next to the term where the browser anchors a popover to the button that opened it. */
+@supports (position-area: block-end) {
+  .term-tip { margin: 6px 0 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
+}
 
 /* Callouts (:::note, :::tip, :::warning, :::danger) */
 .callout {
@@ -219,6 +241,45 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .docs-body .out-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .docs-stub { color: var(--fg-muted); font-style: italic; }
 
+/* The engine bar (cookbook.css) sticks under the docs bar, not under the site header. */
+.docs-shell .engine-bar { top: 112px; margin: 20px 0 4px; }
+.docs-shell a.btn.icon-only { color: var(--fg-muted); }
+.docs-shell a.btn.icon-only:hover { color: var(--fg); }
+/* A graph result's static form: the page's picture of the graph without JavaScript. */
+.cell-output .out-static { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
+.cell-output .out-static figcaption { margin-top: 6px; }
+/* A verified language sample's recorded output, under its code block (constructs.ts). */
+.code-block + .sample-output { margin: -8px 0 16px; }
+@media (max-width: 900px) { .docs-shell .engine-bar { position: static; } }
+
+/* Interactive elements (src/lib/docs/elements.ts, src/scripts/docs/elements.ts):
+   the host and its two panes. Each element's own styles ship with its module
+   (src/scripts/docs/elements/<name>.css), not here. */
+docs-element { display: block; margin: 20px 0; padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt); max-width: 100%; overflow-x: auto; }
+docs-element > .element-static > :first-child { margin-top: 0; }
+docs-element > .element-static > :last-child { margin-bottom: 0; }
+docs-element .element-figure { margin: 12px 0; }
+docs-element .element-note { font-size: 13px; color: var(--fg-muted); }
+docs-element > [hidden] { display: none; }
+.cell-output > .cell-slot { border-top: 1px solid var(--border); padding: 8px 12px; }
+.cell-output > .cell-slot:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  docs-element *, .cell-slot * { animation: none !important; transition: none !important; }
+}
+/* A terminal directly followed by an MCP tryout (concepts/agent-native,
+   DOCS-PLAN.md §7.4): side by side where the column is wide enough for two
+   panes, stacked below that. The terminal floats; the tryout, a block
+   formatting context (overflow-x above), takes the rest of the line; what
+   follows clears both. No wrapper, so no new construct. */
+@container docs-main (min-width: 720px) {
+  /* No top margins: the float's would not collapse with the block above, the tryout's would, and the pair would start apart. */
+  docs-element[data-element='terminal']:has(+ docs-element[data-element='mcp-tryout']) { float: left; width: calc(50% - 8px); margin: 0 16px 20px 0; }
+  docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout'] { margin-top: 0; }
+  docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout'] + * { clear: both; }
+  /* When the pair ends its section, the section holds the float. */
+  :has(> docs-element[data-element='terminal'] + docs-element[data-element='mcp-tryout']) { display: flow-root; }
+}
+
 /* ---------- Page end: related, prev/next, footer ---------- */
 .doc-related { margin-top: 40px; }
 .doc-related h2 { font-size: 18px; margin: 0 0 8px; }
@@ -245,6 +306,8 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .btn.is-pending { opacity: 0.6; cursor: default; }
 .is-pending { color: var(--fg-faint); }
 .docs-main section { margin-top: 44px; }
+/* An element's own <section>s (plan panes, MCP calls, ranked lists) are not page sections: their grid spaces them. */
+.docs-main docs-element section { margin-top: 0; }
 .docs-main section > h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 14px; }
 .task-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px 32px; }
 .task-group h3 {
@@ -296,3 +359,55 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 /* A deep link to an error (/docs/reference/errors/#<id>) marks its row. */
 .errors-table tr:target { background: var(--bg-alt); }
 .docs-install-agents-md { margin-top: 1.5rem; }
+
+/* The glossary page (/docs/reference/glossary/, src/lib/docs/generated/glossary.ts) */
+.generated .glossary-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 16px 0 8px; }
+.generated .glossary-filter[hidden] { display: none; }
+.generated .glossary-filter label { font-weight: 600; }
+.generated .glossary-filter input {
+  flex: 1 1 14rem; min-width: 0; font: inherit; padding: 6px 10px; color: var(--fg);
+  background: var(--bg-alt); border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.generated .glossary-count { color: var(--fg-muted); font-size: 14px; }
+.generated .glossary-letters ul { display: flex; flex-wrap: wrap; gap: 4px 10px; list-style: none; padding: 0; margin: 8px 0 16px; }
+.generated .glossary-letters a { font-weight: 600; }
+.generated .glossary-letter[hidden], .generated .glossary-entry[hidden] { display: none; }
+.generated .glossary-short { font-weight: 500; }
+.generated .glossary-body { color: var(--fg); }
+.generated .glossary-body p, .generated .glossary-body li { line-height: 1.6; }
+.generated .glossary-body .code-block { margin: 10px 0; }
+
+/* ---------- Phase 2 constructs (constructs.ts, Matrix.astro, LanguagePicker.astro) ---------- */
+/* ::::agentic: a two-tab set (the tab rules); a rule at its side sets the step's two views apart. */
+.agentic { border-left: 3px solid var(--border); padding-left: 12px; }
+/* :::deeplink: the host's button, the JSON its link carries, the link as text. */
+.deeplink { margin: 16px 0 20px; }
+.deeplink-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.deeplink-note { font-size: 14px; color: var(--fg-muted); }
+.deeplink .code-block { margin: 8px 0; }
+.deeplink-url summary { cursor: pointer; font-size: 13px; color: var(--fg-muted); }
+.deeplink-url code { display: block; margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; word-break: break-all; }
+/* <Matrix />: twelve columns scroll inside their frame, never the page. */
+.matrix-frame { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; }
+.matrix-frame:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.docs-body .matrix-table { margin: 0; border-collapse: collapse; font-size: 13px; min-width: 960px; }
+.matrix-table th, .matrix-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.matrix-table thead th { position: sticky; top: 0; background: var(--bg-alt); white-space: nowrap; }
+.matrix-table tbody th { position: sticky; left: 0; z-index: 1; background: var(--bg-alt); min-width: 150px; font-weight: 600; }
+.matrix-table tr:target th, .matrix-table tr:target td { background: var(--bg-inset); }
+.matrix-means { display: block; margin-top: 2px; font-weight: 400; font-size: 12px; color: var(--fg-muted); }
+.matrix-value { display: block; font-weight: 600; }
+.matrix-yes .matrix-value { color: var(--success); }
+.matrix-no .matrix-value { color: var(--fg-muted); }
+.matrix-partial .matrix-value { color: var(--discovery); }
+.matrix-unknown .matrix-value { color: var(--danger); }
+.matrix-note { display: block; margin-top: 2px; font-size: 12px; color: var(--fg-muted); overflow-wrap: anywhere; }
+/* The language picker: its space is held until its script defines it, so nothing moves. */
+.lang-picker { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.lang-picker:not(:defined) { visibility: hidden; }
+.lang-picker label { display: inline-flex; align-items: center; gap: 8px; color: var(--fg-muted); }
+.lang-picker select {
+  font: 500 14px var(--font-sans); color: var(--fg); background: var(--bg-alt);
+  border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 8px;
+}
+.lang-picker-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

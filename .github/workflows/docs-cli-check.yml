@@ -1,0 +1,73 @@
+# Replays the CLI facts the docs state against the latest relate release
+# (DOCS-PLAN.md §6 "docs:cli-check"): installs the release binary through
+# public/install.sh, then runs `npm run docs:cli-check`, which replays every
+# recorded run in src/content/docs/_data/ (engine.json, cli.json, errors.json:
+# the --help pages, agent-context, messages, exit codes) and every
+# ```bash verify fence on a docs page, and fails on any drift with a unified
+# diff.
+#
+# Weekly, by hand, and on a push to main that touches the engine build the
+# site ships (public/wasm) or the data files. It is not a required check: it
+# depends on a published release, not on the pull request.
+#
+# The whole job is continue-on-error until the first relate-named release is
+# published: install.sh resolves the latest release of relatedb/relate, and
+# until that exists (pre-launch, LAUNCH.md) the install step fails. Remove
+# `continue-on-error` once a release is out, so drift turns the run red.
+#
+# A drift after a release: if the CLI changed on purpose, re-record the data
+# files with `RELATE_BIN=<binary> npm run docs:cli-check -- --record`, fix the
+# page text fences the diff names, bump _data/engine.json in the same change,
+# and commit the reviewed diff.
+name: Docs CLI check
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'public/wasm/**'
+      - 'src/content/docs/_data/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-cli-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Pre-launch: install.sh fails until the first relate-named release exists.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      # install.sh verifies the SSHSIG signature on SHA256SUMS, the signed
+      # release header and the binary's SHA-256 before it installs anything,
+      # into ~/.local/bin. The token only raises the GitHub API rate limit.
+      - name: Install the latest relate release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          bash public/install.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Replay the CLI facts
+        env:
+          DO_NOT_TRACK: '1'
+        run: |
+          relate --version
+          RELATE_BIN="$HOME/.local/bin/relate" npm run docs:cli-check

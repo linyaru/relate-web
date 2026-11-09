@@ -1,0 +1,752 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 8, relationships created: 6, properties set: 22, labels added: 8",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 8,
+          "labels_removed": 0,
+          "nodes_created": 8,
+          "nodes_deleted": 0,
+          "properties_set": 22,
+          "relationships_created": 6,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-fulltext": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "search": {
+      "kind": "table",
+      "text": "| id   | text                                             | score |\n|------|--------------------------------------------------|-------|\n| \"n6\" | \"Recovery tests cut the WAL at every byte.\"      | 2.0   |\n| \"n1\" | \"The WAL replays on open and trims a torn tail.\" | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "text",
+          "score"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"n6\"",
+            "\"Recovery tests cut the WAL at every byte.\"",
+            "2.0"
+          ],
+          [
+            "\"n1\"",
+            "\"The WAL replays on open and trims a torn tail.\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "text",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n6",
+            "score": 2,
+            "text": "Recovery tests cut the WAL at every byte."
+          },
+          {
+            "id": "n1",
+            "score": 1,
+            "text": "The WAL replays on open and trims a torn tail."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "terms": {
+      "kind": "table",
+      "text": "| query           | ids                            |\n|-----------------|--------------------------------|\n| \"wal\"           | [\"n1\", \"n6\"]                   |\n| \"replay\"        | []                             |\n| \"replays\"       | [\"n1\", \"n5\"]                   |\n| \"test\"          | []                             |\n| \"the\"           | [\"n1\", \"n2\", \"n3\", \"n5\", \"n6\"] |\n| \"pull-request\"  | [\"n3\"]                         |\n| \"\\\"torn tail\\\"\" | [\"n1\"]                         |\n| \"tor*\"          | []                             |\n8 rows",
+      "table": {
+        "columns": [
+          "query",
+          "ids"
+        ],
+        "numeric": [
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"wal\"",
+            "[\"n1\", \"n6\"]"
+          ],
+          [
+            "\"replay\"",
+            "[]"
+          ],
+          [
+            "\"replays\"",
+            "[\"n1\", \"n5\"]"
+          ],
+          [
+            "\"test\"",
+            "[]"
+          ],
+          [
+            "\"the\"",
+            "[\"n1\", \"n2\", \"n3\", \"n5\", \"n6\"]"
+          ],
+          [
+            "\"pull-request\"",
+            "[\"n3\"]"
+          ],
+          [
+            "\"\\\"torn tail\\\"\"",
+            "[\"n1\"]"
+          ],
+          [
+            "\"tor*\"",
+            "[]"
+          ]
+        ],
+        "summary": "8 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "query",
+          "ids"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "ids": [
+              "n1",
+              "n6"
+            ],
+            "query": "wal"
+          },
+          {
+            "ids": [],
+            "query": "replay"
+          },
+          {
+            "ids": [
+              "n1",
+              "n5"
+            ],
+            "query": "replays"
+          },
+          {
+            "ids": [],
+            "query": "test"
+          },
+          {
+            "ids": [
+              "n1",
+              "n2",
+              "n3",
+              "n5",
+              "n6"
+            ],
+            "query": "the"
+          },
+          {
+            "ids": [
+              "n3"
+            ],
+            "query": "pull-request"
+          },
+          {
+            "ids": [
+              "n1"
+            ],
+            "query": "\"torn tail\""
+          },
+          {
+            "ids": [],
+            "query": "tor*"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "page": {
+      "kind": "table",
+      "text": "| id   | score |\n|------|-------|\n| \"n5\" | 1.0   |\n| \"n6\" | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"n5\"",
+            "1.0"
+          ],
+          [
+            "\"n6\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n5",
+            "score": 1
+          },
+          {
+            "id": "n6",
+            "score": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "narrow": {
+      "kind": "table",
+      "text": "| id   | text                                       | score |\n|------|--------------------------------------------|-------|\n| \"n4\" | \"Release notes list every fixed scenario.\" | 1.0   |\n| \"n5\" | \"The docs build replays every cell.\"       | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "text",
+          "score"
+        ],
+        "numeric": [
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"n4\"",
+            "\"Release notes list every fixed scenario.\"",
+            "1.0"
+          ],
+          [
+            "\"n5\"",
+            "\"The docs build replays every cell.\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "text",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n4",
+            "score": 1,
+            "text": "Release notes list every fixed scenario."
+          },
+          {
+            "id": "n5",
+            "score": 1,
+            "text": "The docs build replays every cell."
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "create-vector": {
+      "kind": "table",
+      "text": "(no rows) · indexes added: 1",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 1,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "vector-list": {
+      "kind": "table",
+      "text": "| id   | score              |\n|------|--------------------|\n| \"n6\" | 0.9944459199905396 |\n| \"n3\" | 0.9512366056442261 |\n| \"n2\" | 0.8602553606033325 |\n3 rows",
+      "table": {
+        "columns": [
+          "id",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"n6\"",
+            "0.9944459199905396"
+          ],
+          [
+            "\"n3\"",
+            "0.9512366056442261"
+          ],
+          [
+            "\"n2\"",
+            "0.8602553606033325"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n6",
+            "score": 0.9944459199905396
+          },
+          {
+            "id": "n3",
+            "score": 0.9512366056442261
+          },
+          {
+            "id": "n2",
+            "score": 0.8602553606033325
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fulltext-list": {
+      "kind": "table",
+      "text": "| id   | score |\n|------|-------|\n| \"n6\" | 2.0   |\n| \"n1\" | 1.0   |\n2 rows",
+      "table": {
+        "columns": [
+          "id",
+          "score"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"n6\"",
+            "2.0"
+          ],
+          [
+            "\"n1\"",
+            "1.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "FLOAT"
+        ],
+        "columns": [
+          "id",
+          "score"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "id": "n6",
+            "score": 2
+          },
+          {
+            "id": "n1",
+            "score": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "fuse": {
+      "kind": "table",
+      "text": "| id   | vector_rank | fulltext_rank | rrf    | project          |\n|------|-------------|---------------|--------|------------------|\n| \"n6\" | 1           | 1             | 0.0328 | \"opencypher-tck\" |\n| \"n1\" | null        | 2             | 0.0161 | \"relate\"         |\n| \"n3\" | 2           | null          | 0.0161 | \"opencypher-tck\" |\n3 rows",
+      "table": {
+        "columns": [
+          "id",
+          "vector_rank",
+          "fulltext_rank",
+          "rrf",
+          "project"
+        ],
+        "numeric": [
+          false,
+          true,
+          true,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"n6\"",
+            "1",
+            "1",
+            "0.0328",
+            "\"opencypher-tck\""
+          ],
+          [
+            "\"n1\"",
+            "null",
+            "2",
+            "0.0161",
+            "\"relate\""
+          ],
+          [
+            "\"n3\"",
+            "2",
+            "null",
+            "0.0161",
+            "\"opencypher-tck\""
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "INTEGER",
+          "FLOAT",
+          "STRING"
+        ],
+        "columns": [
+          "id",
+          "vector_rank",
+          "fulltext_rank",
+          "rrf",
+          "project"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "fulltext_rank": 1,
+            "id": "n6",
+            "project": "opencypher-tck",
+            "rrf": 0.0328,
+            "vector_rank": 1
+          },
+          {
+            "fulltext_rank": 2,
+            "id": "n1",
+            "project": "relate",
+            "rrf": 0.0161,
+            "vector_rank": null
+          },
+          {
+            "fulltext_rank": null,
+            "id": "n3",
+            "project": "opencypher-tck",
+            "rrf": 0.0161,
+            "vector_rank": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "verify": {
+      "kind": "table",
+      "text": "| name             | type       | labelsOrTypes | properties    | state    |\n|------------------|------------|---------------|---------------|----------|\n| \"note_embedding\" | \"VECTOR\"   | [\"Note\"]      | [\"embedding\"] | \"ONLINE\" |\n| \"note_text\"      | \"FULLTEXT\" | [\"Note\"]      | [\"text\"]      | \"ONLINE\" |\n2 rows",
+      "table": {
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"note_embedding\"",
+            "\"VECTOR\"",
+            "[\"Note\"]",
+            "[\"embedding\"]",
+            "\"ONLINE\""
+          ],
+          [
+            "\"note_text\"",
+            "\"FULLTEXT\"",
+            "[\"Note\"]",
+            "[\"text\"]",
+            "\"ONLINE\""
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST",
+          "LIST",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "type",
+          "labelsOrTypes",
+          "properties",
+          "state"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labelsOrTypes": [
+              "Note"
+            ],
+            "name": "note_embedding",
+            "properties": [
+              "embedding"
+            ],
+            "state": "ONLINE",
+            "type": "VECTOR"
+          },
+          {
+            "labelsOrTypes": [
+              "Note"
+            ],
+            "name": "note_text",
+            "properties": [
+              "text"
+            ],
+            "state": "ONLINE",
+            "type": "FULLTEXT"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

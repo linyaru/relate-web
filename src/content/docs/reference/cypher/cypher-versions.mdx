@@ -1,0 +1,141 @@
+---
+title: Cypher versions
+description: The version prefixes for Cypher 25 and Cypher 5, the default language and what ALTER DATABASE changes, RELATE_PREVIEW opt-ins, and the TCK record.
+order: 150
+surfaces: [cypher, cli]
+related: [concepts/cypher-dialect, reference/cypher/overview, reference/cypher/differences-from-neo4j, reference/cli/environment-variables]
+---
+
+Every :term[Cypher]{id=cypher} statement runs as :term[Cypher 25]{id=cypher-25}, the Neo4j Cypher version aligned with :term[GQL]{id=gql}, the ISO graph query language. A `CYPHER 5` prefix runs one statement as Cypher 5. Syntax that is not settled yet ships as a :term[preview feature]{id=preview-feature} and stays off until `RELATE_PREVIEW` names it. No other version exists, and nothing else changes the version a statement runs as.
+
+## Synopsis
+
+```text
+[CYPHER 5 | CYPHER 25] [EXPLAIN | PROFILE] <statement>
+ALTER DATABASE <namespace> SET DEFAULT LANGUAGE CYPHER 5 | CYPHER 25
+RELATE_PREVIEW=<feature>[,<feature> …]
+```
+
+`EXPLAIN` or `PROFILE` may also come before the version prefix.
+
+## Version prefix
+
+| Prefix | Statement runs as | Notes |
+| --- | --- | --- |
+| None | Cypher 25 | The default for every statement |
+| `CYPHER 25` | Cypher 25 | |
+| `CYPHER 5` | Cypher 5 | Some Cypher 25 forms fail, as the next table shows |
+| Any other number | — | `syntax error: parse error: SyntaxError: 22N10 invalid pre-parser option value: "<n>" is not a valid cypher version` |
+| Two prefixes | — | `syntax error: parse error: SyntaxError: 22N09 conflicting pre-parser combination: multiple values for 'cypher version'` |
+
+Under `CYPHER 5`, these Cypher 25 forms fail:
+
+| Form | Message |
+| --- | --- |
+| String interpolation, `s'…'` | `syntax error: SyntaxError: UnsupportedLanguageFeature: string interpolation (s'...') is only available in Cypher 25` |
+| `vector(…)` | `syntax error: UnknownFunction: unknown function 'vector'` |
+
+Other Cypher 25 forms, such as `LET` and the `||` operator, run under both prefixes.
+
+## Default language
+
+Each :term[namespace]{id=namespace} records a default language, which `SHOW DATABASES` reports in the `defaultLanguage` column.
+
+| Setting | Value |
+| --- | --- |
+| Recorded default | `CYPHER 25` for `neo4j`, `system` and `system_ontologies` |
+| `ALTER DATABASE <namespace> SET DEFAULT LANGUAGE CYPHER 5` | Stores `CYPHER 5` in the store; `SHOW DATABASES` reports it in this process, and after the store reopens |
+| Effect on statements | None: a statement without a prefix still runs as Cypher 25. Only the prefix selects Cypher 5 |
+
+## Preview features
+
+`RELATE_PREVIEW` is an environment variable of the process that opens the store. The [Cypher overview](/docs/reference/cypher/overview#preview-features) lists each feature, what it enables and the error it gives while off.
+
+| Rule | Behavior |
+| --- | --- |
+| Default | No feature enabled |
+| When it is read | Once, when the store opens |
+| Several features | Comma-separated; spaces around a name are accepted |
+| Names | Lowercase, exactly as listed: `Chronological-Comparisons` is unknown |
+| An unknown name | The open fails with exit code 1 and lists the known names |
+| A feature used while off | Usually `semantic error: SemanticError: preview feature '<name>' is not enabled: set RELATE_PREVIEW=<name>`; the overview lists the exceptions |
+| The cells on this site | Run on the WebAssembly build with no preview feature enabled |
+
+## Conformance
+
+The openCypher Technology Compatibility Kit (TCK) is the language contract. relate's published compliance record states that "no engine document publishes a current TCK pass count any more": coverage is measured by a spec harness that reports on each pull request ready for review and never blocks a merge.
+
+The retired in-repository figures are on the [Cypher overview](/docs/reference/cypher/overview#conformance), and [the Cypher dialect](/docs/concepts/cypher-dialect) explains why the pin carried deviations.
+
+## Examples
+
+The cells run in page order on one in-memory store. The default language of each namespace:
+
+```cypher run name=languages
+SHOW DATABASES YIELD name, defaultLanguage RETURN name, defaultLanguage
+```
+
+String interpolation is a Cypher 25 form:
+
+```cypher run name=prefix-25
+CYPHER 25 RETURN s'{1 + 1} hops' AS label
+```
+
+```cypher run name=prefix-5 expect=error
+CYPHER 5 RETURN s'{1 + 1} hops' AS label
+```
+
+```cypher run name=prefix-4 expect=error
+CYPHER 4 RETURN 1 AS one
+```
+
+Setting the default language to Cypher 5 changes what `SHOW DATABASES` reports:
+
+```cypher run name=set-default
+ALTER DATABASE neo4j SET DEFAULT LANGUAGE CYPHER 5;
+SHOW DATABASES YIELD name, defaultLanguage WHERE name = 'neo4j'
+RETURN name, defaultLanguage
+```
+
+A statement without a prefix still runs as Cypher 25:
+
+```cypher run name=default-unchanged
+RETURN s'{1 + 1} hops' AS label
+```
+
+A preview feature without its opt-in:
+
+```cypher run name=preview-off expect=error
+RETURN datetime('2026-01-01T00:00Z') IS BEFORE datetime('2026-06-01T00:00Z') AS earlier
+```
+
+The same statement on the CLI, with the opt-in in the command's environment:
+
+```bash verify
+RELATE_PREVIEW=chronological-comparisons relate --mode table "RETURN datetime('2026-01-01T00:00Z') IS BEFORE datetime('2026-06-01T00:00Z') AS earlier"
+```
+
+```text
++---------+
+| earlier |
++---------+
+| true    |
++---------+
+```
+
+A name that is not a preview feature fails the open:
+
+```bash verify
+RELATE_PREVIEW=chronological relate --mode table "RETURN 1 AS one"
+```
+
+```text
+Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature 'chronological' (known features: hybrid-search, local-callables, graph-type-opt-props, graph-type-default-values, graph-type-implied-labels, ontology, obfuscated-literals, mixed-label-syntax, float16-coordinate-types, chronological-comparisons, complex-search-patterns, coll-zip, coll-has, gql-stddev-aliases)
+```
+
+## See also
+
+- [The Cypher dialect](/docs/concepts/cypher-dialect): why relate targets Cypher 25 and how the layers fit.
+- [Cypher overview](/docs/reference/cypher/overview): the supported Cypher 25 features and every preview feature.
+- [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): the Neo4j habits that fail in relate.
+- [Environment variables](/docs/reference/cli/environment-variables): `RELATE_PREVIEW` beside the other variables the CLI reads.

@@ -1,0 +1,17 @@
+---
+id: constraint
+term: "constraint"
+short: "A rule the store enforces on every write, such as a unique property, a required property, a property type or a node key; a violating write fails."
+aliases: []
+context: cypher
+see: reference/cypher/schema-clauses
+related: ["index", "graph-type", "schema-folder"]
+---
+
+A constraint makes the store refuse data that breaks a rule. relate creates the constraint kinds `SHOW CONSTRAINTS` reports as `NODE_PROPERTY_UNIQUENESS` (`REQUIRE p.id IS UNIQUE`), `NODE_PROPERTY_EXISTENCE` (`IS NOT NULL`), `NODE_PROPERTY_TYPE` (`IS :: INTEGER`), `NODE_KEY` and `RELATIONSHIP_KEY`. A write that breaks one fails as a whole with `ConstraintValidationFailed` and exit code 6.
+
+```cypher
+CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE
+```
+
+A uniqueness or key constraint also creates a range :term[index]{id=index} that the planner can use. A :term[graph type]{id=graph-type} derives constraints of its own, and `relate push` uses a label's uniqueness or key constraint as the key it merges on in Neo4j.

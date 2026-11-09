@@ -1,0 +1,390 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "gds": {
+      "kind": "table",
+      "text": "error: syntax error: ProcedureNotFound: gds.degree.stream",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columns": [],
+        "error": "syntax error: ProcedureNotFound: gds.degree.stream",
+        "rows": [],
+        "stats": {}
+      },
+      "expectError": true
+    },
+    "degree": {
+      "kind": "table",
+      "text": "| person  | degree |\n|---------|--------|\n| \"Grace\" | 3      |\n| \"Ada\"   | 2      |\n| \"Noor\"  | 1      |\n3 rows",
+      "table": {
+        "columns": [
+          "person",
+          "degree"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"Grace\"",
+            "3"
+          ],
+          [
+            "\"Ada\"",
+            "2"
+          ],
+          [
+            "\"Noor\"",
+            "1"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "person",
+          "degree"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "degree": 3,
+            "person": "Grace"
+          },
+          {
+            "degree": 2,
+            "person": "Ada"
+          },
+          {
+            "degree": 1,
+            "person": "Noor"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "shortest": {
+      "kind": "table",
+      "text": "| route                              | hops |\n|------------------------------------|------|\n| [\"Ada\", \"Grace\", \"opencypher-tck\"] | 2    |\n1 row",
+      "table": {
+        "columns": [
+          "route",
+          "hops"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "[\"Ada\", \"Grace\", \"opencypher-tck\"]",
+            "2"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "INTEGER"
+        ],
+        "columns": [
+          "route",
+          "hops"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "hops": 2,
+            "route": [
+              "Ada",
+              "Grace",
+              "opencypher-tck"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "builtins": {
+      "kind": "table",
+      "text": "| project          | people       | roles        |\n|------------------|--------------|--------------|\n| \"opencypher-tck\" | \"Grace\"      | [\"engineer\"] |\n| \"relate\"         | \"Ada, Grace\" | [\"engineer\"] |\n2 rows",
+      "table": {
+        "columns": [
+          "project",
+          "people",
+          "roles"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"opencypher-tck\"",
+            "\"Grace\"",
+            "[\"engineer\"]"
+          ],
+          [
+            "\"relate\"",
+            "\"Ada, Grace\"",
+            "[\"engineer\"]"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "LIST"
+        ],
+        "columns": [
+          "project",
+          "people",
+          "roles"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "people": "Grace",
+            "project": "opencypher-tck",
+            "roles": [
+              "engineer"
+            ]
+          },
+          {
+            "people": "Ada, Grace",
+            "project": "relate",
+            "roles": [
+              "engineer"
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "labels": {
+      "kind": "table",
+      "text": "| labels      | nodes |\n|-------------|-------|\n| [\"Person\"]  | 3     |\n| [\"Project\"] | 2     |\n2 rows",
+      "table": {
+        "columns": [
+          "labels",
+          "nodes"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "[\"Person\"]",
+            "3"
+          ],
+          [
+            "[\"Project\"]",
+            "2"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "INTEGER"
+        ],
+        "columns": [
+          "labels",
+          "nodes"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "labels": [
+              "Person"
+            ],
+            "nodes": 3
+          },
+          {
+            "labels": [
+              "Project"
+            ],
+            "nodes": 2
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "types": {
+      "kind": "table",
+      "text": "| type        | relationships |\n|-------------|---------------|\n| \"WORKS_ON\"  | 3             |\n| \"KNOWS\"     | 1             |\n| \"MAINTAINS\" | 1             |\n3 rows",
+      "table": {
+        "columns": [
+          "type",
+          "relationships"
+        ],
+        "numeric": [
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"WORKS_ON\"",
+            "3"
+          ],
+          [
+            "\"KNOWS\"",
+            "1"
+          ],
+          [
+            "\"MAINTAINS\"",
+            "1"
+          ]
+        ],
+        "summary": "3 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "type",
+          "relationships"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "relationships": 3,
+            "type": "WORKS_ON"
+          },
+          {
+            "relationships": 1,
+            "type": "KNOWS"
+          },
+          {
+            "relationships": 1,
+            "type": "MAINTAINS"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

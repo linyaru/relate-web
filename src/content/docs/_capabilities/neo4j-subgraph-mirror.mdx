@@ -1,0 +1,23 @@
+---
+id: neo4j-subgraph-mirror
+title: Neo4j subgraph mirror
+order: 190
+problem: "Work on a slice of a Neo4j or Aura graph locally, offline or in a test, and copy changes back when they are ready."
+capability: "`relate pull`, which copies the graph elements a query returns from Neo4j or Aura into a local store, and `relate push`, which copies a scoped subgraph back with a `--dry-run` plan."
+intents:
+  - copy a Neo4j subgraph to my laptop
+  - local copy of an Aura database
+  - pull data from Neo4j into a file
+  - push a local graph to Neo4j
+  - work offline on Neo4j data
+surfaces: [cli, bolt, http]
+guides: [guides/neo4j/pull-from-neo4j, guides/neo4j/push-to-neo4j, guides/migrate/from-neo4j]
+recipes: []
+reference: [reference/cli/pull, reference/cli/push, reference/cypher/differences-from-neo4j, concepts/where-relate-fits]
+schema: null
+verify: guides/neo4j/push-to-neo4j#step-3
+---
+
+A team with data in Neo4j or Aura often wants part of it local: for an agent to query without network access, as a test fixture, or for an experiment that must not touch the shared database. Exporting to files and importing them again needs a file format and a converter in each direction.
+
+`relate pull` copies a subgraph over the Neo4j HTTP Query API into a local directory or `.rl` store. Every statement given with `--query` returns graph elements; the statements run in one process with one checkpoint at the end, and the credentials come from an env file named with `--from` or from `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`. `relate push` copies a scoped subgraph back, merging on keys from the store's constraints unless `--merge-key` names others, and `--dry-run` prints the plan without touching the remote. [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j) lists the constructs a query written for Neo4j may use that relate does not have, such as APOC, with what to write instead, and `relate serve` speaks Bolt and the HTTP Query API, so Neo4j tools can reach the local copy. Pull and push need a running Neo4j or Aura database, which the docs checks do not have; the recorded run is the push plan from `--dry-run`, which reads only the local store.

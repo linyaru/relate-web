@@ -1,0 +1,431 @@
+---
+title: Use the Rust crate
+label: Rust
+description: Embed relate in a Rust program with the relate crate, from opening a store through parameters, transactions, result metadata, plans and typed errors.
+order: 30
+surfaces: [rust]
+prerequisites: [get-started/rust]
+related: [get-started/rust, reference/api/rust, reference/errors, concepts/transactions-and-concurrency, guides/operate/durability-modes, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+This guide shows you how to embed relate in a Rust program with the `relate` crate: open a store, bind parameters, group writes in transactions, read what a result says about itself, ask for a plan, and branch on typed errors. The crate is the engine itself, so statements run in your process with no server, and every other :term[client]{id=client} is built on it. Each program on this page writes to a store it creates, and each one runs on its own.
+
+## Prerequisites
+
+- Rust 1.88 or later and Cargo. The crate's `rust-version` is 1.88.
+- A Cargo project for your app.
+
+## Add the client
+
+Add the crate from its Git repository:
+
+```bash
+cargo add --git https://github.com/relatedb/relate relate
+```
+
+Cargo records the commit it resolved in `Cargo.lock`. To pin a release, add `--tag v0.16.1`. The programs on this page were checked against a source build that reports 0.16.1 and includes engine changes made after that tag. In that build the default Cargo feature, `parquet`, compiles the Parquet snapshot codec; at the `v0.16.1` tag Parquet is always compiled. The [Rust API reference](/docs/reference/api/rust#cargo-features) lists the features.
+
+## Open a store
+
+`Database::open` takes the store's location and creates the store when nothing is there yet:
+
+| Argument | Store |
+| --- | --- |
+| `":memory:"` | An in-memory store, gone when the `Database` is dropped |
+| A path ending in `.rl` | A :term[single-file store]{id=single-file-store}: snapshot and WAL in one file |
+| Any other path | A directory store: snapshot files beside a `wal/` directory |
+
+A `file://` URI names a path the same way. `db.connect()` returns a `Connection`, and `query` runs one statement and returns a `QueryResult`. This program writes the team graph to an in-memory store and to `team.rl`, then reopens the file with `Database::open_read_only`:
+
+```rust run name=open
+use relate::Database;
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn main() -> relate::Result<()> {
+    // An in-memory store: gone when the Database is dropped.
+    let memory = Database::open(":memory:")?;
+    let mut conn = memory.connect()?;
+    let created = conn.query(TEAM)?;
+    println!("in memory: {} nodes, {} relationships",
+        created.stats.nodes_created, created.stats.relationships_created);
+
+    // A single-file store: created on first open, durable after each commit.
+    {
+        let file = Database::open("./team.rl")?;
+        file.connect()?.query(TEAM)?;
+    }
+
+    // Reopen the same file read-only: reads work, writes fail.
+    let reader = Database::open_read_only("./team.rl")?;
+    let mut conn = reader.connect()?;
+    let people = conn.query("MATCH (p:Person) RETURN count(p) AS people")?;
+    println!("team.rl: {} people", people.rows[0][0]);
+    println!("write refused: {}", conn.query("CREATE (:Person {name: 'Lin'})").is_err());
+    Ok(())
+}
+```
+
+A `Database` is `Send` and `Sync`, so threads can share one and each open its own `Connection`. A `Connection` is `Send` but not `Sync`: its methods take `&mut self`, one statement at a time. A read-only open never creates, writes, or checkpoints the store, and a write on it fails with `WriteOnReadOnlyAccessDatabase`.
+
+## Bind parameters and read typed values
+
+A statement names each value it needs as `$name`. `query_with_params` takes the values as a `BTreeMap<String, Value>`, so a value never becomes part of the Cypher text:
+
+```rust run name=params
+use std::collections::BTreeMap;
+
+use relate::{Database, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+const TEAM_OF: &str = "
+MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project})
+RETURN p.name AS name, w.since AS since
+ORDER BY since";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    for project in ["relate", "opencypher-tck"] {
+        let params = BTreeMap::from([("project".to_string(), Value::String(project.into()))]);
+        let result = conn.query_with_params(TEAM_OF, params)?;
+        println!("{project}");
+        for row in &result.rows {
+            if let [Value::String(name), Value::Int(since)] = row.as_slice() {
+                println!("  {name} since {since}");
+            }
+        }
+    }
+    Ok(())
+}
+```
+
+Each row is a `Vec<Value>` in `RETURN` order. `Value` is an enum with one variant per Cypher type (`Value::Int(i64)`, `Value::String(Arc<str>)`, `Value::Node(Arc<Node>)` and the rest), so a slice pattern reads a row's cells by type. Strings, lists, maps and vectors share their payload behind an `Arc`: build one with `.into()`, and cloning a value never copies it. The [Value mapping](/docs/reference/api/rust#value) lists every variant and its Cypher type.
+
+## Group writes in a transaction
+
+Each `query` call commits on its own until you call `begin()`. From then on, every statement on that connection joins one :term[transaction]{id=transaction}: `commit()` publishes it as one WAL commit, and `rollback()` discards it. Other connections never see a write before its commit.
+
+```rust run name=transaction
+use relate::{Connection, Database};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn count(conn: &mut Connection, label: &str) -> relate::Result<String> {
+    let result = conn.query(&format!("MATCH (n:{label}) RETURN count(n) AS n"))?;
+    Ok(result.rows[0][0].to_string())
+}
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    // Commit: every statement since begin() lands as one WAL commit.
+    conn.begin()?;
+    conn.query(
+        "MATCH (tck:Project {name: 'opencypher-tck'}) \
+         CREATE (:Person {name: 'Lin', role: 'engineer'})-[:WORKS_ON {since: 2026}]->(tck)",
+    )?;
+    let bookmark = conn.commit()?;
+    println!("commit bookmark: {}", bookmark.as_deref().unwrap_or("none"));
+    println!("people after commit: {}", count(&mut conn, "Person")?);
+
+    // Roll back: the delete is visible inside the transaction only.
+    conn.begin()?;
+    conn.query("MATCH (p:Project) DETACH DELETE p")?;
+    println!("projects inside the transaction: {}", count(&mut conn, "Project")?);
+    conn.rollback()?;
+    println!("projects after rollback: {}", count(&mut conn, "Project")?);
+
+    // A transaction that writes nothing commits no bookmark.
+    conn.begin()?;
+    println!("empty commit: {:?}", conn.commit()?);
+    Ok(())
+}
+```
+
+`commit()` returns the transaction's :term[bookmark]{id=bookmark}, `relate:<n>`, where `n` is the store's commit sequence; a transaction that wrote nothing returns `None`. Compare bookmarks by the parsed `n`, never as strings: `relate:10` sorts before `relate:9`. A statement that fails inside a transaction fails the transaction, and only `rollback()` clears it. A second `begin()` on the same connection fails with `semantic error: already in a transaction`.
+
+## Read result metadata
+
+A `QueryResult` carries its rows and a `header` describing them, the statement's counters in `stats`, and the auto-commit write's bookmark in `bookmark`:
+
+```rust run name=metadata
+use relate::Database;
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    let created = conn.query(TEAM)?;
+    println!("bookmark: {:?}", created.bookmark);
+
+    let result = conn.query(
+        "MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) \
+         RETURN p.name AS name, w.since AS since ORDER BY since",
+    )?;
+    println!("columns: {:?}", result.header.columns);
+    println!("column types: {:?}", result.header.column_types);
+    println!("query type: {}", result.header.query_type.as_str());
+    println!("namespace: {:?}", result.header.namespace);
+    println!("bookmark: {:?}", result.bookmark);
+
+    let write = conn.query("MATCH (n:Person {name: 'Noor'}) SET n.role = 'lead'")?;
+    println!("query type: {}", write.header.query_type.as_str());
+    println!("properties set: {}", write.stats.properties_set);
+    Ok(())
+}
+```
+
+`column_types` names each column's type from the first row; a column whose first value is null, or a result with no rows, reports `ANY`. `query_type` comes from the plan before the statement runs: `r` for a read, `w` for a write with no returned columns, `rw` for a write that returns columns, and `s` for schema commands. `elapsed_ms()` and its split into `parse_ms()`, `plan_ms()` and `execute_ms()` are the engine's own timings for the statement.
+
+## Handle errors
+
+Every fallible call returns `relate::Result<T>`, and `relate::Error` is an enum whose variants are the error classes: `ParameterMissing`, `Conflict`, `Locked`, `Arithmetic` and the rest. Match the variant to branch, and call `relate::error_info(&e)` for the codes every other surface reports for the same error:
+
+```rust run name=errors
+use std::collections::BTreeMap;
+
+use relate::{error_info, Database, Error, Value};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+const ROLE_OF: &str = "MATCH (p:Person {name: $name}) RETURN p.role AS role";
+
+fn report(e: &Error) {
+    let info = error_info(e);
+    println!("{e}");
+    println!("  code={} gql_status={} stage={:?} retryable={}",
+        info.neo4j_code, info.gql_status, info.stage, info.retryable);
+}
+
+fn main() -> relate::Result<()> {
+    let db = Database::open("./team.rl")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    // A statement that names $name without a value fails before it runs.
+    match conn.query(ROLE_OF) {
+        Err(e @ Error::ParameterMissing(_)) => report(&e),
+        other => println!("unexpected: {:?}", other.map(|r| r.rows)),
+    }
+
+    // A second writer on the same store is refused while this one is open.
+    match Database::open("./team.rl") {
+        Err(e @ Error::Locked(_)) => report(&e),
+        other => println!("unexpected: {}", other.is_ok()),
+    }
+
+    // The connection stays usable after an error.
+    let params = BTreeMap::from([("name".to_string(), Value::String("Noor".into()))]);
+    let result = conn.query_with_params(ROLE_OF, params)?;
+    if let [Value::String(role)] = result.rows[0].as_slice() {
+        println!("Noor is a {role}");
+    }
+    Ok(())
+}
+```
+
+`error_info` returns the Neo4j status code, the GQLSTATUS code, the stage (`Compile` before any work, `Runtime` while producing rows, `Internal` when the statement is not at fault), and `retryable`, which is `true` only for a write-write conflict (`Error::Conflict`) and a retryable processing limit. The engine never retries on its own. Outside an explicit transaction, the connection stays usable after a statement error.
+
+## Read plans and notifications
+
+`EXPLAIN` plans a statement without running it, and `PROFILE` runs it and stamps each operator with what it did. Either prefix gives the result a plan tree, at `plan_root()`, and the :term[notifications]{id=notification} derived with it, at `notifications()`. A plain run carries neither.
+
+```rust run name=plan
+use relate::{Database, PlanNode};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn print_tree(node: &PlanNode, depth: usize) {
+    let rows = node.metrics.as_ref().map(|m| m.rows.to_string()).unwrap_or("-".into());
+    println!("{}{} [{}] rows={}", "  ".repeat(depth), node.operator, node.details, rows);
+    for child in &node.children {
+        print_tree(child, depth + 1);
+    }
+}
+
+fn main() -> relate::Result<()> {
+    let db = Database::open(":memory:")?;
+    let mut conn = db.connect()?;
+    conn.query(TEAM)?;
+
+    // EXPLAIN plans without running and derives the notifications.
+    let explained = conn.query("EXPLAIN MATCH (p:Person), (q:Project) RETURN p.name, q.name")?;
+    for n in explained.notifications() {
+        println!("{} {} {}: {}", n.gql_status(), n.severity().as_str(), n.title(), n.description());
+    }
+
+    // PROFILE runs the statement and stamps rows on each operator.
+    let profiled = conn.query(
+        "PROFILE MATCH (p:Person)-[:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name",
+    )?;
+    if let Some(root) = profiled.plan_root() {
+        print_tree(root, 0);
+    }
+    println!("rows returned: {}", profiled.rows.len());
+    Ok(())
+}
+```
+
+Each `PlanNode` has an `operator`, `details`, `estimated_rows`, `children`, typed `warnings` and, under `PROFILE`, `metrics` with rows, database hits, memory, and time. `Connection::explain_plan(cypher)` returns the same tree for a statement without running it or binding parameters. The [notifications reference](/docs/reference/cypher/notifications) lists each code and its remedy.
+
+## Configure storage
+
+`Database::open_with(uri, OpenOptions)` takes the open's settings. Of the fields this guide uses, `durability_mode`, `checkpoint_interval` and `snapshot_codec` left `None` fall back to their `RELATE_*` environment variable, then to the built-in default; `wal_dir` reads no environment variable, and `mode` is not optional. The [Rust API reference](/docs/reference/api/rust#openoptions) lists every field:
+
+| Field | Default | Sets |
+| --- | --- | --- |
+| `durability_mode` | `RELATE_DURABILITY_MODE`, else `DurabilityMode::Full` | When a commit is acknowledged: `Full` syncs the WAL first; `EverySecond` can lose about the last second of acknowledged writes in a crash; `Snapshot` can lose every write since the last completed checkpoint |
+| `checkpoint_interval` | `RELATE_CHECKPOINT_INTERVAL_SECS`, else 300 seconds | The checkpoint timer; `Duration::ZERO` turns the timer off |
+| `wal_dir` | `<store>/wal` | A directory store's WAL directory |
+| `mode` | `OpenMode::Writable` | `ReadOnly`, `Follow` (read-only, tailing a directory store's WAL) or `Ephemeral` (load into memory and release the source) |
+| `snapshot_codec` | `RELATE_SNAPSHOT_FORMAT`, else Parquet (JSON in a build without the `parquet` feature) | A new store's snapshot codec: `SnapshotCodecKind::Parquet`, `Json` or `Markdown` |
+
+This program opens a directory store with a one-second loss window, writes a checkpoint, copies the store into a `.rl` file with `Database::clone`, and opens the copy read-only:
+
+```rust run name=options
+use std::path::Path;
+use std::time::Duration;
+
+use relate::{CloneOptions, Database, DurabilityMode, OpenMode, OpenOptions};
+
+const TEAM: &str = "
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)";
+
+fn main() -> relate::Result<()> {
+    // A directory store with a one-second loss window and a 60-second timer.
+    {
+        let options = OpenOptions {
+            durability_mode: Some(DurabilityMode::EverySecond),
+            checkpoint_interval: Some(Duration::from_secs(60)),
+            ..Default::default()
+        };
+        let db = Database::open_with("./team", options)?;
+        db.connect()?.query(TEAM)?;
+        db.checkpoint()?;
+        println!("snapshot written: {}", db.snapshot_data_bytes()? > 0);
+        println!("manifest.json: {}", Path::new("./team/manifest.json").exists());
+        println!("wal/: {}", Path::new("./team/wal").is_dir());
+    }
+
+    // Copy the directory store into a single .rl file.
+    Database::clone("./team", "./team.rl", CloneOptions::default())?;
+
+    // Open the copy read-only through OpenOptions.
+    let reader = Database::open_with("./team.rl", OpenOptions::with_mode(OpenMode::ReadOnly))?;
+    let mut conn = reader.connect()?;
+    let result = conn.query("MATCH (p:Project) RETURN count(p) AS projects")?;
+    println!("read-only: {}, projects: {}", reader.is_read_only(), result.rows[0][0]);
+    Ok(())
+}
+```
+
+`checkpoint()` writes a snapshot and recycles the closed WAL segments; it is not what makes a commit durable, which the durability mode decides. The [Rust API reference](/docs/reference/api/rust#openoptions) lists every field, including the memory limits, safe mode and the `LOAD CSV` directory.
+
+## Verify
+
+Build and run your program with `cargo run`. A program that opens a store, writes the team graph and reads it back prints the counts it wrote. Reading a persistent store back from a second program is the end-to-end check, so open it read-only:
+
+```rust
+let db = relate::Database::open_read_only("./team.rl")?;
+let people = db.connect()?.query("MATCH (p:Person) RETURN count(p) AS people")?;
+assert_eq!(people.rows[0][0], relate::Value::Int(3));
+```
+
+Three people in `team.rl` mean the writes reached the file.
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `storage locked: <path>` (`Error::Locked`) | Another writable `Database`, in this process or another, holds the store. | Drop the other handle first, or open with `Database::open_read_only`: a directory store opens read-only beside its writer, a `.rl` store only while no writer holds it. |
+| `semantic error: ParameterMissing: Expected parameter(s): <names>` | The statement names a `$parameter` the map does not bind. | Add every named value to the `BTreeMap`; a bound `Value::Null` counts. |
+| `semantic error: transaction failed; rollback required` | A statement failed inside an explicit transaction, and a later statement or `commit()` ran on it. | Call `rollback()`, then run the transaction again. |
+| `storage error: read-only open requires an existing database at <path>` | A read-only open named a directory that holds no store. | Check the path; only a writable open creates a store. |
+| `storage error: database not found: <path>` | A read-only open named a `.rl` file that does not exist. | Check the path; only a writable open creates a store. |
+
+The [errors reference](/docs/reference/errors) lists every engine message with its codes.
+
+## Related
+
+- [Rust API](/docs/reference/api/rust): every type and function the crate exports, `OpenOptions`, the `Value` mapping and the error variants with their codes.
+- [Errors](/docs/reference/errors): every message, its cause, and its codes.
+- [Transactions and concurrency](/docs/concepts/transactions-and-concurrency): what a transaction isolates, and why a store has one writer.
+- [Choose a durability mode](/docs/guides/operate/durability-modes): the loss window of each mode.
+- [Storage formats](/docs/reference/storage/formats): the three store layouts and what each writes to disk.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the crate solves.

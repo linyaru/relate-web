@@ -1,0 +1,341 @@
+---
+title: HTTP Query API
+description: The routes, request and response JSON, status codes, error bodies, transactions, content types, limits, and authentication of relate's HTTP Query API.
+order: 30
+surfaces: [http]
+related: [guides/serve/http-query-api, reference/cli/serve, reference/errors#http-query-api-errors, reference/server/bolt, reference/server/mcp, reference/security#served-surfaces, reference/limitations#server]
+---
+
+`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 0.16.1.
+
+## Synopsis
+
+```text
+relate serve --database PATH --http PORT [--host HOST] [--auth USER:PASSWORD] [--origin ORIGIN] [--tx-idle-timeout-secs N] [--max-open-transactions N] [--read-only[=FRESHNESS]]
+```
+
+| Item | Value |
+| --- | --- |
+| Transport | HTTP/1.1 only, plaintext, one request per connection (`connection: close` on every response) |
+| Bind | `127.0.0.1:PORT`; `--host` changes the address, with no TLS on any address |
+| Statement route | `POST /db/<name>/query/v2`: one auto-commit statement |
+| Transaction routes | `POST /db/<name>/query/v2/tx` and the routes under it |
+| `<name>` | A :term[namespace]{id=namespace}: `neo4j`, `system` or `system_ontologies` |
+| Authentication | HTTP Basic on every route but `GET /` and `OPTIONS`, from one credential shared with the other `relate serve` surfaces |
+| Request types | `application/json` (plain parameters) and `application/vnd.neo4j.query.v1.2` (typed parameters) |
+| Response types | `application/json` (plain values) or `application/vnd.neo4j.query` (typed values), chosen by `Accept` |
+| Flags | On [relate serve](/docs/reference/cli/serve) and in [CLI flags](/docs/reference/cli/flags#serve-http) |
+
+## Routes
+
+| Method | Path | Answer |
+| --- | --- | --- |
+| `GET` | `/` | 200 and the discovery document; no credential needed |
+| `POST` | `/db/<name>/query/v2` | 200 and the result of one auto-commit statement |
+| `POST` | `/db/<name>/query/v2/tx` | 201: begins a transaction, runs the body's statement when there is one, and returns the result with a `transaction` block |
+| `POST` | `/db/<name>/query/v2/tx/<id>` | 200: runs a statement in the open transaction; an empty body keeps the transaction alive |
+| `POST` | `/db/<name>/query/v2/tx/<id>/commit` | 200: runs the body's statement when there is one, then commits and closes the transaction |
+| `DELETE` | `/db/<name>/query/v2/tx/<id>` | 202 and `{}`: rolls back and closes the transaction |
+| `OPTIONS` | Any path | 204: a CORS preflight, with no credential needed ([Browser requests](#browser-requests)) |
+| Another method | A known route | 405, `method not allowed` |
+| Any | Any other path | 404, `not found` |
+
+The discovery document names the routes. With `--bolt` in the same process, it also carries `bolt_direct`. This server opens the store read-only:
+
+```bash
+relate serve --database ./team --http 8851 --bolt 8852 --read-only
+curl -s http://127.0.0.1:8851/
+```
+
+```json
+{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
+```
+
+| Key | Value |
+| --- | --- |
+| `query` | The statement route, built from the request's `Host` header |
+| `transaction` | The transaction route, the same URL plus `/tx` |
+| `neo4j_version` | The relate version |
+| `neo4j_edition` | `community` |
+| `auth_config` | `{"oidc_providers": []}`: there is no single sign-on |
+| `bolt_direct` | The Bolt URL, only when the process also serves `--bolt` |
+
+## Request
+
+The body of a statement or transaction request is one JSON object:
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `statement` | string | required on the statement route; optional on the transaction routes | One Cypher statement. A second statement after `;` is a syntax error |
+| `parameters` | object | none | The statement's parameters, each bound to `$name`. A statement that names a parameter the object lacks fails with `42N02`; nothing is bound as `null` |
+| `includeCounters` | boolean | `false` | `true` puts `counters` on a response that wrote nothing |
+| `accessMode` | string | none | `"READ"` on a transaction route refuses writes for the rest of that transaction; the auto-commit route ignores it |
+
+Other keys are ignored. On the statement route, a body that is not JSON, or that has no `statement`, is a 400 with code `42N06`. On the transaction routes, a body without `statement`, an empty body included, runs nothing: it opens a transaction on the begin route and keeps one alive on the run route.
+
+The request's `Content-Type` selects how `parameters` are read:
+
+| Request `Content-Type` | Parameters |
+| --- | --- |
+| `application/json` | Plain JSON values. An object shaped like `{"$type": …, "_value": …}` stays a map |
+| `application/vnd.neo4j.query.v1.2` | Plain JSON values, or typed values `{"$type": <type>, "_value": <value>}` as Neo4j's clients send them. A temporal value arrives as its ISO 8601 string (`date($p)` builds the typed value in Cypher), a point as its `{coordinates, crs}` map, a vector as its number list. An unknown `$type` is a 400, `unknown typed parameter $type "<type>"` |
+| None, `text/plain`, or a form type | 415, before the credential check |
+| Any other, `application/vnd.neo4j.query` included | 400, `content-type "<type>" is not a statement request type: application/json for plain parameters, or application/vnd.neo4j.query.v1.2 for typed envelope parameters` |
+
+## Response
+
+The `Accept` header picks the response type and the value encoding; the first entry the server can produce wins:
+
+| `Accept` | Response `Content-Type` | Values |
+| --- | --- | --- |
+| `application/json`, `*/*`, or no header | `application/json` | Plain JSON |
+| `application/vnd.neo4j.query`, or a versioned form such as `application/vnd.neo4j.query.v1.1+json` | `application/vnd.neo4j.query` | Typed: every value `{"$type": …, "_value": …}` |
+| Only types the server cannot produce | `application/json` | 406, `not acceptable: this server responds application/json or application/vnd.neo4j.query` |
+
+Error responses are always `application/json`.
+
+### Success envelope
+
+| Key | Present | Value |
+| --- | --- | --- |
+| `data.fields` | Always | The column names |
+| `data.values` | Always | One array per row, aligned with `fields` |
+| `counters` | When the statement wrote, or `includeCounters` is `true` | The 11 mutation counters, zeros included: `constraints_added`, `constraints_removed`, `indexes_added`, `indexes_removed`, `labels_added`, `labels_removed`, `nodes_created`, `nodes_deleted`, `properties_set`, `relationships_created`, `relationships_deleted` |
+| `bookmarks` | Always | `[]` |
+| `queryPlan` | On an `EXPLAIN` statement | The plan tree ([Plans and notifications](#plans-and-notifications)) |
+| `profiledQueryPlan` | On a `PROFILE` statement | The plan tree with its measured metrics |
+| `notifications` | On an `EXPLAIN` or `PROFILE` statement that raised any | The plan's notifications |
+| `transaction` | On a begin or run in a managed transaction | `id` and `expires` ([Transactions](#transactions)) |
+
+The envelope carries no column types and no timings. The [MCP server](/docs/reference/server/mcp#results) and the CLI's `--mode envelope` carry both.
+
+The examples on this page run against the shared example graph of three people and two projects, served writable because some of them write:
+
+{/* docs-check-ignore trust-read-only */}
+```bash
+relate serve --database ./team --http 8851 --auth <user>:<password>
+```
+
+A read with a parameter returns rows and no `counters`:
+
+```bash
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person {role: $role}) RETURN p.name AS name, p ORDER BY name", "parameters": {"role": "engineer"}}'
+```
+
+```json
+{"data":{"fields":["name","p"],"values":[["Ada",{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}],["Grace",{"elementId":"1","labels":["Person"],"properties":{"name":"Grace","role":"engineer"}}]]},"bookmarks":[]}
+```
+
+A write returns `counters`:
+
+```bash
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "CREATE (:Project {name: $name, language: $language})", "parameters": {"name": "docs", "language": "Markdown"}}'
+```
+
+```json
+{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[]}
+```
+
+### Value encoding
+
+| Cypher type | Plain (`application/json`) | Typed (`application/vnd.neo4j.query`) |
+| --- | --- | --- |
+| Integer, float | A JSON number | `{"$type": "Integer", "_value": "2"}`, `{"$type": "Float", "_value": "1.5"}`: the number as a string |
+| String, boolean, null | The JSON value | `String`, `Boolean`, `Null` with the JSON value |
+| List, map | A JSON array or object | `List` or `Map`, with each member typed |
+| :term[Node]{id=node} | `{"elementId", "labels", "properties"}` | `Node` with `_element_id`, `_labels` and typed `_properties` |
+| Relationship | `{"elementId", "startNodeElementId", "endNodeElementId", "type", "properties"}` | `Relationship` with the same fields in the typed form |
+| Path | A JSON array alternating nodes and relationships | `Path` |
+| Date, time, datetime, duration | The ISO 8601 string: `"2024-01-02"`, `"2024-01-02T03:04:05Z"`, `"2024-01-02T03:04:05+01:00[Europe/Stockholm]"`, `"P1DT2H"` | `Date`, `Time`, `LocalTime`, `LocalDateTime`, `OffsetDateTime`, `ZonedDateTime` or `Duration`, with the string |
+| Point | `{"type": "Point", "coordinates": [13.0, 55.6], "crs": {…}}`, `crs` naming the SRID, such as `4326` (`wgs-84`) | `Point` with `coordinates` and `crs` |
+| Byte array | A list of integers from 0 to 255 | A `List` of `Integer` |
+
+The `elementId` in this API is the node's or relationship's number as a string (`"0"`); Bolt 5.4 carries the `elementId()` form, such as `4:relate:n0`. A byte array reaches the engine only as a Bolt or Rust parameter, never through this API's JSON.
+
+### Plans and notifications
+
+An `EXPLAIN` statement returns no rows (`data.fields` and `data.values` are empty) and its plan under `queryPlan`. A `PROFILE` statement returns its own rows and its plan under `profiledQueryPlan`. A statement without either prefix carries neither key and no `notifications`.
+
+| Plan node key | Value |
+| --- | --- |
+| `operatorType` | The operator with an `@relate` suffix, such as `ProduceResults@relate` |
+| `arguments` | `Id`, `Details` and the operator's other arguments; on the root, `string-representation` (the plan as text), `version`, `planner`, `planner-impl`, `planner-version`, `runtime`, `runtime-impl` and `runtime-version`; on a `PROFILE` plan, `Rows`, `DbHits`, `TimeNs`, `MemoryBytes` and the other measured values |
+| `identifiers` | A list of strings |
+| `children` | The child nodes; `[]` on a leaf |
+| `dbHits`, `records`, `time` | The measured values; `0` on an `EXPLAIN` plan |
+| `hasPageCacheStats`, `pageCacheHits`, `pageCacheMisses`, `pageCacheHitRatio` | Always `false`, `0`, `0` and `0.0` |
+| `warnings` | On a node with a warning: `{"name": …}` entries, such as `{"name": "CartesianProduct"}` |
+
+Each notification has `code`, `title`, `description`, `severity` and `category`. The remedy is appended to `description` as ` (remedy: <remedy>)`; there is no `position`, `gql_status` or `remedy` key:
+
+```json
+{"category":"PERFORMANCE","code":"Neo.ClientNotification.Statement.CartesianProduct","description":"the MATCH patterns share no join anchor (remedy: Give the patterns a join anchor: reuse a node variable across them, or add a pattern that relates their endpoints; otherwise run them as separate queries.)","severity":"INFORMATION","title":"Cartesian product"}
+```
+
+## Transactions
+
+A managed :term[transaction]{id=transaction} is an explicit engine transaction that spans several requests: commit makes its writes durable, rollback discards them, and the auto-commit route does not see them until commit. Every reply about an open transaction carries a `transaction` block:
+
+| Key | Value |
+| --- | --- |
+| `id` | `tx-<n>`, counting from `tx-0` in each server process, never reused |
+| `expires` | When the transaction expires if nothing touches it, an RFC 3339 UTC time with milliseconds, such as `2026-11-08T09:53:54.828Z`; absent when expiry is off |
+
+| Rule | Behavior |
+| --- | --- |
+| Idle expiry | A transaction untouched for `--tx-idle-timeout-secs` seconds (default 60, `RELATE_TX_IDLE_TIMEOUT_SECS`, `0` turns expiry off) is rolled back. A begin or a run, the empty keep-alive body included, resets the clock, even when its statement failed |
+| Expired | The next request to that id answers 404, `42N90`, `transaction <id> expired after <n>s idle`, when that request is the one that finds it expired. Once another request has swept it, the id answers 404, `42000`, `transaction <id> not found` |
+| Open-transaction cap | At most `--max-open-transactions` open at once (default 128, `RELATE_MAX_OPEN_TRANSACTIONS`, `0` is unlimited). A begin over the cap answers 429, `42N91`, `transaction registry full: <n> open transactions (close one or raise --max-open-transactions)` |
+| Closed or unknown id | 404, `42000`, `transaction <id> not found`; also while another request's statement in the same transaction is still running |
+| Failed statement | The transaction stays open but has failed, and the error response carries the `transaction` block. Every later statement and the commit answer 400, `42000`, `semantic error: transaction failed; rollback required` ([errors reference](/docs/reference/errors#engine-transaction-failed-rollback-required)); an empty keep-alive body still answers 200. A commit that gets this answer closes the transaction with nothing written, and `DELETE` closes it. A refusal under `accessMode: "READ"` does not fail the transaction |
+| Failed begin statement | The new transaction is rolled back |
+| `accessMode: "READ"` | A write or schema statement in that transaction answers 400, `42000`, `writing is not allowed in a READ transaction`, and the transaction stays open |
+| Store opened `--read-only` | A write inside a transaction runs and is visible to that transaction; the commit answers 400, `42N18`, and nothing is written |
+| Server stops | The writes of every open transaction are discarded |
+
+A transaction from begin to commit, with the store's people counted from inside it and from the auto-commit route:
+
+```bash
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2/tx \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "CREATE (:Person {name: $name}) RETURN $name AS name", "parameters": {"name": "Eve"}}'
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2/tx/tx-0 \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}'
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}'
+curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2/tx/tx-0/commit \
+  -H 'Content-Type: application/json' \
+  -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}'
+```
+
+The four responses, in order; the `expires` values differ on every run:
+
+```text
+{"data":{"fields":["name"],"values":[["Eve"]]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":1,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:53:54.828Z","id":"tx-0"}}
+{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:53:54.840Z","id":"tx-0"}}
+{"data":{"fields":["people"],"values":[[3]]},"bookmarks":[]}
+{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[]}
+```
+
+Inside the transaction there are four people; the auto-commit route still counts three until the commit.
+
+## Bookmarks
+
+`bookmarks` is `[]` on every response, writes included, and a request's own `bookmarks` key is ignored. Every committed transaction is visible to the next request on any connection, because one process serves one store. The Bolt surface returns a bookmark for each commit ([Bolt bookmarks](/docs/reference/server/bolt#bookmarks)).
+
+## Status codes and errors
+
+An error response is `application/json` with one key, `errors`, holding one object with `code` and `message`:
+
+```json
+{"errors":[{"code":"42N00","message":"semantic error: DatabaseNotFound: Graph not found: movies"}]}
+```
+
+| Status | `code` | When | Example `message` |
+| --- | --- | --- | --- |
+| 400 | `42N06` | On the statement route, the body is not JSON or has no `statement`; a Cypher syntax error | ``invalid request body: missing field `statement` at line 1 column 19`` |
+| 400 | `42N02` | The statement names a parameter the request does not bind | `semantic error: ParameterMissing: Expected parameter(s): x` |
+| 400 | `22G03` | A type error, division by zero included | `type error: / by zero` |
+| 400 | `51N27` | A database administration command | `semantic error: UnsupportedAdministrationCommand: Unsupported administration command: CREATE DATABASE foo` |
+| 400 | `42N18` | A write against a store opened `--read-only` | `semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance.` |
+| 400 | `42000` | Any other refused statement; a statement or commit in a transaction that has already failed; an unknown typed parameter; an unsupported request `Content-Type`; a write in a `READ` transaction; a body over the cap; a request line that is not HTTP/1.1 | `unsupported HTTP version HTTP/1.0: this surface answers HTTP/1.1` |
+| 401 | `42NFF` | No credential, or a wrong one, after a 1-second delay; with `WWW-Authenticate: Basic realm="relate"` | `authentication required` |
+| 403 | `42000` | A browser `Origin` outside the allowlist | `origin is not allowed` |
+| 404 | `42N00` | An unknown namespace, or any unknown path | `not found` |
+| 404 | `42000` | A transaction id that is closed, unknown, or busy | `transaction tx-1 not found` |
+| 404 | `42N90` | A transaction that expired idle | `transaction tx-2 expired after 2s idle` |
+| 405 | `42000` | A method the route does not take | `method not allowed` |
+| 406 | `42000` | An `Accept` the server cannot satisfy | `not acceptable: this server responds application/json or application/vnd.neo4j.query` |
+| 415 | `42000` | A `POST` with no `Content-Type`, `text/plain` or a form type | `the request content type is browser-"simple" — a cross-origin form cannot send a non-simple type without a preflight` |
+| 429 | `42N91` | A begin over the open-transaction cap | `transaction registry full: 2 open transactions (close one or raise --max-open-transactions)` |
+| 500 | `50N42` | An engine-internal failure; the message is generic | |
+| 500 | `42000` | A storage, IO or lock failure; the message is generic | |
+
+Each code's cause and remedy is in the [HTTP Query API errors](/docs/reference/errors#http-query-api-errors).
+
+## Authentication
+
+Every route except `GET /` and `OPTIONS` asks for HTTP Basic authentication (RFC 7617). The check runs before routing, so an unknown path without a credential is a 401, not a 404, and it runs before the body is read.
+
+| Source | Credential |
+| --- | --- |
+| `--auth USER:PASSWORD` | That user and password. A value with no colon exits 1 with `Error: --auth: expected user:password or 'none'` |
+| `RELATE_AUTH` | The same forms, read when `--auth` is absent |
+| `--auth none` | No credential is checked |
+| Neither | A generated token for the user `relate`, printed on stderr at startup; saved as `<store>.auth-token` (mode `0600`) beside a directory or `.rl` store and reused on restart; new on every start for `:memory:` |
+
+The credential is the one `relate serve` shares with its `--mcp` and `--bolt` listeners. There are no users, roles or per-namespace permissions. Every surface is plaintext, so a credential sent to a non-loopback `--host` crosses the network unencrypted; [Security](/docs/reference/security#served-surfaces) lists the defaults.
+
+## Browser requests
+
+A `POST` or `DELETE` that carries an `Origin` header must name an allowed origin, or it is refused with 403 before the credential check. A request without `Origin`, such as one from `curl`, is not checked.
+
+| Setting | Allowed origins |
+| --- | --- |
+| No `--origin` | Loopback (`http` or `https` on `localhost`, `127.0.0.1` or `[::1]`, any port), `https://browser.neo4j.io` and `https://console.neo4j.io` |
+| `--origin <url>`, repeatable | Only the origins named; loopback is no longer implied |
+| `--origin '*'` | Any origin |
+
+| Response | Header |
+| --- | --- |
+| Any response to an allowed `Origin` | `Access-Control-Allow-Origin` with that origin; none for an origin outside the list |
+| `OPTIONS` preflight | 204 with `Access-Control-Allow-Methods: GET, POST, OPTIONS` and `Access-Control-Allow-Headers: Authorization, Content-Type, sentry-trace, baggage` |
+
+A value that is not an origin URL or `*` stops the server before it starts:
+
+```bash verify
+relate serve --database :memory: --http 7474 --read-only --origin example.com
+echo "exit=$?"
+```
+
+```text
+Error: serve --origin expects an origin URL (http(s)://…) or *, got "example.com"
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Run 'relate serve --help' for more information.
+exit=2
+```
+
+## Compression and framing
+
+| Condition | Response |
+| --- | --- |
+| `Accept-Encoding` accepts `gzip` (or `x-gzip`), and the body is at least 1024 bytes and smaller compressed | `Content-Encoding: gzip`; no other coding is produced |
+| Any response on a query route | `Vary: Accept-Encoding`; the discovery document and the preflight carry none |
+| An uncompressed body of 65536 bytes or more, measured before gzip | `Transfer-Encoding: chunked` instead of `Content-Length`; the chunk boundaries carry no meaning |
+| Any other body | `Content-Length` |
+
+`RETURN range(1, 500) AS r` with `Accept-Encoding: gzip` came back gzipped in 936 bytes, `RETURN 1 AS i` uncompressed, and `RETURN range(1, 20000) AS r` (108949 bytes uncompressed) chunked, even gzipped to 40823 bytes. Clients that decode gzip and chunked framing, `curl --compressed` and the Neo4j drivers among them, see the same JSON either way.
+
+## Limits
+
+Every row is a limit.
+
+| Limit | Value | Over the limit |
+| --- | --- | --- |
+| Request body | 16 MiB | 400, `42000`, `malformed request: body too large` |
+| Statements per request | 1 | A syntax error |
+| Requests per connection | 1 | The server closes the connection after each response |
+| Header deadline | 10 seconds for the whole header block (`--header-deadline-secs`, `RELATE_HEADER_DEADLINE_SECS`; `0` turns it off; at most 86400) | The connection is dropped with no reply |
+| Body deadline | 60 seconds for the whole body (`--body-deadline-secs`, `RELATE_BODY_DEADLINE_SECS`; `0` turns it off; at most 86400) | The connection is dropped with no reply |
+| Concurrent connections | 128, shared with the `--mcp` and `--bolt` listeners (`--max-connections`, `RELATE_MAX_CONNECTIONS`) | The connection is accepted, then closed |
+| Idle managed transaction | 60 seconds (`--tx-idle-timeout-secs`) | Rolled back; 404, `42N90` |
+| Open managed transactions | 128 (`--max-open-transactions`) | 429, `42N91` |
+| Failed credential checks | One answer per second per connection | The 401 waits 1 second |
+| Traversal depth | An explicit hop bound up to 500 (`--max-traversal-depth`, 1 to 2000) | 400 with the `TraversalDepthExceeded` message |
+
+There is no per-statement timeout and no row cap: a response holds every row of its result. With both transaction limits set to `0` on a non-loopback `--host`, the server prints a startup warning that an abandoned transaction would never expire.
+
+## See also
+
+- [relate serve](/docs/reference/cli/serve): every `serve` flag
+- [Serve the HTTP Query API](/docs/guides/serve/http-query-api): running the server and calling it
+- [HTTP Query API errors](/docs/reference/errors#http-query-api-errors): each error code with its cause and remedy
+- [Bolt server](/docs/reference/server/bolt): the binary protocol for Neo4j's drivers, served by the same process
+- [MCP server](/docs/reference/server/mcp): the same store as tools for agent hosts
+- [Security](/docs/reference/security#served-surfaces): the defaults of every served surface

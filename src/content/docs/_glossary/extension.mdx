@@ -1,0 +1,15 @@
+---
+id: extension
+term: "extension"
+short: "A package that adds an action to the CLI, run as `relate run <name>` and installed with `relate extension install`."
+aliases: ["add-on"]
+context: cli
+see: reference/cli/extension
+related: ["skill", "store"]
+---
+
+An extension is a separate program that `relate run <name>` starts: it reads its own source, such as files or an API, and sends rows back, while the host CLI alone owns the store, the limits, and the exit codes. Packages live under `$XDG_CONFIG_HOME/relate/extensions/<name>/`, and the flags an action takes come from its own manifest.
+
+`relate extension install` installs a package from the signed first-party channel by default, from a GitHub release pinned to a commit with `--github`, from an https URL with `--url`, or from a local folder with `--from`; every download is checked before it lands, and nothing is fetched silently. `relate extension list` prints what is installed, offline, and `relate extension init` scaffolds a new package. An uninstalled name fails closed, with nothing fetched.
+
+The docs keep the word extension for these packages, and :term[skill]{id=skill} for the agent's instructions.

@@ -1,0 +1,34 @@
+---
+id: dependency-analysis
+title: Dependency analysis
+order: 90
+problem: "Find which known advisories a package can reach and through which chain, and what goes away when a dependency is dropped."
+capability: "Resolved dependency graphs as nodes and relationships, quantified path patterns and `SHORTEST` for reachability and chains, and `COUNT` and `EXISTS` subqueries for blast radius."
+intents:
+  - which vulnerabilities can my package reach
+  - blast radius of a dependency
+  - what breaks if I drop this dependency
+  - fail CI on a reachable advisory
+  - transitive dependency analysis
+surfaces: [cypher, cli]
+guides: [guides/cli/scripting, guides/agents/use-in-ci]
+recipes: [dependency-blast-radius]
+reference: [reference/cypher/overview, reference/cli/exit-codes-and-errors, reference/cypher/patterns#quantified-path-patterns, reference/cypher/composing-clauses#subquery-expressions]
+schema: |
+  flowchart LR
+    accTitle: Recommended data model for dependency analysis: package versions, what they depend on, and the advisories that affect them
+    accDescr {
+      A Version DEPENDS_ON other Version nodes, and each DEPENDS_ON
+      relationship records its version requirement. Any Version can be
+      AFFECTED_BY an Advisory, which has an id, a title and a score.
+    }
+    Version(("<b>Version</b><br/>key · name · version")) -- "<b>DEPENDS_ON</b><br/>requirement" --> Version
+    Version -- "<b>AFFECTED_BY</b>" --> Advisory(("<b>Advisory</b><br/>id · title · cvss3"))
+    class Version l2
+    class Advisory l5
+verify: dependency-blast-radius#reachable
+---
+
+A lockfile lists what a project installs, not why. Whether an advisory matters depends on whether a package can reach the affected version, along which chain, and what else would disappear with the dependency that brings it in. Those are path questions, and a flat list cannot answer them.
+
+The [dependency blast radius recipe](/cookbook/dependency-blast-radius/) loads the resolved dependency graphs of three packages, with the advisories listed for every version, as `Version` nodes linked by `DEPENDS_ON`. Quantified path patterns find every advisory each package can reach, `SHORTEST` shows the chain, and `COUNT` and `EXISTS` subqueries measure what a dropped dependency takes with it. The last step turns the answer into a build check: a statement that returns no rows when the build may pass. [Script the CLI](/docs/guides/cli/scripting) covers running statements from a script, with output a program can parse and exit codes to branch on.

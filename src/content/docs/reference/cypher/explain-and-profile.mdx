@@ -1,0 +1,274 @@
+---
+title: EXPLAIN and PROFILE
+description: The plan relate builds for a statement, every operator in it, what PROFILE measures, how each output mode carries the plan, and how index use shows up.
+order: 130
+surfaces: [cypher, cli, mcp]
+related: [guides/cypher/tune-a-query, reference/cypher/notifications, reference/cypher/search, reference/cli/output-modes, concepts/problems-relate-solves#text-to-cypher]
+---
+
+`EXPLAIN <statement>` returns the :term[plan]{id=plan} relate would run, without running it. `PROFILE <statement>` runs the statement, returns its rows, and returns the same plan with what each operator did. Both also return the planner's :term[notifications]{id=notification}. [Tune a query](/docs/guides/cypher/tune-a-query) walks through reading a plan and acting on it; this page lists what a plan holds.
+
+## Synopsis
+
+```text
+[CYPHER 5 | CYPHER 25] EXPLAIN <statement>
+[CYPHER 5 | CYPHER 25] PROFILE <statement>
+```
+
+| | `EXPLAIN` | `PROFILE` |
+| --- | --- | --- |
+| Runs the statement | No: writes, procedure calls and `LOAD CSV` are only planned | Yes, writes included |
+| Returns rows | None, and no columns | The statement's own columns and rows |
+| Plan | Operators, details, and row estimates | The same, plus the measured columns |
+| Notifications | Yes | Yes, plus `03C93` for an estimate 10 times too high |
+| On a read-only store | Any statement, writes included | Reads only; a write fails as any write does |
+
+On the CLI, the clients and the WASM build, a statement without either prefix builds no plan and derives no notifications. The [MCP](/docs/reference/server/mcp) `read_cypher` and `write_cypher` tools differ: they plan every statement as `EXPLAIN <statement>` before running it, so each call returns a plan and its plan-time notifications, and a statement that already starts with `EXPLAIN` or `PROFILE` fails with `syntax error: parse error: unexpected token "EXPLAIN"` (or `"PROFILE"`).
+
+## The plan tree
+
+A plan is a tree of operators, one per clause. The root is the clause that produces the result: `ProduceResults` for a `RETURN`, `EagerAggregation` for a `RETURN` that aggregates, or the last write clause. Each operator's input is the clause before it, nested beneath it, so a plan reads from the bottom up. `Union` and `UnionAll` hold one child per part. Each `NEXT` adds a `Next` operator under the previous stage's root, holding that stage's pipeline as its one child.
+
+| Column | Holds |
+| --- | --- |
+| `Operator` | The operator name; `\| +` nests it under the operator that reads its rows |
+| `Id` | The operator's number, in pre-order from the root at `0`; notifications name it as `operator_id` |
+| `Details` | What the operator works on: a pattern, an index seek, or the item count and flags of a projection |
+| `Estimated Rows` | The rows the planner expects, from label and relationship type counts; `-` where it has no estimate. Shown when some operator has an estimate |
+| `Warnings` | The operator's plan warning, `-` for none. Shown when some operator has one |
+
+## Operators
+
+| Operator | Plans | `Details` |
+| --- | --- | --- |
+| `AllNodesScan` | A node pattern with no label | The pattern, `(n)` |
+| `NodeByLabelScan` | A node pattern with labels | The pattern, `(p:Person)` |
+| `NodeIndexSeek` | An equality on a range-indexed label and property | `RANGE INDEX p:Person(name) WHERE name = 'Ada'`, then the rest of the pattern |
+| `NodeIndexSeekByRange` | A `<`, `<=`, `>` or `>=` comparison on a range-indexed label and property | `RANGE INDEX p:Person(name) WHERE name >= 'G'` |
+| `Expand` | A `MATCH` pattern with relationships, or several patterns | The patterns as written, from the chosen start |
+| `Optional(<operator>)` | An `OPTIONAL MATCH` | The pattern, then `optional` |
+| `Create` | `CREATE` | The created patterns |
+| `Merge` | `MERGE` | The pattern, then `ON CREATE SET` or `ON MATCH SET` when present |
+| `Delete`, `DetachDelete` | `DELETE`, `DETACH DELETE` | `<n> expression(s)` |
+| `SetProperty` | `SET` | `<n> item(s)` |
+| `RemoveProperty` | `REMOVE` | `<n> item(s)` |
+| `Projection` | `WITH` | `<n> item(s)` and its flags |
+| `Let` | `LET` | `<n> item(s)` |
+| `Filter` | `FILTER` | `<n> item(s)` and its flags |
+| `EagerAggregation` | A `WITH` or `RETURN` with an aggregate or `GROUP BY` | `<n> item(s)`, `keys: <grouping keys>`, `aggregation` and the flags |
+| `Unwind` | `UNWIND` | `AS <variable>` |
+| `ProduceResults` | `RETURN`, or `FINISH` | `<n> item(s)` and its flags, or `FINISH` |
+| `ProcedureCall` | `CALL <procedure>` | `<procedure>()` |
+| `CallSubquery` | `CALL { … }`, `CALL (…) { … }` | `optional`, `IN TRANSACTIONS` when present |
+| `Conditional` | `WHEN … THEN … ELSE` | `<n> branch(es)`, `ELSE` when present |
+| `Foreach` | `FOREACH` | The loop variable |
+| `LoadCSV` | `LOAD CSV` | `WITH HEADERS AS <variable>` or `AS <variable>` |
+| `CreateIndex`, `DropIndex`, `ShowIndexes` | Range index statements | The index name and schema, for `CreateIndex` |
+| `Catalog` | Other schema and catalog statements | The statement's keyword |
+| `Use` | `USE` | — |
+| `Union`, `UnionAll` | `UNION`, `UNION ALL` | `<n> parts` |
+| `Next` | `NEXT` | `stage <n>`, the number of the stage it introduces |
+
+The flags a projection's `Details` can carry are `distinct`, `WHERE filter`, `ordered` (an `ORDER BY`), `skip` and `limit`. A `MATCH` operator adds `optional`, `SEARCH` and `WHERE filter`.
+
+## What PROFILE measures
+
+`PROFILE` adds these columns to the plan table. Times differ on every run.
+
+| Column | Holds |
+| --- | --- |
+| `Rows` | The rows the operator produced |
+| `Time (ms)` | The operator's own time |
+| `Total (ms)` | The operator's time plus all of its descendants' |
+| `Db Hits` | Store accesses: relationships followed, adjacency entries read, and node records read |
+| `Nodes` | Node records read; shown when some operator read one, and blank for zero |
+| `Rels` | Relationships followed to their other end; shown and blank by the same rule |
+| `Degree` | Adjacency entries read, one per neighbor a walk visited; same rule |
+| `Memory (Bytes)` | The size of the rows the operator produced |
+| `Expression Built (Bytes)` | The size of the values the operator built (`range`, `collect`, comprehensions, concatenation); a running total, not a peak |
+| `Est/Actual` | Estimated over actual rows, as `25.0x`; `!` after it when the estimate is 10 times too high or more. Shown when some operator has an estimate |
+| `Executed` | `✓` or `x`; shown when some operator never ran because its input produced no rows, whose metric cells then read `(never executed)` |
+
+A walking operator's `Details` also names how it started, as `[start #<k>, forward | backward, <reason>]`, where the reason is `bound-pivot`, `cheapest`, `seek-anchored` or `index-0`.
+
+## Plan warnings
+
+Three notifications also appear in the plan table's `Warnings` column and in a `Warnings:` line under the table, instead of in the `Notifications:` block:
+
+| Warning | GQLSTATUS | Fires on |
+| --- | --- | --- |
+| `CartesianProduct` | `03N90` | Patterns in one `MATCH` that share no variable |
+| `AllNodesScan` | `03C90` | A node pattern with no label while the store has a property index |
+| `EstimationMiss` | `03C93` | `PROFILE` only: an estimate 10 times the actual rows or more |
+
+[Notifications](/docs/reference/cypher/notifications) lists every notification with its text and the statements it fires on.
+
+## The plan in each output mode
+
+| Surface or mode | The plan | Notifications |
+| --- | --- | --- |
+| CLI `--mode table` | The plan table, on stderr; `PROFILE` prints its rows on stdout first | A `Notifications:` block under the plan, on stderr, without the three plan warnings |
+| CLI `--mode json` | `{"notifications": […], "plan": {…}}`; `PROFILE` adds `"data": [rows]` | In the object, every kind |
+| CLI `--mode jsonl` | `PROFILE` prints one line per row, then the plan object on its own line | In the plan line |
+| CLI `--mode envelope` | The :term[envelope]{id=envelope}'s `plan` key, beside `columns`, `columnTypes`, `rows` and `truncated` | The envelope's `notifications` |
+| CLI `--mode toon` | A `plan:` entry, then a `notifications:` entry, as compact JSON | In the `notifications:` entry |
+| CLI `--mode markdown` | None | A `Notifications:` block after the rows, every kind |
+| CLI `--mode csv`, `--mode cypher` | None | None |
+| CLI `--mode speedscope` | `PROFILE` only: a speedscope evented profile, one frame per operator, times in nanoseconds | None |
+| Clients, the WASM build | A `relate.plan/v1` document | The result's notification list |
+| MCP `read_cypher`, `write_cypher` | A `relate.plan/v1` document on every call, without measured columns | The plan-time notifications of every statement, without `03C93` |
+
+The CLI's machine modes carry the plan as a structured-plan tree: each node is `{operatorType, args, identifiers, children}`. `args` holds `Details`, `Id` and `EstimatedRows`. On the root it also holds `string-representation` (the plan table as text), `version` and the `planner*` and `runtime*` fields, which name relate. A `PROFILE` adds `Rows`, `TimeNs`, `DbHits`, `MemoryBytes`, `ExpressionBuiltBytes`, `Hops`, `NeighborWalks`, `NodeReads`, `SeekTimeNs` and `WalkTimeNs`, and `StartElement`, `StartBackward` and `StartReason` on a walk.
+
+The `relate.plan/v1` document that the clients return is `{schema, profiled, statement, root}`. Each node is `{operator, details, identifiers, estimated_rows, actual, children, warnings}`; `actual` is `null` under `EXPLAIN` and holds `rows`, `time_ms`, `total_time_ms`, `db_hits` and the other measures under `PROFILE`. A cell's JSON view on this site shows that document.
+
+`--mode speedscope` on a statement without `PROFILE` fails with exit code 1:
+
+```bash verify
+relate --mode speedscope "EXPLAIN RETURN 1 AS one"
+```
+
+```text
+speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)
+```
+
+## Index use in a plan
+
+| Index use | How the plan shows it |
+| --- | --- |
+| A range index serves an equality | `NodeIndexSeek` with `RANGE INDEX <var>:<Label>(<property>) WHERE <property> = <value>` |
+| A range index serves a range | `NodeIndexSeekByRange` with the comparison |
+| No index serves a filter | `NodeByLabelScan` or `Expand`, and under `EXPLAIN` notification `03C91` with the `CREATE INDEX` statement that would |
+| A vector or full-text `SEARCH` | The `MATCH` operator's `Details` end in `SEARCH`; the index's top results feed it, and the estimate is the label's count |
+| A `db.index.*` procedure | `ProcedureCall` with the procedure's name, and notification `01N01`, because the procedures are deprecated |
+
+## Examples
+
+The cells run on the shared example graph. An `EXPLAIN` cell's result shows no rows; its JSON view holds the plan and the notifications. The two plans below raise no notification:
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+```cypher run name=explain-aggregation
+EXPLAIN MATCH (p:Person)-[:WORKS_ON]->(proj:Project)
+WITH proj, count(p) AS people WHERE people > 1
+RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5
+```
+
+The recorded JSON view holds a `relate.plan/v1` tree: `ProduceResults` (`2 item(s), ordered, limit`) over `EagerAggregation` (`2 item(s), keys: proj, aggregation, WHERE filter`) over `Expand` (`(proj:Project)<-[:WORKS_ON]-(p:Person)`). The plan viewer reads the same document. In a browser it draws the tree; **PROFILE** runs the statement on this page's database and adds each operator's rows, time and database hits as bars (the table's `Rows`, `Time (ms)` and `Db Hits` columns), with a download of the profile in the `--mode speedscope` format; **Plan as text** shows the table `--mode table` prints.
+
+:::plan{cell=explain-aggregation}
+:::
+
+```cypher run name=explain-optional
+EXPLAIN MATCH (p:Person) OPTIONAL MATCH (p)-[:KNOWS]->(f) RETURN p.name AS name, f.name AS friend
+```
+
+The recorded JSON view holds `ProduceResults` over `Optional(Expand)` (`(p)-[:KNOWS]->(f), optional`, an estimate of 1 row) over `NodeByLabelScan` (`(p:Person)`, an estimate of 3 rows).
+
+The same plans on the CLI. This setup step writes the shared example graph to a new :term[single-file store]{id=single-file-store}, `team.rl`, and adds a range :term[index]{id=index} on `Person.name`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+CREATE INDEX person_name FOR (p:Person) ON (p.name)"
+```
+
+An aggregation in table mode, read-only:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Person)-[:WORKS_ON]->(proj:Project) WITH proj, count(p) AS people WHERE people > 1 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5"
+```
+
+```text
+Query: MATCH (p:Person)-[:WORKS_ON]->(proj:Project) WITH proj, count(p) AS people WHERE people > 1 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5
+Plan:
++----------------------+----+--------------------------------------------------+
+| Operator             | Id | Details                                          |
++----------------------+----+--------------------------------------------------+
+| + ProduceResults     | 0  | 2 item(s), ordered, limit                        |
++----------------------+----+--------------------------------------------------+
+| | + EagerAggregation | 1  | 2 item(s), keys: proj, aggregation, WHERE filter |
++----------------------+----+--------------------------------------------------+
+| | | + Expand         | 2  | (proj:Project)<-[:WORKS_ON]-(p:Person)           |
++----------------------+----+--------------------------------------------------+
+```
+
+A range seek on the index:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "EXPLAIN MATCH (p:Person) WHERE p.name >= 'G' RETURN p.name AS name"
+```
+
+```text
+Query: MATCH (p:Person) WHERE p.name >= 'G' RETURN p.name AS name
+Plan:
++--------------------------+----+------------------------------------------------------------+----------------+
+| Operator                 | Id | Details                                                    | Estimated Rows |
++--------------------------+----+------------------------------------------------------------+----------------+
+| + ProduceResults         | 0  | 1 item(s)                                                  | -              |
++--------------------------+----+------------------------------------------------------------+----------------+
+| | + NodeIndexSeekByRange | 1  | RANGE INDEX p:Person(name) WHERE name >= 'G', WHERE filter | 2              |
++--------------------------+----+------------------------------------------------------------+----------------+
+```
+
+The structured plan in JSON mode:
+
+```bash verify
+relate --database ./team.rl --read-only --mode json "EXPLAIN MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend"
+```
+
+```text
+{"notifications":[],"plan":{"args":{"Details":"1 item(s)","Id":0,"planner":"relate","planner-impl":"relate","planner-version":"0.16.1","runtime":"relate","runtime-impl":"relate","runtime-version":"0.16.1","string-representation":"Cypher 5\n\nPlanner relate\n\nRuntime relate\n\nRuntime version 0.16.1\n\nQuery: MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend\nPlan:\n+------------------+----+---------------------------------+\n| Operator         | Id | Details                         |\n+------------------+----+---------------------------------+\n| + ProduceResults | 0  | 1 item(s)                       |\n+------------------+----+---------------------------------+\n| | + Expand       | 1  | (p:Person)-[:KNOWS]->(f:Person) |\n+------------------+----+---------------------------------+","version":"5"},"children":[{"args":{"Details":"(p:Person)-[:KNOWS]->(f:Person)","Id":1},"identifiers":[],"operatorType":"Expand"}],"identifiers":[],"operatorType":"ProduceResults"}}
+```
+
+A `PROFILE` in table mode prints the rows on stdout and the plan on stderr. The `Time (ms)` and `Total (ms)` columns differ on every run:
+
+```bash
+relate --database ./team.rl --read-only --mode table "PROFILE MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend"
+```
+
+```text
++---------+
+| friend  |
++---------+
+| "Grace" |
++---------+
+Query: MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend
+Plan:
++------------------+----+---------------------------------------------------------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+
+| Operator         | Id | Details                                                       | Rows | Time (ms) | Total (ms) | Db Hits | Nodes | Degree | Memory (Bytes) | Expression Built (Bytes) |
++------------------+----+---------------------------------------------------------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+
+| + ProduceResults | 0  | 1 item(s)                                                     | 1    | 0.006     | 0.084      | 0       |       |        | 43             | 0                        |
++------------------+----+---------------------------------------------------------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+
+| | + Expand       | 1  | (p:Person)-[:KNOWS]->(f:Person)  [start #0, forward, index-0] | 1    | 0.078     | 0.078      | 4       | 3     | 1      | 43             | 0                        |
++------------------+----+---------------------------------------------------------------+------+-----------+------------+---------+-------+--------+----------------+--------------------------+
+```
+
+`Db Hits` is 4: three `Person` node records read (`Nodes`) and one adjacency entry (`Degree`).
+
+## See also
+
+- [Tune a query](/docs/guides/cypher/tune-a-query): reading a plan, acting on a notification, and confirming the fix.
+- [Notifications](/docs/reference/cypher/notifications): every notification code, its text, and its remedy.
+- [Search](/docs/reference/cypher/search): the vector and full-text indexes behind a `SEARCH`.
+- [Output modes](/docs/reference/cli/output-modes): each CLI mode's layout.
+- [Text-to-Cypher](/docs/concepts/problems-relate-solves#text-to-cypher): `EXPLAIN` as the check before a generated statement runs.

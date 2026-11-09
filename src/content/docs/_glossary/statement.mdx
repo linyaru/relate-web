@@ -1,0 +1,19 @@
+---
+id: statement
+term: "statement"
+short: "One unit of Cypher that relate parses, plans and runs, such as a `MATCH … RETURN` read or a `CREATE` write; a script holds several, separated by `;`."
+aliases: []
+context: cypher
+see: reference/cypher/overview
+related: ["query", "parameter", "transaction", "plan"]
+---
+
+A statement is what a surface runs: the positional argument or `-c` on the CLI, each `;`-separated part of a script on stdin, a call to `execute` in a client, a `RUN` over Bolt. Outside an explicit :term[transaction]{id=transaction}, each statement commits on its own, so a write that succeeds is committed before the next statement starts.
+
+In a `;`-separated list, the statements run in order and the first failure stops the list. The CLI reports how far it got:
+
+```text
+statement 2 of 2 failed; 1 completed and committed; 0 not run
+```
+
+The docs say statement for anything that is run, reading or writing, and :term[query]{id=query} only where a read is meant in contrast to a write, or for the `relate query` command.

@@ -1,0 +1,1231 @@
+{
+  "format": 1,
+  "verified": "0.16.1",
+  "cells": {
+    "catalog": {
+      "kind": "table",
+      "text": "| name                          | category | signature                                                                                                                                                                |\n|-------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| \"vector\"                      | \"Scalar\" | \"vector(vectorValue :: STRING | LIST<INTEGER | FLOAT>, dimension :: INTEGER, coordinateType :: [INTEGER64, INTEGER32, INTEGER16, INTEGER8, FLOAT64, FLOAT32]) :: VECTOR\" |\n| \"vector.similarity.cosine\"    | \"Vector\" | \"vector.similarity.cosine(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT\"                                                            |\n| \"vector.similarity.euclidean\" | \"Vector\" | \"vector.similarity.euclidean(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT\"                                                         |\n| \"vector_dimension_count\"      | \"Vector\" | \"vector_dimension_count(input :: VECTOR) :: INTEGER\"                                                                                                                     |\n| \"vector_distance\"             | \"Vector\" | \"vector_distance(vector1 :: VECTOR, vector2 :: VECTOR, coordinateType :: [EUCLIDEAN, EUCLIDEAN_SQUARED, MANHATTAN, COSINE, DOT, HAMMING]) :: FLOAT\"                      |\n| \"vector_norm\"                 | \"Vector\" | \"vector_norm(vector :: VECTOR, vectorDistanceMetric :: [EUCLIDEAN, MANHATTAN]) :: FLOAT\"                                                                                 |\n6 rows",
+      "table": {
+        "columns": [
+          "name",
+          "category",
+          "signature"
+        ],
+        "numeric": [
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"vector\"",
+            "\"Scalar\"",
+            "\"vector(vectorValue :: STRING | LIST<INTEGER | FLOAT>, dimension :: INTEGER, coordinateType :: [INTEGER64, INTEGER32, INTEGER16, INTEGER8, FLOAT64, FLOAT32]) :: VECTOR\""
+          ],
+          [
+            "\"vector.similarity.cosine\"",
+            "\"Vector\"",
+            "\"vector.similarity.cosine(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT\""
+          ],
+          [
+            "\"vector.similarity.euclidean\"",
+            "\"Vector\"",
+            "\"vector.similarity.euclidean(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT\""
+          ],
+          [
+            "\"vector_dimension_count\"",
+            "\"Vector\"",
+            "\"vector_dimension_count(input :: VECTOR) :: INTEGER\""
+          ],
+          [
+            "\"vector_distance\"",
+            "\"Vector\"",
+            "\"vector_distance(vector1 :: VECTOR, vector2 :: VECTOR, coordinateType :: [EUCLIDEAN, EUCLIDEAN_SQUARED, MANHATTAN, COSINE, DOT, HAMMING]) :: FLOAT\""
+          ],
+          [
+            "\"vector_norm\"",
+            "\"Vector\"",
+            "\"vector_norm(vector :: VECTOR, vectorDistanceMetric :: [EUCLIDEAN, MANHATTAN]) :: FLOAT\""
+          ]
+        ],
+        "summary": "6 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "columns": [
+          "name",
+          "category",
+          "signature"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "category": "Scalar",
+            "name": "vector",
+            "signature": "vector(vectorValue :: STRING | LIST<INTEGER | FLOAT>, dimension :: INTEGER, coordinateType :: [INTEGER64, INTEGER32, INTEGER16, INTEGER8, FLOAT64, FLOAT32]) :: VECTOR"
+          },
+          {
+            "category": "Vector",
+            "name": "vector.similarity.cosine",
+            "signature": "vector.similarity.cosine(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT"
+          },
+          {
+            "category": "Vector",
+            "name": "vector.similarity.euclidean",
+            "signature": "vector.similarity.euclidean(a :: VECTOR | LIST<INTEGER | FLOAT>, b :: VECTOR | LIST<INTEGER | FLOAT>) :: FLOAT"
+          },
+          {
+            "category": "Vector",
+            "name": "vector_dimension_count",
+            "signature": "vector_dimension_count(input :: VECTOR) :: INTEGER"
+          },
+          {
+            "category": "Vector",
+            "name": "vector_distance",
+            "signature": "vector_distance(vector1 :: VECTOR, vector2 :: VECTOR, coordinateType :: [EUCLIDEAN, EUCLIDEAN_SQUARED, MANHATTAN, COSINE, DOT, HAMMING]) :: FLOAT"
+          },
+          {
+            "category": "Vector",
+            "name": "vector_norm",
+            "signature": "vector_norm(vector :: VECTOR, vectorDistanceMetric :: [EUCLIDEAN, MANHATTAN]) :: FLOAT"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "seed": {
+      "kind": "table",
+      "text": "(no rows) · nodes created: 5, relationships created: 5, properties set: 13, labels added: 5",
+      "table": null,
+      "graph": null,
+      "envelope": {
+        "columnTypes": [],
+        "columns": [],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 5,
+          "labels_removed": 0,
+          "nodes_created": 5,
+          "nodes_deleted": 0,
+          "properties_set": 13,
+          "relationships_created": 5,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "graph-elements": {
+      "kind": "table",
+      "text": "| labels     | type       | keys             | props         | ends_at  | hops | path_nodes | namespace |\n|------------|------------|------------------|---------------|----------|------|------------|-----------|\n| [\"Person\"] | \"WORKS_ON\" | [\"name\", \"role\"] | {since: 2024} | \"relate\" | 1    | 2          | \"neo4j\"   |\n1 row",
+      "table": {
+        "columns": [
+          "labels",
+          "type",
+          "keys",
+          "props",
+          "ends_at",
+          "hops",
+          "path_nodes",
+          "namespace"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "[\"Person\"]",
+            "\"WORKS_ON\"",
+            "[\"name\", \"role\"]",
+            "{since: 2024}",
+            "\"relate\"",
+            "1",
+            "2",
+            "\"neo4j\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "STRING",
+          "LIST",
+          "MAP",
+          "STRING",
+          "INTEGER",
+          "INTEGER",
+          "STRING"
+        ],
+        "columns": [
+          "labels",
+          "type",
+          "keys",
+          "props",
+          "ends_at",
+          "hops",
+          "path_nodes",
+          "namespace"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "ends_at": "relate",
+            "hops": 1,
+            "keys": [
+              "name",
+              "role"
+            ],
+            "labels": [
+              "Person"
+            ],
+            "namespace": "neo4j",
+            "path_nodes": 2,
+            "props": {
+              "since": 2024
+            },
+            "type": "WORKS_ON"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "scalar": {
+      "kind": "table",
+      "text": "| first      | same | type             | chars | keys | empty_head |\n|------------|------|------------------|-------|------|------------|\n| \"fallback\" | null | \"FLOAT NOT NULL\" | 4     | 2    | null       |\n1 row",
+      "table": {
+        "columns": [
+          "first",
+          "same",
+          "type",
+          "chars",
+          "keys",
+          "empty_head"
+        ],
+        "numeric": [
+          false,
+          true,
+          false,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "\"fallback\"",
+            "null",
+            "\"FLOAT NOT NULL\"",
+            "4",
+            "2",
+            "null"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "ANY",
+          "STRING",
+          "INTEGER",
+          "INTEGER",
+          "ANY"
+        ],
+        "columns": [
+          "first",
+          "same",
+          "type",
+          "chars",
+          "keys",
+          "empty_head"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "chars": 4,
+            "empty_head": null,
+            "first": "fallback",
+            "keys": 2,
+            "same": null,
+            "type": "FLOAT NOT NULL"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "conversion": {
+      "kind": "table",
+      "text": "| display  | truncated | hex | bad_int | bool | not_bool | ints      | from_vector |\n|----------|-----------|-----|---------|------|----------|-----------|-------------|\n| \"{a: 1}\" | -3        | 31  | null    | true | null     | [1, null] | [1.0, 2.0]  |\n1 row",
+      "table": {
+        "columns": [
+          "display",
+          "truncated",
+          "hex",
+          "bad_int",
+          "bool",
+          "not_bool",
+          "ints",
+          "from_vector"
+        ],
+        "numeric": [
+          false,
+          true,
+          true,
+          true,
+          false,
+          true,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"{a: 1}\"",
+            "-3",
+            "31",
+            "null",
+            "true",
+            "null",
+            "[1, null]",
+            "[1.0, 2.0]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "INTEGER",
+          "ANY",
+          "BOOLEAN",
+          "ANY",
+          "LIST",
+          "LIST"
+        ],
+        "columns": [
+          "display",
+          "truncated",
+          "hex",
+          "bad_int",
+          "bool",
+          "not_bool",
+          "ints",
+          "from_vector"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "bad_int": null,
+            "bool": true,
+            "display": "{a: 1}",
+            "from_vector": [
+              1,
+              2
+            ],
+            "hex": 31,
+            "ints": [
+              1,
+              null
+            ],
+            "not_bool": null,
+            "truncated": -3
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "strings": {
+      "kind": "table",
+      "text": "| upper    | trimmed | limited  | sub      | parts           | joined        | masked   | at |\n|----------|---------|----------|----------|-----------------|---------------|----------|----|\n| \"RELATE\" | \"ada\"   | \"bonona\" | \"cypher\" | [\"a\", \"b\", \"c\"] | \"Ada & Grace\" | \"vN.N.N\" | 2  |\n1 row",
+      "table": {
+        "columns": [
+          "upper",
+          "trimmed",
+          "limited",
+          "sub",
+          "parts",
+          "joined",
+          "masked",
+          "at"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true
+        ],
+        "rows": [
+          [
+            "\"RELATE\"",
+            "\"ada\"",
+            "\"bonona\"",
+            "\"cypher\"",
+            "[\"a\", \"b\", \"c\"]",
+            "\"Ada & Grace\"",
+            "\"vN.N.N\"",
+            "2"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING",
+          "LIST",
+          "STRING",
+          "STRING",
+          "INTEGER"
+        ],
+        "columns": [
+          "upper",
+          "trimmed",
+          "limited",
+          "sub",
+          "parts",
+          "joined",
+          "masked",
+          "at"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "at": 2,
+            "joined": "Ada & Grace",
+            "limited": "bonona",
+            "masked": "vN.N.N",
+            "parts": [
+              "a",
+              "b",
+              "c"
+            ],
+            "sub": "cypher",
+            "trimmed": "ada",
+            "upper": "RELATE"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "lists": {
+      "kind": "table",
+      "text": "| tail   | stepped      | down      | flat      | sorted    | inserted  | distinct |\n|--------|--------------|-----------|-----------|-----------|-----------|----------|\n| [2, 3] | [0, 3, 6, 9] | [5, 3, 1] | [1, 2, 3] | [1, 2, 3] | [1, 2, 3] | [1, 2]   |\n1 row",
+      "table": {
+        "columns": [
+          "tail",
+          "stepped",
+          "down",
+          "flat",
+          "sorted",
+          "inserted",
+          "distinct"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "[2, 3]",
+            "[0, 3, 6, 9]",
+            "[5, 3, 1]",
+            "[1, 2, 3]",
+            "[1, 2, 3]",
+            "[1, 2, 3]",
+            "[1, 2]"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "LIST",
+          "LIST",
+          "LIST",
+          "LIST",
+          "LIST",
+          "LIST",
+          "LIST"
+        ],
+        "columns": [
+          "tail",
+          "stepped",
+          "down",
+          "flat",
+          "sorted",
+          "inserted",
+          "distinct"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "distinct": [
+              1,
+              2
+            ],
+            "down": [
+              5,
+              3,
+              1
+            ],
+            "flat": [
+              1,
+              2,
+              3
+            ],
+            "inserted": [
+              1,
+              2,
+              3
+            ],
+            "sorted": [
+              1,
+              2,
+              3
+            ],
+            "stepped": [
+              0,
+              3,
+              6,
+              9
+            ],
+            "tail": [
+              2,
+              3
+            ]
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "math": {
+      "kind": "table",
+      "text": "| abs | ceil | half_up | half_even | sign | root | log10 | degrees | rand_in_range |\n|-----|------|---------|-----------|------|------|-------|---------|---------------|\n| 5   | 5.0  | -2.0    | 2.0       | -1   | 4.0  | 3.0   | 180.0   | true          |\n1 row",
+      "table": {
+        "columns": [
+          "abs",
+          "ceil",
+          "half_up",
+          "half_even",
+          "sign",
+          "root",
+          "log10",
+          "degrees",
+          "rand_in_range"
+        ],
+        "numeric": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "5",
+            "5.0",
+            "-2.0",
+            "2.0",
+            "-1",
+            "4.0",
+            "3.0",
+            "180.0",
+            "true"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "INTEGER",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "abs",
+          "ceil",
+          "half_up",
+          "half_even",
+          "sign",
+          "root",
+          "log10",
+          "degrees",
+          "rand_in_range"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "abs": 5,
+            "ceil": 5,
+            "degrees": 180,
+            "half_even": 2,
+            "half_up": -2,
+            "log10": 3,
+            "rand_in_range": true,
+            "root": 4,
+            "sign": -1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "temporal": {
+      "kind": "table",
+      "text": "| from_week    | month_start  | days    | epoch                  | formatted    | now_works |\n|--------------|--------------|---------|------------------------|--------------|-----------|\n| \"2026-11-08\" | \"2026-11-01\" | \"P311D\" | \"1970-01-01T00:00:01Z\" | \"08/11/2026\" | true      |\n1 row",
+      "table": {
+        "columns": [
+          "from_week",
+          "month_start",
+          "days",
+          "epoch",
+          "formatted",
+          "now_works"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"2026-11-08\"",
+            "\"2026-11-01\"",
+            "\"P311D\"",
+            "\"1970-01-01T00:00:01Z\"",
+            "\"08/11/2026\"",
+            "true"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "DATE",
+          "DATE",
+          "DURATION",
+          "DATETIME",
+          "STRING",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "from_week",
+          "month_start",
+          "days",
+          "epoch",
+          "formatted",
+          "now_works"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "days": "P311D",
+            "epoch": "1970-01-01T00:00:01Z",
+            "formatted": "08/11/2026",
+            "from_week": "2026-11-08",
+            "month_start": "2026-11-01",
+            "now_works": true
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "spatial": {
+      "kind": "table",
+      "text": "| cartesian | meters   | inside |\n|-----------|----------|--------|\n| 5.0       | 341818.0 | true   |\n1 row",
+      "table": {
+        "columns": [
+          "cartesian",
+          "meters",
+          "inside"
+        ],
+        "numeric": [
+          true,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "5.0",
+            "341818.0",
+            "true"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "FLOAT",
+          "FLOAT",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "cartesian",
+          "meters",
+          "inside"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "cartesian": 5,
+            "inside": true,
+            "meters": 341818
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "vector": {
+      "kind": "table",
+      "text": "| cosine | euclidean           | distance | manhattan | norm | dims |\n|--------|---------------------|----------|-----------|------|------|\n| 0.5    | 0.03846153989434242 | 5.0      | 7.0       | 5.0  | 2    |\n1 row",
+      "table": {
+        "columns": [
+          "cosine",
+          "euclidean",
+          "distance",
+          "manhattan",
+          "norm",
+          "dims"
+        ],
+        "numeric": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "0.5",
+            "0.03846153989434242",
+            "5.0",
+            "7.0",
+            "5.0",
+            "2"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "FLOAT",
+          "INTEGER"
+        ],
+        "columns": [
+          "cosine",
+          "euclidean",
+          "distance",
+          "manhattan",
+          "norm",
+          "dims"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "cosine": 0.5,
+            "dims": 2,
+            "distance": 5,
+            "euclidean": 0.03846153989434242,
+            "manhattan": 7,
+            "norm": 5
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "uuid": {
+      "kind": "table",
+      "text": "| text                                   | high                 | from_halves                            |\n|----------------------------------------|----------------------|----------------------------------------|\n| \"f066ecfc-5151-4121-8a36-b35e00d72918\" | -1123950488542166751 | \"00000000-0000-0000-0000-000000000001\" |\n1 row",
+      "table": {
+        "columns": [
+          "text",
+          "high",
+          "from_halves"
+        ],
+        "numeric": [
+          false,
+          true,
+          false
+        ],
+        "rows": [
+          [
+            "\"f066ecfc-5151-4121-8a36-b35e00d72918\"",
+            "-1123950488542166751",
+            "\"00000000-0000-0000-0000-000000000001\""
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "STRING"
+        ],
+        "columns": [
+          "text",
+          "high",
+          "from_halves"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "from_halves": "00000000-0000-0000-0000-000000000001",
+            "high": -1123950488542166800,
+            "text": "f066ecfc-5151-4121-8a36-b35e00d72918"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "aggregates": {
+      "kind": "table",
+      "text": "| project          | people | names            | first | mean   | median |\n|------------------|--------|------------------|-------|--------|--------|\n| \"opencypher-tck\" | 1      | [\"Grace\"]        | 2022  | 2022.0 | 2022.0 |\n| \"relate\"         | 2      | [\"Grace\", \"Ada\"] | 2023  | 2023.5 | 2023.0 |\n2 rows",
+      "table": {
+        "columns": [
+          "project",
+          "people",
+          "names",
+          "first",
+          "mean",
+          "median"
+        ],
+        "numeric": [
+          false,
+          true,
+          false,
+          true,
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "\"opencypher-tck\"",
+            "1",
+            "[\"Grace\"]",
+            "2022",
+            "2022.0",
+            "2022.0"
+          ],
+          [
+            "\"relate\"",
+            "2",
+            "[\"Grace\", \"Ada\"]",
+            "2023",
+            "2023.5",
+            "2023.0"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "INTEGER",
+          "LIST",
+          "INTEGER",
+          "FLOAT",
+          "FLOAT"
+        ],
+        "columns": [
+          "project",
+          "people",
+          "names",
+          "first",
+          "mean",
+          "median"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "first": 2022,
+            "mean": 2022,
+            "median": 2022,
+            "names": [
+              "Grace"
+            ],
+            "people": 1,
+            "project": "opencypher-tck"
+          },
+          {
+            "first": 2023,
+            "mean": 2023.5,
+            "median": 2023,
+            "names": [
+              "Grace",
+              "Ada"
+            ],
+            "people": 2,
+            "project": "relate"
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "predicates": {
+      "kind": "table",
+      "text": "| works | has_role | has_email | empty | all_recent |\n|-------|----------|-----------|-------|------------|\n| true  | true     | false     | true  | true       |\n1 row",
+      "table": {
+        "columns": [
+          "works",
+          "has_role",
+          "has_email",
+          "empty",
+          "all_recent"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "true",
+            "true",
+            "false",
+            "true",
+            "true"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "BOOLEAN",
+          "BOOLEAN",
+          "BOOLEAN",
+          "BOOLEAN",
+          "BOOLEAN"
+        ],
+        "columns": [
+          "works",
+          "has_role",
+          "has_email",
+          "empty",
+          "all_recent"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "all_recent": true,
+            "empty": true,
+            "has_email": false,
+            "has_role": true,
+            "works": true
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
+    "paths": {
+      "kind": "table",
+      "text": "| hops | paths |\n|------|-------|\n| 2    | 1     |\n1 row",
+      "table": {
+        "columns": [
+          "hops",
+          "paths"
+        ],
+        "numeric": [
+          true,
+          true
+        ],
+        "rows": [
+          [
+            "2",
+            "1"
+          ]
+        ],
+        "summary": "1 row"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "INTEGER",
+          "INTEGER"
+        ],
+        "columns": [
+          "hops",
+          "paths"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "hops": 2,
+            "paths": 1
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    }
+  }
+}

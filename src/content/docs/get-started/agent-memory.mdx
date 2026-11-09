@@ -1,0 +1,355 @@
+---
+title: Give an agent a memory
+label: Agent memory
+description: Build a memory store an agent can keep across sessions, write episodes from the CLI and over MCP, then recall facts by meaning with their evidence.
+order: 25
+surfaces: [cli, mcp, cypher, agents]
+prerequisites: [get-started/install]
+related: [guides/agents/model-agent-memory, cookbook/agent-memory, cookbook/bitemporal-decisions, guides/agents/connect-over-mcp, guides/agents/drive-relate-from-an-agent, concepts/problems-relate-solves#agent-memory]
+---
+
+In about ten minutes, we give an agent a memory that outlives its session: one file, `memory.rl`, holding what it learned, where it learned it, and which later fact corrected an earlier one. We write two episodes from the command line and a third over MCP, the way an agent host does, then recall by meaning. The data model comes from [Model agent memory](/docs/guides/agents/model-agent-memory), which explains each label and property; this page builds it and uses it.
+
+## Prerequisites
+
+- `relate` on your `PATH`: `relate --version` prints `Relate v0.16.1` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
+- A terminal on macOS or Linux, in an empty directory.
+
+## Create the memory store
+
+A memory attaches to the things it is about. Ours is about the shared example graph, three people and two projects, and every person and project becomes an `Entity` with a lowercase `key`. The schema adds a :term[constraint]{id=constraint} that keeps one node per key, episode and fact, an index on the fact's slot, and a vector index for recall by meaning. Write it all to a script:
+
+```bash verify
+cat > memory.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+MATCH (n) WHERE n:Person OR n:Project SET n:Entity, n.key = toLower(n.name);
+CREATE CONSTRAINT entity_key IF NOT EXISTS FOR (e:Entity) REQUIRE e.key IS UNIQUE;
+CREATE CONSTRAINT episode_id IF NOT EXISTS FOR (ep:Episode) REQUIRE ep.id IS UNIQUE;
+CREATE CONSTRAINT fact_id IF NOT EXISTS FOR (f:Fact) REQUIRE f.id IS UNIQUE;
+CREATE INDEX fact_slot IF NOT EXISTS FOR (f:Fact) ON (f.slot);
+CREATE VECTOR INDEX fact_embedding IF NOT EXISTS
+  FOR (f:Fact) ON (f.embedding) WITH [f.closedAt]
+  OPTIONS {indexConfig: {`vector.dimensions`: 4, `vector.similarity_function`: 'cosine'}};
+MATCH (e:Entity) RETURN e.key AS key ORDER BY key;
+EOF
+```
+
+Run it into a new :term[store]{id=store}, `memory.rl`, which relate creates because nothing is there yet:
+
+```bash verify
+relate query --database ./memory.rl --mode table < memory.cypher
+```
+
+```text
++------------------+
+| key              |
++------------------+
+| "ada"            |
+| "grace"          |
+| "noor"           |
+| "opencypher-tck" |
+| "relate"         |
++------------------+
+```
+
+Five entities, each with the key a memory write matches on. The vector index takes 4-dimension vectors so this page's results never change; a real embedding model's vectors have hundreds of dimensions.
+
+## Remember a session from the CLI
+
+An episode is one thing the agent saw: a message, or a tool call and its result. From each one, the agent's model extracts a fact. One statement writes a batch of episodes, each with its fact: the fact comes `FROM` its episode and is `ABOUT` the entities it names. When a new fact answers the same slot as an older current one, the statement closes the older one and links them with `SUPERSEDES`, so nothing is deleted. Save it:
+
+```bash verify
+cat > remember.cypher <<'EOF'
+UNWIND $episodes AS m
+CREATE (ep:Episode {id: m.id, session: m.session, kind: m.kind, at: datetime(m.at), text: m.text})
+CREATE (f:Fact {id: m.factId, text: m.fact, slot: m.slot, validFrom: datetime(m.validFrom),
+                recordedAt: datetime(m.at), embedding: vector(m.embedding, 4, FLOAT32)})
+CREATE (f)-[:FROM]->(ep)
+WITH ep, f, m
+CALL (ep, f, m) {
+  UNWIND m.about AS key
+  MATCH (n:Entity {key: key})
+  CREATE (ep)-[:MENTIONS]->(n), (f)-[:ABOUT]->(n)
+}
+CALL (f) {
+  MATCH (old:Fact {slot: f.slot}) WHERE old.recordedAt < f.recordedAt AND old.closedAt IS NULL
+  SET old.validTo = f.validFrom, old.closedAt = f.recordedAt
+  CREATE (f)-[:SUPERSEDES]->(old)
+  RETURN count(old) AS replaced
+}
+RETURN ep.id AS episode, f.text AS fact, replaced;
+EOF
+```
+
+In session `s1`, the agent hears two messages. This file is what the extraction produced for them, embeddings included:
+
+```bash verify
+cat > session1.json <<'EOF'
+[
+  {"id": "e1", "session": "s1", "kind": "message", "at": "2026-03-02T10:00:00Z",
+   "text": "Grace does the release review for relate.", "about": ["grace", "relate"],
+   "factId": "f1", "fact": "Grace reviews each relate release.", "slot": "relate/release-reviewer",
+   "validFrom": "2026-01-05T00:00:00Z", "embedding": [0.9, 0.1, 0.0, 0.2]},
+  {"id": "e2", "session": "s1", "kind": "message", "at": "2026-03-02T10:05:00Z",
+   "text": "Noor goes through new relate issues every Monday.", "about": ["noor", "relate"],
+   "factId": "f2", "fact": "Noor triages new relate issues on Mondays.", "slot": "relate/triage",
+   "validFrom": "2026-02-02T00:00:00Z", "embedding": [0.1, 0.9, 0.2, 0.0]}
+]
+EOF
+```
+
+`--fetch-params episodes=session1.json` reads the file and binds it as `$episodes`. Write the session:
+
+```bash verify
+relate query --database ./memory.rl --mode table --fetch-params episodes=session1.json < remember.cypher
+```
+
+```text
++---------+----------------------------------------------+----------+
+| episode | fact                                         | replaced |
++---------+----------------------------------------------+----------+
+| "e1"    | "Grace reviews each relate release."         | 0        |
+| "e2"    | "Noor triages new relate issues on Mondays." | 0        |
++---------+----------------------------------------------+----------+
+```
+
+Two episodes, two facts, and nothing replaced: the memory had nothing to correct yet.
+
+## Remember a tool call over MCP
+
+An agent host talks to relate over :term[MCP]{id=mcp} (the Model Context Protocol): it starts `relate serve --mcp stdio` and sends JSON-RPC messages, one per line, on its stdin. In session `s2`, a tool call reads the repository's owners file and finds that Ada took over release review on 10 March. These three lines are what a host sends: `initialize`, the `notifications/initialized` notification, then a `write_cypher` call with the same statement and the new episode as its `parameters`:
+
+```bash verify
+cat > requests.jsonl <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"shell","version":"0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"write_cypher","arguments":{"statement":"UNWIND $episodes AS m CREATE (ep:Episode {id: m.id, session: m.session, kind: m.kind, at: datetime(m.at), text: m.text}) CREATE (f:Fact {id: m.factId, text: m.fact, slot: m.slot, validFrom: datetime(m.validFrom), recordedAt: datetime(m.at), embedding: vector(m.embedding, 4, FLOAT32)}) CREATE (f)-[:FROM]->(ep) WITH ep, f, m CALL (ep, f, m) { UNWIND m.about AS key MATCH (n:Entity {key: key}) CREATE (ep)-[:MENTIONS]->(n), (f)-[:ABOUT]->(n) } CALL (f) { MATCH (old:Fact {slot: f.slot}) WHERE old.recordedAt < f.recordedAt AND old.closedAt IS NULL SET old.validTo = f.validFrom, old.closedAt = f.recordedAt CREATE (f)-[:SUPERSEDES]->(old) RETURN count(old) AS replaced } RETURN ep.id AS episode, f.text AS fact, replaced","parameters":{"episodes":[{"id":"e3","session":"s2","kind":"tool_call","at":"2026-03-20T09:00:00Z","text":"read_file CODEOWNERS: release/ @ada","about":["ada","relate"],"factId":"f3","fact":"Ada reviews each relate release.","slot":"relate/release-reviewer","validFrom":"2026-03-10T00:00:00Z","embedding":[0.85,0.15,0.05,0.25]}]}}}}
+EOF
+```
+
+Now play the host. This server opens the store writable on purpose, because this step writes; a server that only recalls takes `--read-only`, as in [Connect over MCP](/docs/guides/agents/connect-over-mcp). The replies go to `replies.jsonl`, and relate's own status lines to the terminal:
+
+{/* docs-check-ignore trust-read-only */}
+```bash verify
+relate serve --mcp stdio --database ./memory.rl < requests.jsonl > replies.jsonl
+```
+
+```text
+serve: MCP (stdio) serving on stdin/stdout (auth: none)
+serve: stdin closed, shutting down
+```
+
+The server answered each request and stopped when its input ended, as it does when a host closes it. `replies.jsonl` holds two lines, since a notification gets no reply. The first names the server, `relate-mcp` 0.16.1. The second is the write's result as JSON text inside the reply: `write_cypher` returns counters, not rows, so it shows `"nodes_created":2` and `"relationships_created":6`, an empty `rows`, and timings that change on every run. Let's read the store to see what the write did:
+
+```bash verify
+relate --database ./memory.rl --read-only --mode table "MATCH (f:Fact)-[:FROM]->(ep:Episode) RETURN ep.id AS episode, ep.kind AS kind, f.text AS fact, f.closedAt IS NULL AS current ORDER BY episode"
+```
+
+```text
++---------+-------------+----------------------------------------------+---------+
+| episode | kind        | fact                                         | current |
++---------+-------------+----------------------------------------------+---------+
+| "e1"    | "message"   | "Grace reviews each relate release."         | false   |
+| "e2"    | "message"   | "Noor triages new relate issues on Mondays." | true    |
+| "e3"    | "tool_call" | "Ada reviews each relate release."           | true    |
++---------+-------------+----------------------------------------------+---------+
+```
+
+Notice that Grace's fact is no longer current, and it is still there. The tool call corrected it, and the memory kept both.
+
+## Recall by meaning
+
+A recall takes the embedding of a question, finds the nearest facts that are still current, and brings back the evidence for each and what it replaced. The cells in this section run in your browser, on an in-memory store with the same engine: the first two hold the same memory as `memory.rl`, written in one batch, and the third is the recall.
+
+```cypher run name=memory
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+MATCH (n) WHERE n:Person OR n:Project SET n:Entity, n.key = toLower(n.name);
+CREATE CONSTRAINT entity_key IF NOT EXISTS FOR (e:Entity) REQUIRE e.key IS UNIQUE;
+CREATE CONSTRAINT episode_id IF NOT EXISTS FOR (ep:Episode) REQUIRE ep.id IS UNIQUE;
+CREATE CONSTRAINT fact_id IF NOT EXISTS FOR (f:Fact) REQUIRE f.id IS UNIQUE;
+CREATE INDEX fact_slot IF NOT EXISTS FOR (f:Fact) ON (f.slot);
+CREATE VECTOR INDEX fact_embedding IF NOT EXISTS
+  FOR (f:Fact) ON (f.embedding) WITH [f.closedAt]
+  OPTIONS {indexConfig: {`vector.dimensions`: 4, `vector.similarity_function`: 'cosine'}};
+MATCH (e:Entity) RETURN e.key AS key ORDER BY key
+```
+
+```json data=episodes
+{"episodes": [
+  {"id": "e1", "session": "s1", "kind": "message", "at": "2026-03-02T10:00:00Z",
+   "text": "Grace does the release review for relate.", "about": ["grace", "relate"],
+   "factId": "f1", "fact": "Grace reviews each relate release.", "slot": "relate/release-reviewer",
+   "validFrom": "2026-01-05T00:00:00Z", "embedding": [0.9, 0.1, 0.0, 0.2]},
+  {"id": "e2", "session": "s1", "kind": "message", "at": "2026-03-02T10:05:00Z",
+   "text": "Noor goes through new relate issues every Monday.", "about": ["noor", "relate"],
+   "factId": "f2", "fact": "Noor triages new relate issues on Mondays.", "slot": "relate/triage",
+   "validFrom": "2026-02-02T00:00:00Z", "embedding": [0.1, 0.9, 0.2, 0.0]},
+  {"id": "e3", "session": "s2", "kind": "tool_call", "at": "2026-03-20T09:00:00Z",
+   "text": "read_file CODEOWNERS: release/ @ada", "about": ["ada", "relate"],
+   "factId": "f3", "fact": "Ada reviews each relate release.", "slot": "relate/release-reviewer",
+   "validFrom": "2026-03-10T00:00:00Z", "embedding": [0.85, 0.15, 0.05, 0.25]}
+]}
+```
+
+```cypher run name=remember params=episodes
+UNWIND $episodes AS m
+CREATE (ep:Episode {id: m.id, session: m.session, kind: m.kind, at: datetime(m.at), text: m.text})
+CREATE (f:Fact {id: m.factId, text: m.fact, slot: m.slot, validFrom: datetime(m.validFrom),
+                recordedAt: datetime(m.at), embedding: vector(m.embedding, 4, FLOAT32)})
+CREATE (f)-[:FROM]->(ep)
+WITH ep, f, m
+CALL (ep, f, m) {
+  UNWIND m.about AS key
+  MATCH (n:Entity {key: key})
+  CREATE (ep)-[:MENTIONS]->(n), (f)-[:ABOUT]->(n)
+}
+CALL (f) {
+  MATCH (old:Fact {slot: f.slot}) WHERE old.recordedAt < f.recordedAt AND old.closedAt IS NULL
+  SET old.validTo = f.validFrom, old.closedAt = f.recordedAt
+  CREATE (f)-[:SUPERSEDES]->(old)
+  RETURN count(old) AS replaced
+}
+RETURN ep.id AS episode, f.text AS fact, replaced
+```
+
+The question is "Who reviews relate releases?", and this is its embedding:
+
+```json data=question
+{"vector": [0.88, 0.12, 0.02, 0.22], "k": 2}
+```
+
+```cypher run name=recall params=question
+MATCH (f:Fact)
+SEARCH f IN (VECTOR INDEX fact_embedding FOR $vector WHERE f.closedAt IS NULL LIMIT $k) SCORE AS score
+MATCH (f)-[:FROM]->(ep:Episode)
+RETURN f.text AS memory, round(score, 4) AS score, ep.text AS evidence,
+       COLLECT { MATCH (f)-[:SUPERSEDES]->(old:Fact) RETURN old.text } AS replaced
+ORDER BY score DESC
+```
+
+Grace's fact is the nearest by meaning, and it does not come back: the `WHERE` inside the search drops closed facts before the `LIMIT` counts. Ada's fact answers, with the tool call it rests on and the fact it replaced.
+
+## Replay it as an agent's calls
+
+An agent does the same work through MCP tools instead of a shell. The trace below replays this page's writes and reads as the `tools/call` requests an agent host sends to `relate serve`, on the store the `memory` cell builds: session `s1`'s two episodes, the tool call from session `s2`, the read-back, and the recall. Each step runs in your browser when we step to it, and shows what `relate serve`'s tool returns for that call, built from the engine's result. The trace writes the same episodes as the `remember` cell, so when the cells have already run, its first step empties the page's database before it starts, and after its last step it empties the database again, so the cells run on what they write.
+
+```json data=memory-trace
+{"steps": [
+  {"tool": "write_cypher",
+   "note": "Session `s1`'s two episodes, with the statement and file this page writes them with from the CLI (`remember.cypher`, `session1.json`), sent as one `write_cypher` call.",
+   "arguments": {"statement": "UNWIND $episodes AS m CREATE (ep:Episode {id: m.id, session: m.session, kind: m.kind, at: datetime(m.at), text: m.text}) CREATE (f:Fact {id: m.factId, text: m.fact, slot: m.slot, validFrom: datetime(m.validFrom), recordedAt: datetime(m.at), embedding: vector(m.embedding, 4, FLOAT32)}) CREATE (f)-[:FROM]->(ep) WITH ep, f, m CALL (ep, f, m) { UNWIND m.about AS key MATCH (n:Entity {key: key}) CREATE (ep)-[:MENTIONS]->(n), (f)-[:ABOUT]->(n) } CALL (f) { MATCH (old:Fact {slot: f.slot}) WHERE old.recordedAt < f.recordedAt AND old.closedAt IS NULL SET old.validTo = f.validFrom, old.closedAt = f.recordedAt CREATE (f)-[:SUPERSEDES]->(old) RETURN count(old) AS replaced } RETURN ep.id AS episode, f.text AS fact, replaced",
+    "parameters": {"episodes": [
+      {"id": "e1", "session": "s1", "kind": "message", "at": "2026-03-02T10:00:00Z", "text": "Grace does the release review for relate.", "about": ["grace", "relate"], "factId": "f1", "fact": "Grace reviews each relate release.", "slot": "relate/release-reviewer", "validFrom": "2026-01-05T00:00:00Z", "embedding": [0.9, 0.1, 0.0, 0.2]},
+      {"id": "e2", "session": "s1", "kind": "message", "at": "2026-03-02T10:05:00Z", "text": "Noor goes through new relate issues every Monday.", "about": ["noor", "relate"], "factId": "f2", "fact": "Noor triages new relate issues on Mondays.", "slot": "relate/triage", "validFrom": "2026-02-02T00:00:00Z", "embedding": [0.1, 0.9, 0.2, 0.0]}
+    ]}}},
+  {"tool": "write_cypher",
+   "note": "Session `s2`'s tool call, the `write_cypher` request in `requests.jsonl` that this page sends to the server over stdio.",
+   "arguments": {"statement": "UNWIND $episodes AS m CREATE (ep:Episode {id: m.id, session: m.session, kind: m.kind, at: datetime(m.at), text: m.text}) CREATE (f:Fact {id: m.factId, text: m.fact, slot: m.slot, validFrom: datetime(m.validFrom), recordedAt: datetime(m.at), embedding: vector(m.embedding, 4, FLOAT32)}) CREATE (f)-[:FROM]->(ep) WITH ep, f, m CALL (ep, f, m) { UNWIND m.about AS key MATCH (n:Entity {key: key}) CREATE (ep)-[:MENTIONS]->(n), (f)-[:ABOUT]->(n) } CALL (f) { MATCH (old:Fact {slot: f.slot}) WHERE old.recordedAt < f.recordedAt AND old.closedAt IS NULL SET old.validTo = f.validFrom, old.closedAt = f.recordedAt CREATE (f)-[:SUPERSEDES]->(old) RETURN count(old) AS replaced } RETURN ep.id AS episode, f.text AS fact, replaced",
+    "parameters": {"episodes": [
+      {"id": "e3", "session": "s2", "kind": "tool_call", "at": "2026-03-20T09:00:00Z", "text": "read_file CODEOWNERS: release/ @ada", "about": ["ada", "relate"], "factId": "f3", "fact": "Ada reviews each relate release.", "slot": "relate/release-reviewer", "validFrom": "2026-03-10T00:00:00Z", "embedding": [0.85, 0.15, 0.05, 0.25]}
+    ]}}},
+  {"tool": "read_cypher",
+   "note": "The read this page runs with the CLI after that write: every fact with its episode, and whether it is still current.",
+   "arguments": {"statement": "MATCH (f:Fact)-[:FROM]->(ep:Episode) RETURN ep.id AS episode, ep.kind AS kind, f.text AS fact, f.closedAt IS NULL AS current ORDER BY episode"}},
+  {"tool": "read_cypher",
+   "note": "The recall, the statement and question of the `recall` cell above and of `recall.cypher`.",
+   "arguments": {"statement": "MATCH (f:Fact)\nSEARCH f IN (VECTOR INDEX fact_embedding FOR $vector WHERE f.closedAt IS NULL LIMIT $k) SCORE AS score\nMATCH (f)-[:FROM]->(ep:Episode)\nRETURN f.text AS memory, round(score, 4) AS score, ep.text AS evidence,\n       COLLECT { MATCH (f)-[:SUPERSEDES]->(old:Fact) RETURN old.text } AS replaced\nORDER BY score DESC",
+    "parameters": {"vector": [0.88, 0.12, 0.02, 0.22], "k": 2}}}
+]}
+```
+
+:::agent-trace{steps=memory-trace from=memory}
+:::
+
+The last step is the recall cell's statement and question, sent as `read_cypher`, and its rows are the cell's: the memory the trace's calls wrote answers the same way as the one the cells wrote.
+
+## Recall from the terminal
+
+The same recall runs against `memory.rl`. Save it as a script:
+
+```bash verify
+cat > recall.cypher <<'EOF'
+MATCH (f:Fact)
+SEARCH f IN (VECTOR INDEX fact_embedding FOR $vector WHERE f.closedAt IS NULL LIMIT $k) SCORE AS score
+MATCH (f)-[:FROM]->(ep:Episode)
+RETURN f.text AS memory, round(score, 4) AS score, ep.text AS evidence,
+       COLLECT { MATCH (f)-[:SUPERSEDES]->(old:Fact) RETURN old.text } AS replaced
+ORDER BY score DESC;
+EOF
+```
+
+A person reads a table; an agent parses the :term[envelope]{id=envelope}, one JSON object per result, and branches on the :term[exit code]{id=exit-code}. Both open the store `--read-only`, so a recall can never change the memory.
+
+::::agentic
+:::human[At a terminal]
+```bash verify
+relate query --database ./memory.rl --read-only --mode table --param 'vector=[0.88,0.12,0.02,0.22]' --param k=2 < recall.cypher
+```
+
+```text
++----------------------------------------------+--------+-----------------------------------------------------+----------------------------------------+
+| memory                                       | score  | evidence                                            | replaced                               |
++----------------------------------------------+--------+-----------------------------------------------------+----------------------------------------+
+| "Ada reviews each relate release."           | 0.999  | "read_file CODEOWNERS: release/ @ada"               | ["Grace reviews each relate release."] |
+| "Noor triages new relate issues on Mondays." | 0.6178 | "Noor goes through new relate issues every Monday." | []                                     |
++----------------------------------------------+--------+-----------------------------------------------------+----------------------------------------+
+```
+
+The same two memories as the cell, read from the file.
+:::
+:::agent[From an agent]
+```bash verify
+relate query --database ./memory.rl --read-only --mode envelope --param 'vector=[0.88,0.12,0.02,0.22]' --param k=2 < recall.cypher
+```
+
+```text
+{"columnTypes":["STRING","FLOAT","STRING","LIST"],"columns":["memory","score","evidence","replaced"],"notifications":[],"rows":[{"evidence":"read_file CODEOWNERS: release/ @ada","memory":"Ada reviews each relate release.","replaced":["Grace reviews each relate release."],"score":0.999},{"evidence":"Noor goes through new relate issues every Monday.","memory":"Noor triages new relate issues on Mondays.","replaced":[],"score":0.6178}],"truncated":false}
+```
+
+A question embedded with the wrong model has the wrong length. The statement fails before it runs: the message goes to stderr, the error object to stdout, and the exit code is 6:
+
+```bash verify
+relate query --database ./memory.rl --read-only --mode envelope --param 'vector=[0.88,0.12,0.02]' --param k=2 < recall.cypher
+echo "exit=$?"
+```
+
+```text
+type error: VectorIndexDimensionalityMismatch
+{"error":{"code":"validation_error","exit_code":6,"kind":"type","message":"type error: VectorIndexDimensionalityMismatch","retryable":false}}
+exit=6
+```
+
+`retryable` is `false`: the same call fails again until the question is embedded with the model the facts were.
+:::
+::::
+
+Notice that both views name the tool call as the evidence. An agent can quote it instead of asserting the fact on its own.
+
+## What you built
+
+You have a memory in one file, `memory.rl`: entities, three episodes, and three facts, one of which a later tool call corrected without erasing. It took writes from the command line and from an MCP client with the same statement, and it answers a question by meaning with the evidence attached. The agent's next session starts with an empty prompt and remembers all three facts.
+
+## Next
+
+- [Long-term memory for an agent](/cookbook/agent-memory/): two sessions of extractions, decisions, and supersession on a larger memory.
+- [Bi-temporal decisions](/cookbook/bitemporal-decisions/): what was true on a date, and what the agent believed on that date, through late corrections.
+- [Model agent memory](/docs/guides/agents/model-agent-memory): each label, property and time axis this page used, and how to ask what the agent believed on a past date.
+- [Install a task skill](/docs/guides/agents/install-the-skill#install-a-task-skill): the `relate-agent-memory` skill, which gives an agent this model and its statements as reference text, at `https://relatedb.ai/skills/relate-agent-memory/SKILL.md`.

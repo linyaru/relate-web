@@ -1,0 +1,257 @@
+---
+title: Keep a diffable memory in the repo
+label: Diffable memory
+description: Commit an agent's memory as a directory store whose checkpoint writes readable JSON, so a session's writes show up as a diff to review before merge.
+order: 80
+surfaces: [cli, agents]
+prerequisites: [get-started/install]
+related: [concepts/problems-relate-solves#diffable-memory, guides/storage/schema-as-files, reference/storage/formats#codecs, guides/storage/clone-and-convert, guides/storage/obsidian-vault, guides/agents/model-agent-memory, cookbook/bitemporal-decisions, reference/storage/wal-and-checkpoints]
+---
+
+This guide shows you how to keep an agent's memory in the repository as a store a reviewer can read. A directory store created with the `json` :term[codec]{id=codec} writes the whole graph to one `graph.json` at every checkpoint, so the writes of an agent's session show up in `git diff` as added and removed :term[nodes]{id=node} and :term[relationships]{id=relationship}, and in a pull request as a change to `graph.json`. A bad fact is then caught in review, before it is merged.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- git, and `jq` to print `graph.json` readably in a diff. GitHub's Ubuntu 24.04 runner image includes `jq` 1.7.
+- A new, empty directory to work in. The steps create a scratch repository there.
+
+## Start a repository
+
+The steps work in a new repository with a local identity, so `git commit` runs anywhere. In your own repository, skip this step:
+
+```bash verify
+git init -q
+git config user.name "relate docs"
+git config user.email "docs@example.com"
+```
+
+## Create the memory store with the json codec
+
+`--snapshot-format json` picks the codec when the store is created, and only then: it applies to an empty directory, and later opens read the codec from the store. This creates `memory/` and writes the shared example graph into it. The CLI checkpoints when a run that opened the store for writing exits:
+
+```bash verify
+relate query --database ./memory --snapshot-format json --mode envelope <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+ls -A memory memory/wal memory/.cypherlite/schema
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+memory:
+.cypherlite
+.cypherlite.lock
+.cypherlite.writer
+graph.json
+manifest.json
+wal
+
+memory/.cypherlite/schema:
+schema.cypher
+
+memory/wal:
+.cypherlite.lock
+.cypherlite.writer
+00000002.log
+```
+
+| File | Holds | In a diff |
+| --- | --- | --- |
+| `graph.json` | Every node with its id, labels and properties, every relationship with its type, its start and end node ids and its properties, then the index and constraint catalog | The facts that changed |
+| `manifest.json` | The codec and the position of the last checkpoint | Two counters that move with each checkpoint |
+| `.cypherlite/schema/schema.cypher` | One `CREATE INDEX` or `CREATE CONSTRAINT` statement per entry: the :term[schema folder]{id=schema-folder} | A schema change: a line added, or one removed |
+| `wal/<n>.log` | The WAL; after a clean exit it holds only its 8-byte header | Renamed by each session that commits |
+| `.cypherlite.lock`, `.cypherlite.writer`, and the same two in `wal/` | Markers that make the directory a store | Never change |
+
+Commit the whole directory. A read-only open of a fresh clone needs the markers and the WAL segment: without them it fails with `read-only open requires an existing database at <path>` or `read-only open requires an existing WAL at <path>/wal`.
+
+Each node in `graph.json` is one object, and a relationship points at its nodes by id:
+
+```bash verify
+jq -c '.nodes[0], .relationships[0]' memory/graph.json
+```
+
+```text
+{"id":0,"labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}
+{"id":0,"type":"WORKS_ON","start_node":0,"end_node":3,"properties":{"since":2024}}
+```
+
+## Make the diff readable
+
+relate writes `graph.json` as one line, so a plain line diff marks the whole file as changed. A git textconv driver prints it through `jq` before diffing, which puts each property on its own line. The driver changes what `git diff` shows, not what is stored:
+
+```bash verify
+printf 'memory/graph.json diff=relate-json\n' > .gitattributes
+git config diff.relate-json.textconv "jq ."
+```
+
+`.gitattributes` is committed with the store; the `git config` line is per clone, so each reviewer runs it once. Without it, git still shows the change, as one replaced line. A hosted pull request view, such as GitHub's, has no clone's `git config`, so it does not run the driver either and shows the one-line file as replaced; reviewers read the change with `git diff` or `git show` in a clone that has the driver configured.
+
+## Commit the store
+
+```bash verify
+git add .gitattributes memory
+git commit -q -m "Seed the team memory"
+```
+
+Reading the store changes no file. A read-only open writes nothing and runs no checkpoint, so the working tree stays clean:
+
+```bash verify
+relate --database ./memory --read-only --mode envelope "MATCH (n) RETURN count(n) AS nodes"
+git status --short
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+```
+
+## Record a session's writes
+
+An agent's session is any run that opens the store for writing. Build its writes on `MERGE`, so a retried session matches what is already there and writes nothing. This one adds a project Ada works on, and the second run of the same statement changes nothing:
+
+```bash verify
+relate --database ./memory --mode envelope "MATCH (ada:Person {name: 'Ada'}) MERGE (docs:Project {name: 'docs', language: 'Markdown'}) MERGE (ada)-[:WORKS_ON {since: 2026}]->(docs)"
+relate --database ./memory --mode envelope "MATCH (ada:Person {name: 'Ada'}) MERGE (docs:Project {name: 'docs', language: 'Markdown'}) MERGE (ada)-[:WORKS_ON {since: 2026}]->(docs)"
+```
+
+```text
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+note: write statement changed nothing; the graph is unchanged
+```
+
+A `SET` that writes a value a property already holds still counts as a write: that session checkpoints and renames the WAL segment, though `graph.json` stays the same. A `MERGE` pattern that carries the values, as here, keeps a replayed session silent.
+
+## Review the diff
+
+Three files changed: the graph, the manifest's counters, and the WAL segment, which the session's checkpoint replaced with a new empty one:
+
+```bash verify
+git status --short
+git diff --stat
+```
+
+```text
+ M memory/graph.json
+ M memory/manifest.json
+ D memory/wal/00000002.log
+?? memory/wal/00000003.log
+ memory/graph.json       | 2 +-
+ memory/manifest.json    | 4 ++--
+ memory/wal/00000002.log | 1 -
+ 3 files changed, 3 insertions(+), 4 deletions(-)
+```
+
+The diff of `graph.json`, through the driver, is what a reviewer reads. The new node is id 5, and the new relationship runs from node 0 (Ada) to node 5:
+
+```bash verify
+git diff memory/graph.json
+```
+
+```text
+diff --git a/memory/graph.json b/memory/graph.json
+index 60b1684..fd6b7d3 100644
+--- a/memory/graph.json
++++ b/memory/graph.json
+@@ -50,6 +50,16 @@
+         "language": "Gherkin",
+         "name": "opencypher-tck"
+       }
++    },
++    {
++      "id": 5,
++      "labels": [
++        "Project"
++      ],
++      "properties": {
++        "language": "Markdown",
++        "name": "docs"
++      }
+     }
+   ],
+   "relationships": [
+@@ -93,6 +103,15 @@
+       "start_node": 0,
+       "end_node": 1,
+       "properties": {}
++    },
++    {
++      "id": 5,
++      "type": "WORKS_ON",
++      "start_node": 0,
++      "end_node": 5,
++      "properties": {
++        "since": 2026
++      }
+     }
+   ],
+   "indexes": [],
+@@ -123,8 +142,8 @@
+     },
+     "derived_constraints": {}
+   },
+-  "next_node_id": 5,
+-  "next_rel_id": 5,
++  "next_node_id": 6,
++  "next_rel_id": 6,
+   "graph_type": null,
+   "read_only": false
+ }
+```
+
+Commit the three files together, `git add memory`, so the graph, the manifest and the WAL always describe the same checkpoint. A schema change shows up in the same diff, in `graph.json`'s catalog and as a line of `schema.cypher`; [Keep the schema as files](/docs/guides/storage/schema-as-files) covers that folder.
+
+## Know when it stops fitting
+
+Each checkpoint rewrites the whole `graph.json`, and git keeps every version. Measured with relate 0.16.1, nodes with three short properties and one relationship each take about 170 bytes per pair: 167,702 bytes for 1,000 nodes and 999 relationships, 1,733,704 bytes for 10,000 nodes and 9,999 relationships. The file grows with the graph; the diff grows with the session.
+
+| When | Keep |
+| --- | --- |
+| A session changes a few dozen facts a person can read | The `json` codec, as on this page |
+| Reviewers want one file per entity | The `markdown` codec: one note per node with its properties and outgoing relationships in YAML frontmatter ([Open a store as an Obsidian vault](/docs/guides/storage/obsidian-vault)). Its manifest records each note's modification time, so every checkpoint changes the manifest too |
+| The graph is too large to read as text | The default `parquet` codec, or a :term[single-file store]{id=single-file-store} (a `.rl` file), which git treats as binary; review the schema folder, and check facts with read-only statements |
+
+`relate clone --to-snapshot-format json <source> <destination>` converts an existing store, and the reverse goes back to `parquet`; [Clone and convert a store](/docs/guides/storage/clone-and-convert) has the details.
+
+## Verify
+
+After the commit, a read-only open of the store reads the new fact, and the tree stays clean:
+
+```bash verify
+git add memory
+git commit -q -m "Ada works on docs"
+relate --database ./memory --read-only --mode envelope "MATCH (:Person {name: 'Ada'})-[w:WORKS_ON]->(p:Project) RETURN p.name AS project, w.since AS since ORDER BY since"
+git status --short
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["project","since"],"notifications":[],"rows":[{"project":"relate","since":2024},{"project":"docs","since":2026}],"truncated":false}
+```
+
+## If it goes wrong
+
+| What you see | Cause | Remedy |
+| --- | --- | --- |
+| A merge conflict in `graph.json` and `manifest.json` | Two branches each wrote the memory; git cannot merge two versions of a one-line file | Keep one side's `memory/` whole, then replay the other session's statements on it; `MERGE` writes only what is missing |
+| `Failed to open Relate: storage error: read-only open requires an existing WAL at <path>/wal` on a fresh clone | `wal/` was left out of the commit, or ignored | Commit the whole store directory |
+| `Failed to open Relate: storage error: snapshot codec mismatch: directory is json, requested parquet`, exit code 1 | `--snapshot-format` given for a store that already exists | Drop the flag; to change the codec, `relate clone --to-snapshot-format` |
+| `Failed to open Relate: storage error: schema mirror .cypherlite/schema/<file> differs from the schema this store's checkpoint persisted; …` | A file in the schema folder was edited, or resolved by hand in a merge | Delete `.cypherlite/schema/` and open the store for writing once ([Keep the schema as files](/docs/guides/storage/schema-as-files)) |
+
+## Related
+
+- [Diffable memory](/docs/concepts/problems-relate-solves#diffable-memory) in the capability catalog.
+- [Storage formats](/docs/reference/storage/formats#codecs): what each codec writes.
+- [Keep the schema as files](/docs/guides/storage/schema-as-files): the schema folder and its drift check.
+- [Model agent memory](/docs/guides/agents/model-agent-memory): the entities, episodes, and provenance to keep in it.
+- [Bi-temporal decisions](/cookbook/bitemporal-decisions/): a session that replays with no change.
+- [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints): when a checkpoint runs.

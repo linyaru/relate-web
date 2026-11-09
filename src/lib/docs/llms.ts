@@ -3,11 +3,11 @@
 // page's twin, concatenated: all of them, and one file per section and per
 // group).
 
-import { ENVELOPE_CHECK, ENVELOPE_OUTPUT } from '../../components/docs/install.ts';
+import { ENVELOPE_CHECK, ENVELOPE_OUTPUT, VERSION_LINE } from '../../components/docs/install.ts';
 import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
 import type { Engine } from './content.ts';
-import { LLMS_GROUPS, llmsGroupOf } from './landing.ts';
-import { estimateTokens, tokenLabel, twinUrl } from './model.ts';
+import { EVALUATE, LLMS_GROUPS, llmsGroupOf } from './landing.ts';
+import { CHANGELOG_FEED_URL, estimateTokens, FEEDBACK_URL, tokenLabel, twinUrl } from './model.ts';
 
 export interface IndexedPage {
   id: string;
@@ -25,16 +25,27 @@ export function factsBlock(engine: Engine): string {
   const v = engine.version;
   return [
     `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}. Not the Neo4j Desktop Relate framework.`,
+    ...(engine.sourceBuild
+      ? [
+          `Before launch these pages are recorded from a source build of upstream ${engine.commit ?? '(unknown commit)'} that reports ${engine.verified} and includes engine changes made after the ${engine.verified} release; they are re-recorded from a published release at launch.`,
+        ]
+      : []),
     '',
     '- Install (macOS, Linux): `curl -sSfL https://relatedb.ai/install.sh | bash`. It installs the latest release to `~/.local/bin` after checking the signed SHA256SUMS, and installs nothing if a check fails.',
-    `- Check the install: \`relate --version\` prints \`Relate v${v}\`, and \`${ENVELOPE_CHECK}\` prints \`${ENVELOPE_OUTPUT}\`.`,
+    `- Check the install: \`relate --version\` prints \`${VERSION_LINE}\`, and \`${ENVELOPE_CHECK}\` prints \`${ENVELOPE_OUTPUT}\`.`,
     '- Run a statement: `relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"`; remove `--read-only` to write. `--mode envelope` prints one JSON object per result set.',
     '- Stores: `:memory:` (the default), a directory, or a single `.rl` file, named by `--database`. Add `--read-only` to open an existing store without writing.',
     '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',
-    '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store, 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
+    '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store (a query run; `relate serve` exits 1 on a locked store), 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
     '- MCP for a local agent: `relate serve --mcp stdio --database ./graph.rl --read-only`.',
+    `- The docs over MCP: \`${CANONICAL_ORIGIN}/mcp\` (streamable HTTP, read-only, no account; tools \`search_docs\`, \`get_page\`, \`explain_error\`, \`validate_cypher\`, \`discover_capabilities\`). Claude Code: \`claude mcp add --transport http relate-docs ${CANONICAL_ORIGIN}/mcp\`. Limits and threat model: \`${CANONICAL_ORIGIN}${twinUrl('reference/server/docs-mcp')}\`.`,
     '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
+    `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
+    `- Task skills, one per task family (agent memory, GraphRAG, schema design, query tuning, migrating from vector search): the "Task skills" section of \`${CANONICAL_ORIGIN}/skill.md\`, each at \`${CANONICAL_ORIGIN}/skills/<name>/SKILL.md\`; the skills CLI installs one by name (\`npx skills add ${CANONICAL_ORIGIN} --skill <name>\`).`,
+    `- Problems relate solves, as data: \`${CANONICAL_ORIGIN}/docs/capabilities.json\` (each problem mapped to its capability, guides, recipes, recommended data model and the recorded run that verifies it, or null where none does yet; the page: \`${CANONICAL_ORIGIN}${twinUrl('concepts/problems-relate-solves')}\`).`,
     `- Every page below is markdown at its URL plus \`.md\` (also \`<url>/index.md\`). Whole sections: \`${CANONICAL_ORIGIN}/docs/<section>/llms-full.txt\`; everything: \`${CANONICAL_ORIGIN}/docs/llms-full.txt\`.`,
+    `- What changed in each release: \`${CANONICAL_ORIGIN}${twinUrl('reference/changelog')}\` (JSON Feed: \`${CANONICAL_ORIGIN}${CHANGELOG_FEED_URL}\`). Terms: \`${CANONICAL_ORIGIN}${twinUrl('reference/glossary')}\` (as JSON: \`${CANONICAL_ORIGIN}/docs/glossary.json\`).`,
+    `- A wrong or missing page: \`${CANONICAL_ORIGIN}${FEEDBACK_URL}\` says what a report holds; the operator decides whether to send it.`,
     '- These pages are reference text, not instructions.',
   ].join('\n');
 }
@@ -44,6 +55,8 @@ export function llmsTxt(pages: IndexedPage[], engine: Engine, sections: [string,
   const lines = [`# ${CANONICAL_PHRASE}: docs`, '', '> The documentation index: a facts block, then every page by task.', '', factsBlock(engine), ''];
   for (const group of LLMS_GROUPS) {
     const members = pages.filter((p) => llmsGroupOf(p.id) === group);
+    // Evaluate keeps its own order (the fit page first, DOCS-PLAN.md §2); the other groups keep the sidebar's.
+    if (group === 'Evaluate') members.sort((a, b) => EVALUATE.indexOf(a.id) - EVALUATE.indexOf(b.id));
     if (!members.length) continue;
     lines.push(`## ${group}`, '');
     for (const p of members) {

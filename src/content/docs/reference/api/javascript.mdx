@@ -1,0 +1,252 @@
+---
+title: Node.js API
+label: Node.js
+description: The @relate/relate package's exports, classes and methods with their TypeScript signatures, open options, value mapping in both directions, errors, and limits.
+order: 30
+surfaces: [node]
+related: [guides/embed/node, get-started/node, reference/errors, reference/api/python, concepts/problems-relate-solves#embedded-graph-in-an-app]
+---
+
+The relate Node.js :term[client]{id=client} is the `@relate/relate` package: it loads the engine as a native library (`librelate_ffi`, the C ABI version 2) and runs it in the calling process against a :term[store]{id=store}. `query()` is synchronous and `queryAsync()` returns a Promise of the same result. The package ships TypeScript types in `index.d.ts`; the signatures on this page are read from those types and the package source, and checked against `@relate/relate` 0.16.1 on Node.js 25; the package requires Node.js 18 or later.
+
+## Synopsis
+
+```js
+const { Database } = require("@relate/relate");
+
+const db = Database.open(uri, { readOnly: false });   // a Database
+const conn = db.connect(namespace);                   // a Connection; namespace defaults to "neo4j"
+const result = conn.query(cypher, params);            // a Result holding every row
+const later = await conn.queryAsync(cypher, params);  // a Promise of a Result
+conn.begin();
+const bookmark = conn.commit();                       // "relate:<n>", or null
+db.checkpoint();
+```
+
+## Exports
+
+| Export | Kind | What it is |
+| --- | --- | --- |
+| `Database` | class | An open store |
+| `Connection` | class | Runs statements in one session namespace |
+| `Result`, `ResultSummary`, `ResultGraph` | classes | What a statement returns |
+| `RelateError` | class | The error every engine failure throws |
+| `ResultNotSingleError` | class | Thrown by `result.single()` |
+| `CypherFloat`, `float(value)` | class, function | A number bound as `FLOAT` |
+| `CypherDate`, `CypherTime`, `CypherLocalTime`, `CypherDateTime`, `CypherLocalDateTime`, `CypherDuration`, `CypherPoint`, `CypherVector` | classes | Typed values for parameters and results |
+
+The types file also exports the TypeScript types `QueryType`, `Int64`, `NodeValue`, `RelationshipValue`, `PathValue`, `Row`, `Stats`, `Notification`, `PlanDocument`, `PlanNode`, `PlanStartReason`, `PlanActual` and `ParamValue`.
+
+## Loading
+
+`require("@relate/relate")` finds the library in this order: the path in `RELATE_LIB`; the platform package `@relate/<platform>-<arch>` that npm installs as an optional dependency (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`, `win32-x64`); then a source checkout's build directories. It then checks the library's ABI version.
+
+| Failure at `require` time | Error message |
+| --- | --- |
+| No library found | `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/<platform>-<arch> (lib/ directory), (3) the repo target/debug and target/release directories. Set RELATE_LIB to the library path.` |
+| A library with another ABI version | `incompatible librelate_ffi: ABI version <n>; this client requires 2` |
+| A library without the version symbol | `incompatible librelate_ffi: no relate_abi_version symbol (the library predates the ABI version symbol); this client requires ABI v2` |
+
+## `Database`
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `Database.open(uri: string, options?: { readOnly?: boolean })` | `Database` | Opens a store; see [Open options](#open-options) |
+| `db.connect(namespace?: string)` | `Connection` | A new connection; `"neo4j"` (default), `"system"` or `"system_ontologies"`, in any case |
+| `db.checkpoint()` | `void` | Writes the current state to the snapshot |
+
+There is no close method. Each statement is durable when `query()` returns; the store stays open until the process exits.
+
+## Open options
+
+| Option | Default | Accepted values |
+| --- | --- | --- |
+| `uri` | required | `":memory:"`; a directory path (a directory store); a path ending in `.rl` (a single-file store). A missing store is created, unless `readOnly` is set |
+| `readOnly` | `false` | `true` loads the store once and refuses writes and checkpoints; a missing store throws |
+
+| Environment variable | Effect |
+| --- | --- |
+| `RELATE_LIB` | The library path, checked first at `require` time |
+| `RELATE_SNAPSHOT_FORMAT` | The codec of a new, empty directory store: `parquet` (default), `json` or `markdown`; an existing store keeps its own |
+| `RELATE_LOAD_CSV_DIR` | The directory local `LOAD CSV` may read |
+
+A file-backed store has one writing open at a time. A directory store also opens `readOnly: true` beside its writer; a `.rl` store does not. A failed open throws a `RelateError` whose message is `internal error`, with `stage` `"internal"`, `gqlStatus` `42000` and `code` `Neo.DatabaseError.General.UnknownError`; the message does not say whether the store was locked or missing.
+
+## `Connection`
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `query(cypher: string, params?: { [name: string]: ParamValue })` | `Result` | Runs one statement; auto-commit unless `begin()` is open |
+| `` query`…${value}…` `` | `Result` | The tagged-template form: each interpolated value becomes a parameter `$p0`, `$p1`, …; the same primitive value twice maps to one parameter |
+| `queryAsync(cypher, params?)`, `` queryAsync`…` `` | `Promise<Result>` | The same, on a worker thread; calls on one connection run one at a time, in order |
+| `begin()` | `void` | Opens an explicit transaction; a second `begin()` throws `semantic error: already in a transaction` |
+| `commit()` | `string \| null` | Commits and returns the bookmark, `relate:<n>`; `null` when the transaction wrote nothing. Without a transaction: `semantic error: no transaction` |
+| `rollback()` | `void` | Discards the transaction. Without one: `semantic error: no transaction` |
+| `setNamespace(name: string)` | `void` | Changes the session namespace between transactions; inside one it throws a message ending `Cannot change the namespace while a transaction is open.` |
+
+While a `queryAsync()` is in flight, `query`, `begin`, `commit`, `rollback` and `setNamespace` on the same connection throw `RelateError: a synchronous <call> cannot start while an async query is in flight on this connection`, with `code`, `gqlStatus` and `stage` `null`. A synchronous call in the same tick as `queryAsync()` runs first, because the async statement starts on the next microtask.
+
+## `Result`
+
+A `Result` holds every row from the moment `query()` returns.
+
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `columns` | `string[]` | Column names in `RETURN` order |
+| `rows` | `Row[]` | Rows as objects keyed by column name |
+| `stats` | `Stats` | The 11 mutation counters, zeros included: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed` |
+| `queryType` | `"r" \| "w" \| "rw" \| "s"` | A read, a write with no columns, a write that returns columns, a schema statement; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `namespace` | `string` | The namespace the statement ran in: its `USE` target, else the session namespace |
+| `bookmark` | `string \| null` | An auto-commit write's bookmark, `relate:<n>`; `null` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
+| `notifications` | `Notification[]` | `[]` on a plain run; filled by `EXPLAIN` and `PROFILE`. Keys: `code`, `gql_status`, `severity`, `category`, `title`, `description`, `remedy`, and `operator_id` on operator-scoped kinds |
+| `plan` | `PlanDocument \| null` | `null` on a plain run; for `EXPLAIN` and `PROFILE`, a `relate.plan/v1` document with `schema`, `profiled`, `statement` and `root` |
+| `single()` | `Row` | The one row; zero or several throw `ResultNotSingleError: expected exactly one row, got <n>`, with `rowCount` |
+| `consume()` | `ResultSummary` | The summary; repeated calls return the same object |
+| `graph()` | `ResultGraph` | The distinct nodes and relationships in the rows, nested values included |
+
+| `ResultSummary` field | Type | Meaning |
+| --- | --- | --- |
+| `counters` | `Stats` | As `result.stats` |
+| `namespace`, `queryType`, `bookmark`, `notifications`, `plan` | as on `Result` | As on `Result` |
+| `elapsedMs` | `number` | Engine time for parse, plan and run, in milliseconds |
+| `parseMs`, `planMs`, `executeMs` | `number` | The three phases of `elapsedMs`; their sum is at most `elapsedMs` |
+
+| `ResultGraph` member | Type | Meaning |
+| --- | --- | --- |
+| `nodes` | `NodeValue[]` | Distinct nodes, in the order the rows first carry them, by element id |
+| `relationships` | `RelationshipValue[]` | Distinct relationships, in the same order |
+| `size` | `number` | Nodes plus relationships |
+
+## Value mapping
+
+Each result value carries its own type; there is no per-column type list.
+
+| Cypher result | JavaScript value |
+| --- | --- |
+| `NULL`, `BOOLEAN`, `STRING` | `null`, `boolean`, `string` (interior `\u0000` kept) |
+| `INTEGER` | `number` within ±(2^53 − 1), `bigint` beyond it, at every depth |
+| `FLOAT` | `number`; `NaN` and `±Infinity` as themselves |
+| `NODE` | `{ kind: "node", elementId, id, labels, properties }` |
+| `RELATIONSHIP` | `{ kind: "relationship", elementId, id, type, startElementId, endElementId, startId, endId, properties }` |
+| `PATH` | An array alternating node, relationship, …, node |
+| `LIST`, `MAP` | An array; a plain object in the engine's key order |
+| `DATE`, `ZONED TIME`, `LOCAL TIME` | `CypherDate`, `CypherTime`, `CypherLocalTime` |
+| `ZONED DATETIME`, `LOCAL DATETIME` | `CypherDateTime`, `CypherLocalDateTime` |
+| `DURATION` | `CypherDuration` |
+| `POINT`, `VECTOR` | `CypherPoint`, `CypherVector` |
+
+A :term[node]{id=node} and a :term[relationship]{id=relationship} carry `elementId`, the string Cypher's `elementId()` returns (`4:relate:n0`, `5:relate:r0`), and `id`, what `id()` returns. A :term[path]{id=path} is an array of both. Byte arrays arrive as a list of integers 0 to 255, and UUIDs as strings.
+
+| JavaScript parameter | Cypher value |
+| --- | --- |
+| `null`, `boolean`, `string` | `NULL`, `BOOLEAN`, `STRING` |
+| `number` with an integer value | `INTEGER`, including `1.0` |
+| `number` with a fraction, `NaN`, `±Infinity` | `FLOAT` |
+| `float(n)` or `new CypherFloat(n)` | `FLOAT`, also for a whole number |
+| `bigint` | `INTEGER`, any signed 64-bit value |
+| An array, a plain object | `LIST`, `MAP`, converted at every depth; a cycle throws |
+| `CypherDate`, `CypherTime`, `CypherLocalTime`, `CypherDateTime`, `CypherLocalDateTime`, `CypherDuration`, `CypherPoint`, `CypherVector` | The matching type; a decoded value binds back unchanged |
+
+`undefined`, functions, symbols, `Date`, `Map`, `Set` and other class instances throw a `TypeError` before the statement runs. Each `TypeError` the client throws has one of these messages; `<path>` is the parameter name in quotes, followed by `[<i>]` or `.<key>` for a nested value, such as `"x"[0]`:
+
+| `TypeError` message | Thrown for |
+| --- | --- |
+| `query params must be a plain object` | A `params` argument that is not a plain object, such as an array |
+| `query takes (cypher, params?) — extra arguments` | More than two arguments to `query()` or `queryAsync()` |
+| `query expects a Cypher string or a tagged template` | A first argument that is neither |
+| `query params: <path> cannot be a Cypher parameter` | `undefined`, a function, or a symbol |
+| `query params: <path> must be a plain object` | A `Date`, `Map`, `Set` or other class instance |
+| `query params: <path> is an integer outside the int64 range` | A `bigint` outside the signed 64-bit range |
+| `query params: <path> is cyclic` | An array or object that contains itself |
+| `query params: <path> coordinate <i> must be an integer for dtype <dtype>` | A non-integer coordinate in an `INTEGER*` `CypherVector` |
+| `query params: <path> coordinate <i> must be a number for dtype <dtype>` | A non-number coordinate in a `FLOAT*` `CypherVector` |
+
+| Class | Constructor and fields |
+| --- | --- |
+| `CypherFloat` | `(value)`; `value` |
+| `CypherDate` | `(year, month, day)` |
+| `CypherTime` | `(hour, minute, second, nanosecond, offsetSeconds)` |
+| `CypherLocalTime` | `(hour, minute, second, nanosecond)` |
+| `CypherDateTime` | `(year, month, day, hour, minute, second, nanosecond, offsetSeconds, zone?)`; `zone` is an IANA name, or `null` for an offset only |
+| `CypherLocalDateTime` | `(year, month, day, hour, minute, second, nanosecond)` |
+| `CypherDuration` | `(months, days, seconds, nanos)`; the four components stay apart, so `PT36H` and `P1DT12H` differ |
+| `CypherPoint` | `(srid, x, y, z?)`; `srid` 7203 or 4326 in 2D, 9157 or 4979 in 3D; `z` is `undefined` in 2D |
+| `CypherVector` | `(dtype, values)`; `dtype` is `FLOAT16`, `BFLOAT16`, `FLOAT32`, `FLOAT`, `INTEGER8`, `INTEGER16`, `INTEGER32` or `INTEGER` |
+
+Every integer field (the temporal and duration components, the values of an `INTEGER*` vector) follows the `Int64` rule: a `number`, or a `bigint` beyond the safe range. Point coordinates, `CypherFloat.value` and the values of a `FLOAT*` vector are `number`.
+
+## Errors
+
+| Thrown | When | Fields |
+| --- | --- | --- |
+| `RelateError` | Every failure the engine reports, from `open`, `connect`, `query`, `queryAsync` (as a rejection), `begin`, `commit`, `rollback`, `setNamespace` and `checkpoint` | `message`, `code` (the Neo4j status code), `gqlStatus` (the GQLSTATUS code), `stage` (`"compile"`, `"runtime"` or `"internal"`), `retryable`, and `isRetriable` (the same as `retryable`) |
+| `TypeError` | A wrong argument shape, or a parameter the client cannot convert | `message`: one of the [`TypeError` messages](#value-mapping), naming the value's path where there is one |
+| `ResultNotSingleError` | `result.single()` with zero or several rows | `message`, `rowCount` |
+| `Error` | The library is missing or has another ABI version, at `require` time; or an error shape the library sent is malformed (`ABI contract violated: …`) | `message` |
+
+`retryable` is `true` only when re-running the same work can succeed, such as after a write-write conflict, which can surface on a statement or on `commit()`. A `stage` of `"internal"` marks a failure outside the statement. The [errors reference](/docs/reference/errors) lists every engine message with its codes.
+
+## Limits
+
+| Limit | Value | When exceeded |
+| --- | --- | --- |
+| Integer parameter | A signed 64-bit integer | `TypeError: query params: <path> is an integer outside the int64 range` |
+| Statement text | 4194304 bytes | `RelateError: syntax error: query text of <n> bytes exceeds the maximum query size of 4194304 bytes` |
+| One value a statement builds | The engine's expression memory cap | `RelateError: This statement tried to build a single value of <size>. …` |
+| Writing opens of a file-backed store | One | `RelateError` from `Database.open()`: `internal error` |
+| Calls in flight per connection | One; `queryAsync()` calls queue | A synchronous call during an async one throws |
+
+## Capabilities
+
+<Matrix columns={["node"]} />
+
+## Example
+
+An integer beyond `Number.MAX_SAFE_INTEGER` arrives as a `bigint`, and `float()` keeps a whole number a `FLOAT`:
+
+```js run name=integers
+const { Database, float } = require("@relate/relate");
+
+const conn = Database.open(":memory:", { readOnly: true }).connect();
+const row = conn.query(
+  "RETURN 2024 AS since, 9007199254740993 AS big, toString($weight) AS weight, toString($count) AS count",
+  { weight: float(1), count: 1 }
+).single();
+console.log(typeof row.since, row.since);
+console.log(typeof row.big, row.big.toString());
+console.log(row.weight, row.count);
+```
+
+A path from the team graph arrives as an array of node and relationship objects:
+
+```js run name=entities
+const { Database } = require("@relate/relate");
+
+const TEAM = `
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+`;
+
+const conn = Database.open(":memory:").connect();
+conn.query(TEAM);
+const [ada, knows, grace] = conn.query("MATCH p = (:Person {name: 'Ada'})-[:KNOWS]->(:Person) RETURN p").single().p;
+console.log(ada.kind, ada.properties.name, ada.elementId, ada.labels.join(","));
+console.log(knows.kind, knows.type, knows.elementId, knows.startElementId, knows.endElementId);
+console.log(grace.kind, grace.properties.name);
+```
+
+## See also
+
+- [Use the Node.js client](/docs/guides/embed/node): open modes, typed values, templates, transactions, async queries, and errors in working programs.
+- [Embed relate in a Node.js app](/docs/get-started/node): the first program.
+- [Errors](/docs/reference/errors): every engine error with its codes.
+- [Python API](/docs/reference/api/python): the same engine from Python.
+- [Embedded graph in an app](/docs/concepts/problems-relate-solves#embedded-graph-in-an-app): the problem the clients solve.

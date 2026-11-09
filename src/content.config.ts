@@ -1,4 +1,5 @@
-// Content collections (DOCS-PLAN.md §5): the docs pages and the glossary.
+// Content collections (DOCS-PLAN.md §5): the docs pages, the glossary and the
+// capability catalog.
 // The cookbook stays outside collections; its own parser owns
 // src/content/cookbook (src/lib/cookbook/).
 
@@ -66,4 +67,39 @@ const glossary = defineCollection({
     .strict(),
 });
 
-export const collections = { docs, glossary };
+/**
+ * A capability: src/content/docs/_capabilities/<id>.mdx (DOCS-PLAN.md §3.8).
+ * The body is two to four paragraphs. src/lib/docs/capabilities.ts reads the
+ * files from disk and checks what this schema cannot: the id is the slug of
+ * the title, the cited pages, recipes and verify run exist, intents are
+ * unique across the catalog and carry no injection phrasing.
+ */
+const capabilities = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/docs/_capabilities' }),
+  schema: z
+    .object({
+      id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+      /** The H2 on concepts/problems-relate-solves; its slug is `id`. */
+      title: z.string().min(1),
+      order: z.number().int(),
+      /** The problem in the reader's words. */
+      problem: z.string().min(1).max(200),
+      /** The capability in the product's words. */
+      capability: z.string().min(1).max(200),
+      intents: z.array(z.string().min(1)).min(4).max(8),
+      surfaces: z.array(z.enum(SURFACES)).min(1),
+      /** Page ids, with an optional #anchor. */
+      guides: z.array(z.string()).default([]),
+      /** Cookbook slugs. */
+      recipes: z.array(z.string()).default([]),
+      /** Page ids, with an optional #anchor. */
+      reference: z.array(z.string()).default([]),
+      /** The recommended data model: a mermaid flowchart whose nodes are all circles, or null. */
+      schema: z.string().min(1).nullable(),
+      /** `<recipe slug>#<cell id>`, `<page id>#<cell id>` or `<page id>#step-<n>`; null when no recorded run exercises it yet. */
+      verify: z.string().regex(/^[^#\s]+#[A-Za-z0-9_-]+$/).nullable(),
+    })
+    .strict(),
+});
+
+export const collections = { docs, glossary, capabilities };

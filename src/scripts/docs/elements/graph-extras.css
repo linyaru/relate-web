@@ -1,0 +1,51 @@
+/* Graph view extras (src/scripts/cookbook/graph.ts, ADR-0036): the controls
+   row, the relationship-type and path legend entries, the inspector's Pin
+   and Expand buttons, and full screen. graph.ts puts this on the page with
+   the first graph view, on docs and cookbook pages alike. No transition or
+   animation: nothing here moves. */
+.graph-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 12px;
+  border-top: 1px solid var(--border); font-size: 12.5px; color: var(--fg-muted);
+}
+.graph-control { display: inline-flex; align-items: center; gap: 6px; }
+.graph-control select {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 2px 6px; max-width: 12em;
+}
+.graph-btn {
+  font: inherit; font-size: 12.5px; color: var(--fg); background: var(--bg); cursor: pointer;
+  border: 1px solid var(--border-strong); border-radius: 4px; padding: 2px 8px;
+}
+.graph-btn:hover { background: var(--bg-alt); }
+.graph-btn:disabled { opacity: 0.5; cursor: default; }
+.graph-btn[hidden] { display: none; }
+.graph-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.graph-inspector-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+.graph-legend-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+/* A relationship type: a short line in its colour, then the type in code. */
+.graph-legend .graph-type-swatch { width: 16px; height: 3px; border-radius: 2px; }
+.graph-legend-types span { font-family: var(--font-mono); font-size: 11.5px; }
+/* The path: a thick line with an outline, the way the canvas draws it on top. */
+.graph-legend .graph-path-swatch {
+  width: 18px; height: 6px; border-radius: 3px; background: var(--fg); box-shadow: 0 0 0 1px var(--bg);
+}
+.graph-legend .graph-path-key { color: var(--fg); font-weight: 600; overflow-wrap: anywhere; }
+.graph-legend .graph-path-key.is-off { font-weight: 400; color: var(--fg-muted); }
+.graph-legend .graph-path-key.is-off .graph-path-swatch { background: var(--fg-faint); }
+
+/* Full screen: the view over the page, the stage taking what the rows leave. */
+.graph-view.is-full {
+  position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column;
+  background: var(--bg-alt);
+}
+.graph-view.is-full .graph-stage { flex: 1 1 auto; height: auto; max-height: none; resize: none; }
+html.graph-full-open { overflow: hidden; }
+
+/* A cell's words, said in words under its result (src/scripts/docs/elements/graph-extras.ts). */
+.graph-extras-note { margin: 0; padding: 6px 12px; font-size: 12.5px; color: var(--fg-muted); }
+.graph-extras-note:empty { display: none; }
+
+/* The status line sits in the stage, over the canvas near its bottom edge,
+   so it never covers the controls row or the legend below the stage. */
+.graph-stage .graph-status { bottom: 12px; }

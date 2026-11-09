@@ -1,0 +1,330 @@
+---
+title: Types and values
+description: Every value type relate handles, with its literal syntax, ranges, null rules, which types a property can store, and how each type prints in each output mode.
+order: 100
+surfaces: [cypher, cli]
+related: [reference/cypher/expressions, reference/cypher/functions, reference/cli/output-modes, reference/cypher/search, concepts/problems-relate-solves#bi-temporal-facts]
+---
+
+A value in relate has one of the types in the [value types table](#value-types): a number, a string, a boolean, a list, a map, a graph value, a temporal value, a point, a vector, a UUID or `null`. `valueType(<expression>)` names the type of any value, and the table's last column says which types a :term[property]{id=property} can store. The cells on this page run on relate's WebAssembly (WASM) build, and the `bash verify` blocks run on the CLI; both run the same engine.
+
+## Synopsis
+
+```text
+42  -7  0x1F  0o17  1_000          INTEGER
+3.5  .5  6.02e23  Infinity  NaN    FLOAT
+'text'  "text"  s'{expr} text'     STRING
+true  false                        BOOLEAN
+null                               NULL
+[1, 2, 3]                          LIST<…>
+{name: 'Ada', since: 2024}         MAP
+date('2026-11-08')  duration('P1D')  point({x: 1, y: 2})
+vector([0.1, 0.2], 2, FLOAT32)  uuid('f066ecfc-5151-4121-8a36-b35e00d72918')
+```
+
+## Value types
+
+The type name is the one `valueType()` returns and the `IS ::` predicate takes ([expressions](/docs/reference/cypher/expressions#type-predicates)); `valueType()` adds ` NOT NULL` to every value that is not `null`.
+
+| Type | Literal or constructor | Range or form | Stored as a property |
+| --- | --- | --- | --- |
+| `INTEGER` | `42`, `-7`, `0x1F`, `0o17`, `1_000` | 64-bit signed: `-9223372036854775808` to `9223372036854775807` | Yes |
+| `FLOAT` | `3.5`, `.5`, `1e3`, `Infinity`, `NaN` | IEEE 754 64-bit | Yes |
+| `STRING` | `'…'`, `"…"`, `s'…{expr}…'` | Unicode; `size()` counts characters | Yes |
+| `BOOLEAN` | `true`, `false` | — | Yes |
+| `NULL` | `null` | The absence of a value | No: setting a property to `null` removes it |
+| `LIST<T>` | `[1, 2, 3]` | Any values, mixed types allowed | Only a list whose elements are one storable type and none `null` |
+| `MAP` | `{key: value}` | String keys | No |
+| `NODE` | A pattern variable | Labels, properties, and an element id | No |
+| `RELATIONSHIP` | A pattern variable | One type, properties, and a start and end node | No |
+| `PATH` | `p = (a)-[r]->(b)` | Alternating nodes and relationships | No |
+| `DATE` | `date('2026-11-08')` | A calendar date | Yes |
+| `LOCAL TIME` | `localtime('10:15:30')` | A time of day without a zone | Yes |
+| `ZONED TIME` | `time('10:15:30+01:00')` | A time of day with an offset | Yes |
+| `LOCAL DATETIME` | `localdatetime('2026-11-08T10:15:30')` | A date and time without a zone | Yes |
+| `ZONED DATETIME` | `datetime('2026-11-08T10:15:30Z')` | A date and time with an offset or a named zone | Yes |
+| `DURATION` | `duration('P1Y2M3DT4H')` | Months, days, seconds and nanoseconds, kept apart | Yes |
+| `POINT` | `point({x: 1, y: 2})` | Two or three coordinates in one coordinate reference system | Yes |
+| `VECTOR<T>(n)` | `vector([1, 2, 3], 3, INT8)` | `n` coordinates of one numeric type | Yes |
+| `UUID` | `uuid('f066ecfc-5151-4121-8a36-b35e00d72918')` | 128 bits | Yes |
+
+```cypher run name=value-types
+RETURN valueType(42) AS int, valueType(3.5) AS float, valueType('Ada') AS string,
+       valueType(null) AS nothing, valueType([1, 2]) AS list, valueType({k: 1}) AS map,
+       valueType(duration('P1D')) AS duration, valueType(vector([1, 2], 2, INT8)) AS vector
+```
+
+## Numbers
+
+| Rule | Detail |
+| --- | --- |
+| Integer literals | Decimal, hexadecimal `0x1F`, octal `0o17`, with `_` between digits (`1_000`) |
+| Integer overflow | A literal outside the range fails to parse: ``syntax error: IntegerOverflow: parse error: integer overflow: 9223372036854775808``. Arithmetic past the range fails with `type error: integer out of range` |
+| Float literals | A decimal point, an exponent or both: `3.5`, `.5`, `6.02e23` |
+| Non-finite floats | `Infinity`, `-Infinity` and `NaN`; `1 / 0.0` is `Infinity` |
+| Mixed arithmetic | An integer and a float give a float; `^` always gives a float |
+| Conversions | `toInteger()` truncates toward zero; `toFloat()` widens ([functions](/docs/reference/cypher/functions#conversion-functions)) |
+
+```cypher run name=numbers
+RETURN 9223372036854775807 AS max_int, 0x1F AS hex, 0o17 AS octal, 1_000 AS grouped,
+       1e3 AS exponent, toInteger(-3.9) AS truncated
+```
+
+## Strings
+
+A string literal is in single or double quotes. The escapes are `\'`, `\"`, `\\`, `\n`, `\t` and `\uXXXX`. An interpolated literal, `s'…'`, evaluates each `{<expression>}` inside it; `\{` and `\}` are literal braces, and an embedded `null` makes the whole string `null`. `size()` and `char_length()` count Unicode characters, so `size('café')` is `4`.
+
+## Lists and maps
+
+A list holds any values, of mixed types, `null` included; a map holds string keys and any values. Both exist only while a statement runs, with one exception: a list can be stored as a property when every element has the same storable type and none is `null`. Anything else fails the write with `type error: InvalidPropertyType`.
+
+| Value set as a property | Result |
+| --- | --- |
+| `[1, 2]`, `[1.0, 2]`, `['a', 'b']`, `[true]`, `[date('2026-01-01')]`, `[point({x: 1, y: 1})]` | Stored; `[1.0, 2]` is stored as `[1.0, 2.0]` |
+| `[]` | Stored |
+| `[1, 'a']`, `[1, null]` | `type error: InvalidPropertyType` |
+| `{a: 1}` | `type error: InvalidPropertyType` |
+
+```cypher run name=property-lists
+CREATE (t:Sample {ints: [1, 2], floats: [1.0, 2], empty: []})
+RETURN t.floats AS floats, valueType(t.floats) AS type, t.empty AS empty
+```
+
+```cypher run name=property-map expect=error
+CREATE (:Sample {settings: {a: 1}})
+```
+
+## Graph values
+
+A :term[node]{id=node} carries labels and properties, a :term[relationship]{id=relationship} carries one type, properties and its two end nodes, and a :term[path]{id=path} alternates nodes and relationships and starts and ends with a node. None of them can be stored as a property.
+
+Each node and relationship has an :term[element id]{id=element-id}, a string that `elementId()` returns: `4:relate:n<k>` for a node and `5:relate:r<k>` for a relationship. `db.nameFromElementId()` returns the namespace the id belongs to. `id()` returns the integer part and is deprecated; under `EXPLAIN` it raises notification `01N01` ([notifications](/docs/reference/cypher/notifications)).
+
+```cypher run name=element-ids
+CREATE (a:Sample {name: 'a'})-[r:LINKS]->(b:Sample {name: 'b'})
+RETURN elementId(a) AS node_id, elementId(r) AS rel_id,
+       db.nameFromElementId(elementId(a)) AS namespace
+```
+
+## Temporal types
+
+| Type | Constructor from a string | From a map | Components |
+| --- | --- | --- | --- |
+| `DATE` | `date('2026-11-08')`, `date('2026-W45-7')`, `date('20261108')` | `date({year: 2026, month: 11, day: 8})` | `year`, `quarter`, `month`, `week`, `weekYear`, `day`, `ordinalDay`, `dayOfQuarter`, `dayOfWeek` (also `weekDay`) |
+| `LOCAL TIME` | `localtime('10:15:30')` | `localtime({hour: 10, minute: 15})` | `hour`, `minute`, `second`, `millisecond`, `microsecond`, `nanosecond` |
+| `ZONED TIME` | `time('10:15:30+01:00')` | `time({hour: 10, timezone: '+01:00'})` | The local time components, `offset`, `offsetMinutes`, `offsetSeconds`, `timezone` |
+| `LOCAL DATETIME` | `localdatetime('2026-11-08T10:15:30')` | `localdatetime({year: 2026, month: 11, day: 8, hour: 10})` | The date and time components |
+| `ZONED DATETIME` | `datetime('2026-11-08T10:15:30+01:00')`, `datetime('2026-11-08T10:15:30[Europe/Paris]')` | `datetime({year: 2026, month: 11, day: 8, timezone: 'Europe/Paris'})`, `datetime({epochMillis: 0})` | The date and time components, `offset`, `offsetMinutes`, `offsetSeconds`, `timezone`, `epochSeconds`, `epochMillis` |
+| `DURATION` | `duration('P1Y2M3DT4H5M6.5S')` | `duration({days: 1, hours: 2})` | `years`, `quarters`, `months`, `weeks`, `days`, `hours`, `minutes`, `seconds`, `milliseconds`, `microseconds`, `nanoseconds`; `quartersOfYear`, `monthsOfQuarter`, `monthsOfYear`, `daysOfWeek`, `minutesOfHour`, `secondsOfMinute`, `millisecondsOfSecond`, `microsecondsOfSecond`, `nanosecondsOfSecond` |
+
+A component is read with a dot: `date('2026-11-08').dayOfWeek` is `7`, and `.dayOfQuarter` is `39`. A component the type lacks fails with `type error: no such component '<name>' on a <type> value`, as `date('2026-11-08').hour` does. A duration keeps months, days and seconds apart and never converts between them: `duration({days: 1, hours: 25})` is `P1DT25H`. A plural duration component counts its whole part in that unit, and an `…Of…` component the remainder below the next unit: for `duration('P1Y2M3DT4H5M6.5S')`, `months` is `14` and `monthsOfYear` is `2`, `minutes` is `245` and `minutesOfHour` is `5`. Called with no argument, each temporal constructor returns the current instant; [functions](/docs/reference/cypher/functions#temporal-functions) lists the clock variants.
+
+### Temporal arithmetic
+
+| Expression | Result |
+| --- | --- |
+| `<instant> + <duration>`, `<instant> - <duration>` | An instant of the same type; a month step clamps to the end of a shorter month (`date('2026-01-31') + duration('P1M')` is `2026-02-28`) |
+| `<duration> + <duration>`, `<duration> - <duration>` | A duration |
+| `<duration> * <number>`, `<duration> / <number>` | A duration |
+| `<instant> - <instant>` | `type error: - type mismatch`; `duration.between(a, b)` gives the difference |
+| `<instant> < <instant>` | Order of two values of the same type; a `DATE` against a `ZONED DATETIME` gives `null` |
+
+```cypher run name=temporal
+RETURN date('2026-01-31') + duration('P1M') AS month_end,
+       datetime('2026-11-08T10:00Z') + duration('PT90M') AS later,
+       duration.between(date('2026-01-01'), date('2026-11-08')) AS between,
+       duration({days: 1, hours: 25}) AS kept_apart, date('2026-11-08').dayOfWeek AS weekday
+```
+
+## Points
+
+A point is built from a map. The keys choose the coordinate reference system (CRS), and `srid` or `crs` in the map can name it.
+
+| Keys | CRS | `srid` | Distance |
+| --- | --- | --- | --- |
+| `x`, `y` | `cartesian` | `7203` | Euclidean, in the coordinates' unit |
+| `x`, `y`, `z` | `cartesian-3d` | `9157` | Euclidean |
+| `longitude`, `latitude` | `wgs-84` | `4326` | Meters on the sphere |
+| `longitude`, `latitude`, `height` | `wgs-84-3d` | `4979` | Meters |
+
+Coordinates are floats: `point({x: 1, y: 2}).x` is `1.0`. The components are `x`, `y`, `z`, `longitude`, `latitude`, `height`, `crs` and `srid`. Two points have no order, so `<` between them gives `null`, and `point.distance()` between two different CRSs gives `null`. A `POINT INDEX` serves `point.distance()` and `point.withinBBox()` filters ([geospatial](/docs/guides/cypher/geospatial)).
+
+```cypher run name=points
+RETURN point({x: 1, y: 2}) AS cartesian,
+       point({latitude: 51.5, longitude: -0.1}).srid AS geo_srid,
+       point.distance(point({x: 0, y: 0}), point({x: 3, y: 4})) AS distance
+```
+
+## Vectors
+
+`vector(<list or string>, <dimensions>, <coordinate type>)` builds a vector. All three arguments are required, the list length must equal the dimensions, and the coordinate type is a bare keyword, not a string.
+
+| Keyword | `valueType()` element | Coordinates |
+| --- | --- | --- |
+| `INT8`, `INTEGER8` | `INTEGER8` | Signed 8-bit; a value outside the range fails with `type error: Overflow` |
+| `INT16`, `INTEGER16` | `INTEGER16` | Signed 16-bit |
+| `INT32`, `INTEGER32` | `INTEGER32` | Signed 32-bit |
+| `INT`, `INT64`, `INTEGER`, `INTEGER64` | `INTEGER` | Signed 64-bit |
+| `FLOAT32` | `FLOAT32` | 32-bit float |
+| `FLOAT`, `FLOAT64` | `FLOAT` | 64-bit float |
+| `FLOAT16`, `BFLOAT16` | — | Preview feature `float16-coordinate-types`; off, it fails with `semantic error: SemanticError: preview feature 'float16-coordinate-types' is not enabled: set RELATE_PREVIEW=float16-coordinate-types` |
+
+| Rule | Detail |
+| --- | --- |
+| Type name | `VECTOR<FLOAT32 NOT NULL>(3) NOT NULL` for `vector([0.1, 0.2, 0.3], 3, FLOAT32)` |
+| Dimensions | The value takes any length the list has, `0` included; a vector index takes `vector.dimensions` from 1 to 4096 ([search](/docs/reference/cypher/search#vector-index-options)) |
+| Length mismatch | `type error: vector() dimension does not match list` |
+| A float into an integer type | Truncated: `vector([1.5], 1, INT8)` holds `1` |
+| A `null` coordinate | `type error: vector() coordinates must be numbers` |
+| A string coordinate type | ``syntax error: parse error: vector() third argument must be a coordinate type keyword`` |
+| `size(v)`, `vector_dimension_count(v)` | The dimensions |
+| `toFloatList(v)`, `toIntegerList(v)` | The coordinates as a list |
+
+```cypher run name=vectors
+RETURN vector([1, 2, 3], 3, INT8) AS small, vector('[1.5, 2.5]', 2, FLOAT32) AS from_string,
+       valueType(vector([0.1, 0.2], 2, FLOAT32)) AS type, size(vector([1, 2, 3], 3, INT8)) AS dims
+```
+
+## UUIDs
+
+`uuid('<36-character string>')` parses a UUID and `uuid(<high>, <low>)` builds one from two 64-bit integers. `uuid()` with no argument returns a random UUID, and `randomUUID()` returns one as a `STRING`. On the WASM build, the random forms stop the engine with `time not implemented on this platform`; they run on the CLI and the clients. `toString()` and the output modes print the 36-character form; `uuid.mostSignificantBits()` and `uuid.leastSignificantBits()` return the halves.
+
+```cypher run name=uuids
+RETURN uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS parsed, uuid(0, 1) AS from_halves,
+       valueType(uuid(0, 1)) AS type
+```
+
+## Null
+
+`null` is the value of a missing property, an index past the end of a list and an `OPTIONAL MATCH` that found nothing. Most operators and functions give `null` when an argument is `null`; [expressions](/docs/reference/cypher/expressions#null-and-three-valued-logic) gives the three-valued logic and the exceptions. Every type includes `null` unless it is written `NOT NULL`, so `null IS :: INTEGER` is `true`.
+
+## Output modes
+
+Each CLI output mode prints the same values in its own form ([output modes](/docs/reference/cli/output-modes)). JSON, JSON Lines (`jsonl`) and the envelope share one value form; a row object's keys print in sorted order.
+
+| Type | `json`, `jsonl`, `envelope` | TOON | `csv` | `table`, `markdown` |
+| --- | --- | --- | --- | --- |
+| `INTEGER` | `42` | `42` | `42` | `42` |
+| `FLOAT` | `3.5`, `2.0`, `1e+20` | `3.5` | `3.5`; `1e20` prints as `100000000000000000000.0` | `3.5` |
+| Non-finite `FLOAT` | `"Inf"`, `"-Inf"`, `"NaN"` (strings) | `"Inf"`, `"NaN"` | `Inf`, `NaN` | `Inf`, `NaN` |
+| `STRING` | `"Ada"` | `Ada`; quoted as JSON when it would read back as another type (`"true"`, `"42"`) or holds a comma | `Ada`; quoted when it holds a comma or a quote | `"Ada"` |
+| `BOOLEAN` | `true` | `true` | `true` | `true` |
+| `NULL` | `null` | `null` | an empty field | `<null>` |
+| `LIST` | `[1,"two"]` | `[1,"two"]` | `"[1, ""two""]"` | `[1, "two"]` |
+| `MAP` | `{"k":1}` | `{"k":1}` | `{k: 1}` | `{k: 1}` |
+| `NODE` | `{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}}` | The JSON form | `(:Person {name: "Ada"})` | `(:Person {name: "Ada"})` |
+| `RELATIONSHIP` | `{"end_node":1,"id":0,"kind":"relationship","properties":{…},"start_node":0,"type":"KNOWS"}` | The JSON form | `[:KNOWS {since: 2024}]` | `[:KNOWS {since: 2024}]` |
+| `PATH` | A JSON array of the node and relationship objects | The JSON form | `(:Person …)-[:KNOWS …]-(:Person …)` | Same as `csv` |
+| Temporal types | ISO 8601 strings: `"2026-11-08"`, `"10:15:30+01:00"`, `"2026-11-08T10:15:30+01:00[Europe/Paris]"`, `"P1DT2H30M"` | The ISO string, bare | The ISO string | The ISO string |
+| `POINT` | `{"crs":"cartesian","srid":7203,"x":1.0,"y":2.0}` | The JSON form | `point({srid: 7203, x: 1, y: 2})` | Same as `csv` |
+| `VECTOR` | `{"dim":3,"type":"INTEGER8","values":[1,2,3]}` | The JSON form | `vector([1, 2, 3], 3, INTEGER8 NOT NULL)` | Same as `csv` |
+| `UUID` | `"f066ecfc-5151-4121-8a36-b35e00d72918"` | The string, bare | The string | `"f066ecfc-…"` |
+
+In `csv`, a field that starts with `=`, `+`, `-` or `@` gets a leading `'`, so a spreadsheet does not read it as a formula: `-0.0` prints as `'-0.0`. The `cypher` mode prints rows as `CREATE` statements and leaves out a `VECTOR` column with the comment `// column v (VECTOR) omitted: no Cypher literal form`.
+
+The scalars and collections in JSON, TOON and CSV:
+
+```bash verify
+relate --mode json "RETURN 42 AS int, 3.5 AS float, 'Ada' AS string, true AS bool, null AS nothing, [1, 'two'] AS list, {k: 1} AS map"
+```
+
+```text
+[{"bool":true,"float":3.5,"int":42,"list":[1,"two"],"map":{"k":1},"nothing":null,"string":"Ada"}]
+```
+
+```bash verify
+relate --mode toon "RETURN 42 AS int, 3.5 AS float, 'Ada' AS string, true AS bool, null AS nothing, [1, 'two'] AS list, {k: 1} AS map"
+```
+
+```text
+rows[1]{int,float,string,bool,nothing,list,map}:
+  42,3.5,Ada,true,null,[1,"two"],{"k":1}
+```
+
+```bash verify
+relate --mode csv "RETURN 42 AS int, 3.5 AS float, 'Ada' AS string, true AS bool, null AS nothing, [1, 'two'] AS list, {k: 1} AS map"
+```
+
+```text
+int,float,string,bool,nothing,list,map
+42,3.5,Ada,true,,"[1, ""two""]",{k: 1}
+```
+
+The temporal types in JSON Lines and CSV:
+
+```bash verify
+relate --mode jsonl "RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt, time('10:15:30+01:00') AS t, localdatetime('2026-11-08T10:15:30') AS ldt, datetime('2026-11-08T10:15:30[Europe/Paris]') AS dt, duration('P1DT2H30M') AS dur"
+```
+
+```text
+{"d":"2026-11-08","dt":"2026-11-08T10:15:30+01:00[Europe/Paris]","dur":"P1DT2H30M","ldt":"2026-11-08T10:15:30","lt":"10:15:30","t":"10:15:30+01:00"}
+```
+
+```bash verify
+relate --mode csv "RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt, time('10:15:30+01:00') AS t, localdatetime('2026-11-08T10:15:30') AS ldt, datetime('2026-11-08T10:15:30[Europe/Paris]') AS dt, duration('P1DT2H30M') AS dur"
+```
+
+```text
+d,lt,t,ldt,dt,dur
+2026-11-08,10:15:30,10:15:30+01:00,2026-11-08T10:15:30,2026-11-08T10:15:30+01:00[Europe/Paris],P1DT2H30M
+```
+
+Points, vectors and UUIDs in JSON Lines and CSV:
+
+```bash verify
+relate --mode jsonl "RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, longitude: -0.1}) AS geo, vector([1, 2, 3], 3, INT8) AS v, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u"
+```
+
+```text
+{"geo":{"crs":"wgs-84","latitude":51.5,"longitude":-0.1,"srid":4326},"u":"f066ecfc-5151-4121-8a36-b35e00d72918","v":{"dim":3,"type":"INTEGER8","values":[1,2,3]},"xy":{"crs":"cartesian","srid":7203,"x":1.0,"y":2.0}}
+```
+
+```bash verify
+relate --mode csv "RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, longitude: -0.1}) AS geo, vector([1, 2, 3], 3, INT8) AS v, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u"
+```
+
+```text
+xy,geo,v,u
+"point({srid: 7203, x: 1, y: 2})","point({srid: 4326, x: -0.1, y: 51.5})","vector([1, 2, 3], 3, INTEGER8 NOT NULL)",f066ecfc-5151-4121-8a36-b35e00d72918
+```
+
+Graph values. This statement writes a node, a relationship and a path to the default in-memory store, which the process discards when it exits:
+
+```bash verify
+relate --mode jsonl "CREATE p = (a:Person {name: 'Ada'})-[r:KNOWS {since: 2024}]->(b:Person {name: 'Grace'}) RETURN a, r, p"
+```
+
+```text
+{"a":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},"p":[{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"},{"id":1,"kind":"node","labels":["Person"],"properties":{"name":"Grace"}}],"r":{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"}}
+```
+
+## Column types in the envelope
+
+The envelope's `columnTypes` names one type per column, with coarser names than `valueType()`:
+
+| Value | `columnTypes` entry |
+| --- | --- |
+| `INTEGER`, `FLOAT`, `STRING`, `BOOLEAN` | `INTEGER`, `FLOAT`, `STRING`, `BOOLEAN` |
+| `null` | `ANY` |
+| A list, a map | `LIST`, `MAP` |
+| A node, a relationship, a path | `NODE`, `RELATIONSHIP`, `PATH` |
+| `DATE`, `DURATION`, `POINT`, `VECTOR` | `DATE`, `DURATION`, `POINT`, `VECTOR` |
+| `LOCAL TIME`, `ZONED TIME` | `TIME` |
+| `LOCAL DATETIME`, `ZONED DATETIME` | `DATETIME` |
+| `UUID` | `STRING` |
+
+```bash verify
+relate --mode envelope "RETURN 42 AS int, null AS nothing, localtime('10:15:30') AS lt, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u, [1, 2] AS list"
+```
+
+```text
+{"columnTypes":["INTEGER","ANY","TIME","STRING","LIST"],"columns":["int","nothing","lt","u","list"],"notifications":[],"rows":[{"int":42,"list":[1,2],"lt":"10:15:30","nothing":null,"u":"f066ecfc-5151-4121-8a36-b35e00d72918"}],"truncated":false}
+```
+
+## See also
+
+- [Expressions](/docs/reference/cypher/expressions): operators, comparison, the null rules, and type predicates.
+- [Functions](/docs/reference/cypher/functions): constructors and conversions for every type.
+- [Output modes](/docs/reference/cli/output-modes): each mode's layout, headers, and defaults.
+- [Search](/docs/reference/cypher/search): vector and full-text indexes over these values.
+- [Bi-temporal facts](/docs/concepts/problems-relate-solves#bi-temporal-facts): temporal values in an agent's memory.

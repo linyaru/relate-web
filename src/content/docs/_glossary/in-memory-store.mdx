@@ -1,0 +1,19 @@
+---
+id: in-memory-store
+term: "in-memory store"
+short: "A store that lives only in the process that opened it, named `:memory:`; the default `--database`, gone when the process exits."
+aliases: []
+context: storage
+see: guides/storage/choose-a-store-layout
+related: ["store", "durability-mode"]
+---
+
+An in-memory store writes nothing to disk: no snapshot, no WAL, no lock file. It is what `relate` opens when no `--database` is given, and what the WebAssembly build behind the cells on this site runs. Each process that opens `:memory:` gets its own empty graph, and the graph is gone when that process exits, whatever the :term[durability mode]{id=durability-mode}.
+
+`--load` fills an in-memory store from a `.rl` file, a directory store, or an https URL. The load is a read-only open that releases its source afterward, so the source can be deleted or opened for writing while the copy stays in memory. A `--read-only` open of `:memory:` rejects writes and creates nothing.
+
+`relate info` and `relate clone` refuse `:memory:`, since there is nothing on disk to describe or copy.
+
+```bash
+relate --mode envelope "RETURN 1 AS ok"
+```

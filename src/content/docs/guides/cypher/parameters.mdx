@@ -1,0 +1,298 @@
+---
+title: Use parameters
+description: Pass values to a statement as $name parameters from the CLI, the cells, Python and Node.js, including points, dates, durations, vectors, lists and maps.
+order: 15
+surfaces: [cypher, cli, python, node]
+prerequisites: [get-started/install]
+related: [reference/cli/flags#param, reference/cypher/types-and-values, guides/cypher/load-json-from-a-url, reference/errors#engine-parameter-missing, guides/embed/python, guides/embed/node]
+---
+
+This guide shows you how to pass values to a :term[statement]{id=statement} as :term[parameters]{id=parameter}: the statement names each value `$name`, and the caller binds the values separately, with `--param` on the command line, a JSON block in the cells on this page, or a dict or object in the Python and Node.js :term[clients]{id=client}. A parameter is always a value and never Cypher, so the statement text stays the same whatever the value holds.
+
+## Prerequisites
+
+- For the terminal steps, relate on your `PATH` ([install](/docs/get-started/install)). The cells run in your browser without it.
+- For the client tabs, the Python client or the Node.js client, installed as in [Python](/docs/get-started/python) or [Node.js](/docs/get-started/node).
+
+## Load the example graph
+
+The cells on this page run in page order on one in-memory :term[store]{id=store}. This cell writes the shared graph: Ada, Grace and Noor, the `relate` and `opencypher-tck` projects, and who works on what.
+
+```cypher run name=seed
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+## Refer to a value with $name
+
+Write `$name` where the value goes. A cell takes its parameters from the JSON block it names with `params=`:
+
+```json data=who
+{"name": "Grace"}
+```
+
+```cypher run name=projects-of params=who
+MATCH (p:Person {name: $name})-[w:WORKS_ON]->(proj:Project)
+RETURN proj.name AS project, w.since AS since
+ORDER BY since
+```
+
+To ask about Ada, change the value; the statement stays as it is. A parameter can stand anywhere a value can: in a property map, a `WHERE` comparison, a `LIMIT`, a list to `UNWIND`, or the query of a `SEARCH`.
+
+## Bind parameters on the command line
+
+`--param <name>=<value>` binds one parameter; repeat it for more, and the last one for a name wins. This step writes the example graph to a new single-file store, `team.rl`:
+
+```bash verify
+relate --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)"
+```
+
+Then read it with a parameter. Single quotes around the statement keep the shell from expanding `$name` itself:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table --param name=Grace 'MATCH (p:Person {name: $name})-[w:WORKS_ON]->(proj:Project) RETURN proj.name AS project, w.since AS since ORDER BY since'
+```
+
+```text
++------------------+-------+
+| project          | since |
++------------------+-------+
+| "opencypher-tck" | 2022  |
+| "relate"         | 2023  |
++------------------+-------+
+```
+
+The value after `=` is read as JSON when it parses as JSON, and as a string otherwise:
+
+| `--param` value | Binds |
+| --- | --- |
+| `name=Grace`, `name='hello world'`, `x=` | A string. A value that does not start with a digit, `-`, `"`, `[` or `{` and is not JSON binds as the string as written; `x=` binds the empty string |
+| `n=3`, `f=1.5`, `big=1e3` | `INTEGER`, `FLOAT`, `FLOAT`; an integer outside the 64-bit range exits with code 2 |
+| `flag=true`, `none=null` | `BOOLEAN`, `NULL`. Only the lowercase JSON words: `TRUE` binds the string `"TRUE"` |
+| `'tags=["graph", "rust"]'` | `LIST` |
+| `'meta={"source": "cli", "rank": 1}'` | `MAP` |
+| `'day="2026-11-08"'` | The string `"2026-11-08"`, JSON-quoted because it starts with a digit |
+| `day=2026-11-08` | Exit code 2: it starts with a digit and is not JSON |
+
+The last row is the one that bites. A date starts with a digit, so relate tries it as a JSON number and refuses it before the statement runs, with :term[exit code]{id=exit-code} 2:
+
+```bash verify
+relate --read-only --param day=2026-11-08 'RETURN date($day) AS day'
+```
+
+```text
+Error: invalid --param value: parameter day: invalid parameter JSON: trailing characters at line 1 column 5
+```
+
+Quote it as a JSON string, inside the shell's single quotes:
+
+```bash verify
+relate --read-only --mode table --param 'day="2026-11-08"' 'RETURN date($day) AS day'
+```
+
+```text
++------------+
+| day        |
++------------+
+| 2026-11-08 |
++------------+
+```
+
+The [flags reference](/docs/reference/cli/flags#param) has `--param` with its recorded runs. To bind a whole JSON document from a file or a URL, use `--fetch-params` ([load JSON from a URL or a file](/docs/guides/cypher/load-json-from-a-url)).
+
+## Pass typed values
+
+On the command line and in the cells, a parameter arrives as a JSON value: a string, number, boolean, null, list or map. A point, a temporal value or a vector is built inside the statement from one of those with its constructor. The clients can also send most of them as typed values.
+
+| Type | CLI and cells: the JSON value and the constructor | Python | Node.js |
+| --- | --- | --- | --- |
+| Point | `{"latitude": 45.5231, "longitude": -122.6765}` or `{"x": 1, "y": 2}`, then `point($loc)` | `relate.Point(4326, -122.6765, 45.5231)` (`x` is the longitude) | `new CypherPoint(4326, -122.6765, 45.5231)` |
+| Date | `"2026-11-08"`, then `date($day)` | `datetime.date` | `new CypherDate(2026, 11, 8)` |
+| Datetime | `"2026-11-08T09:30:00Z"`, then `datetime($at)` | `datetime.datetime` | `new CypherDateTime(2026, 11, 8, 9, 30, 0, 0, 0)`: the last argument is the offset in seconds |
+| Duration | `"PT90M"`, then `duration($span)` | `relate.Duration(seconds=5400)` or `datetime.timedelta` | `new CypherDuration(0, 0, 5400, 0)`: months, days, seconds, nanoseconds |
+| Vector | a list, then `vector($focus, 3, FLOAT32)` | a list and `vector()`; a vector read from a result binds back unchanged | a list and `vector()`; a `CypherVector` read from a result binds back unchanged |
+| List, map | a JSON array or object | `list` or `tuple`, `dict` | an array, a plain object |
+
+A map stays a map on every surface: `{"latitude": 45.5231, "longitude": -122.6765}` is a `MAP` until `point()` turns it into a point. The cell builds each type from the JSON values and reports what arrived:
+
+```json data=typed
+{"loc": {"latitude": 45.5231, "longitude": -122.6765},
+ "day": "2026-11-08", "at": "2026-11-08T09:30:00Z", "span": "PT90M",
+ "focus": [0.9, 0.1, 0.2], "tags": ["graph", "rust"], "meta": {"source": "cell", "rank": 1}}
+```
+
+```cypher run name=typed params=typed
+RETURN valueType(point($loc)) AS loc, valueType(date($day)) AS day,
+       valueType(datetime($at)) AS at, valueType(duration($span)) AS span,
+       valueType(vector($focus, 3, FLOAT32)) AS focus,
+       valueType($tags) AS tags, valueType($meta) AS meta
+```
+
+The same values from each surface. Each program prints the type every parameter arrived as:
+
+::::tabs
+:::tab[CLI]{key=cli}
+```bash verify
+relate --read-only --mode table --param 'loc={"latitude": 45.5231, "longitude": -122.6765}' --param 'day="2026-11-08"' --param 'at="2026-11-08T09:30:00Z"' --param 'span="PT90M"' --param 'focus=[0.9, 0.1, 0.2]' --param 'tags=["graph", "rust"]' --param 'meta={"source": "cli", "rank": 1}' 'RETURN valueType(point($loc)) AS loc, valueType(date($day)) AS day, valueType(datetime($at)) AS at, valueType(duration($span)) AS span, valueType(vector($focus, 3, FLOAT32)) AS focus, valueType($tags) AS tags, valueType($meta) AS meta'
+```
+
+```text
++------------------+-----------------+---------------------------+---------------------+----------------------------------------+----------------------------------+----------------+
+| loc              | day             | at                        | span                | focus                                  | tags                             | meta           |
++------------------+-----------------+---------------------------+---------------------+----------------------------------------+----------------------------------+----------------+
+| "POINT NOT NULL" | "DATE NOT NULL" | "ZONED DATETIME NOT NULL" | "DURATION NOT NULL" | "VECTOR<FLOAT32 NOT NULL>(3) NOT NULL" | "LIST<STRING NOT NULL> NOT NULL" | "MAP NOT NULL" |
++------------------+-----------------+---------------------------+---------------------+----------------------------------------+----------------------------------+----------------+
+```
+:::
+:::tab[Python]{key=python}
+```python run name=typed-python
+import datetime
+
+import relate
+
+conn = relate.connect(":memory:", read_only=True)
+row = conn.execute(
+    """
+    RETURN valueType($loc) AS loc, valueType($day) AS day, valueType($at) AS at,
+           valueType($span) AS span, valueType(vector($focus, 3, FLOAT32)) AS focus,
+           valueType($tags) AS tags, valueType($meta) AS meta
+    """,
+    {
+        "loc": relate.Point(4326, -122.6765, 45.5231),
+        "day": datetime.date(2026, 11, 8),
+        "at": datetime.datetime(2026, 11, 8, 9, 30, tzinfo=datetime.timezone.utc),
+        "span": relate.Duration(seconds=90 * 60),
+        "focus": [0.9, 0.1, 0.2],
+        "tags": ["graph", "rust"],
+        "meta": {"source": "python", "rank": 1},
+    },
+).single()
+for key, value in row.items():
+    print(f"{key}: {value}")
+conn.close()
+```
+:::
+:::tab[Node.js]{key=node}
+```js run name=typed-node
+const { Database, CypherPoint, CypherDate, CypherDateTime, CypherDuration } = require("@relate/relate");
+
+const conn = Database.open(":memory:", { readOnly: true }).connect();
+const row = conn.query(
+  `RETURN valueType($loc) AS loc, valueType($day) AS day, valueType($at) AS at,
+          valueType($span) AS span, valueType(vector($focus, 3, FLOAT32)) AS focus,
+          valueType($tags) AS tags, valueType($meta) AS meta`,
+  {
+    loc: new CypherPoint(4326, -122.6765, 45.5231),
+    day: new CypherDate(2026, 11, 8),
+    at: new CypherDateTime(2026, 11, 8, 9, 30, 0, 0, 0),
+    span: new CypherDuration(0, 0, 90 * 60, 0),
+    focus: [0.9, 0.1, 0.2],
+    tags: ["graph", "rust"],
+    meta: { source: "node", rank: 1 },
+  },
+).single();
+for (const [key, value] of Object.entries(row)) console.log(`${key}: ${value}`);
+```
+:::
+::::
+
+A JavaScript `Date` is refused rather than guessed at, because its UTC or local reading is ambiguous; build a `CypherDateTime`. The [types reference](/docs/reference/cypher/types-and-values) lists every value type.
+
+## Pass a list of rows
+
+A list of maps and `UNWIND` write many rows with one statement. This cell writes two more people:
+
+```json data=newcomers
+{"people": [{"name": "Ines", "role": "engineer"}, {"name": "Kofi", "role": "reviewer"}]}
+```
+
+```cypher run name=unwind params=newcomers
+UNWIND $people AS row
+MERGE (p:Person {name: row.name})
+SET p.role = row.role
+RETURN p.name AS name, p.role AS role
+```
+
+## Keep values out of the statement text
+
+Building a statement by pasting a value into its text makes the value part of the Cypher. A value that holds a quote then changes what the statement does:
+
+```python
+# The input becomes part of the statement text
+conn.execute(f"MATCH (p:Person {{name: '{name}'}}) RETURN p.role AS role")
+# The input is bound as a value
+conn.execute("MATCH (p:Person {name: $name}) RETURN p.role AS role", {"name": name})
+```
+
+As a parameter, the same input is only a name that matches nobody:
+
+```json data=tricky
+{"name": "Ada'}) OR true //"}
+```
+
+```cypher run name=tricky params=tricky
+MATCH (p:Person) WHERE p.name = $name
+RETURN count(p) AS matches
+```
+
+A parameter also keeps its type: `3` stays an `INTEGER` and `"3"` a `STRING`, where text formatting turns both into the same characters.
+
+Labels, relationship types and property keys are names, not values, so `MATCH (p:$label)` is a parse error. The dynamic forms take a parameter: `$(<expr>)` for a label or type, and `p[$key]` for a property key.
+
+```json data=names
+{"label": "Project", "key": "language"}
+```
+
+```cypher run name=dynamic params=names
+MATCH (n:$($label))
+RETURN n.name AS name, n[$key] AS value
+ORDER BY name
+```
+
+## Verify
+
+`--mode envelope` reports the type each column arrived as in `columnTypes`. A parameter returned as it is shows the type it was bound with:
+
+```bash verify
+relate --read-only --mode envelope --param name=Grace --param since=2023 'RETURN $name AS name, $since AS since'
+```
+
+```text
+{"columnTypes":["STRING","INTEGER"],"columns":["name","since"],"notifications":[],"rows":[{"name":"Grace","since":2023}],"truncated":false}
+```
+
+## If it goes wrong
+
+| Message | Cause | Remedy |
+| --- | --- | --- |
+| `semantic error: ParameterMissing: Expected parameter(s): name` (exit code 6) | The statement names `$name` and nothing binds it. relate never binds a missing parameter as `null`. | Bind every parameter the statement names, or remove the reference. |
+| `syntax error: parse error: unexpected token "}" (RightBrace) at line 1, col 24` | The statement was in double quotes, so the shell replaced `$name` with an empty string before relate saw it. | Put the statement in single quotes. |
+| `Error: invalid --param value: parameter day: invalid parameter JSON: trailing characters at line 1 column 5` (exit code 2) | The value starts with a digit, `-`, `"`, `[` or `{` and is not valid JSON. | JSON-quote it: `--param 'day="2026-11-08"'`. |
+| `Error: invalid --param value: parameter x: $: integer exceeds i64 range` (exit code 2) | An integer beyond the 64-bit range. | Pass it as a JSON string. |
+| `syntax error: parse error: expected a label name, got "label"` | A parameter in a label position. | Write `$($label)`. |
+| `relate.exceptions.ProgrammingError: query parameters must be a dict mapping string keys to values, got 'list'` | The Python client got the parameters as a list. | Pass a `dict` with string keys. |
+| `TypeError: query params: "d" must be a plain object` | The Node.js client got a `Date`, a `Map` or a class instance. | Use the typed classes, such as `CypherDateTime`, or plain values. |
+
+## Related
+
+- [Flags](/docs/reference/cli/flags#param): `--param` and `--fetch-params`, with their recorded runs.
+- [Types and values](/docs/reference/cypher/types-and-values): every value type and its constructor.
+- [Load JSON from a URL or a file](/docs/guides/cypher/load-json-from-a-url): bind a whole JSON document as one parameter.
+- [Errors](/docs/reference/errors#engine-parameter-missing): `ParameterMissing` and the other errors, at stable anchors.

@@ -23,7 +23,9 @@ The graph is
 `(:Session {id})-[:STEP {ts, seq, tokens}]->(:Step {id, kind, text, at})-[:CALLED]->(:Tool {name})`.
 `ts` is the sort key: epoch milliseconds, stored as an integer. `at` keeps the
 same instant as a datetime for display. `tokens` sits on the relationship, so
-a budget read never touches the `Step` nodes.
+a budget read never touches the `Step` nodes. The catalog of problems relate
+solves lists this pattern as the
+[agent trajectory timeline](/docs/concepts/problems-relate-solves#agent-trajectory-timeline).
 
 ```mermaid
 flowchart LR

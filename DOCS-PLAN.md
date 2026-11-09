@@ -106,10 +106,10 @@ the live docs graph is not a landing hero (§7.4).
 | `browser` — WASM in a Vite page, OPFS persistence in a worker | 2 | `docs/api/wasm/`, `playground/` |
 | `agent-quickstart` — **the first tutorial on the docs landing page**: the agent (or its operator) installs a pinned CLI and the skill, verifies `--version` and the expected bytes of one `--mode envelope` statement, runs `relate agent-context` (version-true by construction), loads a graph from a URL with its checksum, rehearses against a read-only copy (`--read-only`, `EXPLAIN`, `--safe`), runs for real, reads an error object and its exit code, opens the MCP surface read-only. Has a "No network?" block (`agent-context`, `--help`, the installed skill's path, a committed `relate-docs.rl`). Written so an agent can follow it from its markdown twin (the prompt to paste is the install page's Agent tab), to the safe-default contract of ADR-0013 | 1 | `docs/api/cli/examples/agents.md`, skill `SKILL.md` |
 | `agent-memory` — give an agent a memory: CLI + MCP + a recall query; bridges to the cookbook's agent-memory recipes | 2 | cookbook `agent-memory`, `docs/api/mcp/examples/` |
-| `rust`, `java`, `go`, `swift` — full tutorials, same shape as `python`: install, open a store, parameters, a transaction, errors, a working program at the end | 2 | `docs/api/<lang>/examples/` |
+| `rust`, `c`, `java`, `go`, `swift` — full tutorials, same shape as `python`: install, open a store, parameters, a transaction, errors, a working program at the end | 2 | `docs/api/<lang>/examples/` |
 
 Every binding gets a full tutorial (decision 5), so the Get started section
-has eleven pages: install, the agent quickstart, the CLI, eight languages,
+has twelve pages: install, the agent quickstart, the CLI, eight languages,
 agent memory. They share one outline and one example graph so a reader
 switching languages recognises the steps.
 
@@ -123,9 +123,9 @@ switching languages recognises the steps.
 | `guides/serve/` | `bolt` (Neo4j drivers, neo4j-browser), `http-query-api`, `mcp` (Claude Desktop / Claude Code config, stdio vs HTTP), `docker`, `auth-and-tls` | 1 (mcp), 2 (rest) | `docs/api/{bolt,http,mcp}/`, README § Server, Dockerfile |
 | `guides/operate/` | `sizing-and-memory` (whole graph in RAM, bytes per element, a worked sizing, `--logical-graph-size-limit`), `two-processes-one-store` (one writer; `Error::Locked` / exit 5 when a second agent opens the `.rl`; `serve` or `--read-only` follow as the answer), `crash-and-recovery` (WAL replay, torn-tail trim, the corruption error and what to do), `durability-modes` (moved here from storage; loss windows), `upgrade-a-store` (forward-only migrate-on-open, no downgrade: back up first), `troubleshooting` (the hub: symptom → error anchor → page) | 1 | `storage-engine.md`, `limitations.md`, `docs/api/cli/spec.md` § storage, ADR-0136/0306 |
 | `guides/neo4j/` | `pull-from-neo4j`, `push-to-neo4j` (the Cypher delta is `reference/cypher/differences-from-neo4j`, phase 1) | 2 | skill `references/pull.md`, `push.md`, `docs/api/cli/examples/pull.md` |
-| `guides/integrations/` | one installed, CI-run sample per framework ending in a verify query, each linked from the capability it serves: `claude-agent-sdk` (via MCP), `langgraph` (memory store / checkpointer), `vercel-ai-sdk` (tool with a read-only guard) in phase 1; `pydantic-ai`, `openai-agents-sdk`, `llamaindex`, `mastra`, `crewai`, `langchain` in phase 2. Replaces the `agent-tool` guide | 1 (three), 2 (rest) | `docs/api/mcp/examples/`, `docs/api/{python,javascript}/examples/` |
+| `guides/integrations/` | one installed, CI-run sample per framework ending in a verify query, each linked from the capability it serves: `claude-agent-sdk` (via MCP), `langgraph` (long-term memory through tools; LangGraph keeps its own checkpointer, and the page says why relate is not a `BaseStore`), `vercel-ai-sdk` (tool with a read-only guard) in phase 1; `pydantic-ai`, `openai-agents-sdk`, `llamaindex`, `mastra`, `crewai`, `langchain` in phase 2. Replaces the `agent-tool` guide | 1 (three), 2 (rest) | `docs/api/mcp/examples/`, `docs/api/{python,javascript}/examples/` |
 | `guides/migrate/` | `from-a-vector-store` (Chroma / LanceDB / pgvector: embeddings become properties, the recall query), `from-json-files`, `from-neo4j` (with a "what Neo4j users will miss" table: APOC, GDS, multi-db, RBAC, clustering); `from-sqlite`, `from-kuzu` later. Each is a recorded recipe | 2 (first three), 3 (rest) | cookbook recipes, `docs/api/cli/examples/pull.md` |
-| `guides/agents/` | `install-the-skill` (CLI installer for the eleven detected agents, `npx skills add relatedb.ai`, manual copy), `drive-relate-from-an-agent` (envelope, error object, exit codes, row cap, `toon`, `--read-only`, `--timeout`, `agent-context`), `agent-safety` (read-only, safe mode, backups, destructive DDL, retry only `retryable`), `connect-over-mcp` (one config block per host: Claude Code, Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI, Cline, OpenCode; stdio vs `serve --mcp PORT`; `--read-only`), `run-in-a-sandbox` (one section per harness: Claude Code sandbox, Codex CLI and Codex cloud, Cursor cloud agents, E2B, Vercel Sandbox, Daytona, plain Docker; what to allowlist, where the binary lands, `DO_NOT_TRACK=1`, `:memory:` vs a workspace `.rl`, `--load` a dataset from a URL, the `agent` build bundle), `model-agent-memory` (the data model for agent memory: entities, episodes, provenance, bi-temporal facts; the schema the capability catalog's `schema` field points at), `text-to-cypher` (give an LLM the schema: `get_schema`, `db.schema.*`, the ontology; dialect notes an LLM gets wrong; `EXPLAIN` notifications as the repair loop), `diffable-memory` (a graph in the repo: JSON codec + schema folder, reviewable in a PR), `use-in-ci` (GitHub Actions: install, verify, run a Cypher check as a gate; the cookbook's blast-radius recipe as the example). `agent-safety` carries the permission matrix (rows `--read-only`, `--safe`, `LOAD CSV` policy, `--fetch-params`/`--load` egress, extension tiers, `upgrade`; columns CLI, MCP stdio, MCP HTTP, hosted docs MCP). `run-in-a-sandbox` names `--load https://` and `--fetch-params` as egress to allowlist, that `--safe` refuses remote `--load`, and that Bolt v1 ignores authentication so loopback only | 1 (skill, drive, safety, mcp, sandbox, model-agent-memory), 2 (rest) | `docs/api/cli/examples/agents.md`, skill `SKILL.md` + `references/agent-safety.md`, `docs/api/mcp/`, `docs/api/cli/spec.md` § build bundles, `website-update-brief.md` |
+| `guides/agents/` | `install-the-skill` (CLI installer for the eleven detected agents, `npx skills add https://relatedb.ai`, manual copy), `drive-relate-from-an-agent` (envelope, error object, exit codes, row cap, `toon`, `--read-only`, `--timeout`, `agent-context`), `agent-safety` (read-only, safe mode, backups, destructive DDL, retry only `retryable`), `connect-over-mcp` (one config block per host: Claude Code, Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI, Cline, OpenCode; stdio vs `serve --mcp PORT`; `--read-only`), `run-in-a-sandbox` (one section per harness: Claude Code sandbox, Codex CLI and Codex cloud, Cursor cloud agents, E2B, Vercel Sandbox, Daytona, plain Docker; what to allowlist, where the binary lands, `DO_NOT_TRACK=1`, `:memory:` vs a workspace `.rl`, `--load` a dataset from a URL, the `agent` build bundle), `model-agent-memory` (the data model for agent memory: entities, episodes, provenance, bi-temporal facts; the schema the capability catalog's `schema` field points at), `text-to-cypher` (give an LLM the schema: `get_schema`, `db.schema.*`, the ontology; dialect notes an LLM gets wrong; `EXPLAIN` notifications as the repair loop), `diffable-memory` (a graph in the repo: JSON codec + schema folder, reviewable in a PR), `use-in-ci` (GitHub Actions: install, verify, run a Cypher check as a gate; the cookbook's blast-radius recipe as the example). `agent-safety` carries the permission matrix (rows `--read-only`, `--safe`, `LOAD CSV` policy, `--fetch-params`/`--load` egress, extension tiers, `upgrade`; columns CLI, MCP stdio, MCP HTTP, hosted docs MCP). `run-in-a-sandbox` names `--load https://` and `--fetch-params` as egress to allowlist, that `--safe` refuses remote `--load`, and that Bolt v1 ignores authentication so loopback only | 1 (skill, drive, safety, mcp, sandbox, model-agent-memory), 2 (rest) | `docs/api/cli/examples/agents.md`, skill `SKILL.md` + `references/agent-safety.md`, `docs/api/mcp/`, `docs/api/cli/spec.md` § build bundles, `website-update-brief.md` |
 | `guides/extensions/` | `write-an-extension` (the 15-minute quickstart), `install-and-run`, `fs-to-graph`, `git-to-graph` | 2 | `docs/api/extensions/quickstart.md`, `install.md`, skill `references/run-git-to-graph.md` |
 | `guides/cli/` | `output-formats`, `interactive-shell`, `scripting` (stdin, exit codes, `--timeout`) | 1 | `docs/guides/output-formats.md`, `docs/reference/dot-commands.md` |
 
@@ -204,7 +204,10 @@ tool an agent would use to read docs.
   `/docs/<path>.md?section=<anchor>` returns one section (frontmatter kept,
   body cut to the heading's subtree), the Terms section is capped at five
   terms, and reference pages that would run long (`functions`) are split
-  by category from the start. Every HTML page carries
+  by category from the start. (As built in phase 1: `?section=` is
+  answered on the canonical page URL to a request that prefers
+  `text/markdown`, and the `.md` URLs are served as built; ADR-0025.)
+  Every HTML page carries
   `<link rel="alternate" type="text/markdown" href="…">`, and the 404 page
   points at `/docs/llms.txt`. Negotiation is a convenience, not the
   primary path: reports on which harnesses send `Accept: text/markdown`
@@ -261,11 +264,16 @@ bundle**, so an agent can get it before the binary exists on the machine:
   a `digest` per entry) and `/.well-known/skills/index.json` (the legacy
   path; Mintlify serves both) and `/skills/relate/SKILL.md` (+
   `references/`), the Agent Skills layout; `/skill.md` as the short alias.
-  `npx skills add https://relatedb.ai` then works (the CLI treats a bare
-  domain as a GitHub shorthand; phase 0 verifies the exact semantics), and
-  so does a manual copy into `.claude/skills/`, `.cursor/skills/`,
-  `.codex/skills/`. The index carries a SHA-256 per file and is listed in
-  the signed `docs-artifacts.json` manifest (ADR-0013).
+  `npx skills add https://relatedb.ai` then works (verified 2026-11-07
+  against the CLI's source, see §9: the full `https://` form is required,
+  a bare domain is not a well-known lookup; tested 2026-11-07 with skills
+  1.5.25: it reads the 0.2.0 index's `skill-md` entry and installs
+  `SKILL.md` without `references/`, while the legacy index alone installs
+  every file, ADR-0019), and so does a manual copy
+  into `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`. Each index
+  entry carries a `sha256:` digest of the artifact it points at (the
+  `SKILL.md` or an archive), and the index is listed in the signed
+  `docs-artifacts.json` manifest (ADR-0013).
 - One source: the bundle is copied from upstream
   `surfaces/relate-cli/src/skill/bundle/` into `public/skills/` in the same
   step that refreshes `public/wasm/`, with `{{VERSION}}` stamped. The site
@@ -366,7 +374,8 @@ keep:
    graph: a hosted endpoint at `https://relatedb.ai/mcp` (3.7) for any
    agent with network access, and the local form for agents that have
    relate installed or no network:
-   `relate serve --mcp stdio --read-only --load https://relatedb.ai/docs/relate-docs.rl`.
+   `relate serve --mcp stdio --database :memory: --load https://relatedb.ai/docs/relate-docs.rl --read-only`
+   (`serve` requires `--database`).
    Both expose relate's own `get_schema` and `read_cypher` over the docs
    graph, so every improvement to relate's MCP improves the docs server.
 3. **Errors link to their page.** Every CLI error object and exit code has a
@@ -383,7 +392,8 @@ CLI (installed through `public/install.sh`, which already verifies a signed
 release) for the local `--load` form, lists it in the signed
 `docs-artifacts.json` with its checksum, and the Worker replays the seed on
 each cold isolate; phase 0 measures that cold start. The issue tracker
-stays out of the graph. `.graph.md` per page moves to phase 3.
+stays out of the graph. `.graph.md` per page ships at launch, generated from
+the same graph (pulled forward from phase 3; ADR-0020).
 
 ### 3.6 Writing for agents
 
@@ -450,12 +460,16 @@ claude mcp add --transport http relate-docs https://relatedb.ai/mcp
 
 plus the Cursor deeplink with a `{"url": "https://relatedb.ai/mcp"}` entry,
 the `.mcp.json` / `mcp.json` block for Codex, Windsurf, Gemini CLI, Cline
-and OpenCode, and a one-line note that the same tools run locally and
-offline with the `--load` form above.
+and OpenCode, and a one-line note that the `--load` form above serves the
+same docs graph locally and offline. (As built: that form exposes relate's
+own `read_cypher` and `get_schema`, not the hosted tools, and the pages say
+so.)
 
 **Operating rules and threat model (ADR-0013, published as
 `reference/server/docs-mcp`).** No auth and no accounts: the content is
-public and the store is opened read-only (`new RelateDb(true)`). The WASM
+public and the store is opened read-only (`new RelateDb(true)`; as built,
+the WASM cannot seed a read-only store, so the seed is replayed into a
+writable in-memory handle and no tool accepts Cypher: ADR-0023). The WASM
 has no statement deadline today, and a runaway traversal in a reused
 isolate takes every other request with it, so: free Cypher
 (`query_docs_graph`) ships only once the engine exposes a deadline
@@ -471,8 +485,10 @@ says what Cloudflare itself logs and for how long; an abuse contact.
 Uptime is the site's: if the Worker is down, the `.md` twins and
 `llms.txt` still answer, and the local form still works.
 
-**Checks.** `docs:check` gains an MCP smoke test after the Worker builds:
-`initialize`, `tools/list` shows exactly the five tools and
+**Checks.** `docs:check` gains an MCP smoke test after the Worker builds
+(as built: `npm run docs:mcp-check`, in `docs-mcp.yml`):
+`initialize`, `tools/list` shows exactly the tools that ship (three in
+phase 1; five is the ceiling) and
 `resources/list` the resources, `search_docs` for a known heading returns
 its page, `get_page` returns the same bytes as the `.md` twin's section, a
 write and a procedure call are refused. `cookbook:browser`-style CI runs
@@ -568,6 +584,31 @@ no Durable Object or session). The Worker uses it; the WASM engine and the
 docs graph are initialised once per isolate and reused, which is what the
 Durable Object in 3.7 was for. The container fallback stands.
 
+*As built (phase 2, the Worker; ADR-0033):* the five tools are live in
+`workers/docs-mcp/`. `validate_cypher` sends `EXPLAIN` and the statement to
+a new WebAssembly instance per call (the glue rewritten as a factory at
+bundle time), with an empty store, never the seeded docs instance; it
+refuses an `EXPLAIN`/`PROFILE` prefix and statements or parameters of 8 KiB
+or more, costs 3 units, and answers a trap with `validate_failed`. Its
+answer keeps the 96 KiB text cap: a deep plan is cut at a line
+(`plan_truncated`) and surplus notifications are counted, not returned
+(`notifications_omitted`). Remedies
+come from the engine's notifications, the errors data's patterns, and the
+Differences table of `reference/cypher/differences-from-neo4j`, cited at its
+example anchors. The "planner's memory and traversal caps" are the engine's
+own (nesting depth 500, traversal depth 500); the WASM exposes no others.
+`discover_capabilities` ranks `capabilities.json` as ADR-0026 records, with
+`requirements` met by a surface or by words. Hybrid `search_docs` embeds the
+query on Workers AI and fuses each lane's ten best by reciprocal rank
+(k = 60); without a working binding (`wrangler dev --local` included) it is
+full-text and says so in `version.retrieval`. The resources gained
+`relate-docs://capabilities`, `relate-docs://example/<recipe>/<cell>` and
+every task skill under `relate-docs://skill/<name>`, with templates listed
+by title; `recipe.json` gained the `verifies` summary
+(`src/lib/cookbook/recipe.ts` `verifiesSummary`). The `text-to-cypher`
+prompt takes `intent` and an optional `schema` and quotes the Differences
+table verbatim. `query_docs_graph` stays gated and `run_recipe` stays cut.
+
 **Skills library.** Phase 2: `public/skills/<name>/` for task skills
 authored here (ADR-0002 applies: docs content is this repo's), each a
 standard skill folder whose references cite the recipes that test it and
@@ -600,6 +641,20 @@ Scored on first-command correctness, number of error round trips, whether
 the agent chose relate at all for the open-ended tasks, and assertions on
 the resulting store. Run by hand before launch, by `docs:evals` after; the
 results prune this section rather than decorate it.
+
+*As built (phase 2):* `npm run docs:evals` (scripts/docs-evals.ts,
+ADR-0029) runs ten tasks under the four conditions through any headless
+agent command, graded by assertions on the store, files and transcript.
+`docs-evals.yml` runs it by hand or on the `relate-release` dispatch once
+the operator opts in. The per-tool usage page
+`reference/server/docs-mcp-usage` publishes calls, refusals, failures and
+completion rate per tool and calls per client family, from `npm run
+docs:usage`. Not built: `explain_error` lookups by code (the log line holds
+no call arguments, ADR-0013) and `validate_cypher` failures by error code
+(the log line holds the tool error, such as `validate_failed` or
+`explain_prefix`, not the engine's error, which derives from the caller's
+statement);
+Cursor as a harness (no wrapper).
 
 **The docs landing page (`/docs/`).** Outcome-led for the docs entry point
 (the site's home page is out of scope): a one-line statement, three
@@ -699,7 +754,7 @@ Samples, in relate's voice:
 | Instead of | Write |
 |---|---|
 | Boom! Your graph is ALIVE 🎉 | You have a graph. It lives in one file, and you can email it. |
-| Simply run the following command to easily create a database. | Create a store: `relate query --database ./friends` |
+| Simply run the following command to easily create a database. | Create a store: `relate query --database ./team` |
 | Unfortunately, relate does not support cross-graph queries at this time. | A statement runs against one graph. To combine data from two stores, `clone` one into the other or query each and join in your code. |
 | `:memory:` is a great option for quick experiments! | `:memory:` forgets everything when the process exits. That's the feature. |
 | Please note that the row cap applies only when an agent harness is detected. | Under a detected agent harness, a statement prints at most 100 rows and says so in-band. `--max-rows 0` prints them all. |
@@ -823,9 +878,10 @@ tutorials, short fragments in tables, the Oxford comma, American spelling
   way is a real trap (a near miss), never an obvious one.
 - Exact strings only: error messages, exit codes, flag names, JSON keys.
   Quote the message the engine prints, character for character.
-- Example data: one shared example graph across the docs (the `friends`
-  graph from the quick start, extended as tutorials need), so a reader
-  moving between languages recognises it. Example names are short, varied,
+- Example data: one shared example graph across the docs (the team
+  graph: Ada, Grace and Noor; the `relate` and `opencypher-tck` projects;
+  extended as tutorials need), so a reader moving between languages
+  recognises it. Example names are short, varied,
   ASCII, and invented; no real people, companies, or pop-culture references.
   Example data is where the fun is allowed, within those rules.
 
@@ -1180,7 +1236,12 @@ What keeps the two from drifting apart, without a link:
   before launch and the published packages after; frontmatter
   `verified_by: [cypher, python, node, cli]` says which checks a page
   passed. Host config blocks and the sandbox guide carry a `reverified`
-  date with a quarterly reminder.
+  date with a quarterly reminder. *As built (phase 2, ADR-0027):* Rust,
+  Java, Go, Swift and C samples run the same way (`rust run`, `java run`,
+  `go run`, `swift run`, `c run`), built from the same checkout by
+  `scripts/samples/setup.sh`, and `verified_by` can name `rust`, `java`,
+  `go`, `swift` and `c`; a Python sample can run in a second venv
+  (`env=crewai`).
 
 What is **not** carried over: ADR numbers and Linear IDs in prose,
 "withdrawn" sections, build-bundle internals, anything the
@@ -1262,7 +1323,7 @@ hand-off). A status bar names the engine version, which matches the page's
 | **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph, the WebGL renderer draws it, count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept, `reference/performance` | NVL `webgl` renderer | 3 |
 | Graph diff | before and after a migration: added, removed and changed elements coloured | migration-rehearsal recipe, `clone-and-convert` | graph view | 3 |
 | Timeline view | temporal and bi-temporal results on a time axis | agent-trajectory and bitemporal recipes | SVG | 3 |
-| Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
+| Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view (a directive: ADR-0015's five phase 1 JSX components are taken by `<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`; not built yet, LAUNCH.md) | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
 | Global language picker, host deeplink buttons, `<Matrix>`, term toggletip | as in §3 and §4 | everywhere | the glossary, `releases.json` | 2 |
 
 ### 7.4 Where the hero elements go
@@ -1356,10 +1417,16 @@ drawn by hand (7.3).
 ### 7.7 Decisions this needs
 
 Decision 17 (NVL under permission, the visual policy) is recorded as
-ADR-0010. Open: whether the plan viewer is an NVL hierarchical layout or a
-plain HTML tree (phase 2 spike), and whether the scale demo's default size
-is a hundred thousand nodes or lower on first paint (measure on a mid-range
-phone).
+ADR-0010. Decided in phase 2: the plan viewer is a plain HTML tree, not an
+NVL hierarchical layout (ADR-0038): every operator's details and measures
+show at once, wrap at any width and stay selectable text, and the graph
+module does not load for a plan. A spike at 390 px drew the tune-a-query
+comparison both ways (graph.ts's hierarchical layout against the tree):
+NVL gave one two-operator plan a full phone screen with operator names only,
+while the tree showed both measured plans with every detail and measure.
+Open: whether the scale demo's
+default size is a hundred thousand nodes or lower on first paint (measure
+on a mid-range phone).
 
 ## 8. Checks and CI
 
@@ -1432,7 +1499,11 @@ from the same collection, so they cannot go stale independently.
   `--timeout` (exit 7), `--format` as an alias of `--mode`, `--pretty`,
   `toon` as the piped default under agent mode; `website-update-brief.md`
   says `--format` does not exist. The bundle is newer; verify each against
-  the binary before it lands on a page.
+  the binary before it lands on a page. Settled against a release-profile
+  source build of upstream `ac441ec` (reports 0.16.1; includes changes made
+  after the v0.16.1 release; ADR-0016): `--format` ships as an alias of
+  `--mode`, and `--timeout` (exit 7), `--pretty` and `toon` as the default
+  under agent mode all ship.
 - **Package availability.** PyPI, npm and Maven publishes are launch-day
   events; the install page needs the same `NOT_PUBLIC_YET` treatment the
   cookbook uses so pre-launch builds do not link 404s.
@@ -1458,6 +1529,25 @@ from the same collection, so they cannot go stale independently.
   organisation (verified on the registry). Confirm the publishing rights
   for `@relate/relate` and `@relate/relate-wasm` with upstream before
   launch, and adopt the canonical phrase everywhere.
+- **The skills CLI's semantics** (verified 2026-11-07 against
+  `vercel-labs/skills` `main`, `src/providers/wellknown.ts`): the argument
+  must be a full `http(s)://` URL for the well-known lookup (a bare domain
+  is not one; `owner/repo` is GitHub shorthand); it tries
+  `/.well-known/agent-skills/index.json` then `/.well-known/skills/index.json`;
+  the 0.2.0 format is recognised only when `$schema` is exactly
+  `https://schemas.agentskills.io/discovery/0.2.0/schema.json`, each entry
+  needs `name` (`^[a-z0-9-]+$`, at most 64 characters), `type` (`skill-md`
+  or `archive`), a non-empty `description` (at most 1024 characters), a
+  `url` (absolute or index-relative) and `digest` (`sha256:` plus 64 lowercase
+  hex over the raw bytes at `url`); invalid entries are skipped and an
+  index with none left is rejected. A missing `$schema` means the legacy
+  0.1.0 shape (`skills[].files[]`, fetched from
+  `/.well-known/<path>/<name>/<file>`, no digest). The CLI verifies the
+  digest only (a mismatch aborts, no fallback) and checks no signature;
+  installs go to `.agents/skills/` (or `~/.agents/skills/` with `-g`),
+  symlinked into each detected agent's directory, Claude Code in its own.
+  So `docs-artifacts.json`'s signature is the only signature over the
+  index, and the 0.2.0 index is what `docs:check` validates.
 - **No `SECURITY.md` in either repo** (verified). `reference/security`
   needs a disclosure address and a supported-versions statement from
   upstream before it can be written.
@@ -1517,7 +1607,7 @@ to prove the layout, the twin format and the safe-default contract
 - Reference: `cli/index`, `flags`, `exit-codes-and-errors`, `agent-mode`
   (generated from `cli.json`), `errors`, `cypher/overview`,
   `differences-from-neo4j`, `search`, `storage/formats`,
-  `limits-and-sizing`, `limitations`, `changelog`, `performance`,
+  `wal-and-checkpoints`, `limits-and-sizing`, `limitations`, `changelog`, `performance`,
   `project`, `security`, `privacy-and-telemetry`, `server/docs-mcp`,
   `glossary` (short).
 - Concepts: `where-relate-fits`, `agent-native`,
@@ -1541,6 +1631,9 @@ sitemap and root `llms.txt` updated; the discovery checklist in
 `LAUNCH.md` worked through. `LAUNCH.md` sanity checks gain "every docs
 page builds, every cell runs, `llms.txt` resolves, every config block is
 read-only, the eval scores are recorded".
+Items not built in the platform pass (content negotiation and
+`?section=`, the per-host config blocks, `<Agentic>`, the cold-start eval)
+are tracked in LAUNCH.md under "Docs work deferred within phase 1".
 
 **Phase 2 — surfaces and depth (about 50 pages).** The capability catalog
 in full with the "Problems relate solves" page, `capabilities.json`,
@@ -1562,8 +1655,93 @@ language tutorials, `security-and-trust` and the remaining concepts;
 `docs:evals` automated per release; framework-side PRs and the template
 repo (§3.9).
 
+*As built (phase 2, part A, the platform):* the capability catalog (20
+entries, the "Problems relate solves" page, `capabilities.json`, the
+Capability and Problem nodes in the docs graph; ADR-0026); the committed
+embeddings artifact with the vector index in the docs graph, its staleness
+check, and the "Query the relate docs" recipe (ADR-0028); the glossary's
+full bodies, the toggletip and `glossary.json` (ADR-0030); the
+`::::agentic` and `:::deeplink` directives, `<Matrix />` and the language
+picker (ADR-0031); the five task skills with their checks and review record
+(ADR-0032); compiled-language samples (ADR-0027); the eval harness, its
+workflow and the per-tool usage page (ADR-0029). Built by the Worker area
+(§3.8 "As built (phase 2, the Worker)", ADR-0033): `discover_capabilities`,
+the `capabilities` and `example` resources, `validate_cypher`, the
+`text-to-cypher` prompt, hybrid `search_docs` and the task skill resources.
+Left to the pages: the remaining agent guides,
+integrations, language guides and reference, and placing `<Matrix />` and
+`::::agentic` on published pages.
+
+*As built (phase 2, part B, the pages):* 90 pages written, none left
+planned, for 140 published pages in all: the five remaining language
+tutorials (`get-started/rust`, `java`, `go`, `swift`, `browser`) and
+`get-started/agent-memory`, then `get-started/c` after the cross-page
+review (141 published pages); `guides/embed/` and `reference/api/` for every
+client, the browser and the C ABI, with `<Matrix />` on the hub and the
+API pages; the `guides/serve/` guides and the Bolt, HTTP and MCP server
+reference; six Cypher guides; the remaining storage guides and Neo4j
+pull/push; the three remaining agent guides; six integrations;
+`guides/migrate/`; four extension guides; `concepts/namespaces` and
+`security-and-trust`. The inventory's remaining Cypher, CLI, serve and API
+reference pages (the Cypher clause, pattern, expression, type, function,
+procedure, plan and notification pages, a page per CLI command plus
+environment variables, output modes and dot commands, and the server and
+API reference) fell between the phase lists after ADR-0015 and were
+written here. With the CLI command pages in place, `graph-cli` is an
+error. The integration step added the client-library refusals to
+`errors.json` (a `client` list), let a verify step start its own loopback
+server (ADR-0034), and corrected the vector search to exact top-k across
+the search reference, the glossary and two task skills.
+
+*As built (phase 2, part C, the interactive elements):* one framework
+(ADR-0035): an element is a container directive, or a word on a
+```` ```cypher run ```` fence, with a build side that records its static
+form (text, and light and dark SVGs laid out from the site's tokens) into
+the page's `diagrams/` sidecar, hash-stamped and checked by `docs:check`
+(the record also stamps the form's words, so a text-only form edited by
+hand fails like a picture); a browser module loaded when its host comes
+near; and cookbook:browser cases, each found by directory and driven by
+real CDP input (mouse, keys and one-finger touch swipes). The page runtime loads only on pages with
+cells or elements, and every docs page runs under 60 KB of its own
+JavaScript before lazy chunks (measured by `docs:check -- --built`, and in
+Chrome, where a script the count misses fails). Placed: graph view extras (path highlighting, a layout switch, a caption
+picker, pinned nodes that hold through layouts and expansions, a
+relationship-type legend and full screen) on every graph view, docs and
+cookbook, with the cell words `layout=`, `highlight=path` and `caption=`
+set on `reference/cypher/patterns` (ADR-0036); the phase timing bar,
+cell word `timing` on `concepts/architecture` and "Show timing" on every
+page with cells (ADR-0038); the agent-mode terminal, `:::terminal`, on
+`concepts/agent-native` beside the MCP tryout, `get-started/agent-quickstart`,
+`drive-relate-from-an-agent` and the exit-code reference (ADR-0037); the
+plan viewer, `:::plan`, on `concepts/architecture`, `tune-a-query`,
+`explain-and-profile` and `indexes-and-constraints`, an HTML tree (§7.7,
+ADR-0038); the live schema, `:::schema-live`, on `get-started/first-graph`
+and `model-agent-memory`, and the vector search explorer,
+`:::vector-explorer`, on `vector-search` and `full-text-and-hybrid-search`
+(ADR-0039); the geospatial explorer, `:::geo-explorer`, on `geospatial`
+(ADR-0040); the MCP tryout, `:::mcp-tryout`, on `connect-over-mcp`, the MCP
+reference and `agent-native`, and agent trace playback, `:::agent-trace`,
+on `get-started/agent-memory` (ADR-0041); the docs graph, `:::docs-graph`,
+on `reference/docs-graph`, drawn by the one graph module (ADR-0042).
+The elements speak as one family: every status line opens with "Recorded
+on relate <version> when the page was built." or "From this tab's run on
+relate <version>, <time> ms in the engine.", durations print at one decimal
+(the step of a timer in a page that is not cross-origin isolated), focus
+uses the site's ring, and the Live sentence is inline markdown
+(`src/lib/docs/elements/_wording.ts`, ADR-0035).
+Deferred to phase 3: elements on cookbook recipe pages (the nearby-places
+and hybrid-recall recipes, an agent trace from a recipe), because the
+framework serves docs pages and the cookbook keeps its own runtime; the
+vector explorer on the `search` reference, which keeps its CLI recordings
+until a weighted fusion runs on that page's own cells (ADR-0039), and agent
+traces in `guides/integrations/`, whose pages run no cells for a trace to
+replay; a twin that links a large data block instead of inlining it
+(the vector-search twin carries its 40 vectors, about 76 KB), because it
+needs a per-page data endpoint; and a seeded read-only database for elements (ADR-0035 declines writing
+to the reader's browser storage).
+
 **Phase 3 — the long tail.** `query_docs_graph` once the engine has a
-deadline; `.graph.md` per page; the storage animator, the scale demo,
+deadline; the storage animator, the scale demo,
 in-browser embeddings, graph diff and timeline views; "Try it" on
 reference examples; manifests for language samples; design-decision
 links; `guides/migrate/from-sqlite`, `from-kuzu`; the analytics review
@@ -1610,7 +1788,7 @@ same change.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 7 | Publish the docs as a relate store (`relate-docs.rl`, `.graph.md`, `graph.json`) and build the structural checks on it? | **Decided (2026-11-07): yes.** The store and seed script move to phase 1 because the hosted MCP (8) is built on them; `.graph.md`, `graph.json` and the structural checks stay phase 2. |
+| 7 | Publish the docs as a relate store (`relate-docs.rl`, `.graph.md`, `graph.json`) and build the structural checks on it? | **Decided (2026-11-07): yes.** The store and seed script move to phase 1 because the hosted MCP (8) is built on them; `.graph.md`, `graph.json` and the structural checks ship in phase 1 too (ADR-0020). |
 | 8 | A hosted docs MCP endpoint at launch? | **Decided (2026-11-07): yes.** `https://relatedb.ai/mcp`, relate's MCP over the docs graph plus `search_docs`/`get_page`/`list_pages`, a Cloudflare Worker with the WASM engine (container fallback), phase 1. Design in §3.7. The local `--load` form stays as the offline twin. |
 | 9 | Content negotiation on `Accept: text/markdown`? | **Decided (2026-11-07): yes**, phase 1, as a Cloudflare Pages function (decision 19). The `.md` twins exist regardless. |
 | 10 | Publish the skill bundle on the site (`/.well-known/skills/`), copied from upstream unchanged? | **Decided (2026-11-07): yes**, phase 1, synced like `install.sh` and never hand-edited. One source, two delivery paths (`relate skill install` and `npx skills add relatedb.ai`). |

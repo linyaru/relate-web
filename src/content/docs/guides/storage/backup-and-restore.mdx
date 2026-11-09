@@ -1,0 +1,176 @@
+---
+title: Back up and restore a store
+label: Back up and restore
+description: Take a consistent copy of a relate store with relate clone, even while a directory store is in use, check that it opens, and restore from it.
+order: 20
+surfaces: [cli]
+prerequisites: [get-started/install]
+related: [guides/storage/choose-a-store-layout, guides/operate/crash-and-recovery, guides/operate/upgrade-a-store, reference/storage/formats, reference/cli/clone]
+---
+
+This guide shows you how to back up a relate :term[store]{id=store}, check that the backup opens, and restore from it. The backup command is `relate clone`: it opens the source read-only, never writes it, and writes the committed state into a new store. A :term[directory store]{id=directory-store} can be cloned while another process writes to it; a `.rl` file can be cloned or copied while no process has it open.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- A store to back up. The commands on this page use a directory store named `team`, created from a small seed graph:
+
+```bash verify
+cat > team.cypher <<'EOF'
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace);
+EOF
+relate query --database ./team --mode envelope < team.cypher
+```
+
+## Back up a directory store
+
+Clone the store into a new path. A destination ending in `.rl` gives a backup that is one file; any other path gives a directory store. When the source is a directory store, the destination's parent folder must exist; the destination itself must never exist:
+
+```bash verify
+mkdir backups
+relate clone ./team ./backups/team-2026-11-07.rl
+```
+
+`relate clone` prints nothing on success. It reads the state committed at the moment it opens the source and does not follow later commits, so the copy is consistent even if a writer keeps going. The writer keeps its lock and keeps committing: a directory store allows read-only opens beside its writer, and `clone` opens the source that way.
+
+If the store keeps its :term[write-ahead log]{id=wal} (WAL) outside its folder (opened with `--wal-dir`), pass the same `--wal-dir` to `relate clone`.
+
+## Back up a single-file store
+
+A `.rl` file allows no second opener while a writer holds it, so `relate clone` and `--read-only` opens are both refused until the writer exits. Back up a `.rl` store while no process has it open:
+
+```bash
+relate clone ./app.rl ./backups/app-2026-11-07.rl
+```
+
+A `.rl` file holds its WAL inside it, so a plain copy of the file (`cp`) taken while nothing has it open is a complete backup too. `relate clone` writes a compact copy: a `.rl` file keeps the space it once needed, and the clone holds only the current state.
+
+## Check that the backup opens
+
+Open the backup :term[read-only]{id=read-only} and count what it holds. A read-only open never writes, checkpoints or migrates the store, so checking a backup leaves it as it was:
+
+```bash verify
+relate --database ./backups/team-2026-11-07.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS nodes"
+```
+
+```text
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+```
+
+`relate info` reads the backup's metadata without opening it, including the node and relationship counts at its last :term[checkpoint]{id=checkpoint}:
+
+```bash verify
+relate info --database ./backups/team-2026-11-07.rl
+```
+
+```text
+layout: .rl bundle
+superblock version: 1
+codec: parquet
+format version: 3
+checkpoint LSN: 1
+commit timestamp: 1
+total bytes: 32768
+wal segments past checkpoint: 1
+nodes (at checkpoint LSN 1): 5
+relationships (at checkpoint LSN 1): 5
+indexes: 0
+constraints: 0
+```
+
+Compare the counts with the source, and run a statement your application depends on. A backup is only as good as the last time it opened.
+
+## Restore from a backup
+
+Stop every process that has the store open. Move the damaged store aside rather than deleting it, then clone the backup to the store's path:
+
+```bash verify
+mv ./team ./team-damaged
+relate clone ./backups/team-2026-11-07.rl ./team
+```
+
+`relate clone` writes either layout from either layout, so a `.rl` backup restores into a directory store, as `./team` does, or into a `.rl` file. For a `.rl` store, copying the backup file into place works too. Start the application again once the restored store opens.
+
+## Copy files only when nothing has the store open
+
+A directory store keeps two things: the snapshot files, which hold the state at the last checkpoint, and the WAL folder (`wal/`, or `.cypherlite/wal/` in a markdown store), which holds every commit since. The WAL is the only copy of those recent commits until the next checkpoint: every 300 seconds by default, after 64 MiB of WAL or 10,000 commits, and when the store closes.
+
+That has two consequences for a file copy:
+
+- A file copy is consistent only when no commit is in progress, and `cp` cannot tell. `relate clone` reads only complete commits.
+- A copy without its WAL folder holds the state at the last checkpoint. Commits made since are missing from it, and a read-only open of it fails.
+
+When no process has the store open, a copy of the whole folder is a complete backup. The copy holds the snapshot files and the WAL folder:
+
+```bash verify
+cp -R ./team ./backups/team-folder-copy
+ls ./backups/team-folder-copy
+```
+
+```text
+manifest.json
+nodes
+relationships
+wal
+```
+
+The CLI checkpoints every time a writable run exits, so a store last written from the CLI has its state in the snapshot. A long-running process, such as an application using a client or `relate serve`, keeps recent commits in the WAL between checkpoints. [Recover from a crash](/docs/guides/operate/crash-and-recovery) explains what the WAL gives back after a crash.
+
+## Schedule backups
+
+Run `relate clone` from a scheduler with a dated destination, keep several generations, and open one now and then. A crontab entry (`crontab -e`) for an hourly clone of a directory store, with `%` escaped because cron treats it as a newline:
+
+```text
+0 * * * * relate clone <store> <backup-dir>/team-$(date +\%Y\%m\%d-\%H).rl
+```
+
+Take a backup before a newer relate release opens the store writable as well: that open migrates the store forward, and older releases can't open it afterward. [Upgrade a store](/docs/guides/operate/upgrade-a-store) covers that.
+
+## Verify
+
+The restored store opens and holds the graph:
+
+```bash verify
+relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN p.name AS name ORDER BY name"
+```
+
+```text
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+```
+
+## If it goes wrong
+
+- **`Failed to clone database: storage error: clone destination already exists`** (exit code 1). `relate clone` never overwrites. Cloning onto an existing backup fails:
+
+  ```bash verify
+  relate clone ./team ./backups/team-2026-11-07.rl
+  ```
+
+  ```text
+  Failed to clone database: storage error: clone destination already exists
+  ```
+
+  Use a new destination name, such as one with the date and hour in it.
+
+- **`Failed to clone database: storage error: clone destination parent does not exist: <path>`** (exit code 1). The source is a directory store and the destination's folder does not exist. Create it first (`mkdir -p`); a `.rl` source creates the folders itself.
+- **`Failed to clone database: storage locked: <path>`** (exit code 1). The source is a `.rl` file and a process holds it. Back it up when that process exits, or keep the store as a directory store so it can be cloned while in use ([Choose a store layout](/docs/guides/storage/choose-a-store-layout)).
+- **`storage error: read-only open requires an existing database at <path>`** (exit code 1). Nothing at that directory path is a store. Check the path.
+- **`storage error: database not found: <path>`** (exit code 1). A `--read-only` open of a `.rl` path where no file exists. Check the backup's path.
+- **`storage error: read-only open requires an existing WAL at <path>`** (exit code 1). A copied directory store is missing its WAL folder, named in the message. Copy the whole folder again, or take the backup with `relate clone`.
+- **`Failed to clone database: storage error: clone source must be a native directory or .rl bundle path`** (exit code 1). The source was `:memory:`. An in-memory store has nothing on disk to back up; write the data into a directory store or a `.rl` file to keep it.
+
+## Related
+
+- [Storage formats](/docs/reference/storage/formats): what a directory store and a `.rl` file hold.
+- [Choose a store layout](/docs/guides/storage/choose-a-store-layout): which layout can be backed up while in use.
+- [Recover from a crash](/docs/guides/operate/crash-and-recovery): what the WAL restores on its own.
+- [Upgrade a store](/docs/guides/operate/upgrade-a-store): back up before a newer release migrates the store.

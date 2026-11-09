@@ -15,11 +15,16 @@
 # request opens as a draft, so the failure is visible next to the diff.
 #
 # Triggers:
-#   - repository_dispatch, type relate-release, to be sent by upstream's
-#     release pipeline once releases.json is published, with the payload
-#     {"version": "X.Y.Z", "tag": "vX.Y.Z"} (tag optional, default vX.Y.Z).
-#     Not wired yet: upstream's publish-releases-json workflow sends no
-#     dispatch (LAUNCH.md). Until it does, run this workflow by hand.
+#   - repository_dispatch, type relate-release, sent by upstream's release
+#     pipelines (ADR-0546) with {"kind": "cli", "tag": "vX.Y.Z"} for a core
+#     release or {"kind": "extension", "tag": "relate-extensions-..."} for an
+#     extension release. Only a cli poke runs here (the version is the tag's;
+#     a "version" in the payload still wins). The release-discovery files
+#     (install.sh, releases.json, extensions.json + .sig) do NOT wait for this
+#     pull request: the deploy workflows listen for the same dispatch and
+#     publish them directly (scripts/fetch-discovery.sh), so a release is never
+#     held up by review of the docs refresh. Until upstream's
+#     RELATE_WEB_DISPATCH_TOKEN is set the pokes skip; run this by hand.
 #   - workflow_dispatch with the version, to refresh from a release by hand
 #
 # Secrets (all optional; each one's absence is reported, not fatal):
@@ -40,8 +45,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: The relate release to refresh from (X.Y.Z)
-        required: true
+        description: The relate release to refresh from (X.Y.Z; default the tag's)
+        required: false
+        default: ''
       tag:
         description: Its tag (default vX.Y.Z)
         required: false
@@ -61,6 +67,8 @@ env:
 
 jobs:
   refresh:
+    # An extension release changes no docs: its signed index is published by the deploys.
+    if: github.event.client_payload.kind != 'extension'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -76,6 +84,9 @@ jobs:
           version="${PAYLOAD_VERSION:-$INPUT_VERSION}"
           version="${version#v}"
           tag="${PAYLOAD_TAG:-$INPUT_TAG}"
+          if [ -z "$version" ] && [[ "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            version="${BASH_REMATCH[1]}"
+          fi
           tag="${tag:-v$version}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::the version must be X.Y.Z, not '$version'"

@@ -11,11 +11,10 @@
 # In order, each step recorded in the report:
 #   1. reads the release (gh release view): it must be published and stable
 #   2. the synced files, byte for byte, never edited here (CLAUDE.md):
-#        public/install.sh       distribution/install.sh at the release tag (what
-#                                upstream's release job publishes)
-#        public/releases.json    upstream's pipeline-owned copies on its pages
-#        public/extensions.json  branch (--pages-ref, default gh-pages): the
-#        public/extensions.json.sig   publishers write them only there.
+#        public/install.sh      by scripts/fetch-discovery.sh (the deploys run it
+#        public/releases.json   too, so these reach the live site with no
+#        public/extensions.json review): upstream's release assets (ADR-0546),
+#        public/extensions.json.sig   the newest stable core and extension releases
 #      releases.json must list the release as latest; extensions.json must
 #      verify against the release signing key pinned in install.sh
 #      (SSHSIG namespace relate-release)
@@ -53,7 +52,6 @@
 #   --version X.Y.Z    the release (required; a leading v is accepted)
 #   --tag TAG          its tag (default vX.Y.Z)
 #   --repo OWNER/NAME  the upstream repository (default $RELATE_UPSTREAM_REPO, else relatedb/relate)
-#   --pages-ref REF    the upstream branch holding releases.json and extensions.json (default gh-pages)
 #   --report FILE      write the pull request body (markdown) here
 #   --work DIR         scratch directory (default: a new temporary directory)
 #   --upstream DIR     an upstream checkout at the tag, for skill:sync
@@ -72,7 +70,6 @@ cd "$repo_root"
 version=""
 tag=""
 upstream_repo="${RELATE_UPSTREAM_REPO:-relatedb/relate}"
-pages_ref=gh-pages
 report=""
 work=""
 upstream_dir="${RELATE_UPSTREAM:-}"
@@ -85,7 +82,6 @@ while [ $# -gt 0 ]; do
     --version) version="${2:?--version needs X.Y.Z}"; shift 2 ;;
     --tag) tag="${2:?--tag needs a tag}"; shift 2 ;;
     --repo) upstream_repo="${2:?--repo needs OWNER/NAME}"; shift 2 ;;
-    --pages-ref) pages_ref="${2:?--pages-ref needs a branch}"; shift 2 ;;
     --report) report="${2:?--report needs a file}"; shift 2 ;;
     --work) work="${2:?--work needs a directory}"; shift 2 ;;
     --upstream) upstream_dir="${2:?--upstream needs a directory}"; shift 2 ;;
@@ -159,39 +155,19 @@ raw() { # PATH REF OUT
 }
 signing_key() { sed -n "s/^SIGNING_KEY='\(.*\)'$/\1/p" "$1"; }
 
-sync_install_sh() {
-  mkdir -p "$work/synced"
-  raw distribution/install.sh "$tag" "$work/synced/install.sh" || { note "could not read distribution/install.sh at $tag"; return 1; }
-  [ -n "$(signing_key "$work/synced/install.sh")" ] || { note "install.sh at $tag has no pinned SIGNING_KEY line"; return 1; }
-  cp "$work/synced/install.sh" public/install.sh || return 1
-  note "distribution/install.sh at $tag"
-}
-
-sync_pages_files() {
-  mkdir -p "$work/synced"
-  local f
-  for f in releases.json extensions.json extensions.json.sig; do
-    raw "$f" "$pages_ref" "$work/synced/$f" || { note "could not read $f on $upstream_repo@$pages_ref"; return 1; }
-  done
+# The same script the deploys run (scripts/fetch-discovery.sh): the newest
+# stable core release's assets and the newest extension release's signed pair,
+# verified. The deploys publish them with no review; they are copied here only
+# so the steps below (the binary install, the CLI recordings) read the same files.
+sync_discovery() {
+  GH_TOKEN="${GH_TOKEN:-}" RELATE_UPSTREAM_REPO="$upstream_repo" bash scripts/fetch-discovery.sh >"$work/fetch-discovery.log" 2>&1 ||
+    { tail -n 5 "$work/fetch-discovery.log" >&2; note "$(tail -n 1 "$work/fetch-discovery.log")"; return 1; }
   local latest
-  latest="$(node -e 'const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); console.log(r.latest?.tag ?? "")' "$work/synced/releases.json")" ||
-    { note "releases.json is not JSON"; return 1; }
-  [ "$latest" = "$tag" ] || { note "releases.json on $pages_ref lists $latest as latest, not $tag (has upstream's publish-releases-json run?)"; return 1; }
-  node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$work/synced/extensions.json" ||
-    { note "extensions.json is not JSON"; return 1; }
-  # The key pinned in the install.sh just synced (or the one already here).
-  local key
-  key="$(signing_key public/install.sh)"
-  printf 'relate-release %s\n' "$key" >"$work/allowed_signers"
-  ssh-keygen -Y verify -f "$work/allowed_signers" -I relate-release -n relate-release \
-    -s "$work/synced/extensions.json.sig" <"$work/synced/extensions.json" >/dev/null 2>&1 ||
-    { note "extensions.json.sig does not verify against the pinned release key (namespace relate-release); left unchanged"; return 1; }
-  cp "$work/synced/releases.json" "$work/synced/extensions.json" "$work/synced/extensions.json.sig" public/ || return 1
-  note "from $upstream_repo@$pages_ref; extensions.json signature verified"
+  latest="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("public/releases.json", "utf8")).latest?.tag ?? "")')"
+  [ "$latest" = "$tag" ] || { note "releases.json lists $latest as latest, not $tag (is $tag the newest core release?)"; return 1; }
+  note "$(grep -c . "$work/fetch-discovery.log") lines; releases.json lists $tag as latest"
 }
-
-step "public/install.sh" sync_install_sh
-step "public/releases.json, extensions.json (+ .sig)" sync_pages_files
+step "install.sh, releases.json, extensions.json (+ .sig)" sync_discovery
 
 # ---------------------------------------------------------------------------
 # 3. The binary, through install.sh

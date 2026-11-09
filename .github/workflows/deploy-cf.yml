@@ -32,6 +32,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Upstream's release pipelines poke this after attaching install.sh,
+  # releases.json or the signed extensions.json pair to a release (ADR-0546):
+  # the discovery files go live with no pull request and no review.
+  repository_dispatch:
+    types: [relate-release]
 
 concurrency:
   group: cf-pages-${{ github.ref }}
@@ -39,7 +44,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -93,6 +98,25 @@ jobs:
         if: steps.cf.outputs.configured == 'true'
         run: npm run docs:check
 
+      # The release-discovery files come from upstream's release assets, not from
+      # the checked-in seed copies (scripts/fetch-discovery.sh). Pull request
+      # previews keep the seed copies.
+      - name: Fetch release-discovery files
+        if: steps.cf.outputs.configured == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
+          HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
+          REQUIRED: ${{ vars.RELATE_DISCOVERY_REQUIRED }}
+        run: |
+          # Until the upstream token is set (the repository is private) there is nothing to
+          # fetch: keep the seed copies. Set the repository variable
+          # RELATE_DISCOVERY_REQUIRED=true at launch so a missing token fails the deploy.
+          if [ "$HAS_UPSTREAM_TOKEN" != true ] && [ "$REQUIRED" != true ]; then
+            echo "::notice::RELATE_UPSTREAM_TOKEN is not set: using the checked-in release-discovery files"
+            exit 0
+          fi
+          bash scripts/fetch-discovery.sh
+
       - name: Build site
         if: steps.cf.outputs.configured == 'true'
         run: npm run build
@@ -114,6 +138,9 @@ jobs:
           test -s dist/wasm/relate.js
           test -s dist/playground/index.html
           test -s dist/CNAME
+          test -s dist/install.sh
+          test -s dist/releases.json
+          test -s dist/extensions.json
 
       - name: Deploy to Cloudflare Pages
         if: steps.cf.outputs.configured == 'true'

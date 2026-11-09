@@ -99,8 +99,9 @@
 //     replays on public/wasm; no orphan page; every cli.json command and flag
 //     named on a reference page (a warning until the CLI reference exists);
 //     no published page with a planned prerequisite; every :term id exists;
-//     no page that is its own prerequisite; the search indexes exist and the
-//     seed sets as many section vectors as the artifact has current ones.
+//     no page that is its own prerequisite; the search indexes exist (the
+//     vector one filterable on `page`) and the seed sets as many section
+//     vectors as the artifact has current ones.
 //     Severities per rule: DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>,…
 //   - the embeddings (3e, src/lib/docs/checks/embeddings.ts): every section has a
 //     vector in _data/embeddings.json whose SHA-256 matches its text now, no

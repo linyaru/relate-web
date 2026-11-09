@@ -2,9 +2,11 @@
 // Writes the `docs` data block of the cookbook recipe "Query the relate docs"
 // (src/content/cookbook/query-the-relate-docs.md) from the docs graph and
 // _data/embeddings.json: the subset rule is recipeData() in
-// src/lib/docs/graph.ts (every section of a fixed list of pages, text cut
-// short, vectors to four decimals, plus the recipe's questions with their
-// vectors). Runs on Node directly, like scripts/docs.ts; needs no model.
+// src/lib/docs/graph.ts (the graph's pages, terms, capabilities, problems
+// and recipes with the relationships the recipe's steps read, without
+// vectors; every section of a fixed list of pages, text cut short, vectors
+// to four decimals; and the recipe's questions with their vectors). Runs on
+// Node directly, like scripts/docs.ts; needs no model.
 //
 //   node scripts/docs-recipe-data.ts            rewrite the block when it differs
 //   node scripts/docs-recipe-data.ts --check    exit 1 when it differs; write nothing

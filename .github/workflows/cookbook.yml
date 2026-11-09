@@ -44,7 +44,9 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The whole suite: unit tests, the docs checks, the build, the Worker
+    # bundle and the headless Chrome run over every page and element.
+    timeout-minutes: 45
     steps:
       # Full history: each docs page's "Updated" date is its file's last commit.
       - uses: actions/checkout@v4

@@ -1314,19 +1314,36 @@ async function smoke(): Promise<void> {
   {
     const marker = 'zzmcpchecklogmarker quokka';
     markers.push(marker);
+    // The Worker logs after it answers, so the burst of requests the limit
+    // cases sent can still be printing: wait for wrangler's output to go
+    // quiet before and after the one request this case makes.
+    const settled = async () => {
+      let n = srv.out().length;
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 400));
+        const m = srv.out().length;
+        if (m === n) return;
+        n = m;
+      }
+    };
+    const logLines = (from: number) =>
+      srv
+        .out()
+        .slice(from)
+        .split('\n')
+        .filter((l) => l.startsWith('{"evt":"docs-mcp"'))
+        .map((l) => JSON.parse(l) as Record<string, unknown>);
     await attempt('one log line per request; a search\'s line has the tool and no query text, and no text a case sent is logged', async () => {
+      await settled();
       const before = srv.out().length;
       await callTool(base, 'search_docs', { query: marker });
       let lines: Record<string, unknown>[] = [];
       for (let i = 0; i < 20 && !lines.length; i++) {
         await new Promise((r) => setTimeout(r, 100));
-        lines = srv
-          .out()
-          .slice(before)
-          .split('\n')
-          .filter((l) => l.startsWith('{"evt":"docs-mcp"'))
-          .map((l) => JSON.parse(l) as Record<string, unknown>);
+        lines = logLines(before);
       }
+      await settled();
+      lines = logLines(before);
       const p: string[] = [];
       if (lines.length !== 1) p.push(`${lines.length} log lines for one request`);
       const line = lines[0] ?? {};

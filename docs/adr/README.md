@@ -122,4 +122,5 @@ Copy `template.md`.
 | [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |
 | [0043](0043-home-design-tokens-and-fonts.md) | The site takes its colours and type from the Relate home design: Night by default, three open-source faces, the older token names kept as aliases | Proposed |
 | [0044](0044-no-performance-page-or-benchmarks-in-docs.md) | The docs have no performance page and cite no benchmarks | Proposed |
+| [0046](0046-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |
 | [0048](0048-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |

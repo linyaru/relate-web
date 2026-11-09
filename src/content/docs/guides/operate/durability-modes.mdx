@@ -29,6 +29,10 @@ A killed process can lose the window too, not only a power cut. In a test on thi
 
 The mode is a setting of the process that opens the store, not of the store. The next open picks its own, and an open that sets nothing gets `full`.
 
+:::storage-animator{id=loss-windows scenes=durability}
+Each mode's loss window for one crash, a few seconds after a completed checkpoint.
+:::
+
 ## Choose one
 
 - If every acknowledged write must survive a crash, keep `full`. It is the only mode with no loss window.

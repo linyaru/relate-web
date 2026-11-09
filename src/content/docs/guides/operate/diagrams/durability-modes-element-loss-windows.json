@@ -1,0 +1,18 @@
+{
+  "format": 2,
+  "element": "storage-animator",
+  "hash": "9e87dd888abc4ecfdebbf847e596adf10a755347380a976f618cc89402cbbaab",
+  "inputs": [
+    "src/content/docs/_data/cli.json"
+  ],
+  "live": "Commit, Checkpoint and Crash step through what relate does with the WAL, the in-memory graph and the snapshot (inside one `.rl` file in the file view), and a mode switch with a crash slider shades what `full`, `everysecond` and `snapshot` can lose; under reduced motion each step waits for Next. It is a diagram of documented behaviour: no engine runs.",
+  "engine": false,
+  "text": "**What a crash can lose.** The durability mode decides when a commit is acknowledged relative to the WAL sync. It is a setting of the process that opens the store (`--durability-mode` or `RELATE_DURABILITY_MODE`, default `full`), not of the store.\n\nThe picture's timeline: 8 writes are acknowledged in the 4.6 s after a completed checkpoint, then the process crashes. A killed process can lose the window as well as a power cut.\n\n| Mode | The WAL is synced | Acknowledged writes the crash at 4.6 s can lose |\n| --- | --- | --- |\n| `full` | Before each commit, or group of commits, is acknowledged | None: all 8 come back |\n| `everysecond` | About once a second, in the background | The 2 writes after the last sync, at 4 s |\n| `snapshot` | Never on commit; only a completed checkpoint is durable | All 8, every write since the checkpoint |\n\nUnder `everysecond`, slow storage or a delayed sync makes the window longer than about a second. Under `snapshot`, the window runs until the next completed checkpoint: up to 300 seconds of writes under the default timer, fewer when a WAL segment fills first.",
+  "caption": "What each durability mode can lose in a crash, as relate documents it",
+  "svg": true,
+  "svgSha256": {
+    "light": "91249c3a08e88b7faf046890f45ddc0b7acd52160bac964d051b4760be3df39b",
+    "dark": "89745f0c1419ba26057d26281fb3b2f1b9cd2cec27b09fffe76eb65d104b8b8d"
+  },
+  "textSha256": "29f4457fa3e85322eef742ac4c49284fab635e0c5769889b0bf4b383e7c8bac0"
+}

@@ -31,8 +31,8 @@ The engine lives in the upstream relate repository. The WASM copy under `public/
 - Some `cypherlite` strings intentionally remain until upstream artifacts are regenerated (old URLs, release asset names in `releases.json`, `install.sh`). Check `git grep -i cypherlite` before assuming a leftover is a bug.
 - Colours come from the tokens in `src/styles/base.css` (`--bg`, `--fg`, `--accent`, `--on-accent`, …), never hard-coded hex. Day is the default theme; Night via `data-theme="dark"` or `prefers-color-scheme`. Code and terminal blocks stay dark in both.
 - The site's tooling runs `.ts` directly on Node ≥ 22.18 (type stripping): keep `src/lib/cookbook/` and `src/lib/docs/` to erasable TypeScript (no enums, namespaces or parameter properties) and import with `.ts` extensions. `src/lib/cookbook/result-view.ts`, `cells.ts`, `graph-model.ts`, `palette.ts` and the `schema-*.ts` files are shared with the browser runtime, so keep them free of Node imports.
-- The engine is never bundled: the home page console, the cookbook and docs runtime, the playground and the Worker load it from `/wasm/` (or the Worker's copy) at runtime. The one NVL module is `src/scripts/cookbook/graph.ts` (pinned 1.2.2; `astro.config.mjs` aliases its Segment telemetry to an empty module).
-- The home page still renders the legacy single-file markup; keep its behaviour identical while porting (sections, ids, anchors, the lazy-loaded WASM console). Redesign and branding come after the faithful port.
+- The engine is never bundled: the cookbook and docs runtime, the playground and the Worker load it from `/wasm/` (or the Worker's copy) at runtime. The one NVL module is `src/scripts/cookbook/graph.ts` (pinned 1.2.2; `astro.config.mjs` aliases its Segment telemetry to an empty module).
+- The home page is being rebuilt from the Relate home design, section by section: `Hero.astro` and `LoopDemo.astro` are done; the sections still in `src/legacy/index.html` (quickstart, examples, Docker, extensions, reference) keep their ids and anchors until they move out, and the file is deleted when the last one has.
 
 ## 2. Layout
 
@@ -138,7 +138,7 @@ cd <upstream relate checkout> && bash scripts/build-wasm.sh --mode release
 npm run skill:sync        # then review the diff of public/skills/relate/
 ```
 
-The WASM serves the home page console, the cookbook, the docs and the playground, so run `npm run cookbook:check` and `npm run docs:check` afterwards. If a recording differs, decide whether the engine changed on purpose; if so, `npm run cookbook:record` and `npm run docs:record`, and review the diffs. `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) are signed or generated upstream: the deploys fetch them from upstream's release assets (`scripts/fetch-discovery.sh`, no review; the checked-in copies are seed files); never hand-edit them. See `runbooks/release-discovery.md`. The samples environment and the CLI recordings follow the same pin (§1 "Upstream").
+The WASM serves the cookbook, the docs and the playground, so run `npm run cookbook:check` and `npm run docs:check` afterwards. If a recording differs, decide whether the engine changed on purpose; if so, `npm run cookbook:record` and `npm run docs:record`, and review the diffs. `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) are signed or generated upstream: the deploys fetch them from upstream's release assets (`scripts/fetch-discovery.sh`, no review; the checked-in copies are seed files); never hand-edit them. See `runbooks/release-discovery.md`. The samples environment and the CLI recordings follow the same pin (§1 "Upstream").
 
 ## 5. CI and deploys
 

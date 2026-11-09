@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "element": "agent-trace",
+  "hash": "c7c1464907ca03f1ef56b006ecf0ac70a240a8918a5fcf857753ffff11f2b6bf",
+  "inputs": [
+    "public/wasm/relate_bg.wasm",
+    "src/content/docs/_data/errors.json"
+  ],
+  "live": "Step sends the next call and Play all sends the rest, each to the page's database in your browser on the store the cells build up to the trace's starting cell, and each step shows the result `relate serve`'s tool returns for that call, built from the engine's live result; a trace that would write twice starts on an emptied database, and the database is emptied again when the trace ends, so the page's cells run on what they write.",
+  "engine": true,
+  "text": "The trace starts on the database the cells up to `team` build. Each step below ran when the page was recorded, one after another on that database, through the mapping the MCP tryout uses; each result is what relate serve's tool returns for that call, built from the engine's result. No agent and no server took part in the recording.\n\n**Step 1 of 2: `get_schema`.** The labels, property keys and relationship types that `readGraph`'s description names by hand, read from the store.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{}}}\n```\n\n| Label | Nodes | Properties | Relationships out |\n| --- | --- | --- | --- |\n| Person | 3 | name (String), role (String) | WORKS_ON to Project; KNOWS to Person; MAINTAINS to Project |\n| Project | 2 | language (String), name (String) | - |\n\n**Step 2 of 2: `read_cypher`.** The statement and `params` of the program's first `readGraph.execute` call, sent as `read_cypher`.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\",\"parameters\":{\"project\":\"relate\"}}}}\n```\n\n| name | since |\n| --- | --- |\n| Grace | 2023 |\n| Ada | 2024 |\n\nThe rows match cell `works-on`'s recording.",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "0b7850eee44615da5878657191c69edcbcb733f63ec7446d12d7a30f9a10cb5e"
+}

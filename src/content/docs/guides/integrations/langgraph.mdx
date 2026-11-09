@@ -189,6 +189,109 @@ The second turn recalls both episodes, though each came from a different convers
 - **`recall`** reads the episodes that mention a subject, oldest first, then follows `WORKS_ON` to who works on it.
 - **The mentions are given, not extracted.** In a real agent a model picks them out of the message; in this program they're fixed, so the run is the same every time.
 
+## Step through the nodes' calls
+
+Each node reaches relate through one statement per call, with its values as :term[parameters]{id=parameter}. The cells below hold the program's seed and the statements its two tools run, with the values of the program's two turns; they run in your browser, on an in-memory store instead of `./memory.rl`. First the team graph:
+
+```cypher run name=team
+CREATE (ada:Person {name: 'Ada', role: 'engineer'}),
+       (grace:Person {name: 'Grace', role: 'engineer'}),
+       (noor:Person {name: 'Noor', role: 'maintainer'}),
+       (relate:Project {name: 'relate', language: 'Rust'}),
+       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),
+       (ada)-[:WORKS_ON {since: 2024}]->(relate),
+       (grace)-[:WORKS_ON {since: 2023}]->(relate),
+       (grace)-[:WORKS_ON {since: 2022}]->(tck),
+       (noor)-[:MAINTAINS]->(relate),
+       (ada)-[:KNOWS]->(grace)
+```
+
+The `write_episode` node of the first turn, in thread `standup-monday`, calls `remember` with these values:
+
+```json data=monday
+{"conversation": "standup-monday", "text": "Ada fixed the CSV import bug in relate.", "mentions": ["Ada", "relate"]}
+```
+
+```cypher run name=remember-monday params=monday
+MERGE (c:Conversation {id: $conversation})
+WITH c
+OPTIONAL MATCH (earlier:Episode)
+WITH c, count(earlier) AS seen
+CREATE (e:Episode {seq: seen + 1, text: $text})-[:IN_CONVERSATION]->(c)
+WITH e
+UNWIND $mentions AS name
+MATCH (x {name: name})
+MERGE (e)-[:MENTIONS]->(x)
+RETURN count(x) AS linked
+```
+
+The second turn's, in thread `standup-tuesday`, runs the same statement:
+
+```json data=tuesday
+{"conversation": "standup-tuesday", "text": "Grace will review the relate release notes.", "mentions": ["Grace", "relate"]}
+```
+
+```cypher run name=remember-tuesday params=tuesday
+MERGE (c:Conversation {id: $conversation})
+WITH c
+OPTIONAL MATCH (earlier:Episode)
+WITH c, count(earlier) AS seen
+CREATE (e:Episode {seq: seen + 1, text: $text})-[:IN_CONVERSATION]->(c)
+WITH e
+UNWIND $mentions AS name
+MATCH (x {name: name})
+MERGE (e)-[:MENTIONS]->(x)
+RETURN count(x) AS linked
+```
+
+Then its `recall_context` node calls `recall` for `relate`, which runs two reads:
+
+```json data=subject
+{"name": "relate"}
+```
+
+```cypher run name=episodes params=subject
+MATCH (x {name: $name})<-[:MENTIONS]-(e:Episode)-[:IN_CONVERSATION]->(c:Conversation)
+RETURN c.id AS conversation, e.text AS text
+ORDER BY e.seq
+```
+
+```cypher run name=people params=subject
+MATCH (x {name: $name})<-[w:WORKS_ON]-(p:Person)
+RETURN p.name AS person, w.since AS since
+ORDER BY since
+```
+
+These rows are the four lines the program prints before its check.
+
+The same statements reach relate as MCP tool calls when an agent host serves the store with `relate serve --mcp stdio` instead of opening it in-process; [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk) registers that server. The trace below replays the four calls in order as the `tools/call` requests such a host sends, on the team graph the first cell builds. The writes go to `write_cypher`, which a server lists only when it opens the store without `--read-only`, as this program opens `./memory.rl` writable. It is a replay of the program's calls, not a transcript of a model run: no model chose them. The first turn's `recall_context` node runs the same two reads and sees one episode; the trace keeps the second turn's, the one the program prints.
+
+```json data=node-calls
+{"steps": [
+  {"tool": "write_cypher",
+   "note": "First turn, `write_episode`: the `remember` statement with the `monday` values.",
+   "arguments": {"statement": "MERGE (c:Conversation {id: $conversation}) WITH c OPTIONAL MATCH (earlier:Episode) WITH c, count(earlier) AS seen CREATE (e:Episode {seq: seen + 1, text: $text})-[:IN_CONVERSATION]->(c) WITH e UNWIND $mentions AS name MATCH (x {name: name}) MERGE (e)-[:MENTIONS]->(x) RETURN count(x) AS linked",
+    "parameters": {"conversation": "standup-monday", "text": "Ada fixed the CSV import bug in relate.", "mentions": ["Ada", "relate"]}}},
+  {"tool": "write_cypher",
+   "note": "Second turn, `write_episode`: the same statement with the `tuesday` values, in a new conversation.",
+   "arguments": {"statement": "MERGE (c:Conversation {id: $conversation}) WITH c OPTIONAL MATCH (earlier:Episode) WITH c, count(earlier) AS seen CREATE (e:Episode {seq: seen + 1, text: $text})-[:IN_CONVERSATION]->(c) WITH e UNWIND $mentions AS name MATCH (x {name: name}) MERGE (e)-[:MENTIONS]->(x) RETURN count(x) AS linked",
+    "parameters": {"conversation": "standup-tuesday", "text": "Grace will review the relate release notes.", "mentions": ["Grace", "relate"]}}},
+  {"tool": "read_cypher",
+   "note": "Second turn, `recall_context`: `recall`'s first read, the episodes that mention `relate` from both conversations, oldest first.",
+   "arguments": {"statement": "MATCH (x {name: $name})<-[:MENTIONS]-(e:Episode)-[:IN_CONVERSATION]->(c:Conversation) RETURN c.id AS conversation, e.text AS text ORDER BY e.seq",
+    "parameters": {"name": "relate"}}},
+  {"tool": "read_cypher",
+   "note": "Second turn, `recall_context`: `recall`'s second read, who works on `relate` along the team graph's `WORKS_ON`, which no episode stated.",
+   "arguments": {"statement": "MATCH (x {name: $name})<-[w:WORKS_ON]-(p:Person) RETURN p.name AS person, w.since AS since ORDER BY since",
+    "parameters": {"name": "relate"}}}
+]}
+```
+
+:::agent-trace{steps=node-calls from=team}
+:::
+
+Where the `remember` tool returns `linked`, each `write_cypher` reply returns counters: two nodes, the turn's new `Conversation` and its `Episode`, and three relationships, `IN_CONVERSATION` and two `MENTIONS`.
+
 ## Hand the tools to a model
 
 `remember` and `recall` are LangChain tools, so a chat model can call them itself. Bind them to the model with its `bind_tools` method and run the calls with LangGraph's `ToolNode`:

@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "element": "agent-trace",
+  "hash": "47a1934d2f24c7e9dc31d74cca04064f106227969f24f0955dfd8651fdf101c3",
+  "inputs": [
+    "public/wasm/relate_bg.wasm",
+    "src/content/docs/_data/errors.json"
+  ],
+  "live": "Step sends the next call and Play all sends the rest, each to the page's database in your browser on the store the cells build up to the trace's starting cell, and each step shows the result `relate serve`'s tool returns for that call, built from the engine's live result; a trace that would write twice starts on an emptied database, and the database is emptied again when the trace ends, so the page's cells run on what they write.",
+  "engine": true,
+  "text": "The trace starts on the database the cells up to `team` build. Each step below ran when the page was recorded, one after another on that database, through the mapping the MCP tryout uses; each result is what relate serve's tool returns for that call, built from the engine's result. No agent and no server took part in the recording.\n\n**Step 1 of 4: `get_schema`.** `mcp__relate__get_schema` with no arguments: the labels, their property keys and types, and the relationship types between them, which is what the agent can read about the graph before it writes a statement.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{}}}\n```\n\n| Label | Nodes | Properties | Relationships out |\n| --- | --- | --- | --- |\n| Person | 3 | name (String), role (String) | WORKS_ON to Project; KNOWS to Person; MAINTAINS to Project |\n| Project | 2 | language (String), name (String) | - |\n\n**Step 2 of 4: `read_cypher`.** `mcp__relate__read_cypher` with the statement and `$project` of the request in Call the query tool: who works on `relate`, and since when.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\",\"parameters\":{\"project\":\"relate\"}}}}\n```\n\n| name | since |\n| --- | --- |\n| Grace | 2023 |\n| Ada | 2024 |\n\n**Step 3 of 4: `read_cypher`.** The delete sent to `read_cypher` in Call the query tool. The server's gate reads the statement's plan, finds a write, and answers with a tool error; the statement never runs.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person {name: $name}) DETACH DELETE p\",\"parameters\":{\"name\":\"Ada\"}}}}\n```\n\nTool error: `Only MATCH queries are allowed for read-query`.\n\n**Step 4 of 4: `read_cypher`.** The count from Verify, sent as a tool call: the three people are all still there after the refused delete.\n\n```json\n{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person) RETURN count(p) AS people\"}}}\n```\n\n| people |\n| --- |\n| 3 |",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "7a4f6d9e914dc91308e05ead753151afd9130dadd86fa0f706108bd9d6f0d51d"
+}

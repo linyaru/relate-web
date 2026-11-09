@@ -188,11 +188,22 @@ ORDER BY score DESC, s.id
 
 All five sections come from "Keep an agent safe".
 
-> **Note**
-> Change `q` to a question of your own and the vector search returns no rows:
-> only the two questions in the data have a stored vector. Embed the new
-> question with the code in "Where the data comes from" and pass the vector
-> as a parameter (`FOR $v`). The full-text search works on any text.
+## Ask your own question
+
+Change `q` to a question of your own and the vector search returns no rows:
+only the two questions in the data have a stored vector. A question's vector
+is only comparable with vectors from the same model, so a new question needs
+bge-small-en-v1.5 at the revision and pooling the sections were embedded
+with. In the browser, this element downloads that model, embeds the question
+in the tab, and runs the `vector` step with the new vector in place of the
+stored one.
+
+:::embed-question{cell=vector}
+:::
+
+Elsewhere, embed the question with the code in "Where the data comes from"
+and pass the vector as a parameter (`FOR $v`). The full-text search works on
+any text.
 
 ## Fuse both lists by reciprocal rank
 

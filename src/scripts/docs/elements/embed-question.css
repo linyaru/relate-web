@@ -1,0 +1,31 @@
+/* :::embed-question, embed your own question (src/scripts/docs/elements/embed-question.ts). Tokens only; nothing animates. */
+.embed-question { display: grid; gap: 10px; font-size: 14px; }
+.embed-question .eq-note, .embed-question .eq-said, .embed-question .eq-agreement { margin: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+.embed-question .eq-agreement:empty { display: none; }
+.embed-question .eq-form { display: grid; gap: 8px; }
+.embed-question .eq-question { display: grid; gap: 4px; }
+.embed-question .eq-question span { color: var(--fg-muted); font-weight: 600; }
+.embed-question input {
+  width: 100%; min-width: 0; padding: 6px 8px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.embed-question .eq-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.embed-question .eq-bar [hidden] { display: none; }
+.embed-question .eq-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.embed-question .eq-progress[hidden] { display: none; }
+.embed-question progress { width: min(320px, 100%); accent-color: var(--accent); }
+.embed-question .eq-statement summary { cursor: pointer; color: var(--fg-muted); font-weight: 600; }
+.embed-question .eq-statement pre {
+  margin: 6px 0 0; padding: 10px 12px; overflow-x: auto; border-radius: 6px;
+  background: var(--code-bg); color: var(--code-fg); font-size: 12.5px;
+}
+.embed-question .eq-table { width: 100%; border-collapse: collapse; }
+.embed-question .eq-table caption { text-align: left; color: var(--fg-muted); font-size: 13px; padding-bottom: 6px; overflow-wrap: anywhere; }
+.embed-question .eq-table th, .embed-question .eq-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.embed-question .eq-table td { font-variant-numeric: tabular-nums; }
+/* A number never breaks inside itself. */
+.embed-question .eq-table td.eq-num { overflow-wrap: normal; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .embed-question .eq-table th, .embed-question .eq-table td { padding: 4px 4px; font-size: 13px; }
+}

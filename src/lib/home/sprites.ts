@@ -22,6 +22,24 @@ export const PALETTE: Record<string, string> = {
 };
 
 export const SPRITES: Record<string, string[]> = {
+  "robot": [
+      ".......hh.......",
+      ".......KK.......",
+      "..KKKKKKKKKKKK..",
+      ".KCCCCCCCCCCCCK.",
+      "KCCCCCCCCCCCCCCK",
+      "KCKKKKCCCCKKKKCK",
+      "KCKYYKCCCCKYYKCK",
+      "KCKKKKCCCCKKKKCK",
+      "KCCCCCCCCCCCCCCK",
+      "KCKKKKKKKKKKKKCK",
+      "KCCCCCCCCCCCCccK",
+      ".KKKKKKKKKKKKKK.",
+      ".KCCCCCCCCCCCCK.",
+      ".KcCCCCCCCCCCcK.",
+      ".KcccCCCCCCcccK.",
+      ".KKKKKKKKKKKKKK."
+  ],
   "star": [
     ".......KK.......",
     "......KYYK......",

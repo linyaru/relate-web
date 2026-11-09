@@ -569,80 +569,6 @@
 
 <!--SITE-HERO-->
 
-<!-- ============== QUICKSTART ============== -->
-<section id="quickstart">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-eyebrow">quickstart</span>
-      <h2 class="section-title">From zero to graph in 30 seconds.</h2>
-      <p class="section-sub">
-        No server to start, no credentials, no config. One binary, one file.
-      </p>
-    </div>
-
-    <div class="quickstart-mode-bar">
-      <button class="mode-btn" data-qs-mode="cli">cli</button>
-      <button class="mode-btn active" data-qs-mode="agentic">agentic</button>
-    </div>
-
-    <div class="steps" id="quickstartSteps">
-      <!-- Step 1: always CLI -->
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Install the agent skill</h3>
-        <p>Teach your AI agents the CLI, the Cypher dialect, vector and spatial queries — one command, every detected agent. <a href="#tab-skill" class="step-link">↓</a></p>
-        <div class="step-cmd" data-copy="relate skill install"><span class="prompt">$</span><span> relate skill install</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        <div class="step-cmd" data-copy="relate skill install --agent claude-code"><span class="prompt">$</span><span> relate skill install <span class="flag">--agent</span> claude-code</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-      </div>
-
-      <!-- Step 2: pick a storage format -->
-      <div class="step step-full">
-        <div class="step-num">2</div>
-        <div class="step-top">
-          <h3>Pick a database format <a href="#tab-database" class="step-link" style="font-weight:400">↓</a></h3>
-          <div class="db-toggle">
-            <button class="mode-btn db-btn" data-db="memory">in-memory</button>
-            <button class="mode-btn db-btn active" data-db="dir">directory</button>
-            <button class="mode-btn db-btn" data-db="bundle">single file</button>
-          </div>
-        </div>
-
-        <div class="db-panel db-panel-hidden" data-db-panel="memory">
-          <p>No persistence — everything lives in RAM. Fastest option; ideal for tests, demos, and throwaway exploration.</p>
-          <div class="step-cmd" data-copy="relate --database :memory: 'RETURN 1 AS ok'"><span class="prompt">$</span> relate <span class="flag">--database</span> <span style="color:var(--code-keyword)">:memory:</span> <span style="color:var(--code-string)">'RETURN 1 AS ok'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        </div>
-
-        <div class="db-panel" data-db-panel="dir">
-          <p>A durable directory: fsync'd WAL plus Parquet snapshots (default). Open or create — same command. Checkpoint to <code style="font-size:12px">graph.json</code> instead with <code style="font-size:12px">--snapshot-format json</code>.</p>
-          <div class="step-cmd" data-copy="relate --database ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Create a local graph database in ./mydata and open a shell</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        </div>
-
-        <div class="db-panel db-panel-hidden" data-db-panel="bundle">
-          <p>A <code style="font-size:12px">.rl</code> bundle packs WAL, snapshots, and catalog into one host file — no sidecar files. Great for shipping a database with an app or agent.</p>
-          <div class="step-cmd" data-copy="relate --database ./mydata.rl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.rl</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata.rl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        </div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Create data</h3>
-        <p>One-shot write with typed parameters — or <code style="font-size:12px">LOAD CSV</code>, pipe a <code style="font-size:12px">.cypher</code> file, or pull a subgraph from Neo4j/Aura. <a href="#tab-create" class="step-link">↓</a></p>
-        <div class="step-cmd" data-copy="relate --database ./mydata 'UNWIND $people AS p CREATE (:Person {name: p.name, age: p.age})' --param 'people=[{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30},{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:28}]'"><span class="agentic-line"><span class="agentic-comment">&gt; Create Person nodes for Alice (30) and Bob (28)</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'UNWIND $people AS p CREATE (:Person {…})'</span> <span style="color:var(--code-keyword)">--param</span> <span style="color:var(--code-string)">'people=[…]'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-        <div class="step-cmd" data-copy="relate pull --from neo4j.env --query 'MATCH (p:Person) RETURN p' --database ./mydata"><span class="agentic-line"><span class="agentic-comment">&gt; Mirror the Person nodes from my Aura database into ./mydata</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span style="color:var(--code-keyword)">pull</span> <span style="color:var(--code-keyword)">--from</span> <span style="color:var(--code-string)">neo4j.env</span> <span style="color:var(--code-keyword)">--query</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p'</span> <span style="color:var(--code-keyword)">--database</span> ./mydata <span class="comment"># durable path required</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-      </div>
-
-      <!-- Step 4 -->
-      <div class="step">
-        <div class="step-num">4</div>
-        <h3>Query it</h3>
-        <p>Same binary, <span class="dbarg-text">same file</span> — Cypher with a pretty table by default, JSON for pipes and agents. <a href="#tab-query" class="step-link">↓</a></p>
-        <div class="step-cmd" data-db-aware data-copy="relate --database ./mydata 'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'"><span class="agentic-line"><span class="agentic-comment">&gt; List everyone in the database, youngest first, as JSON</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> <span class="dbarg" style="color:var(--code-keyword)">./mydata</span> <span style="color:var(--code-string)">'MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age'</span><span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ============== EXAMPLES ============== -->
 <section id="examples">
   <div class="container">
@@ -1444,7 +1370,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   function setViewMode(mode) {
     viewMode = mode;
     examplesEl.classList.toggle('cli-mode', mode === 'cli');
-    quickstartStepsEl.classList.toggle('cli-mode', mode === 'cli');
+    quickstartStepsEl?.classList.toggle('cli-mode', mode === 'cli');
     document.querySelectorAll('[data-ex-mode]').forEach(b =>
       b.classList.toggle('active', b.dataset.exMode === mode));
     document.querySelectorAll('[data-qs-mode]').forEach(b =>

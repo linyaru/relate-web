@@ -1,0 +1,269 @@
+---
+// Home "Quickstart": four steps that tick off in turn beside a prompt to paste into an agent.
+// The pixel-hex field behind the prompt is drawn at build time; the steps, the speech bubble and
+// the copy button are the only script. Commands and the agent briefing (/skill.md) are the
+// verified ones from the docs (get-started/agent-quickstart).
+import { sprite } from '../lib/home/sprites.ts';
+
+const SITE = 'https://relatedb.ai';
+const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
+const steps = [
+  { h: 'Install the agent skill', p: 'One command, for the agents you already use.', tag: 'agent skill', say: 'Installing the agent skill' },
+  { h: 'Pick a storage format', p: 'In memory, a directory, or one .rl file.', tag: 'memory / directory / .rl', say: 'Picking a storage format' },
+  { h: 'Create data', p: 'Write Cypher, load a CSV, or mirror from Aura.', tag: 'Cypher / CSV / Aura', say: 'Adding your data' },
+  { h: 'Query it', p: 'Tables for you, JSON for your agent.', tag: 'table / JSON', say: 'Running your query' },
+];
+
+// A pixel-art hexagon built from square pixels on a P grid.
+function pxhex(cx: number, cy: number, rad: number, P: number, n: number): string {
+  const gx = Math.round(cx / P) * P, gy = Math.round(cy / P) * P, s3 = Math.sqrt(3);
+  let d = '';
+  for (let y = -Math.floor(rad / P) * P; y <= rad; y += P) {
+    const ay = Math.abs(y + P / 2);
+    if (ay > rad) continue;
+    let hw = Math.min((rad * s3) / 2, (rad - ay) * s3);
+    hw = Math.round(hw / P) * P;
+    if (hw < P) continue;
+    d += `M${gx - hw} ${gy + y}h${hw * 2}v${P}h-${hw * 2}z`;
+  }
+  return d ? `<path d="${d}" style="fill:var(--t${n})"/>` : '';
+}
+const hsh = (i: number, j: number, k: number) => {
+  let t = Math.imul(i * 374761393 + j * 668265263 + (17 + k) * 1442695041, 1274126177);
+  t ^= t >>> 13;
+  t = Math.imul(t, 1103515245);
+  t ^= t >>> 16;
+  return ((t >>> 0) % 10000) / 10000;
+};
+// Faded hex tiles that thin out and shrink to pixels away from the bottom-right corner.
+function hexField(w: number, h: number): string {
+  const s3 = Math.sqrt(3), R = 46, P = Math.max(3, Math.round(R / 9)), reach = Math.max(w, h) * 0.78;
+  let g = '';
+  for (let r = -1; r <= Math.ceil(h / (R * 1.5)) + 1; r++)
+    for (let q = -Math.ceil(r / 2) - 2; q <= Math.ceil(w / (R * s3)) + 2; q++) {
+      const cx = R * s3 * (q + r / 2), cy = R * 1.5 * r;
+      if (cx < -R || cx > w + R || cy < -R || cy > h + R) continue;
+      const d = Math.hypot(cx - w, (cy - h) * 1.15) / reach;
+      if (d >= 0.9) continue;
+      const k = hsh(q, r, 1), keep = Math.pow(1 - d, 1.15);
+      if (hsh(q, r, 0) > keep * 1.08 + 0.04) continue;
+      const sc = 1 - d * 0.72;
+      if (sc < 0.36) continue;
+      const rad = (R - 3) * sc;
+      let n = d < 0.3 ? (k > 0.5 ? 2 : 0) : d < 0.6 ? (k > 0.5 ? 0 : 1) : k > 0.5 ? 1 : 3;
+      if (k > 0.955) n = 4;
+      if (sc < 0.5) {
+        const hs = P * Math.max(1, Math.round((rad * 0.5) / P));
+        g += `<rect x="${Math.round(cx / P) * P - hs / 2}" y="${Math.round(cy / P) * P - hs / 2}" width="${hs}" height="${hs}" style="fill:var(--t${n})"/>`;
+      } else g += pxhex(cx, cy, rad, P, n);
+    }
+  return `<svg class="qhex" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">${g}</svg>`;
+}
+// A step marker: a pixel ring that spins while the step runs, a check when it is done.
+const ring = [[1,1],[2,1],[3,1],[4,1],[5,1],[5,2],[5,3],[5,4],[5,5],[4,5],[3,5],[2,5],[1,5],[1,4],[1,3],[1,2]];
+const check = [[1,3],[2,4],[3,5],[4,4],[5,3],[6,2]];
+const marker =
+  '<svg viewBox="0 0 7 7" width="21" height="21" shape-rendering="crispEdges">' +
+  ring.map(([x, y], i) => `<rect class="r" x="${x}" y="${y}" width="1" height="1" style="animation-delay:-${(((16 - i) % 16) * 0.075).toFixed(3)}s"/>`).join('') +
+  check.map(([x, y], i) => `<rect class="c" x="${x}" y="${y}" width="1" height="1" style="transition-delay:${(i * 0.07).toFixed(2)}s"/>`).join('') +
+  '</svg>';
+const field = hexField(720, 640);
+const robot = sprite('robot');
+---
+<section class="qs" id="quickstart" aria-labelledby="h-qs">
+  <div class="qs-in">
+    <div class="qs-head">
+      <p class="eyebrow">Quickstart</p>
+      <h2 id="h-qs">Four steps to your first query.</h2>
+    </div>
+    <div class="qbox" data-say={JSON.stringify(steps.map((s) => s.say))}>
+      <ol class="qrows">
+        {steps.map((s) => (
+          <li>
+            <i class="qsq" aria-hidden="true" set:html={marker} />
+            <div><h3>{s.h}</h3><p>{s.p}</p></div>
+            <span class="qtag" translate="no">{s.tag}</span>
+          </li>
+        ))}
+      </ol>
+      <div class="qprompt">
+        <Fragment set:html={field} />
+        <div class="qmas">
+          <span class="qsay" aria-hidden="true"><b id="qsay">Hi, set me up</b></span>
+          <span class="qframe"><span class="qbot" aria-hidden="true" set:html={robot} /></span>
+        </div>
+        <div class="qpanel">
+          <div class="qpbody">
+            <p class="qp-t" id="qp-text" translate="no">Set up relate for me. Read <b>{SITE}/skill.md</b>, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.</p>
+            <button class="qcopy" type="button" id="qp-copy" aria-label="Copy prompt" data-prompt={PROMPT}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"></path></svg>
+            </button>
+          </div>
+          <div class="qfoot">
+            <button type="button" class="qfa" id="qp-agent" data-prompt={PROMPT}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"></path></svg>
+              <span class="qfa-t">Copy prompt for agent</span>
+            </button>
+            <a class="qfd" href="/docs/get-started/install/">Read docs<span aria-hidden="true">&nbsp;&#8599;</span></a>
+          </div>
+          <p class="sr-only" id="qp-live" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .qs { padding: 0 24px 120px; background: var(--surface-0); border-top: 1px solid var(--line); }
+  .qs-in { max-width: 1232px; margin: 0 auto; }
+  .qs-head { padding: 112px 0 56px; }
+  .eyebrow { margin: 0; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  h2 { margin: 16px 0 0; max-width: 16ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; color: var(--ink); }
+
+  .qbox {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch;
+    border: 1px solid var(--line-strong); background: var(--win); box-shadow: var(--ui-shadow); overflow: hidden;
+  }
+  .qrows { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; border-right: 1px solid var(--line); }
+  .qrows li {
+    position: relative; flex: 1; display: grid; grid-template-columns: 21px minmax(0, 1fr); column-gap: 16px; row-gap: 12px;
+    align-content: center; align-items: start; padding: 24px 32px; border-bottom: 1px solid var(--line); transition: background-color .3s;
+  }
+  .qrows li:last-child { border-bottom: 0; }
+  .qrows li.cur { background: var(--surface-2); }
+  .qrows h3 { margin: 0; font: 500 18px/26px var(--font); letter-spacing: -.01em; color: var(--ink); }
+  .qrows p { margin: 2px 0 0; font-size: 14px; line-height: 22px; color: var(--ink-muted); }
+  .qrows li > div { grid-column: 2; grid-row: 1; }
+  .qtag {
+    grid-column: 2; grid-row: 2; justify-self: start; max-width: 100%; padding: 2px 7px; border: 1px solid var(--line);
+    font: 400 11px/1.4 var(--mono); color: var(--ink-muted);
+  }
+  .qsq { grid-row: 1 / 3; grid-column: 1; margin-top: 3px; display: block; width: 21px; height: 21px; color: var(--ink-muted); transition: color .4s; }
+  .qsq :global(svg) { display: block; width: 21px; height: 21px; overflow: visible; }
+  .qsq :global(rect) { fill: currentColor; }
+  .qsq :global(.r) { opacity: .16; }
+  .qsq :global(.c) { opacity: 0; transition: opacity .01s linear; }
+  .qrows li.cur:not(.done) .qsq { color: var(--ink); }
+  .qrows li.cur:not(.done) .qsq :global(.r) { animation: qsp 1.2s steps(6) infinite; }
+  .qrows li.done .qsq { color: var(--brand); }
+  .qrows li.done .qsq :global(.r) { opacity: 0; animation: none; }
+  .qrows li.done .qsq :global(.c) { opacity: 1; }
+  @keyframes qsp { 0% { opacity: 1; } 70%, 100% { opacity: .14; } }
+
+  /* The prompt side: warm yellow with the build-time hex field behind a mascot and the prompt panel. */
+  .qprompt {
+    --bg: #F6C244; --t0: #F9CF5E; --t1: #EAB332; --t2: #FBD97C; --t3: #DFA624; --t4: #FFEBB0;
+    position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+    padding: 40px 72px 88px; background: var(--bg);
+  }
+  .qprompt :global(.qhex) { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+  .qmas { display: flex; flex-direction: column; align-items: center; gap: 12px; align-self: center; margin-bottom: 28px; }
+  .qsay { background: #111214; color: #fff; font: 500 12px/16px var(--mono); padding: 8px 11px; white-space: nowrap; box-shadow: 4px 4px 0 rgba(0,0,0,.22); }
+  .qsay b { font-weight: 500; }
+  .qsay b::after { content: ''; display: inline-block; width: 6px; height: 11px; margin-left: 3px; vertical-align: -2px; background: currentColor; animation: qcur 1s steps(1) infinite; }
+  @keyframes qcur { 50% { opacity: 0; } }
+  .qframe {
+    position: relative; display: grid; place-items: center; width: 96px; height: 96px; background: #111214;
+    box-shadow: 0 0 0 5px #2A2B31, 0 0 0 6px rgba(0,0,0,.5), 5px 5px 0 6px rgba(0,0,0,.2);
+  }
+  .qframe::after { content: ''; position: absolute; inset: 6px; border: 1px solid #2F3036; pointer-events: none; }
+  .qbot { display: block; line-height: 0; animation: qhop 1.6s steps(1) infinite; }
+  .qbot :global(svg) { display: block; width: 64px; height: 64px; }
+  @keyframes qhop { 0% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  .qpanel {
+    width: 100%; padding: 8px; background: #fff; border: 1px solid rgba(0,0,0,.45);
+    box-shadow: 4px 4px 0 rgba(0,0,0,.26), 8px 8px 0 rgba(0,0,0,.14);
+  }
+  :global(:root:not([data-theme='light'])) .qpanel { background: var(--surface-1); }
+  @media (prefers-color-scheme: light) { :global(:root:not([data-theme='dark'])) .qpanel { background: #fff; } }
+  .qpbody { position: relative; min-height: 200px; padding: 24px 64px 24px 24px; background: transparent; border: 1px solid var(--line); }
+  .qp-t { margin: 0; font: 400 14px/24px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+  .qp-t b { font-weight: 500; color: var(--ink); }
+  .qcopy {
+    position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface-1); border: 1px solid var(--line); color: var(--ink-muted); cursor: pointer;
+  }
+  .qcopy:hover { color: var(--ink); }
+  .qfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 0; }
+  .qfa, .qfd {
+    display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; background: none; border: 0;
+    color: var(--ink-muted); font: 500 14px/1 var(--font); cursor: pointer; text-decoration: none; white-space: nowrap;
+  }
+  .qfa:hover, .qfd:hover { color: var(--ink); }
+  .qcopy:focus-visible, .qfa:focus-visible, .qfd:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
+
+  @media (max-width: 900px) {
+    .qs { padding: 0 16px 96px; }
+    .qs-head { padding: 72px 0 32px; }
+    .qbox { grid-template-columns: minmax(0, 1fr); }
+    .qrows { border-right: 0; border-bottom: 1px solid var(--line); }
+    .qrows li { padding: 20px 16px; }
+    .qprompt { padding: 32px 16px 56px; }
+    .qpbody { min-height: 180px; }
+    .qfoot { flex-wrap: wrap; }
+    .qfa, .qfd { padding: 0 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qbot, .qsay b::after, .qrows li.cur:not(.done) .qsq :global(.r) { animation: none; }
+    .qsq :global(.c) { transition: none; }
+  }
+</style>
+
+<script>
+  const box = document.querySelector<HTMLElement>('.qbox');
+  if (box) {
+    const rows = [...box.querySelectorAll<HTMLElement>('.qrows li')];
+    const say = box.querySelector<HTMLElement>('#qsay')!;
+    const phases: string[] = JSON.parse(box.dataset.say ?? '[]');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const live = box.querySelector<HTMLElement>('#qp-live')!;
+
+    // Steps tick off in turn while the block is on screen, then the loop restarts.
+    if (reduced) {
+      rows.forEach((r) => r.classList.add('done'));
+      say.textContent = 'Ask me in Cypher';
+    } else {
+      let k = 0, tm: ReturnType<typeof setTimeout> | undefined, visible = false;
+      const step = () => {
+        if (!visible) return;
+        if (k < rows.length) {
+          rows.forEach((r, i) => r.classList.toggle('cur', i === k));
+          say.textContent = phases[k] ?? '';
+          tm = setTimeout(() => { rows[k].classList.add('done'); k++; tm = setTimeout(step, 1100); }, 1700);
+        } else {
+          rows.forEach((r) => r.classList.remove('cur'));
+          say.textContent = 'Done. Ask me in Cypher';
+          tm = setTimeout(() => { rows.forEach((r) => r.classList.remove('done')); k = 0; say.textContent = 'Hi, set me up'; tm = setTimeout(step, 1100); }, 5000);
+        }
+      };
+      new IntersectionObserver((es) => {
+        visible = es[0].isIntersecting;
+        clearTimeout(tm);
+        if (visible) tm = setTimeout(step, 700);
+      }).observe(box);
+    }
+
+    const write = async (text: string) => {
+      try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+    };
+    let fb: ReturnType<typeof setTimeout> | undefined;
+    const confirm = (ok: boolean) => {
+      live.textContent = ok ? 'Copied. Paste it into your agent.' : 'Copy failed. Select the prompt and copy it.';
+      clearTimeout(fb);
+      fb = setTimeout(() => { live.textContent = ''; }, 2500);
+    };
+    const agent = box.querySelector<HTMLButtonElement>('#qp-agent')!;
+    const label = agent.querySelector<HTMLElement>('.qfa-t')!;
+    for (const b of [box.querySelector<HTMLButtonElement>('#qp-copy')!, agent]) {
+      b.addEventListener('click', async () => {
+        const ok = await write(b.dataset.prompt ?? '');
+        confirm(ok);
+        if (ok) {
+          label.textContent = 'Paste it into your agent';
+          setTimeout(() => { label.textContent = 'Copy prompt for agent'; }, 2500);
+        }
+      });
+    }
+  }
+</script>

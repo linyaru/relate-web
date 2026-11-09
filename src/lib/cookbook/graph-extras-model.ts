@@ -96,8 +96,8 @@ export function darkenAgainst(fill: string, ground: string, ratio = 3): string {
   return hex(rgb);
 }
 
-/** The light theme's page colour (base.css `--bg`, Day), which the darkened relationship colours hold 3:1 against. */
-export const LIGHT_GROUND = '#F2EAD4';
+/** The darkest ground the light theme draws on (base.css `--bg-alt`, Day: the output pane the canvas sits on, a step darker than the page), which the darkened relationship colours hold 3:1 against. */
+export const LIGHT_GROUND = '#F2F2F2';
 
 let lightPalette: readonly string[] | null = null;
 /** The relationship palette in `theme`, in the label palette's order (the light one worked out on first use). */

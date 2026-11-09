@@ -16,7 +16,7 @@ export const FONTS = {
   relProps: { weight: 400, size: 11 },
 } as const satisfies Record<string, Font>;
 export type FontName = keyof typeof FONTS;
-export const fontSpec = (f: Font) => `${f.weight} ${f.size}px "Public Sans"`;
+export const fontSpec = (f: Font) => `${f.weight} ${f.size}px "Relate Sans"`;
 
 export type Measure = (text: string, font: Font) => number;
 

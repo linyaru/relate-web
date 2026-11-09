@@ -58,7 +58,7 @@ export function drawSchemaSvg(layout: SchemaLayout, { id, title, colors }: { id:
   const c = colors;
   const s = `#${id}`;
   const style = [
-    `${s}{font-family:"Public Sans",system-ui,sans-serif}`,
+    `${s}{font-family:"Relate Sans",system-ui,sans-serif}`,
     `${s} text{text-anchor:middle}`,
     `${s} .rel{fill:none;stroke:${c.rel};stroke-width:2}`,
     `${s} .dash{stroke-dasharray:6 4}`,

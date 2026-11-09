@@ -94,7 +94,7 @@ test('relationship colours: one per type everywhere, 3:1 against each theme\'s p
   assert.equal(relColor('WORKS_ON', 'light'), relColor('WORKS_ON', 'light'));
   assert.equal(relPalette('light').indexOf(relColor('KNOWS', 'light')), relPalette('dark').indexOf(relColor('KNOWS', 'dark')), 'the same hue in both themes');
   const tokens = siteTokens();
-  assert.equal(tokens.light['--bg'].toUpperCase(), LIGHT_GROUND, 'LIGHT_GROUND is the Day page colour');
+  assert.equal(tokens.light['--bg-alt'].toUpperCase(), LIGHT_GROUND, 'LIGHT_GROUND is the Day output-pane colour, the darkest ground');
   // The canvas sits on the output pane (--bg-alt), and in full screen on --bg-alt too.
   for (const theme of ['light', 'dark'] as const) {
     for (const ground of [tokens[theme]['--bg'], tokens[theme]['--bg-alt']]) {

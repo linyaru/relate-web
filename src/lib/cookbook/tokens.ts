@@ -3,9 +3,10 @@
 // stays the one source; this replaces the Relate repository's
 // scripts/cookbook/lib/tokens.mjs (the old palette).
 //
-// Day is base.css's `:root` block. Night is its `[data-theme="dark"]` block
-// over Day, since tokens the dark block does not set (the code colours) are
-// the same in both themes. `var(--x)` references are resolved.
+// Night is base.css's `:root` block (the default theme). Day is its
+// `:root[data-theme="light"]` block over Night, since tokens the light block
+// does not set are the same in both themes. `var(--x)` references are resolved
+// after the merge, so an alias follows the theme it is read in.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -41,8 +42,8 @@ export function resolveTokens(tokens: Tokens): Tokens {
 
 /** The site's tokens, per theme, from `css` (base.css's text). */
 export function themeTokens(css: string): { light: Tokens; dark: Tokens } {
-  const light = blockTokens(css, ':root');
-  const dark = { ...light, ...blockTokens(css, '[data-theme="dark"]') };
+  const dark = blockTokens(css, ':root');
+  const light = { ...dark, ...blockTokens(css, ':root[data-theme="light"]') };
   return { light: resolveTokens(light), dark: resolveTokens(dark) };
 }
 

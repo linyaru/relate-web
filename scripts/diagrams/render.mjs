@@ -175,15 +175,11 @@ function chromePath() {
   return found;
 }
 
-// The site's own Public Sans files, embedded, so text is measured and drawn
+// The site's own Relate Sans file (a variable font), embedded, so text is measured and drawn
 // in the font the page uses, with no network.
 function fontFaces() {
-  return ['400', '500', '600']
-    .map((w) => {
-      const data = readFileSync(join(root, `public/fonts/public-sans-${w}.woff2`)).toString('base64');
-      return `@font-face{font-family:"Public Sans";font-weight:${w};src:url(data:font/woff2;base64,${data}) format("woff2");font-display:block}`;
-    })
-    .join('');
+  const data = readFileSync(join(root, 'public/fonts/relate-sans.woff2')).toString('base64');
+  return `@font-face{font-family:"Relate Sans";font-weight:100 900;src:url(data:font/woff2;base64,${data}) format("woff2");font-display:block}`;
 }
 
 // Every page with diagrams to keep current: { file, slug, dir, diagrams },
@@ -338,10 +334,10 @@ try {
   });
   await page.addScriptTag({ path: require.resolve('mermaid/dist/mermaid.min.js') });
   const fonts = await page.evaluate(async () => {
-    await Promise.all(['400', '500', '600'].map((w) => document.fonts.load(`${w} 14px "Public Sans"`)));
-    return document.fonts.check('14px "Public Sans"');
+    await Promise.all(['400', '500', '600'].map((w) => document.fonts.load(`${w} 14px "Relate Sans"`)));
+    return document.fonts.check('14px "Relate Sans"');
   });
-  if (!fonts) throw new Error('Public Sans did not load; labels would be measured with a fallback font');
+  if (!fonts) throw new Error('Relate Sans did not load; labels would be measured with a fallback font');
 
   // Data models are measured with each character's advance in the site's
   // fonts (kerning is ignored, which errs a little wide).
@@ -391,8 +387,8 @@ try {
       startOnLoad: false,
       securityLevel: 'strict',
       theme: 'base',
-      fontFamily: '"Public Sans", system-ui, sans-serif',
-      themeVariables: { ...variables, ...gantt(theme), fontFamily: '"Public Sans", system-ui, sans-serif', fontSize: '14px' },
+      fontFamily: '"Relate Sans", system-ui, sans-serif',
+      themeVariables: { ...variables, ...gantt(theme), fontFamily: '"Relate Sans", system-ui, sans-serif', fontSize: '14px' },
       flowchart: { curve: 'basis', padding: 12, nodeSpacing: 40, rankSpacing: 52, wrappingWidth: 280 },
       gantt: { barHeight: 24, barGap: 8, topPadding: 40, sectionFontSize: 14, fontSize: 13 },
     };

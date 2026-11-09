@@ -17,7 +17,8 @@ import type { LinkContext } from './links.ts';
 import { pageUrl, typeOf, VERIFIERS, type Verifier } from './model.ts';
 import { parsePage, stringifyMarkdown } from './parse.ts';
 import { hasCells, readResults } from './results.ts';
-import { readSidecar, sampleVerifiers } from './samples.ts';
+import { sampleManifestUrl } from './sample-manifests.ts';
+import { pageSamples, readSidecar, sampleVerifiers } from './samples.ts';
 
 /** The authored frontmatter the twin reads (the content schema validates it). */
 export interface PageData {
@@ -91,6 +92,16 @@ export function verifiedBy(file: string, body: string, tree: Root, version: stri
   return VERIFIERS.filter((v) => out.has(v));
 }
 
+/**
+ * The twin's `samples`: the manifest URL of each verified sample on the page,
+ * in page order (sample-manifests.ts, ADR-0052); empty when the page has none
+ * or its samples have problems (docs:check reports those).
+ */
+export function sampleManifests(id: string, body: string): string[] {
+  const { samples, problems } = pageSamples(body, id);
+  return problems.length ? [] : samples.map((s) => sampleManifestUrl(id, s.id));
+}
+
 /** The page's twin. `body` is its MDX without frontmatter; `lastUpdated` is `YYYY-MM-DD`. */
 export function renderTwin(page: { id: string; file: string; body: string; data: PageData; lastUpdated: string }, ctx: TwinContext): Twin {
   const { id, data } = page;
@@ -103,6 +114,7 @@ export function renderTwin(page: { id: string; file: string; body: string; data:
     components: ctx.components,
   });
   const checks = verifiedBy(page.file, page.body, tree, ctx.engine.verified);
+  const manifests = sampleManifests(id, page.body);
   const front: Record<string, unknown> = {
     title: data.title,
     // The canonical phrase (DOCS-PLAN.md §3.9) opens every twin's description, so authors never type it.
@@ -113,6 +125,7 @@ export function renderTwin(page: { id: string; file: string; body: string; data:
     ...(data.since ? { since: data.since } : {}),
     verified: ctx.engine.verified,
     ...(checks.length ? { verified_by: checks } : {}),
+    ...(manifests.length ? { samples: manifests } : {}),
     canonical_url: `${CANONICAL_ORIGIN}${pageUrl(id)}`,
     prerequisites: data.prerequisites ?? [],
     related: data.related ?? [],

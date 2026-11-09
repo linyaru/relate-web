@@ -73,6 +73,7 @@ import {
   type PageCells,
   type Results,
 } from './results.ts';
+import { sampleManifestPath } from './sample-manifests.ts';
 import { emptySampleSeq, parseSampleInfo, readSidecar, RECORD_COMMAND as SAMPLES_RECORD_COMMAND, sampleId, type SampleInfo, type SampleLang, type Sidecar } from './samples.ts';
 import { configProblems, DEEPLINK_HOSTS, deeplinkHref, NAME_PATTERN, type ServerConfig } from './deeplink.ts';
 import { elementNames, elementUse, markdownNodes, readForm, type FormContext } from './elements.ts';
@@ -622,12 +623,15 @@ function sampleBlock(node: Code, info: SampleInfo, st: State): Node[] {
     return [node];
   }
   const output = recorded.text.replace(/\n$/, '');
-  // Twin: the fence as written (meta kept), then a ```text block holding the output.
+  // Twin: the fence as written (meta kept), then a ```text block holding the output; the twin's frontmatter lists the manifests.
   if (st.target === 'markdown') return [node, { type: 'code', lang: 'text', meta: null, value: output }];
+  // The sample's manifest (sample-manifests.ts, ADR-0052): the program, this output and the client build, as JSON.
+  const manifest = sampleManifestPath(pageIdOf(st.ctx.file), id);
   return [
     html(
       codeBlock(node.value, info.lang === 'js' ? 'javascript' : info.lang, info.title, st) +
-        `<div class="cell-output sample-output"><div class="out-head"><span class="out-label">Output</span></div>` +
+        `<div class="cell-output sample-output" data-sample="${esc(id)}"><div class="out-head"><span class="out-label">Output</span>` +
+        `<a class="out-manifest" href="${esc(manifest)}" type="application/json">Manifest (JSON)</a></div>` +
         `<pre class="out-text" id="out-${esc(id)}">${esc(output)}</pre></div>`,
     ),
   ];

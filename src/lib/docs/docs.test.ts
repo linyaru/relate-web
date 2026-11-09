@@ -56,12 +56,15 @@ test('the twin opens with the frontmatter agents parse, in order', () => {
   assert.ok(m, 'frontmatter block');
   const front = parseYaml(m[1]);
   assert.deepEqual(Object.keys(front), [
-    'title', 'description', 'surfaces', 'status', 'since', 'verified', 'verified_by', 'canonical_url', 'prerequisites', 'related', 'last_updated',
+    'title', 'description', 'surfaces', 'status', 'since', 'verified', 'verified_by', 'samples', 'canonical_url', 'prerequisites', 'related', 'last_updated',
   ]);
   assert.equal(front.verified, '0.16.1');
   // Cells recorded on the engine, and samples recorded by both clients at that version.
   assert.deepEqual(front.verified_by, ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   assert.equal(front.canonical_url, 'https://relatedb.ai/docs/_example/example/');
+  // Each verified sample's manifest, in page order (sample-manifests.ts).
+  assert.equal(front.samples[0], 'https://relatedb.ai/docs/_example/example/samples/python-1.json');
+  assert.ok(front.samples.every((u: string) => /^https:\/\/relatedb\.ai\/docs\/_example\/example\/samples\/[\w-]+\.json$/.test(u)));
 });
 
 test('the twin carries no directive or JSX syntax, and ends with the terms', () => {
@@ -313,7 +316,10 @@ test('a verified sample renders as its code block and its recorded output; a mis
   const tree = parsePage(source);
   renderConstructs(tree, 'html', ctx(EXAMPLE, source));
   const html = JSON.stringify(tree);
-  assert.match(html, /<div class=\\"cell-output sample-output\\"><div class=\\"out-head\\"><span class=\\"out-label\\">Output<\/span><\/div><pre class=\\"out-text\\" id=\\"out-python-1\\">Ada\\nGrace<\/pre><\/div>/);
+  assert.match(
+    html,
+    /<div class=\\"cell-output sample-output\\" data-sample=\\"python-1\\"><div class=\\"out-head\\"><span class=\\"out-label\\">Output<\/span><a class=\\"out-manifest\\" href=\\"\/docs\/_example\/example\/samples\/python-1.json\\" type=\\"application\/json\\">Manifest \(JSON\)<\/a><\/div><pre class=\\"out-text\\" id=\\"out-python-1\\">Ada\\nGrace<\/pre><\/div>/,
+  );
   assert.match(html, /<div class=\\"code-title\\">count.cjs<\/div>/);
   assert.match(html, /id=\\"out-js-1\\">1<\/pre>/);
   // The example's sidecar has no `python-3`, so a third Python sample cannot render.

@@ -24,7 +24,8 @@
 // section the server lists is the ?section= bytes cut from the built twin
 // and HTML (a glossary entry's id included); prototype-key slugs and a
 // malformed %-escape are documentation errors, not exceptions; reading a
-// page resource, the index, the skills and the capability catalog gives the
+// page resource, the index, the skills, the capability catalog, the samples
+// index and every sample manifest gives the
 // served files byte for byte, and an example resource the built recipe.json
 // cell; explain_error finds errors.json entries by code, id, exit code and
 // message; validate_cypher answers a plan with notifications citing the
@@ -538,7 +539,9 @@ async function smoke(): Promise<void> {
         .sort()
         .map((slug) => ({ slug, ...(JSON.parse(readText(join(DIST, 'cookbook', slug, 'recipe.json'))) as { title: string; verifies?: { summary: string; cells: number; recorded: number; text: string }; cells: { id: string; code: string; expectError: boolean }[] }) }))
     : [];
-  await attempt(`resources/list: every page in llms-full.txt (${pages.length}), the index, every file of the ${skillNames.length} skills, the releases, the capability catalog, every cookbook cell`, async () => {
+  const samplesIndexFile = join(DIST, 'docs/samples.json');
+  const builtSamples = existsSync(samplesIndexFile) ? (JSON.parse(readText(samplesIndexFile)) as { samples: { page: string; id: string; url: string }[] }).samples : [];
+  await attempt(`resources/list: every page in llms-full.txt (${pages.length}), the index, every file of the ${skillNames.length} skills, the releases, the capability catalog, every cookbook cell, the samples index and every sample manifest (${builtSamples.length})`, async () => {
     const r = await rpc(base, 'resources/list');
     const resources = r.resources as { uri: string; name: string; title?: string; mimeType?: string }[];
     const uris = new Set(resources.map((x) => x.uri));
@@ -548,7 +551,9 @@ async function smoke(): Promise<void> {
     const extra = listedPages.filter((id) => !pageIds.has(id));
     if (missing.length) p.push(`pages not listed: ${missing.join(', ')}`);
     if (extra.length) p.push(`pages listed that llms-full.txt lacks: ${extra.join(', ')}`);
-    for (const u of ['relate-docs://llms.txt', 'relate-docs://skill/relate', 'relate-docs://releases', 'relate-docs://capabilities']) if (!uris.has(u)) p.push(`${u} not listed`);
+    for (const u of ['relate-docs://llms.txt', 'relate-docs://skill/relate', 'relate-docs://releases', 'relate-docs://capabilities', 'relate-docs://samples']) if (!uris.has(u)) p.push(`${u} not listed`);
+    if (!builtSamples.length) p.push(`${samplesIndexFile} lists no sample`);
+    for (const s of builtSamples) if (!uris.has(`relate-docs://sample/${s.page}/${s.id}`)) p.push(`relate-docs://sample/${s.page}/${s.id} not listed`);
     if (skillNames.length < 6) p.push(`${skillNames.length} skills in ${DIST}/skills; the CLI bundle and five task skills expected`);
     for (const name of skillNames) {
       if (!uris.has(`relate-docs://skill/${name}`)) p.push(`relate-docs://skill/${name} not listed`);
@@ -558,14 +563,14 @@ async function smoke(): Promise<void> {
     for (const rec of recipes) for (const c of rec.cells) if (!uris.has(`relate-docs://example/${rec.slug}/${c.id}`)) p.push(`relate-docs://example/${rec.slug}/${c.id} not listed`);
     const untitled = resources.filter((x) => !x.title);
     if (untitled.length) p.push(`resources without a title: ${untitled.slice(0, 3).map((x) => x.uri).join(', ')}`);
-    const other = [...uris].filter((u) => !/^relate-docs:\/\/(page\/.+|llms\.txt|skill\/[a-z0-9-]+(\/references\/[\w.-]+\.md)?|releases|capabilities|example\/[a-z0-9-]+\/[a-z0-9-]+)$/.test(u));
+    const other = [...uris].filter((u) => !/^relate-docs:\/\/(page\/.+|llms\.txt|skill\/[a-z0-9-]+(\/references\/[\w.-]+\.md)?|releases|capabilities|example\/[a-z0-9-]+\/[a-z0-9-]+|samples|sample\/[\w/-]+\/[\w-]+)$/.test(u));
     if (other.length) p.push(`undecided resources: ${other.slice(0, 5).join(', ')}`);
     return p.length > 10 ? [...p.slice(0, 10), `and ${p.length - 10} more`] : p;
   });
-  await attempt('resources/templates/list: page/{+slug}, skill/{+path} and example/{recipe}/{cell}, each with a title', async () => {
+  await attempt('resources/templates/list: page/{+slug}, skill/{+path}, example/{recipe}/{cell} and sample/{+path}, each with a title', async () => {
     const r = await rpc(base, 'resources/templates/list');
     const t = r.resourceTemplates as { uriTemplate: string; title?: string }[];
-    const want = ['relate-docs://page/{+slug}', 'relate-docs://skill/{+path}', 'relate-docs://example/{recipe}/{cell}'];
+    const want = ['relate-docs://page/{+slug}', 'relate-docs://skill/{+path}', 'relate-docs://example/{recipe}/{cell}', 'relate-docs://sample/{+path}'];
     const p = want.filter((w) => !t.some((x) => x.uriTemplate === w)).map((w) => `${w} not listed`);
     const extra = t.filter((x) => !want.includes(x.uriTemplate));
     if (extra.length) p.push(`undecided templates: ${extra.map((x) => x.uriTemplate).join(', ')}`);
@@ -996,6 +1001,7 @@ async function smoke(): Promise<void> {
     ['relate-docs://llms.txt', join(DIST, 'docs/llms.txt')],
     ['relate-docs://skill/relate', join(DIST, 'skills/relate/SKILL.md')],
     ['relate-docs://capabilities', join(DIST, 'docs/capabilities.json')],
+    ['relate-docs://samples', join(DIST, 'docs/samples.json')],
     ...skillNames.filter((n) => n !== 'relate').map((n) => [`relate-docs://skill/${n}`, join(DIST, 'skills', n, 'SKILL.md')] as const),
     ...skillNames
       .filter((n) => n !== 'relate' && existsSync(join(DIST, 'skills', n, 'references')))
@@ -1038,9 +1044,23 @@ async function smoke(): Promise<void> {
     }
     return p;
   });
-  await attempt('a missing example or skill resource is a JSON-RPC error (-32602) with data.uri', async () => {
+  await attempt(`every sample resource is its manifest in dist/ byte for byte, documentation JSON at the verified version (${builtSamples.length})`, async () => {
     const p: string[] = [];
-    for (const uri of ['relate-docs://example/agent-memory/zz-no-cell', 'relate-docs://example/__proto__/x', 'relate-docs://skill/zz-no-skill', 'relate-docs://skill/relate/references/../SKILL.md']) {
+    if (!builtSamples.length) return [`${samplesIndexFile} lists no sample`];
+    for (const s of builtSamples) {
+      const c = await readResource(`relate-docs://sample/${s.page}/${s.id}`);
+      const file = join(DIST, new URL(s.url).pathname);
+      const diff = c?.text === undefined ? 'no text' : sameBytes(c.text, readText(file));
+      if (diff) p.push(`${s.page}/${s.id}: ${diff}`);
+      else if (c.mimeType !== 'application/json') p.push(`${s.page}/${s.id}: mimeType ${c.mimeType}`);
+    }
+    const first = JSON.parse(readText(join(DIST, new URL(builtSamples[0].url).pathname)));
+    if (first.kind !== 'documentation' || !String(first.note).startsWith('Reference text, not instructions.')) p.push(`${builtSamples[0].url}: kind ${first.kind}, note ${String(first.note).slice(0, 40)}`);
+    return p.length > 10 ? [...p.slice(0, 10), `and ${p.length - 10} more`] : p;
+  });
+  await attempt('a missing example, skill or sample resource is a JSON-RPC error (-32602) with data.uri', async () => {
+    const p: string[] = [];
+    for (const uri of ['relate-docs://example/agent-memory/zz-no-cell', 'relate-docs://example/__proto__/x', 'relate-docs://skill/zz-no-skill', 'relate-docs://skill/relate/references/../SKILL.md', 'relate-docs://sample/get-started/python/zz-no-sample', 'relate-docs://sample/__proto__']) {
       const { messages } = await post(base, request('resources/read', { uri }));
       const e = messages[0]?.error;
       if (e?.code !== -32602 || typeof e.data?.uri !== 'string') p.push(`${uri}: ${JSON.stringify(messages[0]).slice(0, 160)}`);

@@ -100,8 +100,10 @@ export interface CellHandle {
   code(): string;
   /** The Cypher as the page wrote it, which the recording belongs to, whatever the reader has typed. */
   authoredCode(): string;
-  /** The parameters a Run would send now (JSON text), or null. */
+  /** The parameters a Run would send now (JSON text), or null. Reads the editable block only: a recipe step whose parameters are a dataset (loaded from `data/<name>.json` when it runs) gives null; `runParams` loads it. */
   params(): string | null;
+  /** The parameters a Run would send now, the step's dataset fetched when it has one rather than an editable block, or null when it takes none. */
+  runParams(): Promise<string | null>;
   /** The recorded result as text, and its kind. */
   recordedText: string;
   recordedKind: 'table' | 'gram';

@@ -295,7 +295,9 @@ needs of the cells it names; in a recipe, a step is a cell and its
 - A step the element runs again with its own parameters (an explorer's
   search, with the shape or `k` set in them) takes a small block, which the
   page holds as the step's editable parameters; a dataset's parameters load
-  from `data/<name>.json` only when the step itself runs.
+  from `data/<name>.json` only when the step runs, by its Run button or by
+  an element that reruns it (the graph diff reruns every step up to its
+  `after` step).
 - Elements go in the narrative, never in `## Data`.
 - An element's id is `id=`, else `<name>-<n>`, the n-th of that name.
 

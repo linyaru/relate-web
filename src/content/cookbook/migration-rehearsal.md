@@ -148,6 +148,58 @@ RETURN COUNT { MATCH (:Organization) } AS organizations,
 1 row · nodes created: 201, relationships created: 676, properties set: 718, labels added: 201
 ```
 
+One organization, Nimbus Labs, as it is before anything changes: every
+node it links to, and every city in the directory, linked or not. The same
+statement runs again after the migration, so the two results can be
+compared.
+
+```json data=victim
+{
+  "org": "org-11"
+}
+```
+
+```cypher cell=nimbus params=victim
+MATCH (o:Organization {id: $org}), (x)
+WHERE x:City OR EXISTS { (o)-->(x) }
+OPTIONAL MATCH (o)-[r]->(x)
+RETURN o, r, x
+ORDER BY x.id
+```
+
+```gram
+// 29 rows
+[ | (n53:Organization {employees: 80, founded: 2013, id: "org-11", isPublic: false, name: "Nimbus Labs"}), (n53)-[r282:IN_CITY]->(n11), (n11:City {id: "austin", name: "Austin"})]
+[ | (n53), (n53)-[r291:IN_CITY]->(n30), (n30:City {id: "bangalore", name: "Bangalore"})]
+[ | (n53), (n53)-[r290:IN_CITY]->(n18), (n18:City {id: "berlin", name: "Berlin"})]
+[ | (n53), (n53)-[r280:IN_CITY]->(n9), (n9:City {id: "boston", name: "Boston"})]
+[ | (n53), (n53)-[r281:IN_CITY]->(n17), (n17:City {id: "cambridge", name: "Cambridge"})]
+[ | (n53), (n53)-[r293:IN_CITY]->(n12), (n12:City {id: "chicago", name: "Chicago"})]
+[ | (n53), (n53)-[r271:IN_CITY]->(n13), (n13:City {id: "denver", name: "Denver"})]
+[ | (n53), (n53)-[r288:IN_CITY]->(n16), (n16:City {id: "edinburgh", name: "Edinburgh"})]
+[ | (n53), (n53)-[r111:HAS_CATEGORY]->(n42), (n42:IndustryCategory {id: "edtech", name: "Education Technology Companies"})]
+[ | (n53), (n53)-[r289:IN_CITY]->(n20), (n20:City {id: "hamburg", name: "Hamburg"})]
+[ | (n53), (n53)-[r269:IN_CITY]->(n31), (n31:City {id: "hyderabad", name: "Hyderabad"})]
+[ | (n53), (n53)-[r270:IN_CITY]->(n14), (n14:City {id: "london", name: "London"})]
+[ | (n53), (n53)-[r292:IN_CITY]->(n22), (n22:City {id: "lyon", name: "Lyon"})]
+[ | (n53), (n53)-[r294:IN_CITY]->(n15), (n15:City {id: "manchester", name: "Manchester"})]
+[ | (n53), (n53)-[r276:IN_CITY]->(n25), (n25:City {id: "montreal", name: "Montreal"})]
+[ | (n53), (n53)-[r275:IN_CITY]->(n19), (n19:City {id: "munich", name: "Munich"})]
+[ | (n53), (n53)-[r272:IN_CITY]->(n8), (n8:City {id: "new-york", name: "New York"})]
+[ | (n53), (n53)-[r287:IN_CITY]->(n29), (n29:City {id: "osaka", name: "Osaka"})]
+[ | (n53), (n53)-[r285:IN_CITY]->(n21), (n21:City {id: "paris", name: "Paris"})]
+[ | (n53), (n53)-[r31:HAS_CEO]->(n138), (n138:Person {id: "person-06", name: "Kavya Ueda"})]
+[ | (n53), (n53)-[r278:IN_CITY]->(n32), (n32:City {id: "pune", name: "Pune"})]
+[ | (n53), (n53)-[r112:HAS_CATEGORY]->(n35), (n35:IndustryCategory {id: "robotics", name: "Robotics Companies"})]
+[ | (n53), (n53)-[r284:IN_CITY]->(n7), (n7:City {id: "san-francisco", name: "San Francisco"})]
+[ | (n53), (n53)-[r279:IN_CITY]->(n10), (n10:City {id: "seattle", name: "Seattle"})]
+[ | (n53), (n53)-[r273:IN_CITY]->(n28), (n28:City {id: "tokyo", name: "Tokyo"})]
+[ | (n53), (n53)-[r286:IN_CITY]->(n24), (n24:City {id: "toronto", name: "Toronto"})]
+[ | (n53), (n53)-[r277:IN_CITY]->(n23), (n23:City {id: "toulouse", name: "Toulouse"})]
+[ | (n53), (n53)-[r283:IN_CITY]->(n26), (n26:City {id: "vancouver", name: "Vancouver"})]
+[ | (n53), (n53)-[r274:IN_CITY]->(n27), (n27:City {id: "waterloo", name: "Waterloo"})]
+```
+
 ## Fingerprint it before anything changes
 
 The migration's contract is written down before it runs. Its one structural
@@ -450,24 +502,57 @@ ORDER BY cities
 5 rows
 ```
 
-Nimbus Labs had an office in all 26 cities. Open the graph view: one is
-left.
-
-```json data=victim
-{
-  "org": "org-11"
-}
-```
+Nimbus Labs had an office in all 26 cities. The statement from before the
+migration, run again: one city link is left.
 
 ```cypher cell=victim params=victim
-MATCH path = (:Organization {id: $org})-[:IN_CITY]->(:City)-[:IN_COUNTRY]->(:Country)
-RETURN path
+MATCH (o:Organization {id: $org}), (x)
+WHERE x:City OR EXISTS { (o)-->(x) }
+OPTIONAL MATCH (o)-[r]->(x)
+RETURN o, r, x
+ORDER BY x.id
 ```
 
 ```gram
-// 1 row
-(n53:Organization {employees: 80, founded: 2013, id: "org-11", industry: "Education Technology Companies", isPublic: false, name: "Nimbus Labs"})-[r284:IN_CITY]->(n7:City {id: "san-francisco", name: "San Francisco"})-[r0:IN_COUNTRY]->(n0:Country {id: "us", name: "United States"})
+// 29 rows
+[{r: null} | (n53:Organization {employees: 80, founded: 2013, id: "org-11", industry: "Education Technology Companies", isPublic: false, name: "Nimbus Labs"}), (n11:City {id: "austin", name: "Austin"})]
+[{r: null} | (n53), (n30:City {id: "bangalore", name: "Bangalore"})]
+[{r: null} | (n53), (n18:City {id: "berlin", name: "Berlin"})]
+[{r: null} | (n53), (n9:City {id: "boston", name: "Boston"})]
+[{r: null} | (n53), (n17:City {id: "cambridge", name: "Cambridge"})]
+[{r: null} | (n53), (n12:City {id: "chicago", name: "Chicago"})]
+[{r: null} | (n53), (n13:City {id: "denver", name: "Denver"})]
+[{r: null} | (n53), (n16:City {id: "edinburgh", name: "Edinburgh"})]
+[ | (n53), (n53)-[r111:HAS_CATEGORY]->(n42), (n42:IndustryCategory {id: "edtech", name: "Education Technology Companies"})]
+[{r: null} | (n53), (n20:City {id: "hamburg", name: "Hamburg"})]
+[{r: null} | (n53), (n31:City {id: "hyderabad", name: "Hyderabad"})]
+[{r: null} | (n53), (n14:City {id: "london", name: "London"})]
+[{r: null} | (n53), (n22:City {id: "lyon", name: "Lyon"})]
+[{r: null} | (n53), (n15:City {id: "manchester", name: "Manchester"})]
+[{r: null} | (n53), (n25:City {id: "montreal", name: "Montreal"})]
+[{r: null} | (n53), (n19:City {id: "munich", name: "Munich"})]
+[{r: null} | (n53), (n8:City {id: "new-york", name: "New York"})]
+[{r: null} | (n53), (n29:City {id: "osaka", name: "Osaka"})]
+[{r: null} | (n53), (n21:City {id: "paris", name: "Paris"})]
+[ | (n53), (n53)-[r681:LED_BY]->(n138), (n138:Person {id: "person-06", name: "Kavya Ueda"})]
+[{r: null} | (n53), (n32:City {id: "pune", name: "Pune"})]
+[ | (n53), (n53)-[r112:HAS_CATEGORY]->(n35), (n35:IndustryCategory {id: "robotics", name: "Robotics Companies"})]
+[ | (n53), (n53)-[r284:IN_CITY]->(n7), (n7:City {id: "san-francisco", name: "San Francisco"})]
+[{r: null} | (n53), (n10:City {id: "seattle", name: "Seattle"})]
+[{r: null} | (n53), (n28:City {id: "tokyo", name: "Tokyo"})]
+[{r: null} | (n53), (n24:City {id: "toronto", name: "Toronto"})]
+[{r: null} | (n53), (n23:City {id: "toulouse", name: "Toulouse"})]
+[{r: null} | (n53), (n26:City {id: "vancouver", name: "Vancouver"})]
+[{r: null} | (n53), (n27:City {id: "waterloo", name: "Waterloo"})]
 ```
+
+The two results side by side, nodes matched by their `id`: the rename
+removed `HAS_CEO` and added `LED_BY`, step 2 changed the organization, and
+step 4 removed 25 of the 26 city links. The cities themselves are still
+there.
+
+:::graph-diff{before=nimbus after=victim key=id}
+:::
 
 ## The bug
 
@@ -572,38 +657,44 @@ RETURN CASE WHEN size(failing_probes) = 0 AND orgs_with_changed_relationships = 
 Nimbus Labs is back in all 26 cities:
 
 ```cypher cell=victim-restored params=victim
-MATCH path = (:Organization {id: $org})-[:IN_CITY]->(:City)-[:IN_COUNTRY]->(:Country)
-RETURN path
+MATCH (o:Organization {id: $org}), (x)
+WHERE x:City OR EXISTS { (o)-->(x) }
+OPTIONAL MATCH (o)-[r]->(x)
+RETURN o, r, x
+ORDER BY x.id
 ```
 
 ```gram
-// 26 rows
-(n53:Organization {employees: 80, founded: 2013, id: "org-11", industry: "Education Technology Companies", isPublic: false, name: "Nimbus Labs"})-[r789:IN_CITY]->(n31:City {id: "hyderabad", name: "Hyderabad"})-[r24:IN_COUNTRY]->(n6:Country {id: "in", name: "India"})
-(n53)-[r788:IN_CITY]->(n14:City {id: "london", name: "London"})-[r7:IN_COUNTRY]->(n1:Country {id: "uk", name: "United Kingdom"})
-(n53)-[r787:IN_CITY]->(n13:City {id: "denver", name: "Denver"})-[r6:IN_COUNTRY]->(n0:Country {id: "us", name: "United States"})
-(n53)-[r786:IN_CITY]->(n8:City {id: "new-york", name: "New York"})-[r1:IN_COUNTRY]->(n0)
-(n53)-[r785:IN_CITY]->(n28:City {id: "tokyo", name: "Tokyo"})-[r21:IN_COUNTRY]->(n5:Country {id: "jp", name: "Japan"})
-(n53)-[r784:IN_CITY]->(n27:City {id: "waterloo", name: "Waterloo"})-[r20:IN_COUNTRY]->(n4:Country {id: "ca", name: "Canada"})
-(n53)-[r783:IN_CITY]->(n19:City {id: "munich", name: "Munich"})-[r12:IN_COUNTRY]->(n2:Country {id: "de", name: "Germany"})
-(n53)-[r782:IN_CITY]->(n25:City {id: "montreal", name: "Montreal"})-[r18:IN_COUNTRY]->(n4)
-(n53)-[r781:IN_CITY]->(n23:City {id: "toulouse", name: "Toulouse"})-[r16:IN_COUNTRY]->(n3:Country {id: "fr", name: "France"})
-(n53)-[r780:IN_CITY]->(n32:City {id: "pune", name: "Pune"})-[r25:IN_COUNTRY]->(n6)
-(n53)-[r779:IN_CITY]->(n10:City {id: "seattle", name: "Seattle"})-[r3:IN_COUNTRY]->(n0)
-(n53)-[r778:IN_CITY]->(n9:City {id: "boston", name: "Boston"})-[r2:IN_COUNTRY]->(n0)
-(n53)-[r777:IN_CITY]->(n17:City {id: "cambridge", name: "Cambridge"})-[r10:IN_COUNTRY]->(n1)
-(n53)-[r776:IN_CITY]->(n11:City {id: "austin", name: "Austin"})-[r4:IN_COUNTRY]->(n0)
-(n53)-[r775:IN_CITY]->(n26:City {id: "vancouver", name: "Vancouver"})-[r19:IN_COUNTRY]->(n4)
-(n53)-[r774:IN_CITY]->(n21:City {id: "paris", name: "Paris"})-[r14:IN_COUNTRY]->(n3)
-(n53)-[r773:IN_CITY]->(n24:City {id: "toronto", name: "Toronto"})-[r17:IN_COUNTRY]->(n4)
-(n53)-[r772:IN_CITY]->(n29:City {id: "osaka", name: "Osaka"})-[r22:IN_COUNTRY]->(n5)
-(n53)-[r771:IN_CITY]->(n16:City {id: "edinburgh", name: "Edinburgh"})-[r9:IN_COUNTRY]->(n1)
-(n53)-[r770:IN_CITY]->(n20:City {id: "hamburg", name: "Hamburg"})-[r13:IN_COUNTRY]->(n2)
-(n53)-[r769:IN_CITY]->(n18:City {id: "berlin", name: "Berlin"})-[r11:IN_COUNTRY]->(n2)
-(n53)-[r768:IN_CITY]->(n30:City {id: "bangalore", name: "Bangalore"})-[r23:IN_COUNTRY]->(n6)
-(n53)-[r767:IN_CITY]->(n22:City {id: "lyon", name: "Lyon"})-[r15:IN_COUNTRY]->(n3)
-(n53)-[r766:IN_CITY]->(n12:City {id: "chicago", name: "Chicago"})-[r5:IN_COUNTRY]->(n0)
-(n53)-[r765:IN_CITY]->(n15:City {id: "manchester", name: "Manchester"})-[r8:IN_COUNTRY]->(n1)
-(n53)-[r284:IN_CITY]->(n7:City {id: "san-francisco", name: "San Francisco"})-[r0:IN_COUNTRY]->(n0)
+// 29 rows
+[ | (n53:Organization {employees: 80, founded: 2013, id: "org-11", industry: "Education Technology Companies", isPublic: false, name: "Nimbus Labs"}), (n53)-[r776:IN_CITY]->(n11), (n11:City {id: "austin", name: "Austin"})]
+[ | (n53), (n53)-[r768:IN_CITY]->(n30), (n30:City {id: "bangalore", name: "Bangalore"})]
+[ | (n53), (n53)-[r769:IN_CITY]->(n18), (n18:City {id: "berlin", name: "Berlin"})]
+[ | (n53), (n53)-[r778:IN_CITY]->(n9), (n9:City {id: "boston", name: "Boston"})]
+[ | (n53), (n53)-[r777:IN_CITY]->(n17), (n17:City {id: "cambridge", name: "Cambridge"})]
+[ | (n53), (n53)-[r766:IN_CITY]->(n12), (n12:City {id: "chicago", name: "Chicago"})]
+[ | (n53), (n53)-[r787:IN_CITY]->(n13), (n13:City {id: "denver", name: "Denver"})]
+[ | (n53), (n53)-[r771:IN_CITY]->(n16), (n16:City {id: "edinburgh", name: "Edinburgh"})]
+[ | (n53), (n53)-[r111:HAS_CATEGORY]->(n42), (n42:IndustryCategory {id: "edtech", name: "Education Technology Companies"})]
+[ | (n53), (n53)-[r770:IN_CITY]->(n20), (n20:City {id: "hamburg", name: "Hamburg"})]
+[ | (n53), (n53)-[r789:IN_CITY]->(n31), (n31:City {id: "hyderabad", name: "Hyderabad"})]
+[ | (n53), (n53)-[r788:IN_CITY]->(n14), (n14:City {id: "london", name: "London"})]
+[ | (n53), (n53)-[r767:IN_CITY]->(n22), (n22:City {id: "lyon", name: "Lyon"})]
+[ | (n53), (n53)-[r765:IN_CITY]->(n15), (n15:City {id: "manchester", name: "Manchester"})]
+[ | (n53), (n53)-[r782:IN_CITY]->(n25), (n25:City {id: "montreal", name: "Montreal"})]
+[ | (n53), (n53)-[r783:IN_CITY]->(n19), (n19:City {id: "munich", name: "Munich"})]
+[ | (n53), (n53)-[r786:IN_CITY]->(n8), (n8:City {id: "new-york", name: "New York"})]
+[ | (n53), (n53)-[r772:IN_CITY]->(n29), (n29:City {id: "osaka", name: "Osaka"})]
+[ | (n53), (n53)-[r774:IN_CITY]->(n21), (n21:City {id: "paris", name: "Paris"})]
+[ | (n53), (n53)-[r681:LED_BY]->(n138), (n138:Person {id: "person-06", name: "Kavya Ueda"})]
+[ | (n53), (n53)-[r780:IN_CITY]->(n32), (n32:City {id: "pune", name: "Pune"})]
+[ | (n53), (n53)-[r112:HAS_CATEGORY]->(n35), (n35:IndustryCategory {id: "robotics", name: "Robotics Companies"})]
+[ | (n53), (n53)-[r284:IN_CITY]->(n7), (n7:City {id: "san-francisco", name: "San Francisco"})]
+[ | (n53), (n53)-[r779:IN_CITY]->(n10), (n10:City {id: "seattle", name: "Seattle"})]
+[ | (n53), (n53)-[r785:IN_CITY]->(n28), (n28:City {id: "tokyo", name: "Tokyo"})]
+[ | (n53), (n53)-[r773:IN_CITY]->(n24), (n24:City {id: "toronto", name: "Toronto"})]
+[ | (n53), (n53)-[r781:IN_CITY]->(n23), (n23:City {id: "toulouse", name: "Toulouse"})]
+[ | (n53), (n53)-[r775:IN_CITY]->(n26), (n26:City {id: "vancouver", name: "Vancouver"})]
+[ | (n53), (n53)-[r784:IN_CITY]->(n27), (n27:City {id: "waterloo", name: "Waterloo"})]
 ```
 
 ## Clean up

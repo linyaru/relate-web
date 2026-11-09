@@ -618,8 +618,8 @@
         </div>
 
         <div class="db-panel db-panel-hidden" data-db-panel="bundle">
-          <p>A <code style="font-size:12px">.cl</code> bundle packs WAL, snapshots, and catalog into one host file — no sidecar files. Great for shipping a database with an app or agent.</p>
-          <div class="step-cmd" data-copy="relate --database ./mydata.cl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.cl</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata.cl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
+          <p>A <code style="font-size:12px">.rl</code> bundle packs WAL, snapshots, and catalog into one host file — no sidecar files. Great for shipping a database with an app or agent.</p>
+          <div class="step-cmd" data-copy="relate --database ./mydata.rl"><span class="agentic-line"><span class="agentic-comment">&gt; Create a single-file graph database mydata.rl</span><span class="agentic-loading">→ loading skill relate</span></span><span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata.rl<span class="copy-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span></div>
         </div>
       </div>
 
@@ -753,8 +753,8 @@
 <span class="comment"># durable directory — WAL + Parquet snapshots (the default)</span>
 <span class="prompt">$</span> relate query <span class="flag">--database</span> ./mydata
 
-<span class="comment"># one host file — WAL, snapshot and catalog packed into a .cl bundle</span>
-<span class="prompt">$</span> relate query <span class="flag">--database</span> ./mydata.cl
+<span class="comment"># one host file — WAL, snapshot and catalog packed into a .rl bundle</span>
+<span class="prompt">$</span> relate query <span class="flag">--database</span> ./mydata.rl
 
 <span class="comment"># JSON snapshot codec instead of Parquet shards (empty directory only)</span>
 <span class="prompt">$</span> relate <span class="flag">--snapshot-format</span> json <span class="flag">--database</span> ./mydata-json
@@ -994,7 +994,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <pre><span class="comment"># from a checkout — or any extension package directory</span>
 <span class="prompt">$</span> relate extension install dungeon <span class="flag">--from</span> extensions/relate-dungeon/package
 <span class="comment"># the play verb prints a self-contained bash runner; process substitution keeps the prompt interactive</span>
-<span class="prompt">$</span> bash &lt;(relate run dungeon <span class="flag">--command</span> play) keep.cl
+<span class="prompt">$</span> bash &lt;(relate run dungeon <span class="flag">--command</span> play) keep.rl
 <span class="out">The road ends at a flight of stone steps. … You have come for the trade.</span>
 <span class="out">You — hp 10, xp 0, carrying: nothing</span>
 <span class="out">· · · · | · · · ·</span>
@@ -1004,7 +1004,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">dungeon&gt;</span> n
 <span class="prompt">dungeon&gt;</span> ask bard hint
 <span class="out">Bard: Take the key from the armory west of the hall, then follow the corridors north to the throne room. The cellar lies beyond it.</span></pre>
-          <p class="ref-sub"><span class="keyword">The whole game is the store</span> — rooms, passages, characters and their chat, items and the locks they open live in your <code>.cl</code> file; the child holds no state, so every turn is one <code>relate run</code> call and any session resumes where it left off.</p>
+          <p class="ref-sub"><span class="keyword">The whole game is the store</span> — rooms, passages, characters and their chat, items and the locks they open live in your <code>.rl</code> file; the child holds no state, so every turn is one <code>relate run</code> call and any session resumes where it left off.</p>
         </div>
       </div>
 
@@ -1104,14 +1104,14 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
           <p><code>relate [OPTIONS] [--database PATH] [QUERY|-c QUERY]</code> — the store is <code>--database</code> / <code>-d</code> (<code>:memory:</code> by default); the first positional is the statement. <code>relate query [STATEMENT] [--database PATH]</code> is the statement-session verb: with a statement it runs once, without one it reads a stdin script or opens the interactive shell on a terminal. No statement and no <code>query</code> verb opens the interactive shell on a terminal; piped or redirected stdin prints help and exits.</p>
           <pre><span class="prompt">$</span> relate query                              <span class="comment"># in-memory interactive shell</span>
 <span class="prompt">$</span> relate query <span class="flag">--database</span> ./mydata    <span class="comment"># durable directory, interactive</span>
-<span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata.cl "RETURN 1"      <span class="comment"># single-file bundle, one-shot</span>
+<span class="prompt">$</span> relate <span class="flag">--database</span> ./mydata.rl "RETURN 1"      <span class="comment"># single-file bundle, one-shot</span>
 <span class="prompt">$</span> relate <span class="flag">--database</span> :memory: "RETURN 1 + 2 AS sum"  <span class="comment"># one-shot, no files</span>
-<span class="prompt">$</span> relate <span class="flag">--load</span> ./mydata.cl "MATCH (n) RETURN count(n)"  <span class="comment"># bundle into memory, query it</span>
+<span class="prompt">$</span> relate <span class="flag">--load</span> ./mydata.rl "MATCH (n) RETURN count(n)"  <span class="comment"># bundle into memory, query it</span>
 <span class="prompt">$</span> relate query <span class="flag">--database</span> ./mydata &lt; setup.cypher  <span class="comment"># pipe a script</span></pre>
           <p class="ref-sub"><span class="keyword">Flags</span> — single- and double-dash both accepted; <code>--</code> ends flag parsing:</p>
           <pre><span class="flag">-h</span>, <span class="flag">--help</span>        usage
 <span class="flag">--version</span>         version
-<span class="flag">-d</span>, <span class="flag">--database</span> PATH   database directory, .cl bundle, or :memory: (default :memory:)
+<span class="flag">-d</span>, <span class="flag">--database</span> PATH   database directory, .rl bundle, or :memory: (default :memory:)
 <span class="flag">--json</span> / <span class="flag">--csv</span> / <span class="flag">--markdown</span> / <span class="flag">--toon</span>    output format shortcuts
 <span class="flag">--mode</span> M          table | csv | json | jsonl | envelope | markdown | cypher | toon | speedscope
 <span class="flag">--format</span> M        alias of --mode (the neo4j-cli spelling)
@@ -1132,7 +1132,7 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="flag">--load-csv-dir</span> PATH         allow local LOAD CSV under this directory (default denied)
 <span class="flag">--read-only</span>[=FRESH]   open an existing database without writing or checkpointing;
                        FRESH is snapshot (default) or live — tail the WAL (the former --follow)
-<span class="flag">--load</span> SOURCE       load a store's content from a .cl path, directory, or https URL:
+<span class="flag">--load</span> SOURCE       load a store's content from a .rl path, directory, or https URL:
                        into :memory: (turned into the in-memory store, source released)
                        or a new --database path (cloned there)
 <span class="flag">--namespace</span> NAME            session namespace (neo4j|system|system_ontologies)</pre>
@@ -1145,8 +1145,8 @@ CREATE (:Person {name: row.name, age: toInteger(row.age)})'</span>
 <span class="prompt">$</span> relate serve <span class="flag">--database</span> ./mydata <span class="flag">--http</span> 7474 <span class="flag">--mcp</span> 8000 <span class="flag">--bolt</span> 7687  <span class="comment"># network surfaces (below)</span>
 <span class="prompt">$</span> relate upgrade [--yes] [--check]      <span class="comment"># self-update (alias: update)</span>
 <span class="prompt">$</span> relate telemetry off | status
-<span class="prompt">$</span> relate clone SOURCE DEST              <span class="comment"># copy any db — dir ↔ .cl matrix; never writes SOURCE</span>
-<span class="prompt">$</span> relate clone ./mydata ./backup.cl <span class="flag">--to-snapshot-format</span> parquet <span class="comment"># .cl suffix picks the format; flag transcodes</span>
+<span class="prompt">$</span> relate clone SOURCE DEST              <span class="comment"># copy any db — dir ↔ .rl matrix; never writes SOURCE</span>
+<span class="prompt">$</span> relate clone ./mydata ./backup.rl <span class="flag">--to-snapshot-format</span> parquet <span class="comment"># .rl suffix picks the format; flag transcodes</span>
 <span class="prompt">$</span> relate info <span class="flag">--database</span> ./mydata [<span class="flag">--json</span>]  <span class="comment"># store metadata: layout, codec, checkpoint, counts — no open, no lock</span>
 <span class="prompt">$</span> relate pull <span class="flag">--from</span> neo4j.env <span class="flag">--query</span> 'MATCH (p:Person) RETURN p' <span class="flag">--database</span> ./mydata
 <span class="comment"># pull: Neo4j/Aura subgraph → new local db (HTTP Query API v2, streamed, one checkpoint;</span>
@@ -1293,12 +1293,12 @@ relate --snapshot-format json --database ./d  <span class="comment"># dir: WAL +
 relate --snapshot-format markdown --database ./vault  <span class="comment"># markdown vault: one Label/name.md per node — frontmatter</span>
                        <span class="comment"># properties, body text, [[wikilinks]]; .relate/ sidecar holds WAL + manifest;</span>
                        <span class="comment"># hand edits while closed are picked up at the next open</span>
-relate --database ./mydata.cl             <span class="comment"># one host file: WAL + snapshot + catalog</span>
+relate --database ./mydata.rl             <span class="comment"># one host file: WAL + snapshot + catalog</span>
 relate --read-only --database ./mydata    <span class="comment"># open existing store, no writes or checkpoints</span>
 relate --read-only=live --database ./mydata <span class="comment"># tail the WAL live (the former --follow)</span>
-relate --load ./mydata.cl                 <span class="comment"># turn the bundle into the in-memory store — source released</span>
-relate --load https://…/graph.cl          <span class="comment"># remote .cl fetched to memory (blob links rewritten to raw)</span>
-relate clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file (reverse: clone ./backup.cl ./d); never writes source</span></pre>
+relate --load ./mydata.rl                 <span class="comment"># turn the bundle into the in-memory store — source released</span>
+relate --load https://…/graph.rl          <span class="comment"># remote .rl fetched to memory (blob links rewritten to raw)</span>
+relate clone ./mydata ./backup.rl      <span class="comment"># dir → .rl file (reverse: clone ./backup.rl ./d); never writes source</span></pre>
           <p class="ref-sub"><span class="keyword">Layout</span> (directory codec):</p>
           <pre>&lt;dir&gt;/manifest.json
 &lt;dir&gt;/nodes/{lo}-{hi}.parquet        <span class="comment"># or graph.json for the json codec</span>
@@ -1317,7 +1317,7 @@ relate clone ./mydata ./backup.cl      <span class="comment"># dir → .cl file 
           <p>All language clients wrap the same C ABI (<code>cypherlite-ffi</code>) — no parallel protocols. Query results carry the same metadata everywhere: the resolved namespace, the query type (<code>r</code>/<code>w</code>/<code>rw</code>/<code>s</code>), and the statement's structured plan (<code>relate.plan/v1</code> — operator tree with estimates, PROFILE metrics, and per-operator remedy-bearing warnings; absent on a plain run), from the Rust API through the C ABI to every client. Read-only open is available on every surface — Rust, Bolt, Python, C, JavaScript, Java, Go, and WASM — alongside the CLI's <code>--read-only</code>.</p>
           <p class="ref-sub"><span class="keyword">Rust</span> — the public crate:</p>
           <pre>use relate::Database;
-let db = Database::open("./graph.cl")?;
+let db = Database::open("./graph.rl")?;
 let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
           <p class="ref-sub"><span class="keyword">Python</span> — <code>pip install neo4j-cypherlite</code>, then <code>import relate</code> (PyO3, in-process, plus Arrow IPC via <code>execute_arrow</code>). Cursor rows are <code>Record</code>s (dicts with attribute access) and cursors carry driver-style conveniences — <code>single()</code>, <code>peek()</code>, <code>graph()</code>, <code>to_df()</code>, <code>to_arrow()</code>.</p>
           <p class="ref-sub"><span class="keyword">JavaScript</span> — Node: <code>npm install @relate/relate</code> (koffi over the C ABI; the platform package is an auto-selected optional dependency; TypeScript types included). <code>conn.query</code> doubles as a tagged template — interpolated values become auto-named parameters — and returns a <code>Result</code> with object rows, <code>stats</code>, <code>single()</code>, <code>consume()</code>, and <code>graph()</code>. Browser: <code>npm install @relate/relate-wasm</code> — in-memory, or durable OPFS via <code>await RelateDb.open("opfs://name")</code> in a dedicated worker.</p>
@@ -1489,7 +1489,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
   // ---------- DB format toggle (memory / directory / bundle) in step 3 ----------
   // Switching the format also rewrites the database argument in steps 4-5
   // (visible token, copy payload, and the "same file" wording).
-  const DB_ARGS = { memory: ':memory:', dir: './mydata', bundle: './mydata.cl' };
+  const DB_ARGS = { memory: ':memory:', dir: './mydata', bundle: './mydata.rl' };
   let currentDbFmt = 'dir';
   document.querySelectorAll('.db-btn').forEach(btn => {
     btn.addEventListener('click', () => {

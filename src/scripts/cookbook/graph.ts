@@ -1140,7 +1140,10 @@ export function renderGraph(
 
 // A graph drawn at positions its caller computed, in the colours, sizes and
 // captions its caller gives (`:::docs-graph`,
-// src/scripts/docs/elements/docs-graph.ts, draws the docs graph with it).
+// src/scripts/docs/elements/docs-graph.ts, draws the docs graph with it;
+// `:::graph-diff`, src/scripts/docs/elements/graph-diff.ts, draws a diff of
+// two graph states, its colours the page's tokens by name and its
+// relationships captioned, so each status reads in words as well).
 // NVL's free layout draws each node where it was put, so nothing moves on
 // load. It shares the result views' canvas renderer, theme watcher and wheel
 // gate, and its camera never animates: a fit jumps.
@@ -1148,7 +1151,11 @@ export function renderGraph(
 // selected and disabled states, whose colours are fixed when NVL starts
 // and would stay on the old theme after a switch.
 
-/** A node to draw: its position in layout units, fill colour, radius and caption. */
+/**
+ * A node to draw: its position in layout units, fill colour, radius and
+ * caption. A colour may name one of the page's colour tokens (`--success`):
+ * it is read from the page when drawn and again on a theme switch.
+ */
 export interface NetNode {
   id: string;
   x: number;
@@ -1158,12 +1165,19 @@ export interface NetNode {
   caption: string;
 }
 
-/** A relationship to draw; `strong` draws it thicker, in the stronger line colour. */
+/**
+ * A relationship to draw; `strong` draws it thicker, in the stronger line
+ * colour. `color` (a colour or a token name, as a node's), `width` and
+ * `caption` override that.
+ */
 export interface NetRel {
   id: string;
   from: string;
   to: string;
   strong?: boolean;
+  color?: string;
+  width?: number;
+  caption?: string;
 }
 
 /** How a drawn node or relationship is marked: `dim` paints it in the inset colour, `mark` draws a node half as large again. */
@@ -1217,6 +1231,13 @@ export interface NetworkView {
 export function renderNetwork(host: HTMLElement, first: { nodes: NetNode[]; rels: NetRel[] }, options: NetworkOptions): NetworkView {
   const tone = () => ({ ...canvasTheme(), strong: getComputedStyle(document.documentElement).getPropertyValue('--fg-muted').trim() });
   let theme = tone();
+  // Colours given as token names, read once per theme.
+  const tokens = new Map<string, string>();
+  const paint = (color: string) => {
+    if (!color.startsWith('--')) return color;
+    if (!tokens.has(color)) tokens.set(color, getComputedStyle(document.documentElement).getPropertyValue(color).trim());
+    return tokens.get(color)!;
+  };
   const nodes = new Map(first.nodes.map((n) => [n.id, n]));
   const rels = new Map(first.rels.map((r) => [r.id, r]));
   const marks = new Map<string, NetStyle>();
@@ -1230,15 +1251,15 @@ export function renderNetwork(host: HTMLElement, first: { nodes: NetNode[]; rels
   const dpr = () => devicePixelRatio || 1;
   const paintNode = (n: NetNode) => {
     const m = marks.get(n.id);
-    return { id: n.id, color: m?.dim ? theme.dimmed : n.color, size: n.size * (m?.mark ? 1.5 : 1) + (hovered === n.id ? 3 : 0) };
+    return { id: n.id, color: m?.dim ? theme.dimmed : paint(n.color), size: n.size * (m?.mark ? 1.5 : 1) + (hovered === n.id ? 3 : 0) };
   };
   const paintRel = (r: NetRel) => ({
     id: r.id,
-    color: marks.get(r.id)?.dim ? theme.dimmed : r.strong ? theme.strong : theme.rel,
-    width: r.strong ? 2 : 1,
+    color: marks.get(r.id)?.dim ? theme.dimmed : r.color ? paint(r.color) : r.strong ? theme.strong : theme.rel,
+    width: r.width ?? (r.strong ? 2 : 1),
   });
   const nvlNodeOf = (n: NetNode) => ({ ...n, x: n.x * dpr(), y: n.y * dpr(), ...paintNode(n) });
-  const nvlRelOf = (r: NetRel) => ({ from: r.from, to: r.to, ...paintRel(r) });
+  const nvlRelOf = (r: NetRel) => ({ from: r.from, to: r.to, ...(r.caption ? { caption: r.caption } : {}), ...paintRel(r) });
 
   const nvl = new NVL(host, first.nodes.map(nvlNodeOf) as never, first.rels.map(nvlRelOf) as never, {
     renderer: 'canvas',
@@ -1323,6 +1344,7 @@ export function renderNetwork(host: HTMLElement, first: { nodes: NetNode[]; rels
 
   const unwatchTheme = watchTheme(() => {
     theme = tone();
+    tokens.clear();
     nvl.updateElementsInGraph([...nodes.values()].map(paintNode) as never, [...rels.values()].map(paintRel) as never);
   });
 

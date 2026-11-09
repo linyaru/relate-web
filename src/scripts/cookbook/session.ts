@@ -903,6 +903,7 @@ function pageApi(s: Session): PageApi {
         code: () => c.currentCode(),
         authoredCode: () => c.authoredCode(),
         params: () => c.paramsEditor?.value ?? null,
+        runParams: async () => (c.paramsEditor ? c.paramsEditor.value : ((await c.paramsFile()) ?? null)),
         recordedText: c.recorded.text,
         recordedKind: c.recorded.kind,
         recorded: async () => {

@@ -127,4 +127,5 @@ Copy `template.md`.
 | [0047](0047-scale-demo.md) | The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws it with NVL's WebGL renderer, and shows only the reader's own run | Proposed |
 | [0048](0048-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |
 | [0050](0050-graph-diff.md) | The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own | Proposed |
+| [0051](0051-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |
 | [0052](0052-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |

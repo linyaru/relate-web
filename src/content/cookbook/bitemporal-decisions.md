@@ -377,31 +377,33 @@ Two questions about the same day `t`:
   `validTo` counts only once it was known: a decision closed after `t`
   still looked open on `t`.
 
-For orders, the two axes look like this. Mysql held from 10 January, but
-the log only believed it from 1 February; the redis cache was believed for
-six days and never held at all.
+For orders, this step returns each decision with its four times, and the
+timeline below draws them on both axes. Mysql held from 10 January, but the
+log only believed it from 1 February; the redis cache was believed for six
+days and never held at all.
 
-```mermaid
-gantt
-  accTitle: The orders decisions on both time axes
-  accDescr {
-    The chart has a valid-time row and a record-time row for the orders
-    decisions. On valid time, d1 (postgres) holds from 1 to 10 January 2024
-    and d4 (mysql) from 10 January to 5 March, while d6 (redis cache) was
-    never valid. On record time, d1 is believed until 1 February, d4 from then
-    on, and d6 only from 6 to 12 February.
-  }
-  dateFormat YYYY-MM-DD
-  axisFormat %d %b
-  section Valid time
-  d1 postgres :done, v1, 2024-01-01, 2024-01-10
-  d4 mysql :active, v4, 2024-01-10, 2024-03-05
-  d6 redis cache, never valid :milestone, crit, v6, 2024-02-06, 0d
-  section Record time
-  d1 postgres believed :done, r1, 2024-01-01, 2024-02-01
-  d4 mysql believed :active, r4, 2024-02-01, 2024-03-05
-  d6 redis cache believed :crit, r6, 2024-02-06, 2024-02-12
+```cypher cell=decisions params=history
+MATCH (:Entity {name: $entity})<-[:ABOUT]-(d:Decision)
+RETURN d.text AS text, d.validFrom AS validFrom, d.validTo AS validTo,
+       d.recordedAt AS recordedAt, d.closedAt AS closedAt
+ORDER BY d.recordedAt, d.id
 ```
+
+```table
+| text                           | validFrom              | validTo                | recordedAt             | closedAt               |
+|--------------------------------|------------------------|------------------------|------------------------|------------------------|
+| "orders uses postgres"         | "2024-01-01T00:00:00Z" | "2024-01-10T00:00:00Z" | "2024-01-01T09:00:00Z" | "2024-02-01T09:00:00Z" |
+| "orders uses mysql"            | "2024-01-10T00:00:00Z" | null                   | "2024-02-01T09:00:00Z" | null                   |
+| "cache order lookups in redis" | "2024-02-06T00:00:00Z" | "2024-02-06T00:00:00Z" | "2024-02-06T09:00:00Z" | "2024-02-12T09:00:00Z" |
+3 rows
+```
+
+The timeline's slider runs the `as-of` step below with one date in `dates`:
+the decisions it returns in `trueOn` light up on valid time, and those in
+`believedOn` on record time.
+
+:::timeline{cell=decisions label=text start=validFrom end=validTo record-start=recordedAt record-end=closedAt asof=as-of param=dates match=trueOn match-record=believedOn}
+:::
 
 ```json data=as-of
 {

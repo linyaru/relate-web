@@ -207,6 +207,18 @@ RETURN [x IN facts WHERE x.validFrom <= t AND (x.validTo IS NULL OR t < x.validT
 
 The answers differ, and both are right. That is the audit trail for "why did the agent ask Grace on 15 March?".
 
+The slot's two facts, with their four times, show why on both axes. Ada's fact holds from 10 March, but the agent wrote it only on 20 March, and until then it still believed Grace's:
+
+```cypher run name=slot-facts params=asof
+MATCH (f:Fact {slot: $slot})
+RETURN f.text AS fact, f.validFrom AS validFrom, f.validTo AS validTo,
+       f.recordedAt AS recordedAt, f.closedAt AS closedAt
+ORDER BY f.recordedAt
+```
+
+:::timeline{cell=slot-facts label=fact start=validFrom end=validTo record-start=recordedAt record-end=closedAt asof=asof param=on match=trueOn match-record=believedOn}
+:::
+
 ## Serve it to the agent
 
 Recall needs only reads, so an agent that recalls gets the memory store over MCP opened read-only, and only the process that writes memory holds it writable:

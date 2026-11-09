@@ -11,10 +11,11 @@ import Diagram from '../components/Diagram.astro';
 import Quickstart from '../components/Quickstart.astro';
 import Chapters from '../components/Chapters.astro';
 import Cta from '../components/Cta.astro';
+import Community from '../components/Community.astro';
 import '../styles/base.css';
 const html = legacy.replace(/^<!DOCTYPE html>\s*/i, '');
 const [before, rest] = html.split('<!--SITE-HEADER-->');
 const [top, rest2] = rest.split('<!--SITE-HERO-->');
 const [between, after] = rest2.split('<!--SITE-FOOTER-->');
 ---
-<Fragment set:html={before} /><Header /><Fragment set:html={top} /><Hero /><LoopDemo /><Diagram /><Quickstart /><Chapters /><Fragment set:html={between} /><Cta /><Footer play /><Fragment set:html={after} />
+<Fragment set:html={before} /><Header /><Fragment set:html={top} /><Hero /><LoopDemo /><Diagram /><Quickstart /><Chapters /><Fragment set:html={between} /><Community /><Cta /><Footer play /><Fragment set:html={after} />

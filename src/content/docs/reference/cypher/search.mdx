@@ -7,7 +7,7 @@ surfaces: [cypher]
 related: [guides/cypher/vector-search, cookbook/hybrid-recall, reference/cypher/differences-from-neo4j, guides/cypher/full-text-and-hybrid-search]
 ---
 
-relate searches two kinds of :term[index]{id=index}. A :term[vector index]{id=vector-index} answers "which entities are nearest to this vector" with an exact nearest-neighbor search: every search scores each indexed vector and keeps the top `LIMIT`, ties going to the lower element id; a :term[full-text index]{id=full-text-index} answers "which entities contain these words". The `SEARCH` clause restricts a `MATCH` to an index's top results and names their score. The cells on this page run on relate's WebAssembly (WASM) build; the `COMBINE` example runs on the CLI, because it needs a preview opt-in.
+relate searches two kinds of :term[index]{id=index}. A :term[vector index]{id=vector-index} answers "which entities are nearest to this vector" with an exact nearest-neighbor search: every search scores each indexed vector and keeps the top `LIMIT`, ties going to the lower element id; a :term[full-text index]{id=full-text-index} answers "which entities contain these words". The `SEARCH` clause restricts a `MATCH` to an index's top results and names their score. The cells on this page run on relate's WebAssembly (WASM) build, the weighted fusion included; the `COMBINE` example runs on the CLI, because it needs a preview opt-in.
 
 ## Synopsis
 
@@ -129,14 +129,17 @@ Each procedure is deprecated: `EXPLAIN` reports notification `01N01`, ``The proc
 
 ## Hybrid search
 
-Two ways combine a vector search and a full-text search in one statement:
+Three ways combine a vector search and a full-text search in one statement:
 
 | Form | Result | Status |
 | --- | --- | --- |
 | `MATCH … SEARCH` (vector), `WITH`, then `MATCH … SEARCH` (full-text) on the same variable | The intersection: the second search keeps only entities the first returned | Stable |
+| `CALL () { <vector search> UNION ALL <full-text search> }`, each branch numbering its rows by rank, then `sum(<w> / (<c> + rank + 1))` per entity | One ranking fused by weighted reciprocal rank, written in Cypher | Stable |
 | `SEARCH <var> IN (COMBINE (<source> WEIGHT <w>, <source> WEIGHT <w>, …) USING WRRF [WITH CONSTANT <c>] LIMIT <k>)` | One ranking fused by weighted reciprocal rank | Preview, behind `RELATE_PREVIEW=hybrid-search` |
 
 `COMBINE` takes two or more sources, each a complete index specification with its own `LIMIT`, and the same entity kind as the variable after `SEARCH`. An entity's fused score is the sum over the sources of `weight / (constant + rank + 1)`, where `rank` counts from 0 within that source and a source that did not return the entity adds nothing. `WEIGHT` defaults to 1 and `WITH CONSTANT` to 60. Equal fused scores order by entity id. Without the opt-in, `COMBINE` fails with `semantic error: SemanticError: preview feature 'hybrid-search' is not enabled: set RELATE_PREVIEW=hybrid-search`.
+
+The `CALL` form computes the same scores without the opt-in: the `weighted-fusion` cell in [Examples](#examples) returns, digit for digit, the scores the `COMBINE` run there prints for the same weights and constant.
 
 ## Examples
 
@@ -203,6 +206,59 @@ RETURN p.name AS name, round(vs, 4) AS vector, fs AS fulltext
 ORDER BY name
 ```
 
+Weighted reciprocal rank fusion, the `CALL` form. The question, its vector and the number of results per list are parameters:
+
+```json data=question
+{"q": "docs tests", "v": [0.1, 0.9, 0.1], "k": 3}
+```
+
+Each search on its own returns a ranked list of at most `$k` people, with the name as `id`:
+
+```cypher run name=vector-list params=question
+MATCH (p:Person)
+SEARCH p IN (VECTOR INDEX person_focus FOR $v LIMIT $k) SCORE AS score
+RETURN p.name AS id, score
+ORDER BY score DESC, id
+```
+
+```cypher run name=fulltext-list params=question
+MATCH (p:Person)
+SEARCH p IN (FULLTEXT INDEX person_bio FOR $q LIMIT $k) SCORE AS score
+RETURN p.name AS id, score
+ORDER BY score DESC, id
+```
+
+The fused statement runs both searches, numbers each list's rows from 0, and adds `weight / (60 + rank + 1)` per person, with weight 0.7 for the vector list and 0.3 for the full-text list:
+
+```cypher run name=weighted-fusion params=question
+CALL () {
+  MATCH (p:Person)
+  SEARCH p IN (VECTOR INDEX person_focus FOR $v LIMIT $k) SCORE AS score
+  WITH p ORDER BY score DESC, p.name
+  WITH collect(p) AS ps
+  UNWIND range(0, size(ps) - 1) AS rank
+  RETURN ps[rank] AS p, 0.7 AS weight, rank
+  UNION ALL
+  MATCH (p:Person)
+  SEARCH p IN (FULLTEXT INDEX person_bio FOR $q LIMIT $k) SCORE AS score
+  WITH p ORDER BY score DESC, p.name
+  WITH collect(p) AS ps
+  UNWIND range(0, size(ps) - 1) AS rank
+  RETURN ps[rank] AS p, 0.3 AS weight, rank
+}
+WITH p, sum(weight / (60 + rank + 1)) AS rrf
+RETURN p.name AS id, rrf
+ORDER BY rrf DESC, id
+LIMIT $k
+```
+
+The view runs the two lists and the fused statement with the chosen `k`, up to the three people the graph holds, and writes out each fused score's arithmetic beside the statement's own:
+
+:::vector-explorer{lists="vector-list,fulltext-list" fuse=weighted-fusion weights="0.7,0.3" constant=60 max=3}
+:::
+
+The full-text list holds two people at most: Ada's bio holds neither `docs` nor `tests`. A person missing from a list gets no share from it, so Ada's score is her vector share alone.
+
 `COMBINE` on the CLI. This setup step writes the same graph, vectors and indexes to a new store, `search.rl`:
 
 ```bash verify
@@ -237,7 +293,7 @@ RELATE_PREVIEW=hybrid-search relate --database ./search.rl --read-only --mode ta
 +---------+----------------------+
 ```
 
-Grace is first by vector and second by full-text: `0.7 / 61 + 0.3 / 62`. Noor is second by vector and first by full-text: `0.7 / 62 + 0.3 / 61`. Ada appears only in the vector list: `0.7 / 63`.
+Grace is first by vector and second by full-text: `0.7 / 61 + 0.3 / 62`. Noor is second by vector and first by full-text: `0.7 / 62 + 0.3 / 61`. Ada appears only in the vector list: `0.7 / 63`. The scores are the `weighted-fusion` cell's, digit for digit.
 
 ## See also
 

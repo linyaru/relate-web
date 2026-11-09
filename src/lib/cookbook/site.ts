@@ -3,6 +3,9 @@
 // recording, as `npm run cookbook:check` requires), its diagrams' renderings
 // read and checked, and a highlighter for its code. Computed once per build
 // and shared by every cookbook page and endpoint; any problem fails the build.
+// A recipe's interactive elements (ADR-0045, elements.ts) get their recorded
+// static forms here, read back against the replay and checked like a docs
+// page's.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -10,7 +13,10 @@ import { gzipSync } from 'node:zlib';
 
 import { createHighlighter, type Highlighter } from 'shiki';
 
+import { engineVersion } from '../docs/checks/cells.ts';
+import type { ElementUse, Form } from '../docs/elements.ts';
 import { diagramTitle, readLabels, readRendered, RENDER_COMMAND, type Theme } from './diagrams.ts';
+import { recipeForms } from './elements.ts';
 import { COOKBOOK_DIR, loadRecipes } from './load.ts';
 import type { Recipe, ResultKind } from './recipe.ts';
 import { lastEnvelope, type TableCells } from './result-view.ts';
@@ -60,6 +66,8 @@ export interface Page {
   diagrams: Map<number, RenderedDiagram>;
   /** The colour of each label the recipe's data model draws. */
   labels: Record<string, string>;
+  /** Each element directive's recorded static form, by the directive's 1-based line. */
+  elements: Map<number, { use: ElementUse; form: Form }>;
 }
 
 export interface Cookbook {
@@ -67,6 +75,8 @@ export interface Cookbook {
   highlight: (code: string, lang: string) => string;
   /** The engine's size over the wire (gzipped), which a page quotes before loading it. */
   wasmGzipBytes: number;
+  /** The relate version the build replayed every recipe on (the engine bar's `data-verified`). */
+  verified: string;
 }
 
 const LANG_ALIASES: Record<string, string> = { sh: 'shellscript', bash: 'shellscript', shell: 'shellscript', js: 'javascript', py: 'python' };
@@ -105,7 +115,15 @@ async function build(): Promise<Cookbook> {
         problems.push(`[${recipe.slug}] ${(e as Error).message}; render again: ${RENDER_COMMAND}`);
       }
     }
-    pages.push({ recipe, cells, diagrams, labels });
+    let elements = new Map<number, { use: ElementUse; form: Form }>();
+    if (!runProblems.length) {
+      try {
+        elements = recipeForms(recipe, run.cells);
+      } catch (e) {
+        problems.push(...(e as Error).message.split('\n').map((m) => `[${recipe.slug}] ${m}`));
+      }
+    }
+    pages.push({ recipe, cells, diagrams, labels, elements });
   }
   if (problems.length) {
     throw new Error(`the cookbook has ${problems.length} problem(s):\n\n${problems.join('\n\n')}`);
@@ -118,5 +136,5 @@ async function build(): Promise<Cookbook> {
     return highlighter.codeToHtml(code, { lang: known ? l : 'text', theme: THEME });
   };
   const wasmGzipBytes = gzipSync(readFileSync(join(WASM_DIR, 'relate_bg.wasm'))).length;
-  return { pages, highlight, wasmGzipBytes };
+  return { pages, highlight, wasmGzipBytes, verified: engineVersion(engine) };
 }

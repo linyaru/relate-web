@@ -27,6 +27,11 @@
 // `live`, `caption`), so a picture or a text-only form edited by hand fails
 // too. That keeps the page build synchronous and the same in Node and in
 // Vite.
+//
+// Cookbook recipes take the same directives (ADR-0045): src/lib/cookbook/
+// elements.ts gives a recipe to this code as a page (its steps as cells, the
+// cookbook's run as recordings), and `npm run cookbook:record` records its
+// forms with the per-page record of checks/elements.ts.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -363,12 +368,12 @@ export interface Form {
 /**
  * The recorded static form of `use` on the page at `file`. Throws when it is
  * missing, was made from other inputs than the page has now, or an SVG holds
- * anything active.
+ * anything active; `again` says how to record it (a recipe's forms come from
+ * `npm run cookbook:record`, ADR-0045).
  */
-export function readForm(file: string, use: ElementUse, ctx: FormContext): Form {
+export function readForm(file: string, use: ElementUse, ctx: FormContext, again = `run ${RECORD_COMMAND}`): Form {
   const { dir, stem } = pageDiagrams(file);
   const path = join(dir, elementFormFile(stem, use.id));
-  const again = `run ${RECORD_COMMAND}`;
   if (!existsSync(path)) throw new Error(`element \`${use.id}\` (\`:::${use.name}\`) has no recorded static form (${path}); ${again}`);
   let rec: RecordedForm;
   try {

@@ -73,7 +73,9 @@ export interface BrowserCases {
  *   expect(log, failures, name, ok, detail?) records one check;
  *   engineLoaded() whether the engine has started: the WASM files, or the
  *     cell runtime's module worker that fetches them (the worker's own
- *     fetches never reach the page's resource timing).
+ *     fetches never reach the page's resource timing);
+ *   recordedOf(id) a cell's recorded {envelope, graph}: a docs cell carries it
+ *     in data-recorded, a recipe step's comes from results.json beside the page.
  */
 export const PRELUDE = `
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -83,6 +85,12 @@ const host = (name) => document.querySelector('docs-element[data-element="' + na
 const live = async (name) => { const h = host(name); if (!h) return null; h.scrollIntoView({ block: 'center' }); return (await until(() => h.dataset.state === 'live', 15000)) ? h : null; };
 const expect = (log, failures, name, ok, detail) => { log.push((ok ? 'ok   ' : 'FAIL ') + name + (detail ? ' (' + detail + ')' : '')); if (!ok) failures.push(name + (detail ? ': ' + detail : '')); };
 const engineLoaded = () => performance.getEntriesByType('resource').some((e) => /relate_bg\\.wasm|\\/wasm\\/relate\\.js|\\/_astro\\/worker-[\\w-]+\\.js/.test(e.name));
+const recordedOf = async (id) => {
+  const c = document.querySelector('cypher-cell[data-cell="' + id + '"]');
+  if (c && c.dataset.recorded) return JSON.parse(c.dataset.recorded);
+  const all = await (await fetch(new URL('results.json', location.origin + location.pathname.replace(/\\/?$/, '/')))).json();
+  return all[id];
+};
 `;
 
 /** A scenario from a function body that returns {log, failures}, with PRELUDE's helpers in scope. */

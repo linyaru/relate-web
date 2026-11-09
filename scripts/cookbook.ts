@@ -2,10 +2,12 @@
 // Checks the cookbook (src/content/cookbook): every recipe parses and
 // validates, runs through the site's WASM engine (public/wasm) without
 // going other than it says, and reproduces each recorded `table` / `gram`
-// block; and the README index is current.
+// block; every interactive element on a recipe (ADR-0045) validates and has
+// a current recorded static form; and the README index is current.
 //
 //   node scripts/cookbook.ts            check (npm run cookbook:check)
-//   node scripts/cookbook.ts --record   rewrite the result blocks and the
+//   node scripts/cookbook.ts --record   rewrite the result blocks, the
+//                                       elements' static forms and the
 //                                       index instead (npm run cookbook:record)
 //
 // COOKBOOK_ONLY=<slug>[,<slug>…] limits the run to those recipes and leaves
@@ -13,9 +15,10 @@
 // recorded.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { checkRecipeElements, recordRecipeElements } from '../src/lib/cookbook/elements.ts';
 import { renderIndex, spliceIndex } from '../src/lib/cookbook/index.ts';
 import { COOKBOOK_DIR, loadRecipes } from '../src/lib/cookbook/load.ts';
 import { withResults, type Recording } from '../src/lib/cookbook/recipe.ts';
@@ -36,6 +39,10 @@ if (only && recipes.length === 0) problems.push(`COOKBOOK_ONLY names no recipe: 
 const engine = await loadEngine();
 let cells = 0;
 
+/** A docs-style problem report (the element checks' shape), as a cookbook problem. */
+const report = (slug: string) => (file: string, line: number | null, _severity: string, _rule: string, message: string) =>
+  problems.push(`[${slug}] ${relative(process.cwd(), file)}${line === null ? '' : `:${line}`}: ${message}`);
+
 for (const recipe of recipes) {
   const fail = (msg: string) => problems.push(`[${recipe.slug}] ${msg}`);
   const run = await runRecipe(engine, recipe);
@@ -47,8 +54,11 @@ for (const recipe of recipes) {
   } else if (args.record) {
     const recordings = new Map<string, Recording>(run.cells.map((c) => [c.id, c.recording]));
     writeIfChanged(join(COOKBOOK_DIR, `${recipe.slug}.md`), withResults(recipe, recordings));
+    // The elements' forms come from this run's recordings, which the result blocks now hold.
+    await recordRecipeElements(recipe, run.cells, report(recipe.slug), (line) => console.error(line));
   } else {
     resultProblems(recipe, run).forEach(fail);
+    await checkRecipeElements(recipe, run.cells, report(recipe.slug));
   }
 }
 

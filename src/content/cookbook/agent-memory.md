@@ -580,6 +580,22 @@ orders service database (Postgres failover was too slow in the multi-region
 test); this replaced: Use Postgres as the orders service database. No longer
 true: Alice owns the orders service."
 
+## Session 2 as an agent's tool calls
+
+An agent host that drives relate over MCP sends the same statements as
+`tools/call` requests to `relate serve`. The trace below replays session 2
+that way, on the store the steps build up to `slots`: the slots query, the
+five `remember` statements of the `session-2` step (one call each, the four
+writes as `write_cypher` and the report as `read_cypher`), and the recall
+tool's query. Every statement and every parameter object is one this page
+already runs, from the `session-2` and `question` data blocks; the steps are
+in the `session-2-calls` data block. No model chose these calls: the trace
+replays the recipe's statements, in the recipe's order. The last step repeats
+the `recall-tool` step, and its rows are that step's.
+
+:::agent-trace{steps=session-2-calls from=slots}
+:::
+
 ## Data
 
 The datasets the steps above load. Each block is a JSON object whose
@@ -654,6 +670,43 @@ keys are the query parameters.
     }
   ]
 }
+```
+
+</details>
+
+<details>
+<summary><code>session-2-calls</code> (9 KB)</summary>
+
+```json data=session-2-calls
+{"steps": [
+  {"tool": "read_cypher",
+   "note": "The known slots, which the agent reads before it extracts anything: the statement of the `slots` step.",
+   "arguments": {"statement": "MATCH (x:Fact|Decision)\nWHERE x.slot <> '' AND x.supersededAt IS NULL\nRETURN DISTINCT x.slot AS slot\nORDER BY slot"}},
+  {"tool": "write_cypher",
+   "note": "Statement 1 of the `session-2` step: the session, its two messages, and every entity they mention, with the `session-2` data block as the parameters.",
+   "arguments": {"statement": "MERGE (s:Session {id: $session}) ON CREATE SET s.startedAt = datetime($startedAt)\nWITH s\nUNWIND $messages AS msg\nCREATE (m:Message {seq: msg.seq, text: msg.text,\n                   at: datetime(msg.at)})-[:IN_SESSION]->(s)\nWITH m, msg\nUNWIND msg.entities AS ent\nMERGE (e:Entity {key: toLower(ent.name)})\n  ON CREATE SET e.name = ent.name, e.kind = ent.kind\nMERGE (m)-[:MENTIONS]->(e)",
+    "parameters": {"session":"session-2","startedAt":"2026-03-16T14:02:00Z","messages":[{"seq":5,"at":"2026-03-16T14:02:00Z","text":"Update: Postgres failover was too slow in the multi-region test, so the orders service is switching to CockroachDB.","entities":[{"name":"orders service","kind":"service"},{"name":"Postgres","kind":"technology"},{"name":"CockroachDB","kind":"technology"}],"facts":[],"decisions":[{"text":"Use CockroachDB as the orders service database","rationale":"Postgres failover was too slow in the multi-region test","slot":"orders service/database","about":["orders service","CockroachDB"]}]},{"seq":6,"at":"2026-03-16T14:07:00Z","text":"Carol is taking over ownership of the orders service from Alice.","entities":[{"name":"Carol","kind":"person"},{"name":"orders service","kind":"service"},{"name":"Alice","kind":"person"}],"facts":[{"text":"Carol owns the orders service.","slot":"orders service/owner","about":["orders service","Carol"]}],"decisions":[]}]}}},
+  {"tool": "write_cypher",
+   "note": "Statement 2 of the `session-2` step: Carol's fact, linked `FROM` its message and `ABOUT` its entities.",
+   "arguments": {"statement": "UNWIND $messages AS msg\nMATCH (m:Message {seq: msg.seq})\nUNWIND msg.facts AS f\nCREATE (x:Fact {text: f.text, slot: f.slot, seq: m.seq, at: m.at})-[:FROM]->(m)\nWITH x, f\nUNWIND f.about AS name\nMATCH (e:Entity {key: toLower(name)})\nMERGE (x)-[:ABOUT]->(e)",
+    "parameters": {"session":"session-2","startedAt":"2026-03-16T14:02:00Z","messages":[{"seq":5,"at":"2026-03-16T14:02:00Z","text":"Update: Postgres failover was too slow in the multi-region test, so the orders service is switching to CockroachDB.","entities":[{"name":"orders service","kind":"service"},{"name":"Postgres","kind":"technology"},{"name":"CockroachDB","kind":"technology"}],"facts":[],"decisions":[{"text":"Use CockroachDB as the orders service database","rationale":"Postgres failover was too slow in the multi-region test","slot":"orders service/database","about":["orders service","CockroachDB"]}]},{"seq":6,"at":"2026-03-16T14:07:00Z","text":"Carol is taking over ownership of the orders service from Alice.","entities":[{"name":"Carol","kind":"person"},{"name":"orders service","kind":"service"},{"name":"Alice","kind":"person"}],"facts":[{"text":"Carol owns the orders service.","slot":"orders service/owner","about":["orders service","Carol"]}],"decisions":[]}]}}},
+  {"tool": "write_cypher",
+   "note": "Statement 3 of the `session-2` step: the CockroachDB decision, with its rationale.",
+   "arguments": {"statement": "UNWIND $messages AS msg\nMATCH (m:Message {seq: msg.seq})\nUNWIND msg.decisions AS d\nCREATE (x:Decision {text: d.text, rationale: d.rationale, slot: d.slot,\n                    seq: m.seq, at: m.at})-[:FROM]->(m)\nWITH x, d\nUNWIND d.about AS name\nMATCH (e:Entity {key: toLower(name)})\nMERGE (x)-[:ABOUT]->(e)",
+    "parameters": {"session":"session-2","startedAt":"2026-03-16T14:02:00Z","messages":[{"seq":5,"at":"2026-03-16T14:02:00Z","text":"Update: Postgres failover was too slow in the multi-region test, so the orders service is switching to CockroachDB.","entities":[{"name":"orders service","kind":"service"},{"name":"Postgres","kind":"technology"},{"name":"CockroachDB","kind":"technology"}],"facts":[],"decisions":[{"text":"Use CockroachDB as the orders service database","rationale":"Postgres failover was too slow in the multi-region test","slot":"orders service/database","about":["orders service","CockroachDB"]}]},{"seq":6,"at":"2026-03-16T14:07:00Z","text":"Carol is taking over ownership of the orders service from Alice.","entities":[{"name":"Carol","kind":"person"},{"name":"orders service","kind":"service"},{"name":"Alice","kind":"person"}],"facts":[{"text":"Carol owns the orders service.","slot":"orders service/owner","about":["orders service","Carol"]}],"decisions":[]}]}}},
+  {"tool": "write_cypher",
+   "note": "Statement 4 of the `session-2` step: each new item supersedes the newest older item in its slot, here Alice's fact and the Postgres decision.",
+   "arguments": {"statement": "UNWIND $messages AS msg\nMATCH (new:Fact|Decision {seq: msg.seq})\nWHERE new.slot <> ''\nCALL (new) {\n  MATCH (old:Fact|Decision {slot: new.slot})\n  WHERE old.seq < new.seq AND labels(old) = labels(new)\n  RETURN old ORDER BY old.seq DESC LIMIT 1\n}\nSET old.supersededAt = new.at\nCREATE (new)-[:SUPERSEDES]->(old)",
+    "parameters": {"session":"session-2","startedAt":"2026-03-16T14:02:00Z","messages":[{"seq":5,"at":"2026-03-16T14:02:00Z","text":"Update: Postgres failover was too slow in the multi-region test, so the orders service is switching to CockroachDB.","entities":[{"name":"orders service","kind":"service"},{"name":"Postgres","kind":"technology"},{"name":"CockroachDB","kind":"technology"}],"facts":[],"decisions":[{"text":"Use CockroachDB as the orders service database","rationale":"Postgres failover was too slow in the multi-region test","slot":"orders service/database","about":["orders service","CockroachDB"]}]},{"seq":6,"at":"2026-03-16T14:07:00Z","text":"Carol is taking over ownership of the orders service from Alice.","entities":[{"name":"Carol","kind":"person"},{"name":"orders service","kind":"service"},{"name":"Alice","kind":"person"}],"facts":[{"text":"Carol owns the orders service.","slot":"orders service/owner","about":["orders service","Carol"]}],"decisions":[]}]}}},
+  {"tool": "read_cypher",
+   "note": "Statement 5 of the `session-2` step, the report of what each message stored: a read, so it goes as `read_cypher`.",
+   "arguments": {"statement": "UNWIND $messages AS msg\nMATCH (m:Message {seq: msg.seq})\nRETURN m.seq AS seq,\n       COUNT { (m)-[:MENTIONS]->() } AS entities,\n       COUNT { (:Fact)-[:FROM]->(m) } AS facts,\n       COUNT { (:Decision)-[:FROM]->(m) } AS decisions\nORDER BY seq",
+    "parameters": {"session":"session-2","startedAt":"2026-03-16T14:02:00Z","messages":[{"seq":5,"at":"2026-03-16T14:02:00Z","text":"Update: Postgres failover was too slow in the multi-region test, so the orders service is switching to CockroachDB.","entities":[{"name":"orders service","kind":"service"},{"name":"Postgres","kind":"technology"},{"name":"CockroachDB","kind":"technology"}],"facts":[],"decisions":[{"text":"Use CockroachDB as the orders service database","rationale":"Postgres failover was too slow in the multi-region test","slot":"orders service/database","about":["orders service","CockroachDB"]}]},{"seq":6,"at":"2026-03-16T14:07:00Z","text":"Carol is taking over ownership of the orders service from Alice.","entities":[{"name":"Carol","kind":"person"},{"name":"orders service","kind":"service"},{"name":"Alice","kind":"person"}],"facts":[{"text":"Carol owns the orders service.","slot":"orders service/owner","about":["orders service","Carol"]}],"decisions":[]}]}}},
+  {"tool": "read_cypher",
+   "note": "The recall tool's one query and the question: the statement and data of the `recall-tool` step.",
+   "arguments": {"statement": "MATCH (e:Entity) WHERE toLower($question) CONTAINS e.key\nWITH e ORDER BY size(e.key) DESC LIMIT 1\nRETURN e.name AS entity, e.kind AS kind,\n  COLLECT { MATCH (e)<-[:ABOUT]-(f:Fact) WHERE f.supersededAt IS NULL\n            MATCH (f)-[:FROM]->(:Message)-[:IN_SESSION]->(s)\n            RETURN {fact: f.text, session: s.id} ORDER BY f.seq, f.text } AS facts,\n  COLLECT { MATCH (e)<-[:ABOUT]-(d:Decision) WHERE d.supersededAt IS NULL\n            MATCH (d)-[:FROM]->(:Message)-[:IN_SESSION]->(s)\n            RETURN {decision: d.text, rationale: d.rationale, session: s.id,\n                    replaced: COLLECT { MATCH (d)-[:SUPERSEDES]->{1,5}(old)\n                                        RETURN old.text ORDER BY old.seq DESC }}\n            ORDER BY d.seq, d.text } AS decisions,\n  COLLECT { MATCH (e)<-[:ABOUT]-(f:Fact) WHERE f.supersededAt IS NOT NULL\n            RETURN f.text ORDER BY f.seq, f.text } AS history,\n  COLLECT { MATCH (e)<-[:ABOUT]-(x)-[:ABOUT]->(o:Entity)\n            WHERE x.supersededAt IS NULL AND o <> e\n            MATCH (o)<-[:ABOUT]-(f2:Fact) WHERE f2.supersededAt IS NULL\n              AND NOT (f2)-[:ABOUT]->(e)\n            RETURN DISTINCT {entity: o.name, fact: f2.text} } AS nearby",
+    "parameters": {"question":"What do you remember about the orders service?"}}}
+]}
 ```
 
 </details>

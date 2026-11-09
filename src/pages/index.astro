@@ -6,10 +6,11 @@ import legacy from '../legacy/index.html?raw';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import Hero from '../components/Hero.astro';
+import LoopDemo from '../components/LoopDemo.astro';
 import '../styles/base.css';
 const html = legacy.replace(/^<!DOCTYPE html>\s*/i, '');
 const [before, rest] = html.split('<!--SITE-HEADER-->');
 const [top, rest2] = rest.split('<!--SITE-HERO-->');
 const [between, after] = rest2.split('<!--SITE-FOOTER-->');
 ---
-<Fragment set:html={before} /><Header /><Fragment set:html={top} /><Hero /><Fragment set:html={between} /><Footer /><Fragment set:html={after} />
+<Fragment set:html={before} /><Header /><Fragment set:html={top} /><Hero /><LoopDemo /><Fragment set:html={between} /><Footer /><Fragment set:html={after} />

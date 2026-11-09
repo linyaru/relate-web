@@ -51,7 +51,7 @@ const first = tabs[0];
     <div class="hpanel">
       <div class="hitabs" id="hi-tabs" role="tablist" aria-label="Install method">
         {tabs.map((t) => (
-          <button type="button" role="tab" id={`it-${t.id}`} aria-selected={String(t.id === first.id)} tabindex={t.id === first.id ? 0 : -1} data-tab={t.id}>{t.label}</button>
+          <button type="button" role="tab" id={`it-${t.id}`} aria-selected={t.id === first.id ? 'true' : 'false'} tabindex={t.id === first.id ? 0 : -1} data-tab={t.id}>{t.label}</button>
         ))}
       </div>
       <div class="hbody" role="tabpanel" aria-labelledby={`it-${first.id}`} id="hi-panel">

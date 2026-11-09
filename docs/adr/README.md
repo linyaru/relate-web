@@ -122,3 +122,4 @@ Copy `template.md`.
 | [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |
 | [0043](0043-home-design-tokens-and-fonts.md) | The site takes its colours and type from the Relate home design: Night by default, three open-source faces, the older token names kept as aliases | Proposed |
 | [0045](0045-elements-on-cookbook-recipes.md) | Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader | Proposed |
+| [0051](0051-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |

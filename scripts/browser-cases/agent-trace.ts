@@ -4,7 +4,8 @@
 // recorded (the same rows, the same counters, or the same tool error), and a
 // step that repeats a cell must match that cell's recording. The engine loads
 // only when the trace is played. After the trace, the page's own cells must
-// run cleanly (the trace empties the database it wrote), and a trace started
+// run cleanly (a trace that wrote empties the database when it ends; one that
+// only read leaves it as the cells built it), and a trace started
 // after the cells ran must empty the database first instead of failing on a
 // constraint. The keyboard reaches Step and Enter sends a step.
 
@@ -30,6 +31,8 @@ const HELPERS = `
   };
   const items = (h) => [...h.querySelectorAll('.trace-item')];
   const results = (h) => items(h).map((li) => summary(li.querySelector('.trace-result')));
+  // Whether a write_cypher step answered with a result: only then does the trace empty the database when it ends.
+  const wroteSomething = (h) => items(h).some((li) => li.dataset.state === 'done' && [...li.querySelectorAll('summary')].some((x) => /^Request, step \\d+: write_cypher$/.test(x.textContent)));
   const finished = (h) => items(h).every((li) => li.dataset.state === 'done' || li.dataset.state === 'error') || /could not run/.test(h.querySelector('.trace-status').textContent);
   // Whether the engine started: the bar records the version the worker reports, and the page fetches the worker's script.
   // (engineLoaded() looks for the wasm files, which the worker fetches on its own timeline, so the page never sees them.)
@@ -69,8 +72,12 @@ export default {
         expect(log, failures, 'the status line opens with the shared wording', /^From this tab's run on relate \\d+\\.\\d+\\.\\d+/.test(h.querySelector('.trace-status').textContent), h.querySelector('.trace-status').textContent);
         const matches = [...h.querySelectorAll('.trace-match')];
         expect(log, failures, 'a step that repeats a cell matches its recording', matches.every((m) => m.dataset.match === 'true'), matches.map((m) => m.textContent).join(' | '));
-        await until(() => /has ended/.test(h.querySelector('.trace-warn').textContent), 20000);
-        expect(log, failures, 'the trace empties the database it wrote when it ends', /has ended/.test(h.querySelector('.trace-warn').textContent), h.querySelector('.trace-warn').textContent);
+        if (wroteSomething(h)) {
+          await until(() => /has ended/.test(h.querySelector('.trace-warn').textContent), 20000);
+          expect(log, failures, 'the trace empties the database it wrote when it ends', /has ended/.test(h.querySelector('.trace-warn').textContent), h.querySelector('.trace-warn').textContent);
+        } else {
+          expect(log, failures, 'a trace that wrote nothing leaves the database as the cells built it, with no warning', h.querySelector('.trace-warn').hidden, h.querySelector('.trace-warn').textContent);
+        }
         return { log: [items(h).length + ' steps as recorded; ' + matches.length + ' cell match(es)'], failures };
       `),
     },
@@ -94,7 +101,7 @@ export default {
           expect(log, failures, 'step ' + (i + 1) + ' returns what it returned when recorded', got === recorded[i], got + ' / recorded ' + recorded[i]);
           if (got !== recorded[i]) break;
         }
-        await until(() => /has ended/.test(h.querySelector('.trace-warn').textContent), 20000);
+        if (wroteSomething(h)) await until(() => /has ended/.test(h.querySelector('.trace-warn').textContent), 20000);
         await idle();
         bar.querySelector('[data-action=run-all]').click();
         await idle();

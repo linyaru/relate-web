@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "vector-explorer",
+  "hash": "a237675369d26501aa1fa01e572d20449f69a4e099de2b459b6b5b66484e1906",
+  "inputs": [],
+  "live": "a k slider runs the page's search statements on its database in your browser with that k, and the view marks the ids the engine returns.",
+  "engine": true,
+  "text": "The 2 ranked lists for \"what did we decide about oauth tokens\", as recorded with k = 5:\n\n| Rank | `vector` | `fulltext` |\n| --- | --- | --- |\n| 1 | `n02` | `n02` |\n| 2 | `n25` | `n03` |\n| 3 | `n03` | `n25` |\n| 4 | `n15` |  |\n| 5 | `n04` |  |\n\nFused by reciprocal rank: each list gives an id 1 / (60 + its rank there), and the shares add up. 5 ids, best first:\n\n| id | Rank in `vector` | Rank in `fulltext` | Arithmetic | Fused score |\n| --- | --- | --- | --- | --- |\n| `n02` | 1 | 1 | 1/(60+1) + 1/(60+1) | 0.0328 |\n| `n03` | 3 | 2 | 1/(60+3) + 1/(60+2) | 0.032 |\n| `n25` | 2 | 3 | 1/(60+2) + 1/(60+3) | 0.032 |\n| `n15` | 4 |  | 1/(60+4) | 0.0156 |\n| `n04` | 5 |  | 1/(60+5) | 0.0154 |",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "4acb90294a600a749da68fbdad734d10efaece710a211b08485a853624f35051"
+}

@@ -42,7 +42,10 @@ runs on the page's database with its first line replaced by
 `WITH {embedding: vector($embedding, 384, FLOAT32)} AS question`; every
 other line runs as written, and the element shows the statement it sends.
 Where the page stores a vector for the same text, the element prints the
-cosine similarity of the two. The vector-search guide links to it.
+cosine similarity of the two. The vector-search guide links to it. The
+step may do more than search: the recipe points it at the step that also
+walks the graph from the hits to their pages, prerequisites and terms, so a
+reader's question comes back with that context.
 
 **The same model, as half-precision weights.** The worker tokenizes with
 `@huggingface/tokenizers` (the library transformers.js 4.3.1 runs), runs
@@ -73,8 +76,9 @@ where and at what size, shows the swapped line, and holds the step's
 recorded rows; no timing (ADR-0044). In cookbook:browser the worker
 downloads the files from the hub and embeds both stored questions; each
 vector must reach cosine 0.9999 with the committed one as the recipe holds
-it and return the same five sections in the same order as that vector, and
-the step's own question its recorded rows within 0.0002. 0.9999 sits under
+it and return the same five sections in the same order as that vector
+(grouped by page, as the step returns them), and the step's own question
+its recorded rows, every score within 0.0002. 0.9999 sits under
 what float16 storage and four-decimal rounding cost (under 1e-6) and over
 what another pooling of the same model gives (about 0.95) or any 8-bit or
 4-bit file of the revision (0.98 to 0.999).

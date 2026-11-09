@@ -87,7 +87,7 @@ The view draws each published page as a node, one cluster and one color per sect
 | --- | --- | --- |
 | [The hosted docs MCP server](/docs/reference/server/docs-mcp) | Replays the seed script without its vectors on the WASM engine, and loads the vectors on the first hybrid search | Five tools; when Workers AI answers, `search_docs` fuses a vector search and a full-text search over the sections by reciprocal rank, and otherwise it is the full-text search alone |
 | relate's own [MCP server](/docs/reference/server/mcp), on the reader's machine | `--load` of `relate-docs.rl` into an in-memory store | `read_cypher` and `get_schema` over the whole graph; `write_cypher` is not listed on a read-only store |
-| The recipe [Query the relate docs](/cookbook/query-the-relate-docs/) | A subset of the graph with its vectors, in the recipe's data block, run in the browser | The same hybrid search, step by step |
+| The recipe [Query the relate docs](/cookbook/query-the-relate-docs/) | The graph's pages, terms, capabilities and recipes with the sections of five pages and their vectors, in the recipe's data block, run in the browser | Vector search over the sections, then traversals that expand the hits into context, scope the search and reach the capability behind the answer, step by step |
 
 The local form serves the docs graph to an MCP host over stdio. The URL is a launch-day target:
 
@@ -125,6 +125,6 @@ RETURN [n IN nodes(path) | n.id] AS chain ORDER BY length(path) DESC
 ## See also
 
 - [The hosted docs MCP server](/docs/reference/server/docs-mcp): the tools over this graph, and the local equivalent.
-- [Query the relate docs](/cookbook/query-the-relate-docs/): hybrid search over a part of this graph, in the browser.
+- [Query the relate docs](/cookbook/query-the-relate-docs/): vector search and graph traversals over a part of this graph, in the browser.
 - [MCP server](/docs/reference/server/mcp): relate's own server, which the local form runs.
 - [The capability catalog](/docs/concepts/problems-relate-solves): the source of the `Capability` and `Problem` nodes.

@@ -61,11 +61,16 @@ ranks a section for words it no longer holds.
   otherwise), and the recipe's statements must run unchanged on the whole
   graph. `docs:check` fails when the replayed index covers other
   properties.
-- **Recipe.** "Query the relate docs" loads a generated subset: every
-  section of four fixed pages, text cut to 480 characters, vectors rounded
-  to four decimals, the links among those pages, and the two questions
-  with their vectors, under 200 KB. `docs:check` compares the recipe's
-  data block with the subset the graph gives now.
+- **Recipe.** "Query the relate docs" loads a generated subset: the
+  graph's structure without vectors as far as its steps read it (every
+  page, term, capability, problem and recipe, with the page links,
+  prerequisites, terms, surfaces, citations and proofs), every section of
+  five fixed pages with text cut to 480 characters and vectors rounded to
+  four decimals, and the two questions with their vectors, under 400 KB.
+  The sections stay few because each carries about 3.5 KB of vector; the
+  structure costs about 110 KB and lets the steps expand, scope and
+  explain the vector hits as they would on the whole graph. `docs:check`
+  compares the recipe's data block with the subset the graph gives now.
 - **The Worker.** With an AI binding, `search_docs` embeds the query with
   cls pooling and runs the fused statement; without one (local
   development, an outage), it runs full-text only and its result says so

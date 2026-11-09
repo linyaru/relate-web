@@ -7,6 +7,10 @@ name: Deploy site
 on:
   push:
     branches: [main]
+  # Upstream's release pipelines poke this after attaching install.sh,
+  # releases.json or the signed extensions.json pair to a release (ADR-0546).
+  repository_dispatch:
+    types: [relate-release]
   workflow_dispatch:
 
 permissions:
@@ -51,6 +55,23 @@ jobs:
       - name: Check docs
         run: npm run docs:check
 
+      # The release-discovery files come from upstream's release assets, not from
+      # the checked-in seed copies: no pull request, no review (ADR-0546).
+      - name: Fetch release-discovery files
+        env:
+          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
+          HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
+          REQUIRED: ${{ vars.RELATE_DISCOVERY_REQUIRED }}
+        run: |
+          # Until the upstream token is set (the repository is private) there is nothing to
+          # fetch: keep the seed copies. Set the repository variable
+          # RELATE_DISCOVERY_REQUIRED=true at launch so a missing token fails the deploy.
+          if [ "$HAS_UPSTREAM_TOKEN" != true ] && [ "$REQUIRED" != true ]; then
+            echo "::notice::RELATE_UPSTREAM_TOKEN is not set: using the checked-in release-discovery files"
+            exit 0
+          fi
+          bash scripts/fetch-discovery.sh
+
       - name: Build site
         run: npm run build
 
@@ -64,6 +85,9 @@ jobs:
           test -s dist/wasm/relate.js
           test -s dist/playground/index.html
           test -s dist/CNAME
+          test -s dist/install.sh
+          test -s dist/releases.json
+          test -s dist/extensions.json
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -3668,7 +3668,7 @@
         "expected_sha256": "63b1f1eeac6cdad5579363f8b0adb49213fbad0a329b3fbbc567276f197dd322"
       },
       {
-        "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner benchmarks before the release.\\n' > notes/retro.md",
+        "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner docs before the release.\\n' > notes/retro.md",
         "expected_sha256": null
       },
       {
@@ -4936,20 +4936,6 @@
       {
         "command": "relate --mode envelope 'RETURN $x AS x'",
         "expected_sha256": "7a531d596f869a9b5763523015a31f0fd31ac2f1f62183ae3f1dcadd6274a66a"
-      }
-    ],
-    "reference/performance.mdx": [
-      {
-        "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\" > /dev/null",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode jsonl \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since\"\nrelate --database ./team.rl --read-only --mode toon \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since\"",
-        "expected_sha256": "889521c03c85fed060df0dfcba0d9b98b343d87ead1131f864424bc13ec70808"
-      },
-      {
-        "command": "relate --mode toon \"UNWIND range(1, 100) AS i RETURN i AS id, 'person-' + toString(i) AS name, i * 1.5 AS score\" | wc -c | tr -d ' '",
-        "expected_sha256": "b20a51d1d0cd4d4e2f5c6f6b9939e8a4d4db0fb202efc513a8e1cddf9021bf4e"
       }
     ],
     "reference/privacy-and-telemetry.mdx": [

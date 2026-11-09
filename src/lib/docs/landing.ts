@@ -24,7 +24,6 @@ export const TASKS: TaskGroup[] = [
     tasks: [
       { text: 'See where relate fits, and where it does not', page: 'concepts/where-relate-fits' },
       { text: 'Find the problems relate solves', page: 'concepts/problems-relate-solves' },
-      { text: 'Check the performance numbers', page: 'reference/performance' },
       { text: 'Read the limitations', page: 'reference/limitations' },
       { text: 'Check the license, versioning and release process', page: 'reference/project' },
     ],
@@ -204,7 +203,7 @@ export const PRIMARY = [
 ];
 
 /** Pages that belong in llms.txt's Evaluate group, in its order. */
-export const EVALUATE = ['concepts/where-relate-fits', 'concepts/problems-relate-solves', 'reference/performance', 'reference/limitations', 'reference/project'];
+export const EVALUATE = ['concepts/where-relate-fits', 'concepts/problems-relate-solves', 'reference/limitations', 'reference/project'];
 
 /** The llms.txt group of page `id`. */
 export function llmsGroupOf(id: string): LlmsGroup {

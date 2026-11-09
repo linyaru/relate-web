@@ -117,7 +117,7 @@ or plans.
   Numeric claims (TCK counts, latency) must trace to a current, in-repo
   artefact and link it. "Full" is a reserved word — use it only where
   "100%" is accurate (TCK, GQL alignment, Cypher 25 features).
-- **No competitive comparisons on the site.** (For `/docs/` only, ADR-0014 in `docs/adr/` allows a fit page with "use something else when" conditions and a measured performance reference; it still names no competitor.) Positioning memos belong on
+- **No competitive comparisons on the site.** (For `/docs/` only, ADR-0014 in `docs/adr/` allows a fit page with "use something else when" conditions; it still names no competitor. ADR-0044 removed the performance reference it also allowed: the docs cite no benchmarks.) Positioning memos belong on
   `main`; the homepage is audience content only.
 
 ## The four agentic invariants

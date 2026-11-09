@@ -3,7 +3,7 @@ title: Where relate fits
 description: The shape of relate, the jobs it suits, and the conditions where another kind of database fits better, each traced to the limit it comes from.
 order: 10
 surfaces: [cli, python, node, browser, rust, java, go, swift, bolt, http, mcp, agents]
-related: [reference/limitations, reference/performance, guides/operate/sizing-and-memory, guides/operate/two-processes-one-store, concepts/architecture, guides/migrate/from-neo4j]
+related: [reference/limitations, guides/operate/sizing-and-memory, guides/operate/two-processes-one-store, concepts/architecture, guides/migrate/from-neo4j]
 ---
 
 Does relate fit the job? It does when the graph belongs to one application, one agent or one tool, lives on one machine, and fits in that machine's memory. relate is an embedded graph database: the engine runs inside your process, the whole graph is held in memory, and Cypher statements run against it with nothing to deploy. When the data must be shared by many writing processes, outgrows one machine, or must stay up through a machine failure, a client/server or clustered database fits better.
@@ -54,7 +54,7 @@ Each condition comes from a limit that is part of relate's shape, not a gap wait
 | The service must survive a machine failure or scale across machines | **No cluster.** There is no replication, failover, or sharding | [Limitations](/docs/reference/limitations) |
 | Users and roles must be kept apart inside one database | **No access control inside the store.** There are no users or roles; `relate serve` checks one basic-auth credential shared by every surface | [Security](/docs/reference/security) |
 | One statement must join data from several graphs | **No cross-graph queries.** A store holds one user graph; `USE` names only the fixed :term[namespaces]{id=namespace}, and any other name fails with `Graph not found: <name>` | [Limitations](/docs/reference/limitations) |
-| The job is analytics over data larger than memory | **Not out-of-core.** The engine is built for a working set in RAM, not for scanning columnar files | [Performance](/docs/reference/performance) |
+| The job is analytics over data larger than memory | **Not out-of-core.** The engine is built for a working set in RAM, not for scanning columnar files | [Size a store and its memory](/docs/guides/operate/sizing-and-memory) |
 
 For the cross-graph case, the usual answer inside relate is to keep data that a statement must join in one store, with labels to tell the parts apart, or to query each store and combine the results in application code.
 
@@ -67,7 +67,6 @@ The price is the list of conditions under "Use something else when". Memory boun
 ## Where this shows up
 
 - [Limitations](/docs/reference/limitations): every limit, with the error each one produces.
-- [Performance](/docs/reference/performance): measured memory per element and load times.
 - [Size a store and its memory](/docs/guides/operate/sizing-and-memory): estimate whether a graph fits.
 - [Share one store between two processes](/docs/guides/operate/two-processes-one-store): what happens when a second process opens a store, and the ways to share one.
 - [Architecture](/docs/concepts/architecture): how the engine, the planner, and the surfaces fit together.

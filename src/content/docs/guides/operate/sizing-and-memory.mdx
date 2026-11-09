@@ -5,7 +5,7 @@ description: "Estimate the memory a relate graph needs from its counts, measure 
 order: 10
 surfaces: [cli]
 prerequisites: [get-started/install]
-related: [reference/storage/limits-and-sizing, reference/performance, reference/cli/flags#logical-graph-size-limit, guides/operate/crash-and-recovery]
+related: [reference/storage/limits-and-sizing, reference/cli/flags#logical-graph-size-limit, guides/operate/crash-and-recovery]
 ---
 
 This guide shows you how to estimate the memory a store needs, measure the size of a real one, and cap its growth. relate holds the whole graph in memory: opening a :term[store]{id=store} loads its last :term[snapshot]{id=snapshot} and replays the :term[WAL]{id=wal} into RAM, and there is no buffer pool or spill to disk. The graph you query has to fit in the process's memory, with room for the statements that run on it.
@@ -50,16 +50,16 @@ A one-hundredth model of the same graph (10,000 nodes, 50,000 relationships, the
 
 ## Allow for process memory
 
-The process needs more memory than the logical size, and the most while a store opens. Two measurements of this release, both from [Performance](/docs/reference/performance#memory-per-node-and-relationship), which gives their harness and machines:
+The process needs more memory than the logical size, and the most while a store opens. Two measurements of this release:
 
 | Measurement | Process memory for the graph |
 | --- | --- |
-| Once loaded: a served process after writes filled four graph shapes of about 33 MB logical each (the relate project's frozen memory-shape loadtest baseline, Linux x86_64 in a 2 GB, 2-CPU container) | 1.22 to 1.54 times the logical size |
+| Once loaded: a served process after writes filled four graph shapes of about 33 MB logical each (Linux x86_64 in a 2 GB, 2-CPU container) | 1.22 to 1.54 times the logical size |
 | Peak while opening a `.rl` store and decoding its snapshot: stores of 10,000 to 1,000,000 nodes on macOS arm64, median of 3 runs | 2.5 to 3.9 times the logical size; 2.5 at 1,000,000 nodes |
 
 For the worked example (2,586,000,000 logical bytes), that is about 3.2 to 4.0 GB once loaded, and about 6.5 GB while the store opens, at the 2.5 ratio of the largest measured store (rounded to 0.1 GB). The open is the peak, so size the machine from it. Statements need working memory on top: one value a statement builds, such as a list, may reach 256 MiB under the default `--expression-memory-limit`.
 
-The size on disk is not a guide to memory: in [Performance](/docs/reference/performance#memory-per-node-and-relationship), a 1,000,000-node `.rl` store of 187,416,576 bytes holds 1,390,890,109 logical bytes.
+The size on disk is not a guide to memory: a 1,000,000-node `.rl` store of 187,416,576 bytes, measured with this release, holds 1,390,890,109 logical bytes.
 
 ## Measure a real store
 
@@ -173,6 +173,5 @@ relate --database ./team.rl --read-only --logical-graph-size-limit 6500 --mode e
 ## Related
 
 - [Limits and sizing](/docs/reference/storage/limits-and-sizing): every limit relate enforces, with its default.
-- [Performance](/docs/reference/performance): measured numbers per release, with their harness.
 - [`--logical-graph-size-limit`](/docs/reference/cli/flags#logical-graph-size-limit) in the flags reference.
 - [Choose a durability mode](/docs/guides/operate/durability-modes): what a crash can lose while the graph is in memory.

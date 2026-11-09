@@ -460,6 +460,93 @@
       },
       "expectError": false
     },
+    "slot-facts": {
+      "kind": "table",
+      "text": "| fact                                 | validFrom              | validTo                | recordedAt             | closedAt               |\n|--------------------------------------|------------------------|------------------------|------------------------|------------------------|\n| \"Grace reviews each relate release.\" | \"2026-01-05T00:00:00Z\" | \"2026-03-10T00:00:00Z\" | \"2026-03-02T10:00:00Z\" | \"2026-03-20T09:00:00Z\" |\n| \"Ada reviews each relate release.\"   | \"2026-03-10T00:00:00Z\" | null                   | \"2026-03-20T09:00:00Z\" | null                   |\n2 rows",
+      "table": {
+        "columns": [
+          "fact",
+          "validFrom",
+          "validTo",
+          "recordedAt",
+          "closedAt"
+        ],
+        "numeric": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "rows": [
+          [
+            "\"Grace reviews each relate release.\"",
+            "\"2026-01-05T00:00:00Z\"",
+            "\"2026-03-10T00:00:00Z\"",
+            "\"2026-03-02T10:00:00Z\"",
+            "\"2026-03-20T09:00:00Z\""
+          ],
+          [
+            "\"Ada reviews each relate release.\"",
+            "\"2026-03-10T00:00:00Z\"",
+            "null",
+            "\"2026-03-20T09:00:00Z\"",
+            "null"
+          ]
+        ],
+        "summary": "2 rows"
+      },
+      "graph": null,
+      "envelope": {
+        "columnTypes": [
+          "STRING",
+          "DATETIME",
+          "DATETIME",
+          "DATETIME",
+          "DATETIME"
+        ],
+        "columns": [
+          "fact",
+          "validFrom",
+          "validTo",
+          "recordedAt",
+          "closedAt"
+        ],
+        "error": null,
+        "notifications": [],
+        "plan": null,
+        "rows": [
+          {
+            "closedAt": "2026-03-20T09:00:00Z",
+            "fact": "Grace reviews each relate release.",
+            "recordedAt": "2026-03-02T10:00:00Z",
+            "validFrom": "2026-01-05T00:00:00Z",
+            "validTo": "2026-03-10T00:00:00Z"
+          },
+          {
+            "closedAt": null,
+            "fact": "Ada reviews each relate release.",
+            "recordedAt": "2026-03-20T09:00:00Z",
+            "validFrom": "2026-03-10T00:00:00Z",
+            "validTo": null
+          }
+        ],
+        "stats": {
+          "constraints_added": 0,
+          "constraints_removed": 0,
+          "indexes_added": 0,
+          "indexes_removed": 0,
+          "labels_added": 0,
+          "labels_removed": 0,
+          "nodes_created": 0,
+          "nodes_deleted": 0,
+          "properties_set": 0,
+          "relationships_created": 0,
+          "relationships_deleted": 0
+        }
+      },
+      "expectError": false
+    },
     "verify": {
       "kind": "table",
       "text": "| slot | current |\n|------|---------|\n0 rows",

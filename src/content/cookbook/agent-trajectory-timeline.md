@@ -262,6 +262,78 @@ RETURN t.seq AS seq, t.ts AS ts, x.at AS at,
 > `0000-01-01T00:00Z` for `datetime({epochMillis: ms})` and
 > `datetime({epochSeconds: s})` instead of the instant.
 
+## The session on a time axis
+
+Every step of one session, oldest first, with the datetime `at` beside its
+kind. The backfilled step 0 opens the axis, although it was written last.
+
+```json data=session
+{
+  "sid": "s1"
+}
+```
+
+```cypher cell=session params=session
+MATCH (s:Session {id: $sid})-[t:STEP]->(x:Step)
+RETURN t.seq AS seq, x.kind AS kind, x.at AS at
+ORDER BY t.ts
+```
+
+```table
+| seq | kind          | at                         |
+|-----|---------------|----------------------------|
+| 0   | "system"      | "2024-01-07T00:00:00Z"     |
+| 1   | "plan"        | "2024-01-07T00:01:14.647Z" |
+| 2   | "tool_call"   | "2024-01-07T00:02:32.928Z" |
+| 3   | "observation" | "2024-01-07T00:03:51.476Z" |
+| 4   | "plan"        | "2024-01-07T00:04:48.677Z" |
+| 5   | "tool_call"   | "2024-01-07T00:05:42.969Z" |
+| 6   | "observation" | "2024-01-07T00:06:30.713Z" |
+| 7   | "plan"        | "2024-01-07T00:07:26.034Z" |
+| 8   | "tool_call"   | "2024-01-07T00:08:45.661Z" |
+| 9   | "observation" | "2024-01-07T00:09:43.126Z" |
+| 10  | "plan"        | "2024-01-07T00:10:58.53Z"  |
+| 11  | "tool_call"   | "2024-01-07T00:11:56.33Z"  |
+| 12  | "observation" | "2024-01-07T00:13:00.607Z" |
+| 13  | "plan"        | "2024-01-07T00:13:51.176Z" |
+| 14  | "tool_call"   | "2024-01-07T00:15:02.834Z" |
+| 15  | "observation" | "2024-01-07T00:16:04.479Z" |
+| 16  | "plan"        | "2024-01-07T00:17:08.421Z" |
+| 17  | "tool_call"   | "2024-01-07T00:18:00.494Z" |
+| 18  | "observation" | "2024-01-07T00:19:10.824Z" |
+| 19  | "plan"        | "2024-01-07T00:19:55.859Z" |
+| 20  | "tool_call"   | "2024-01-07T00:21:11.66Z"  |
+| 21  | "observation" | "2024-01-07T00:22:24.171Z" |
+| 22  | "plan"        | "2024-01-07T00:23:22.179Z" |
+| 23  | "tool_call"   | "2024-01-07T00:24:12.89Z"  |
+| 24  | "observation" | "2024-01-07T00:25:24.763Z" |
+| 25  | "plan"        | "2024-01-07T00:26:16.385Z" |
+| 26  | "tool_call"   | "2024-01-07T00:27:33.289Z" |
+| 27  | "observation" | "2024-01-07T00:28:30.635Z" |
+| 28  | "plan"        | "2024-01-07T00:29:24.218Z" |
+| 29  | "tool_call"   | "2024-01-07T00:30:16.853Z" |
+| 30  | "observation" | "2024-01-07T00:31:01.883Z" |
+| 31  | "plan"        | "2024-01-07T00:31:48.169Z" |
+| 32  | "tool_call"   | "2024-01-07T00:32:39.744Z" |
+| 33  | "observation" | "2024-01-07T00:33:53.68Z"  |
+| 34  | "plan"        | "2024-01-07T00:35:00.238Z" |
+| 35  | "tool_call"   | "2024-01-07T00:35:50.106Z" |
+| 36  | "observation" | "2024-01-07T00:36:51.032Z" |
+| 37  | "plan"        | "2024-01-07T00:38:00.391Z" |
+| 38  | "tool_call"   | "2024-01-07T00:39:17.092Z" |
+| 39  | "observation" | "2024-01-07T00:40:14.073Z" |
+| 40  | "answer"      | "2024-01-07T00:41:14.04Z"  |
+41 rows
+```
+
+The timeline draws those rows, one lane per kind. Its slider sets the
+`since` cutoff from [Everything since a cutoff](#everything-since-a-cutoff)
+and runs that step again for the same session, so the steps it keeps light
+up.
+
+:::timeline{cell=session start=at lane=kind label=seq asof=since param=since match=seq}
+:::
+
 ## Which tool each step called
 
 One more hop reaches the tool. Tool names are unique, so each step reaches

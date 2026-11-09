@@ -26,7 +26,8 @@ Node 22.18 or later (CI runs Node 24), npm, and Chrome for the browser checks.
 npm install && npm ci --prefix playground && npm ci --prefix workers/docs-mcp
 npm run dev                # the site on http://127.0.0.1:8765
 npm run dev:playground     # the playground on http://localhost:5173/playground/
-npm run build              # dist/, including the playground
+npm run build              # dist/, including the playground (reused from a cache when it is unchanged)
+npm run build:site         # dist/ without the playground, for site-only changes
 ```
 
 The checks CI runs on every pull request:

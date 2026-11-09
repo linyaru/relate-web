@@ -91,7 +91,9 @@ npm run dev:playground    # the playground's own dev server, http://localhost:51
 npm run mcp:dev           # the docs MCP Worker under wrangler dev --local, http://127.0.0.1:8787/mcp (no login; search_docs is full-text there)
 
 # build and type-check
-npm run build             # -> dist/ (astro build, then the playground into dist/playground/)
+npm run build             # -> dist/ (astro build, search index, then the playground into dist/playground/)
+npm run build:site        # the same without the playground (~80s); use it for site-only changes
+npm run build:playground  # reuses the last playground build when its inputs are unchanged (node_modules/.cache); build:playground:force rebuilds
 npm run check             # astro check
 npm run check:playground  # tsc for playground/
 npm run mcp:test          # the Worker's unit tests (no build needed) and its tsc (needs generated/, so after mcp:bundle)

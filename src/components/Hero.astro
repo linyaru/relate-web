@@ -1,0 +1,282 @@
+---
+// Home hero: headline, the two calls to action, and the install panel (tabs, one command, copy,
+// "Copy for agent"). The version comes from the docs' engine data, so it tracks the release.
+// Commands are the ones the docs verify (get-started/*); the agent briefing is /skill.md.
+import engine from '../content/docs/_data/engine.json';
+
+const version = `v${engine.version}`;
+const SITE = 'https://relatedb.ai';
+const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
+const SECURITY = 'The install script verifies release signatures and SHA256 checksums.';
+
+interface Tab { id: string; label: string; cmd?: string; note: string; more?: { label: string; href: string }[] }
+const tabs: Tab[] = [
+  { id: 'skill', label: 'Agent skill', cmd: `curl -sSfL ${SITE}/install.sh | bash && relate skill install --agent claude-code`, note: `Installs the CLI, then the relate skill for Claude Code. ${SECURITY}` },
+  { id: 'shell', label: 'Shell', cmd: `curl -sSfL ${SITE}/install.sh | bash`, note: `macOS and Linux. ${SECURITY} Windows: download the binary from the releases page.` },
+  { id: 'py', label: 'Python', cmd: 'pip install relate-db', note: 'The Python client.' },
+  { id: 'js', label: 'JavaScript', cmd: 'npm install @relate/relate', note: 'For Node.js. In the browser, use @relate/relate-wasm.' },
+  { id: 'rust', label: 'Rust', cmd: 'cargo add --git https://github.com/relatedb/relate relate', note: 'Use relate as a crate inside your application.' },
+  {
+    id: 'more', label: 'More', note: 'Swift, Java, Go and C are covered in the docs.',
+    more: [
+      { label: 'Swift', href: '/docs/get-started/swift' },
+      { label: 'Java', href: '/docs/get-started/java' },
+      { label: 'Go', href: '/docs/get-started/go' },
+      { label: 'C', href: '/docs/get-started/c' },
+    ],
+  },
+];
+const first = tabs[0];
+---
+<section class="hero" aria-labelledby="h-hero" data-hero data-version={version} data-tabs={JSON.stringify(tabs)} data-prompt={PROMPT}>
+  <div class="hero-in">
+    <!-- TODO: the hackathon's final URL. The banner runs one month; remove it then. -->
+    <div class="ann">
+      <span class="ann-t">Relate Hackathon</span>
+      <span class="ann-x">Build something with Relate</span>
+      <a class="ann-b" href="#" aria-label="Join the Relate Hackathon">Join<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
+
+    <h1 id="h-hero">Agents <span class="hh-t" aria-hidden="true"><svg viewBox="0 0 16 14" shape-rendering="crispEdges"><path fill="#010609" d="M5 1h6v1h-6zM4 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM12 3h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM7 5h2v1h-2zM13 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM6 7h1v1h-1zM9 7h1v1h-1zM13 7h1v1h-1zM2 8h1v1h-1zM6 8h1v1h-1zM9 8h1v1h-1zM13 8h1v1h-1zM1 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM14 9h1v1h-1zM1 10h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM14 10h1v1h-1zM1 11h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM14 11h1v1h-1zM2 12h4v1h-4zM10 12h4v1h-4z"/><path fill="#D6F7F8" d="M5 2h6v1h-6zM4 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM9 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM10 7h1v1h-1zM3 8h1v1h-1zM10 8h1v1h-1zM2 9h1v1h-1zM10 9h1v1h-1zM2 10h1v1h-1zM10 10h1v1h-1zM2 11h1v1h-1zM10 11h1v1h-1z"/><path fill="#8FE3E8" d="M5 3h1v1h-1zM7 3h2v1h-2zM10 3h1v1h-1zM4 4h1v1h-1zM11 4h1v1h-1zM4 5h2v1h-2zM10 5h2v1h-2zM4 6h1v1h-1zM11 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM3 9h2v1h-2zM11 9h2v1h-2zM3 10h2v1h-2zM11 10h2v1h-2z"/><path fill="#4C99A4" d="M11 3h1v1h-1zM7 4h2v1h-2zM12 4h1v1h-1zM6 5h1v1h-1zM12 5h1v1h-1zM5 6h1v1h-1zM12 6h1v1h-1zM5 7h1v1h-1zM12 7h1v1h-1zM5 8h1v1h-1zM12 8h1v1h-1zM5 9h1v1h-1zM13 9h1v1h-1zM5 10h1v1h-1zM13 10h1v1h-1zM3 11h3v1h-3zM11 11h3v1h-3z"/><path fill="#FF8E6A" d="M5 4h1v1h-1zM10 4h1v1h-1z"/></svg></span> that understand data.</h1>
+    <p class="hero-sub">
+      Relate is an open-source embedded database for AI agents. Give your agents a place to keep their data
+      and see how it all connects. No signup. No server to deploy.
+    </p>
+
+    <div class="hero-btns">
+      <a class="hbtn hbtn-primary" href="/#quickstart">Get started</a>
+      <a class="hbtn" href="/playground/" target="_blank" rel="noopener">Open the playground<span class="sr-only"> (opens in new tab)</span></a>
+    </div>
+
+    <div class="hpanel">
+      <div class="hitabs" id="hi-tabs" role="tablist" aria-label="Install method">
+        {tabs.map((t) => (
+          <button type="button" role="tab" id={`it-${t.id}`} aria-selected={String(t.id === first.id)} tabindex={t.id === first.id ? 0 : -1} data-tab={t.id}>{t.label}</button>
+        ))}
+      </div>
+      <div class="hbody" role="tabpanel" aria-labelledby={`it-${first.id}`} id="hi-panel">
+        <div class="hrow"><code id="hi-cmd" translate="no"><span class="ps">$</span>{first.cmd}</code></div>
+        <p class="hnote" id="hi-note">{first.note}</p>
+        <button class="hcopy" type="button" id="hi-copy" aria-label="Copy command">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"></path></svg>
+        </button>
+      </div>
+      <div class="hfoot">
+        <button type="button" class="hfa" id="hi-agent">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"></path></svg>
+          <span class="hfa-t">Copy for agent</span>
+        </button>
+        <a class="hfd" href="/docs/">Read docs<span aria-hidden="true">&nbsp;&#8599;</span></a>
+      </div>
+      <p class="sr-only" id="hi-live" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; padding: 72px 24px 56px; text-align: center; overflow: hidden; }
+  .hero::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 40%),
+      radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--rel) 8%, transparent), transparent 40%);
+  }
+  .hero-in { position: relative; max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
+
+  .ann {
+    display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 0 44px; padding: 4px;
+    border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-1);
+  }
+  .ann-t {
+    display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px;
+    background: var(--brand-soft); color: var(--brand); font: 500 13px/1 var(--font); white-space: nowrap;
+  }
+  .ann-x { color: var(--ink); font: 400 14px/1 var(--font); white-space: nowrap; }
+  .ann-b {
+    display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px 0 14px;
+    border-radius: 999px; background: var(--surface-2); color: var(--ink);
+    font: 500 13px/1 var(--font); text-decoration: none; transition: background-color .15s;
+  }
+  .ann-b:hover { background: var(--surface-3); }
+  .ann-b svg { flex: none; transition: transform .15s; }
+  .ann-b:hover svg { transform: translateX(2px); }
+  @media (max-width: 560px) { .ann-x { display: none; } }
+
+  h1 {
+    margin: 0; font: 500 clamp(46px, 6.2vw, 92px) / 1 var(--font);
+    letter-spacing: -.05em; text-wrap: balance; color: var(--ink); max-width: 12.5ch;
+  }
+  .hh-t {
+    position: relative; display: inline-flex; height: 1.24em; margin: 0 -.1em; vertical-align: -.16em;
+    transform: rotate(-7deg);
+  }
+  .hh-t :global(svg) { height: 100%; width: auto; animation: flt 7s ease-in-out infinite; }
+  @keyframes flt {
+    0%, 100% { transform: translateY(.02em) rotate(0); }
+    50% { transform: translateY(-.03em) rotate(1.5deg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .hh-t :global(svg) { animation: none; } }
+  .hero-sub {
+    margin: 24px 0 0; max-width: 56ch; color: var(--ink-muted);
+    font-size: clamp(17px, 1.5vw, 20px); line-height: 28px; text-wrap: balance;
+  }
+
+  .hero-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 28px; }
+  .hbtn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 44px; padding: 0 18px; border: 0; border-radius: 6px;
+    background: var(--surface-2); color: var(--ink);
+    font: 500 15px/1 var(--font); text-decoration: none; cursor: pointer;
+    transition: background-color .15s, opacity .15s, transform .1s;
+  }
+  .hbtn:hover { background: var(--surface-3); }
+  .hbtn:active { transform: scale(.98); }
+  .hbtn-primary { background: var(--ink); color: var(--surface-0); }
+  .hbtn-primary:hover { background: var(--ink); opacity: .88; }
+
+  /* install panel */
+  .hpanel {
+    width: 100%; max-width: 640px; margin-top: 36px; padding: 8px; text-align: left;
+    background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 12px;
+  }
+  .hitabs {
+    display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
+    padding: 4px 4px 12px; margin: -4px -4px 0; scroll-padding-inline: 8px;
+  }
+  .hitabs::-webkit-scrollbar { display: none; }
+  .hitabs button {
+    flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: none;
+    color: var(--ink-muted); font: 500 14px/1 var(--font); cursor: pointer; white-space: nowrap;
+  }
+  .hitabs button:hover { color: var(--ink); }
+  .hitabs button[aria-selected='true'] { background: var(--ink); color: var(--surface-0); }
+  .hitabs button:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
+  :global(:root[data-theme='light']) .hitabs button[aria-selected='true'] { background: var(--surface-3); color: var(--ink); }
+  @media (prefers-color-scheme: light) {
+    :global(:root:not([data-theme='dark'])) .hitabs button[aria-selected='true'] { background: var(--surface-3); color: var(--ink); }
+  }
+
+  .hbody {
+    position: relative; padding: 20px 60px 20px 20px; min-height: 0;
+    background: var(--win); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .hrow { font: 400 14px/26px var(--mono); }
+  .hrow code { display: block; white-space: pre-wrap; word-break: break-word; font: inherit; }
+  .hrow :global(.ps) { color: var(--ink-muted); margin-right: 10px; user-select: none; }
+  .hrow :global(a) { display: inline-block; margin: 0 20px 0 0; color: var(--ink); text-underline-offset: 4px; }
+  /* The design hides the note; it stays in the markup (the install script's verification line) to restore. */
+  .hnote { display: none; margin: 16px 0 0; font: 400 13px/22px var(--mono); color: var(--ink-muted); }
+  .hnote::before { content: '# '; }
+  .hcopy {
+    position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--ink-muted); cursor: pointer;
+  }
+  .hcopy:hover { color: var(--ink); background: var(--surface-3); }
+  .hcopy.done { color: var(--success); }
+  .hcopy[hidden] { display: none; }
+
+  .hfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0 0; }
+  .hfa, .hfd {
+    display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px;
+    background: none; border: 0; border-radius: 6px; color: var(--ink-muted);
+    font: 500 14px/1 var(--font); text-decoration: none; cursor: pointer; white-space: nowrap;
+  }
+  .hfa:hover, .hfd:hover { color: var(--ink); }
+
+  @media (max-width: 900px) { .hero { padding: 48px 16px 40px; } }
+  @media (max-width: 560px) { .hbody { padding-right: 52px; } .hero-btns .hbtn { flex: 1 1 100%; } }
+</style>
+
+<script>
+  type Tab = { id: string; label: string; cmd?: string; note: string; more?: { label: string; href: string }[] };
+  const root = document.querySelector<HTMLElement>('[data-hero]');
+  if (root) {
+    const tabs: Tab[] = JSON.parse(root.dataset.tabs ?? '[]');
+    const prompt = root.dataset.prompt ?? '';
+    const list = root.querySelector<HTMLElement>('#hi-tabs')!;
+    const cmd = root.querySelector<HTMLElement>('#hi-cmd')!;
+    const note = root.querySelector<HTMLElement>('#hi-note')!;
+    const panel = root.querySelector<HTMLElement>('#hi-panel')!;
+    const copy = root.querySelector<HTMLButtonElement>('#hi-copy')!;
+    const agent = root.querySelector<HTMLButtonElement>('#hi-agent')!;
+    const live = root.querySelector<HTMLElement>('#hi-live')!;
+    const buttons = () => [...list.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+    let current = tabs[0]?.id ?? '';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const show = (id: string, focus = false) => {
+      const t = tabs.find((x) => x.id === id);
+      if (!t) return;
+      current = id;
+      for (const b of buttons()) {
+        const on = b.dataset.tab === id;
+        b.setAttribute('aria-selected', String(on));
+        b.tabIndex = on ? 0 : -1;
+        if (on && focus) b.focus();
+      }
+      panel.setAttribute('aria-labelledby', `it-${id}`);
+      cmd.replaceChildren();
+      if (t.more) {
+        for (const m of t.more) {
+          const a = document.createElement('a');
+          a.href = m.href;
+          a.textContent = m.label;
+          cmd.append(a);
+        }
+        copy.hidden = true;
+      } else {
+        const ps = document.createElement('span');
+        ps.className = 'ps';
+        ps.textContent = '$';
+        cmd.append(ps, t.cmd ?? '');
+        copy.hidden = false;
+        copy.classList.remove('done');
+      }
+      note.textContent = t.note;
+    };
+
+    list.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[role=tab]');
+      if (b?.dataset.tab) show(b.dataset.tab);
+    });
+    list.addEventListener('keydown', (e) => {
+      const all = buttons();
+      const i = all.findIndex((b) => b === document.activeElement);
+      if (i < 0) return;
+      const step: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+      if (!(e.key in step) && e.key !== 'Home' && e.key !== 'End') return;
+      e.preventDefault();
+      const n = e.key === 'Home' ? 0 : e.key === 'End' ? all.length - 1 : (i + step[e.key] + all.length) % all.length;
+      show(all[n].dataset.tab!, true);
+    });
+
+    const write = async (text: string): Promise<boolean> => {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const say = (ok: boolean) => {
+      live.textContent = ok ? 'Copied to clipboard' : 'Copy failed';
+      clearTimeout(timer);
+      timer = setTimeout(() => (live.textContent = ''), 1800);
+    };
+    copy.addEventListener('click', async () => {
+      const ok = await write(tabs.find((x) => x.id === current)?.cmd ?? '');
+      copy.classList.toggle('done', ok);
+      say(ok);
+      setTimeout(() => copy.classList.remove('done'), 1800);
+    });
+    const label = agent.querySelector<HTMLElement>('.hfa-t')!;
+    agent.addEventListener('click', async () => {
+      const ok = await write(prompt);
+      label.textContent = ok ? 'Copied' : 'Copy failed';
+      say(ok);
+      setTimeout(() => (label.textContent = 'Copy for agent'), 1600);
+    });
+  }
+</script>

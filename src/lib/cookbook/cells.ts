@@ -90,6 +90,24 @@ export function parseDataInfo(lang: string | null | undefined, meta: string | nu
   return m ? m[1] : null;
 }
 
+/**
+ * A twin's stub for a large parameters block (```json data=<name> src=<url>,
+ * src/lib/docs/data-blocks.ts): the block's name and the URL of its file, or
+ * null for any other fence.
+ */
+export function parseDataRef(lang: string | null | undefined, meta: string | null | undefined): { name: string; src: string } | null {
+  if (lang !== 'json') return null;
+  const m = /^data=([A-Za-z0-9_-]+)\s+src=(\S+)$/.exec((meta ?? '').trim());
+  return m ? { name: m[1], src: m[2] } : null;
+}
+
+/** A parameters block a twin links instead of carrying: its file's URL and, from the stub, its size and SHA-256. */
+export interface TwinDataRef {
+  src: string;
+  bytes: number | null;
+  sha256: string | null;
+}
+
 /** A docs cell as the hand-off carries it. */
 export interface TwinCell {
   id: string;
@@ -105,12 +123,20 @@ export interface TwinCell {
  * A docs page's title, cells and parameters blocks, read from its markdown
  * twin (`/docs/<page>.md`): every top-level fence (indented up to three
  * spaces, as in a list item), in page order, with the same ids the page gives
- * them (`name=<id>`, else `cell-<n>`). Throws on a malformed info string.
+ * them (`name=<id>`, else `cell-<n>`). A block the twin links instead of
+ * carrying (a stub, `json data=<name> src=<url>`) is in `refs`, not `data`.
+ * Throws on a malformed info string.
  */
-export function twinCells(markdown: string): { title: string | null; cells: TwinCell[]; data: Record<string, string> } {
+export function twinCells(markdown: string): {
+  title: string | null;
+  cells: TwinCell[];
+  data: Record<string, string>;
+  refs: Record<string, TwinDataRef>;
+} {
   const lines = markdown.replace(/^---\n[\s\S]*?\n---\n/, '').split('\n');
   const cells: TwinCell[] = [];
   const data: Record<string, string> = {};
+  const refs: Record<string, TwinDataRef> = {};
   let pageTitle: string | null = null;
   let heading: string | null = null;
   for (let i = 0; i < lines.length; i++) {
@@ -137,6 +163,20 @@ export function twinCells(markdown: string): { title: string | null; cells: Twin
     }
     const name = parseDataInfo(lang, meta);
     if (name !== null) data[name] = body.join('\n');
+    const ref = parseDataRef(lang, meta);
+    if (ref) {
+      let stub: { bytes?: unknown; sha256?: unknown } = {};
+      try {
+        stub = JSON.parse(body.join('\n')) as typeof stub;
+      } catch {
+        // A stub that is not JSON still names its file; the fetch is not checked.
+      }
+      refs[ref.name] = {
+        src: ref.src,
+        bytes: typeof stub.bytes === 'number' ? stub.bytes : null,
+        sha256: typeof stub.sha256 === 'string' ? stub.sha256 : null,
+      };
+    }
   }
-  return { title: pageTitle, cells, data };
+  return { title: pageTitle, cells, data, refs };
 }

@@ -104,7 +104,9 @@ test('isOwnTwin: a twin answers only the URL its canonical_url names', () => {
   assert.equal(isOwnTwin('/docs/x/', 'not a url'), false);
 });
 
-test('agentPathKind names the skill, the llms.txt files and the twins, and nothing else', () => {
+test('agentPathKind names the skill, the llms.txt files, the twins and the data blocks they link, and nothing else', () => {
+  assert.equal(agentPathKind('/docs/guides/cypher/vector-search/data/notes.json'), 'data');
+  assert.equal(agentPathKind('/docs/capabilities.json'), null);
   assert.equal(agentPathKind('/skill.md'), 'skill');
   assert.equal(agentPathKind('/skills/relate/SKILL.md'), 'skill');
   assert.equal(agentPathKind('/.well-known/agent-skills/index.json'), 'skill');

@@ -20,8 +20,9 @@
 //   ```cypher run [name=<id>] [params=<name>] [expect=error]
 //       page: the cell with its recorded result (a static graph form for a graph), runnable with the page runtime
 //                                                        twin: the fence, then a ```table (or ```gram) block, then a link to the static graph form
-//   ```json data=<name> (a cell's parameters)
-//       page: inside the cell that names it, editable    twin: the fence verbatim
+//   ```json data=<name> (a cell's parameters; also served at /docs/<page>/data/<name>.json)
+//       page: inside the cell that names it, editable    twin: the fence verbatim up to 2 KiB; a larger block becomes
+//                                                        a ```json data=<name> src=<url> stub with its size, SHA-256 and shape (data-blocks.ts)
 //   ```python run / ```js run [name=<id>] [title="<file>"] (verified samples, samples.ts)
 //       page: the code block, then its recorded output   twin: the fence, then a ```text block of the output
 //   ::::agentic holding :::human[Label] and :::agent[Label] (labels optional), once each
@@ -78,6 +79,7 @@ import { configProblems, DEEPLINK_HOSTS, deeplinkHref, NAME_PATTERN, type Server
 import { elementNames, elementUse, markdownNodes, readForm, type FormContext } from './elements.ts';
 import { extrasKey } from './elements/_graph-extras-static.ts';
 import { wordModules } from '../cookbook/cells.ts';
+import { dataStub, inlinedInTwin, stubMeta, stubText, type DataStub } from './data-blocks.ts';
 
 export const CALLOUTS = ['note', 'tip', 'warning', 'danger'] as const;
 export const STATUS_BADGES = ['preview', 'deprecated'] as const;
@@ -581,8 +583,20 @@ function code(node: Code, st: State): Node[] {
   }
   if (sample) return sampleBlock(node, sample, st);
   if (node.lang === 'mermaid') return mermaid(node, st);
-  // A cell's parameters: shown inside the cell that names it.
-  if (parseDataInfo(node.lang, node.meta) !== null) return st.target === 'markdown' ? [node] : [];
+  // A cell's parameters: shown inside the cell that names it; in the twin, the
+  // block itself, or a stub linking its file when it is a dataset (data-blocks.ts).
+  const dataName = parseDataInfo(node.lang, node.meta);
+  if (dataName !== null) {
+    if (st.target !== 'markdown') return [];
+    if (inlinedInTwin(node.value)) return [node];
+    let stub: DataStub;
+    try {
+      stub = dataStub(pageIdOf(st.ctx.file), dataName, node.value);
+    } catch {
+      return [node]; // not a JSON object: collectCells reports it
+    }
+    return [{ type: 'code', lang: 'json', meta: stubMeta(stub), value: stubText(stub) }];
+  }
   if (st.target === 'markdown') return [node];
   // `title="app.py"` in the fence meta names the block's file (STYLE.md §4.6); the twin keeps the meta as written.
   const title = /(?:^|\s)title="([^"]*)"/.exec(node.meta ?? '')?.[1];

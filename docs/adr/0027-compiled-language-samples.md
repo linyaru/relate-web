@@ -79,3 +79,8 @@ and it requires Python below 3.14.
 - After launch the five clients come from their published packages, and
   their package versions should then equal the engine's; revisit point 2
   then.
+
+## Later references
+
+- Extended by ADR-0052: each sample is also served as a manifest that
+  names the client build it last ran on.

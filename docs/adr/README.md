@@ -124,3 +124,4 @@ Copy `template.md`.
 | [0044](0044-no-performance-page-or-benchmarks-in-docs.md) | The docs have no performance page and cite no benchmarks | Proposed |
 | [0046](0046-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |
 | [0048](0048-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |
+| [0052](0052-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |

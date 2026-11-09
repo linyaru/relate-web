@@ -8,6 +8,7 @@ import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
 import type { Engine } from './content.ts';
 import { EVALUATE, LLMS_GROUPS, llmsGroupOf } from './landing.ts';
 import { CHANGELOG_FEED_URL, estimateTokens, FEEDBACK_URL, tokenLabel, twinUrl } from './model.ts';
+import { SAMPLES_INDEX_PATH } from './sample-manifests.ts';
 
 export interface IndexedPage {
   id: string;
@@ -43,6 +44,7 @@ export function factsBlock(engine: Engine): string {
     `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
     `- Task skills, one per task family (agent memory, GraphRAG, schema design, query tuning, migrating from vector search): the "Task skills" section of \`${CANONICAL_ORIGIN}/skill.md\`, each at \`${CANONICAL_ORIGIN}/skills/<name>/SKILL.md\`; the skills CLI installs one by name (\`npx skills add ${CANONICAL_ORIGIN} --skill <name>\`).`,
     `- Problems relate solves, as data: \`${CANONICAL_ORIGIN}/docs/capabilities.json\` (each problem mapped to its capability, guides, recipes, recommended data model and the recorded run that verifies it, or null where none does yet; the page: \`${CANONICAL_ORIGIN}${twinUrl('concepts/problems-relate-solves')}\`).`,
+    `- Verified language samples, as data: \`${CANONICAL_ORIGIN}${SAMPLES_INDEX_PATH}\` indexes one manifest per sample (\`<page url>samples/<id>.json\`): the program, its recorded output with a SHA-256, the client build it last ran on, and how the docs' runner builds and runs it. A twin's \`samples\` frontmatter lists its page's manifests.`,
     `- Every page below is markdown at its URL plus \`.md\` (also \`<url>/index.md\`). Whole sections: \`${CANONICAL_ORIGIN}/docs/<section>/llms-full.txt\`; everything: \`${CANONICAL_ORIGIN}/docs/llms-full.txt\`.`,
     `- What changed in each release: \`${CANONICAL_ORIGIN}${twinUrl('reference/changelog')}\` (JSON Feed: \`${CANONICAL_ORIGIN}${CHANGELOG_FEED_URL}\`). Terms: \`${CANONICAL_ORIGIN}${twinUrl('reference/glossary')}\` (as JSON: \`${CANONICAL_ORIGIN}/docs/glossary.json\`).`,
     `- A wrong or missing page: \`${CANONICAL_ORIGIN}${FEEDBACK_URL}\` says what a report holds; the operator decides whether to send it.`,

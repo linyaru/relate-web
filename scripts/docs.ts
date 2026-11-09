@@ -228,6 +228,7 @@ import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
 import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
 import { blankFrontmatter, bodyFences, checkFirstUse, checkGlossaryFiles, checkGlossaryLinks, checkUnusedTerms, linkedTerms, twinTermsProblems } from '../src/lib/docs/checks/glossary.ts';
 import { checkGraph } from '../src/lib/docs/checks/graph.ts';
+import { checkSampleManifests } from '../src/lib/docs/checks/sample-manifests.ts';
 import { builtDataProblems, twinDataProblems, twinStubs } from '../src/lib/docs/checks/data.ts';
 import { sha256Hex } from '../src/lib/docs/data-blocks.ts';
 import { checkSamples } from '../src/lib/docs/checks/samples.ts';
@@ -1463,6 +1464,7 @@ async function main(): Promise<number> {
   await checkCells(site, report);
   await checkElements(site, report);
   checkSamples(site, report, clientEnv());
+  checkSampleManifests(site, report, args.built ? site.dist : null);
   checkGlossary(site);
   checkGenerated(site, report, DIST);
   for (const g of GENERATED) {

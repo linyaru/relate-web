@@ -28,7 +28,8 @@ npm run deploy         # wrangler deploy (launch; needs CLOUDFLARE_API_TOKEN and
 files and fails when an input is missing or a twin and the docs graph disagree
 about where a section starts, or `?section=`'s slicer cannot find a section
 where the bundle put it, or a built `recipe.json` differs from its recipe's
-source, or the seed's vector statements or the WASM glue are not the shape
+source, or a sample manifest's bytes do not hash to the sha256
+`/docs/samples.json` gives it, or the seed's vector statements or the WASM glue are not the shape
 `scripts/seed.ts` expects.
 
 `npm run dev` and every check run `wrangler dev --local`. Workers AI has no
@@ -270,8 +271,14 @@ its notes, from `/releases.json`), `relate-docs://capabilities`
 (`/docs/capabilities.json` byte for byte), and
 `relate-docs://example/{recipe}/{cell}` (listed once per cell, 151: the
 cell's statement, title, URL, playground link, parameters inline up to 2 KiB
-or their URL, and recorded result, with the recipe's `verifies` summary). A
-missing resource is JSON-RPC `-32602` with `data.uri`.
+or their URL, and recorded result, with the recipe's `verifies` summary),
+`relate-docs://samples` (`/docs/samples.json` byte for byte: every verified
+language sample's manifest URL and SHA-256, and each client's build) and
+`relate-docs://sample/{+path}` (listed once per verified sample as
+`relate-docs://sample/<page id>/<sample id>`: the manifest at
+`/docs/<page>/samples/<id>.json` byte for byte, ADR-0052: the program, its
+recorded output, the client build it last ran on and how the docs' runner
+runs it). A missing resource is JSON-RPC `-32602` with `data.uri`.
 
 **Prompts**: `onboard`, no arguments: one user message, a framing paragraph
 (pinned install with every check before the binary runs, then `relate

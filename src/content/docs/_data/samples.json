@@ -1,0 +1,78 @@
+{
+  "format": 1,
+  "replayed": "2026-11-08",
+  "platform": "macOS on arm64",
+  "pins": {
+    "python_frameworks": [
+      "pandas>=2.0",
+      "langgraph==1.2.20",
+      "claude-agent-sdk==0.2.179",
+      "pydantic-ai==2.66.0",
+      "openai-agents==0.24.0",
+      "llama-index-core==0.14.25",
+      "langchain==1.4.9",
+      "langchain-core==1.7.6"
+    ],
+    "crewai": "crewai==1.15.37",
+    "node_frameworks": ["ai@7.0.165", "zod@4.6.7", "@mastra/core@1.82.0"],
+    "jdk": "jdk-21.0.13+9",
+    "maven": "3.10.0"
+  },
+  "clients": {
+    "python": {
+      "package": "relate-db",
+      "engine_commit": "6a0c391",
+      "client_commit": "6a0c391",
+      "build": "A relate-db wheel that maturin built from surfaces/relate-python at upstream 6a0c391, installed in a venv with the pinned frameworks.",
+      "toolchain": { "python": "3.15.2" },
+      "envs": {
+        "crewai": {
+          "build": "The same relate-db wheel (maturin, surfaces/relate-python at upstream 6a0c391), installed in a second venv with crewai, whose pins would hold the main venv's frameworks back.",
+          "toolchain": { "python": "3.13.16" }
+        }
+      }
+    },
+    "js": {
+      "package": "@relate/relate",
+      "engine_commit": "6a0c391",
+      "client_commit": "6a0c391",
+      "build": "A copy of clients/javascript at upstream 6a0c391 with koffi, loading librelate_ffi built from upstream 6a0c391 (cargo build -p relate-ffi --release), with the pinned frameworks beside it.",
+      "toolchain": { "node": "25.0.0" }
+    },
+    "rust": {
+      "package": "relate",
+      "engine_commit": "ac441ec",
+      "client_commit": "ac441ec",
+      "build": "The relate crate from an export of upstream ac441ec, as a path dependency of a template project carrying that commit's Cargo.lock and rust-toolchain.toml.",
+      "toolchain": { "rust": "1.88.0" }
+    },
+    "java": {
+      "package": "com.relate:relate",
+      "engine_commit": "6a0c391",
+      "client_commit": "6a0c391",
+      "build": "A copy of clients/java at upstream 6a0c391 packaged with Maven 3.10.0 (relate-0.1.0.jar, with JNA 5.14.0 and Jackson databind 2.17.2 on the classpath), loading librelate_ffi built from upstream 6a0c391.",
+      "toolchain": { "jdk": "Temurin 21.0.13+9" }
+    },
+    "go": {
+      "package": "github.com/relatedb/relate/clients/go",
+      "engine_commit": "6a0c391",
+      "client_commit": "ac441ec",
+      "build": "clients/go from an export of upstream ac441ec (the same files as at 6a0c391), built with cgo against relate.h and librelate_ffi built from upstream 6a0c391.",
+      "toolchain": { "go": "1.27.3" }
+    },
+    "swift": {
+      "package": "Relate",
+      "engine_commit": "6a0c391",
+      "client_commit": "6a0c391",
+      "build": "A copy of Package.swift and clients/swift at upstream 6a0c391, with an XCFramework made from librelate_ffi built from upstream 6a0c391.",
+      "toolchain": { "swift": "6.4.2" }
+    },
+    "c": {
+      "package": "relate.h and librelate_ffi",
+      "engine_commit": "6a0c391",
+      "client_commit": "6a0c391",
+      "build": "relate.h and librelate_ffi built from upstream 6a0c391 (cargo build -p relate-ffi --release).",
+      "toolchain": { "cc": "Apple clang 21.0.0" }
+    }
+  }
+}

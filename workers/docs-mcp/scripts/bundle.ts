@@ -11,6 +11,7 @@
 //   dist/docs/graph.json                 the same graph: pages, sections, terms, recipes
 //   dist/docs/capabilities.json          the capability catalog (discover_capabilities, relate-docs://capabilities)
 //   dist/cookbook/<slug>/recipe.json     each recipe's cells (relate-docs://example/<recipe>/<cell>)
+//   dist/docs/samples.json, dist/docs/<page>/samples/<id>.json   the verified samples' index and manifests (relate-docs://samples, relate-docs://sample/<page>/<id>)
 //   src/content/cookbook/<slug>.md       each cell's recorded result and the recipe's summary
 //   dist/docs/<id>.md                    every page's markdown twin
 //   dist/docs/llms.txt                   the index
@@ -22,7 +23,7 @@
 //   public/wasm/{relate.js,relate_bg.wasm,snippets/}   the engine
 // and writes workers/docs-mcp/generated/ (gitignored):
 //   docs.json        pages with their section offsets, refs, errors, llms.txt, skills, releases, the prompts,
-//                    the capability catalog, the cookbook examples, the dialect table
+//                    the capability catalog, the cookbook examples, the sample manifests, the dialect table
 //   graph.cypher     the seed script without the statements that set section vectors (seedWithoutVectors)
 //   vectors.txt      those vectors as the JSON parameters of VECTOR_LOAD_STATEMENT, loaded by the
 //                    hybrid lane of search_docs on first use
@@ -33,12 +34,13 @@
 // about a section's text (the twin is the source of the bytes get_page
 // returns; the graph is the source of the anchors search_docs returns), and
 // when a one-line JSON resource (the capability catalog, the releases, an
-// example cell) would pass the Worker's 96 KiB text cap.
+// example cell) or a sample manifest would pass the Worker's 96 KiB text cap.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 
 import GithubSlugger from 'github-slugger';
 import { parse as parseYaml } from 'yaml';
@@ -46,7 +48,7 @@ import { parse as parseYaml } from 'yaml';
 import { parseRecipe, verifiesSummary, INLINE_DATA_BYTES } from '../../../src/lib/cookbook/recipe.ts';
 import { factoryGlue, seedVectors, seedWithoutVectors } from './seed.ts';
 import { frontmatterEnd, plainHeading, scanHeadings, sliceSection, TERMS_HEADING, type SectionSpan, type TwinIndex } from '../src/sections.ts';
-import type { Bundle, DialectRow, ErrorEntry, ExampleCell, ExampleRecipe, PageEntry, Ref, ReleaseEntry } from '../src/types.ts';
+import type { Bundle, DialectRow, ErrorEntry, ExampleCell, ExampleRecipe, PageEntry, Ref, ReleaseEntry, SampleEntry } from '../src/types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = resolve(HERE, '..');
@@ -446,6 +448,25 @@ for (const slug of readdirSync(cookbookDist).sort()) {
 if (!Object.keys(examples).length) fail('dist/cookbook/ holds no recipe.json');
 
 // ---------------------------------------------------------------------------
+// The verified samples' manifests (ADR-0052): relate-docs://samples is
+// /docs/samples.json byte for byte, relate-docs://sample/<page>/<id> each
+// manifest it lists. A manifest whose bytes do not hash to the index's
+// sha256 means a stale build.
+
+const samplesIndexPath = join(DIST, 'docs/samples.json');
+const samplesIndexText = read(samplesIndexPath);
+const samplesIndex = JSON.parse(samplesIndexText) as { kind: string; verified: string; samples: { page: string; id: string; language: string; url: string; sha256: string }[] };
+if (samplesIndex.kind !== 'documentation') fail('dist/docs/samples.json has no kind "documentation"');
+if (samplesIndex.verified !== verified) fail(`dist/docs/samples.json is verified against ${samplesIndex.verified}, not ${verified}; rebuild the site`);
+const sampleManifests: SampleEntry[] = samplesIndex.samples.map((s) => {
+  const path = new URL(s.url).pathname;
+  const text = read(join(DIST, path));
+  if (createHash('sha256').update(text, 'utf8').digest('hex') !== s.sha256) fail(`dist${path} does not hash to the sha256 dist/docs/samples.json gives it; rebuild the site`);
+  const manifest = JSON.parse(text) as { page: { title: string } };
+  return { uri: `relate-docs://sample/${s.page}/${s.id}`, page: s.page, page_title: manifest.page.title, id: s.id, language: s.language, url: s.url, text };
+});
+
+// ---------------------------------------------------------------------------
 // The dialect notes: the Differences table of reference/cypher/differences-from-neo4j,
 // verbatim for the text-to-cypher prompt and as rows for validate_cypher's remedies.
 
@@ -561,6 +582,7 @@ const bundle: Bundle = {
   onboard: { text: onboard, source: quick.url },
   capabilities: { text: capabilitiesText, source: `${ORIGIN}/docs/capabilities.json`, page: capabilitiesJson.capabilities[0].urls.page.replace(/#.*$/, '') },
   examples,
+  samples: { index: { text: samplesIndexText, source: `${ORIGIN}/docs/samples.json` }, manifests: sampleManifests },
   dialect: { page: DIALECT_PAGE, url: dialectPage.url, md_url: dialectPage.md_url, rows: dialectRows },
   textToCypher,
 };
@@ -576,6 +598,9 @@ const overCap = (what: string, n: number) => {
 };
 overCap('relate-docs://capabilities', Buffer.byteLength(capabilitiesText));
 overCap('relate-docs://releases', Buffer.byteLength(JSON.stringify(releases)) + JSON_ENVELOPE_BYTES);
+// The sample manifests are served as the site serves them (two-space JSON): a cut at a line would still not be JSON.
+overCap('relate-docs://samples', Buffer.byteLength(samplesIndexText));
+for (const m of sampleManifests) overCap(m.uri, Buffer.byteLength(m.text));
 for (const r of Object.values(examples)) {
   const recipeMeta = { slug: r.slug, title: r.title, url: r.url, md_url: r.md_url, cells: r.cells.length, position: r.cells.length, verifies: r.verifies };
   for (const c of r.cells) overCap(`relate-docs://example/${r.slug}/${c.id}`, Buffer.byteLength(JSON.stringify({ recipe: recipeMeta, cell: c })) + JSON_ENVELOPE_BYTES);
@@ -601,7 +626,7 @@ const size = (p: string) => {
 };
 const skillFiles = Object.values(skills).reduce((n, f) => n + Object.keys(f).length, 0);
 const exampleCells = Object.values(examples).reduce((n, r) => n + r.cells.length, 0);
-console.log(`bundle: ${Object.keys(pages).length} pages, ${Object.values(pages).reduce((n, p) => n + p.index.sections.length, 0)} sections, ${errors.length} errors, ${notifications.length} notifications, ${Object.keys(skills).length} skills (${skillFiles} files), ${releases.releases.length} releases, ${capabilitiesJson.capabilities.length} capabilities, ${Object.keys(examples).length} recipes (${exampleCells} cells), ${dialectRows.length} dialect rows (${dialectRows.filter((r) => r.messages.length).length} with a message); verified ${verified}`);
+console.log(`bundle: ${Object.keys(pages).length} pages, ${Object.values(pages).reduce((n, p) => n + p.index.sections.length, 0)} sections, ${errors.length} errors, ${notifications.length} notifications, ${Object.keys(skills).length} skills (${skillFiles} files), ${releases.releases.length} releases, ${capabilitiesJson.capabilities.length} capabilities, ${Object.keys(examples).length} recipes (${exampleCells} cells), ${sampleManifests.length} sample manifests, ${dialectRows.length} dialect rows (${dialectRows.filter((r) => r.messages.length).length} with a message); verified ${verified}`);
 console.log(`  seed: ${Buffer.byteLength(seedServed)} bytes served, ${Buffer.byteLength(seed)} replayed without the ${vectorRows.length} section vectors`);
 if (anchorsGuessed.length) console.log(`  ${anchorsGuessed.length} generated-page anchors not found in the built HTML, slugged instead: ${anchorsGuessed.slice(0, 5).join(', ')}`);
 if (textDiffers.length) console.log(`  ${textDiffers.length} sections whose graph text is not byte-equal to the twin (anchors still match): ${textDiffers.slice(0, 5).join(', ')}${textDiffers.length > 5 ? ', …' : ''}`);

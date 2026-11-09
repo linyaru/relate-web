@@ -5,7 +5,7 @@ description: Move records an application keeps in JSON files into a relate store
 order: 20
 surfaces: [cli, cypher]
 prerequisites: [get-started/install]
-related: [guides/cypher/load-json-from-a-url, reference/cli/flags#fetch-params, guides/cypher/indexes-and-constraints, reference/errors#cli-fetch-params-failed, cookbook/migration-rehearsal]
+related: [guides/cypher/load-json-from-a-url, reference/cli/flags#fetch-params, guides/cypher/indexes-and-constraints, reference/errors#cli-fetch-params-failed, guides/migrate/from-sqlite, cookbook/migration-rehearsal]
 ---
 
 This guide shows you how to move records an application keeps in JSON files into a relate :term[store]{id=store}. A script file creates a uniqueness :term[constraint]{id=constraint} per record type, writes each record with `MERGE` on its id, and turns every id reference into a :term[relationship]{id=relationship}. `--fetch-params` binds each file as a :term[parameter]{id=parameter}, so the script needs no code around it, and running it twice leaves the same graph. The steps write to `./team.rl`, and each says so.

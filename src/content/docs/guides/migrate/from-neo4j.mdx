@@ -5,7 +5,7 @@ description: Decide whether a Neo4j workload fits relate, copy the graph with re
 order: 30
 surfaces: [cli, cypher, bolt]
 prerequisites: [get-started/install]
-related: [guides/neo4j/pull-from-neo4j, reference/cypher/differences-from-neo4j, reference/limitations, cookbook/migration-rehearsal, concepts/where-relate-fits, concepts/problems-relate-solves#neo4j-subgraph-mirror, concepts/problems-relate-solves#migration-rehearsal]
+related: [guides/neo4j/pull-from-neo4j, reference/cypher/differences-from-neo4j, reference/limitations, guides/migrate/from-kuzu, cookbook/migration-rehearsal, concepts/where-relate-fits, concepts/problems-relate-solves#neo4j-subgraph-mirror, concepts/problems-relate-solves#migration-rehearsal]
 ---
 
 This guide shows you how to move a graph and the application that queries it from Neo4j to relate. relate runs Neo4j's :term[Cypher]{id=cypher} inside one process, on one machine, so most statements carry over unchanged. What doesn't carry over is the server around them: procedure libraries, several databases, user accounts, and clustering. The first section lists each of those with what relate offers instead, so you can decide before you copy anything.

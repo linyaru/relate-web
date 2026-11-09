@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "embed-question",
+  "hash": "03dd403f6dab40604a854f5e7f4d4ba3126f14180da32a80cf6be936afa68da3",
+  "inputs": [],
+  "live": "a button that states the download size fetches the model's weights and tokenizer from huggingface.co and the ONNX runtime from this site, checks each file's SHA-256, embeds the question you type in your browser (the question is never sent anywhere), and runs the step's vector search with that vector in place of the stored one on the page's database in your browser; nothing downloads before the press.",
+  "engine": true,
+  "text": "The element embeds a typed question with the model that made these vectors: [bge-small-en-v1.5](https://huggingface.co/Xenova/bge-small-en-v1.5/tree/ea104dacec62c0de699686887e3f920caeb4f3e3) at revision `ea104da`, with CLS pooling, normalized, as its half-precision ONNX weights. The button downloads 82 MB: the weights (66.7 MB) and the tokenizer (0.7 MB) from huggingface.co, and the ONNX runtime (14.2 MB) from this site. Nothing downloads before the press, and each file is checked against its SHA-256 before it is used. The question, at most 200 characters, is embedded in the browser tab and never sent anywhere.\n\nStep `vector` then runs with its first line, `MATCH (question:Question {text: $q})`, replaced by `WITH {embedding: vector($embedding, 384, FLOAT32)} AS question`, so `question.embedding` is the typed question's vector and every other line runs as written.\n\nStep `vector`'s recorded result, for the stored question \"stop the model from deleting nodes\":\n\n| page | heading | score |\n| --- | --- | --- |\n| guides/agents/agent-safety | Verify | 0.8171 |\n| guides/agents/agent-safety | Permission matrix | 0.81 |\n| guides/agents/agent-safety | Turn on safe mode | 0.8067 |\n| guides/agents/agent-safety | Back up before a write | 0.8018 |\n| guides/agents/agent-safety | Control network egress | 0.7987 |",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "24185dd0ad6f1b07f512c25c071a4617e0115576566d4061ef980562fec38113"
+}

@@ -141,6 +141,30 @@ export interface CellResult extends ElementRun {
   problem: string | null;
 }
 
+/** A run on an element's own database (`PageApi.scratch`): the envelopes, without a rendered recording. */
+export interface ScratchRun {
+  /** One envelope per statement run (a script stops after its first error), parsed, timings included. */
+  envelopes: Envelope[];
+  /** Wall time in the worker, ms. */
+  ms: number;
+  /** The last envelope's error, or null. */
+  error: string | null;
+  /** Bytes of the WebAssembly memory of the engine that ran it, after the run, or null. It grows with the graph and never shrinks until `close()`. */
+  memory: number | null;
+}
+
+/** A database of an element's own: see `PageApi.scratch`. */
+export interface ScratchDb {
+  /** The relate version of the engine behind it (the same build as the page's). */
+  version: string | null;
+  /** Run `code` (one script; `params` JSON text) on this database. Rejects once it is closed, or when the engine crashed (which closes it). */
+  run(code: string, params?: string | null): Promise<ScratchRun>;
+  /** Whether it is closed: by `close()`, or by a crash. */
+  closed(): boolean;
+  /** Terminate its engine: a run in progress rejects, and the tab gets back every byte the engine held. */
+  close(): void;
+}
+
 export interface EngineInfo {
   version: string | null;
   loadMs: number;
@@ -198,6 +222,20 @@ export interface PageApi {
   onReducedMotion(listener: (reduced: boolean) => void): () => void;
   /** The one graph module (NVL, canvas renderer), loaded on first call. */
   graph(): Promise<typeof import('../cookbook/graph.ts')>;
+  /**
+   * Open a database of the element's own: a fresh writable in-memory
+   * database in a second engine worker, the same build as the page's. The
+   * page's database and cells never see it, it takes no part in the cells'
+   * lock (its runs overlap theirs; the engine bar's Stop and Reset do not
+   * reach it), and a trap in it leaves the page's engine running. It is for
+   * an element whose writes would change what the page's cells return, or
+   * whose graph is too large to share the page's engine (`:::scale-demo`).
+   * A WebAssembly memory grows and never shrinks, so only ending the worker
+   * gives the memory back: the element calls `close()` when the reader is
+   * done with it, on the page's Reset, and in `mount`'s returned function.
+   * Resolves once the engine is ready.
+   */
+  scratch(): Promise<ScratchDb>;
 }
 
 /** What an element module's `mount` receives. */

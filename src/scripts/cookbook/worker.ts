@@ -8,8 +8,10 @@
 //               {id, type: 'run', code, params}   params: JSON text or null
 //               {id, type: 'reset'}
 //               {id, type: 'run-read-only', code, params}   a fresh read-only database, freed after
+//               {id, type: 'run', code, params, bare: true}   no rendering: recording null, plus memory
 // Messages out: {id, ok: true, loadMs, version}                     (init)
 //               {id, ok: true, envelopes, recording, ms}            (run, run-read-only)
+//               {id, ok: true, envelopes, recording: null, ms, memory}   (a bare run)
 //               {id, ok: true}                                      (reset)
 //               {id, ok: false, trap, message}                      (any failure)
 //
@@ -27,6 +29,13 @@
 // instance, though: a trap in the read-only run poisons it, and the session
 // discards this worker and the page's database with it, as after any trap.
 //
+// A bare run is for an element's database of its own (PageApi.scratch, a
+// second worker): its results can be large (a hundred thousand ids read
+// back to draw), so the worker skips `renderResult`, which would turn them
+// into a text table no one reads, and reports `memory`, the bytes of the
+// module's WebAssembly memory, which grows with the graph and never shrinks
+// until the worker ends.
+//
 // The engine is public/wasm, loaded at runtime from /wasm/ so Vite never
 // bundles or rewrites it (CLAUDE.md).
 
@@ -39,7 +48,7 @@ interface Db {
 type Message =
   | { id: number; type: 'init' }
   | { id: number; type: 'reset' }
-  | { id: number; type: 'run' | 'run-read-only'; code: string; params: string | null };
+  | { id: number; type: 'run' | 'run-read-only'; code: string; params: string | null; bare?: boolean };
 
 // The worker global, typed as much as this file uses (the project's DOM types
 // describe a window).
@@ -55,6 +64,7 @@ let readOnlyDb: (() => Db) | null = null;
 let version: string | null = null;
 let renderResult: (envelopes: string[]) => string;
 let isWasmTrap: (err: unknown) => boolean;
+let memory: { buffer: ArrayBuffer } | null = null;
 
 const ready = (async () => {
   const t0 = performance.now();
@@ -62,7 +72,8 @@ const ready = (async () => {
     import(/* @vite-ignore */ wasmModule('relate.js')),
     import(/* @vite-ignore */ wasmModule('trap.js')),
   ]);
-  await relate.default();
+  const exports = await relate.default();
+  memory = exports?.memory ?? null;
   isWasmTrap = trap.isWasmTrap;
   renderResult = relate.renderResult;
   db = new relate.RelateDb() as Db;
@@ -101,8 +112,12 @@ scope.onmessage = async (event) => {
     } else if (msg.type === 'run') {
       const t0 = performance.now();
       const envelopes = db!.executeScript(msg.code, msg.params);
-      const recording = JSON.parse(renderResult(envelopes));
-      scope.postMessage({ id: msg.id, ok: true, envelopes, recording, ms: performance.now() - t0 });
+      if (msg.bare) {
+        scope.postMessage({ id: msg.id, ok: true, envelopes, recording: null, ms: performance.now() - t0, memory: memory?.buffer.byteLength ?? null });
+      } else {
+        const recording = JSON.parse(renderResult(envelopes));
+        scope.postMessage({ id: msg.id, ok: true, envelopes, recording, ms: performance.now() - t0 });
+      }
     } else if (msg.type === 'run-read-only') {
       const t0 = performance.now();
       const ro = readOnlyDb!();

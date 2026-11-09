@@ -1,0 +1,47 @@
+/* :::scale-demo, the scale demo (src/scripts/docs/elements/scale-demo.ts). Tokens only; the WebGL view takes its colours from them when it draws. */
+.scale-demo { display: grid; gap: 10px; font-size: 14px; }
+.scale-demo .sd-note { margin: 0; color: var(--fg-muted); }
+.scale-demo .sd-bar, .scale-demo .sd-again { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.scale-demo .sd-size, .scale-demo .sd-start { display: inline-flex; align-items: center; gap: 8px; }
+.scale-demo .sd-size span, .scale-demo .sd-start span { color: var(--fg-muted); font-weight: 600; }
+.scale-demo select, .scale-demo input {
+  padding: 5px 8px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.scale-demo input { width: 9ch; }
+.scale-demo .sd-said, .scale-demo .sd-memory, .scale-demo .sd-drawn { margin: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+.scale-demo .sd-memory:empty, .scale-demo .sd-drawn:empty { display: none; }
+.scale-demo .sd-table { width: 100%; border-collapse: collapse; }
+.scale-demo .sd-table caption { text-align: left; color: var(--fg-muted); font-size: 13px; padding-bottom: 6px; }
+.scale-demo .sd-table th, .scale-demo .sd-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.scale-demo .sd-table td { font-variant-numeric: tabular-nums; }
+/* A cell's name breaks only at its hyphens. */
+.scale-demo .sd-table tbody th { overflow-wrap: normal; }
+.scale-demo .sd-table code { font-size: 12px; }
+.scale-demo .sd-table .sd-time { white-space: nowrap; }
+
+.scale-demo .sd-frame { position: relative; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.scale-demo .sd-frame[hidden] { display: none; }
+.scale-demo .sd-stage { position: relative; height: clamp(320px, 62vh, 600px); touch-action: pan-y; }
+.scale-demo .sd-canvas { position: absolute; inset: 0; }
+/* One finger scrolls the page past the view until the reader taps into it. */
+.scale-demo.is-engaged .sd-stage { touch-action: none; }
+.scale-demo .sd-tools {
+  position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 2px; padding: 2px;
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+}
+.scale-demo .sd-tool {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--fg-muted); cursor: pointer;
+}
+.scale-demo .sd-tool:hover { background: var(--bg-inset); color: var(--fg); }
+.scale-demo .sd-hint {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 10px; max-width: calc(100% - 24px);
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; color: var(--fg-muted); text-align: center;
+}
+.scale-demo .sd-hint[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  .scale-demo .sd-stage { height: clamp(280px, 90vw, 420px); }
+  .scale-demo .sd-table th, .scale-demo .sd-table td { padding: 4px 4px; font-size: 13px; }
+}

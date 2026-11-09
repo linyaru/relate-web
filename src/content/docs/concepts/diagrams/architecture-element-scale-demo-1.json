@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "scale-demo",
+  "hash": "56ba6211e354a764241ae2a5b45176951a96d40396be3b53fa9a449445a9a710",
+  "inputs": [],
+  "live": "a button runs the three cells again at the size picked (the largest by default, the middle size on a narrow screen) on a separate in-memory database in your browser, apart from the page's database, draws the tree with WebGL, times the count and the walk on each run, and shows how much memory that database's engine holds; Free closes it and returns the memory.",
+  "engine": true,
+  "text": "The scale demo runs cells `tree-build`, `tree-count` and `tree-walk` again with `n` set to 1,000, 10,000 or 100,000, on an in-memory database of its own in the browser tab: a second copy of the engine, so the page's database never holds the large graph. `tree-build` creates the tree, `tree-count` counts its nodes and relationships, and `tree-walk` follows every chain of relationships down from one node. The demo then reads the relationships back and draws the tree with the WebGL renderer: one dot per node and one line per relationship, laid out in rings around the root before anything is drawn, so nothing moves. The renderer places at most 65,536 nodes, so a larger tree is drawn ring by ring from the root out to the last whole ring that fits, and the engine still holds every node. It offers 100,000 nodes first on a wide screen and 10,000 on a narrow one, says how much memory the second engine holds, and closes that engine on Free, on the engine bar's Reset, and when the page is left.\n\n| Cell | Recorded on this page, with `n` = 1,000 |\n| --- | --- |\n| `tree-build` | relationships: 999 |\n| `tree-count` | nodes: 1,000, relationships: 999 |\n| `tree-walk` | descendants: 510 |",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "e1af978d4d5d9e7854a4146e34964d09cd50588497e8350982f7e4f59f4a9c0a"
+}

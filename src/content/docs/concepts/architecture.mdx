@@ -128,6 +128,46 @@ Plan:
 
 The CLI links the engine into one binary. The Python client calls it in-process through a native extension module. The C ABI exposes it as a typed C interface, and the Node.js, Java, Go and Swift clients load that one library instead of each building its own binding. The WebAssembly build runs it in a browser page. `relate serve` opens one store and hosts the Bolt, HTTP Query API, and MCP servers over it, with one accept loop and one connection cap for all three.
 
+## A large graph in a browser tab
+
+The graph lives in the memory of the process that opens the store, and in a browser that process is the tab running the WebAssembly build. The three cells in this section build a tree and read it back: node `i`, from 1 up, is the child of node `(i - 1) / 2`, which makes it a binary tree as shallow as its size allows. They take `n`, the number of nodes, and `start`, the node the walk begins at, from this block:
+
+```json data=tree
+{"n": 1000, "start": 1}
+```
+
+The first cell writes `n` nodes labelled `Item` and joins each one, except node 0, to its parent with a `CHILD_OF` relationship:
+
+```cypher run name=tree-build params=tree
+UNWIND range(0, $n - 1) AS i
+CREATE (item:Item {i: i})
+WITH collect(item) AS items
+UNWIND range(1, size(items) - 1) AS i
+WITH items[i] AS child, items[(i - 1) / 2] AS parent
+CREATE (child)-[:CHILD_OF]->(parent)
+RETURN count(*) AS relationships
+```
+
+The second counts the nodes and the relationships between them:
+
+```cypher run name=tree-count
+MATCH (item:Item)
+OPTIONAL MATCH (item)-[r:CHILD_OF]->()
+RETURN count(item) AS nodes, count(r) AS relationships
+```
+
+The third follows every chain of `CHILD_OF` relationships that ends at node `start`, and counts the nodes it reaches:
+
+```cypher run name=tree-walk params=tree
+MATCH (:Item {i: $start})<-[:CHILD_OF*]-(descendant:Item)
+RETURN count(descendant) AS descendants
+```
+
+The scale demo runs the same three cells with `n` up to 100,000, on a database of its own, and draws the tree with the browser's WebGL renderer. Nothing runs until **Build the tree** is pressed; the tree then holds memory in the tab until **Free** closes the demo's engine.
+
+:::scale-demo{build=tree-build count=tree-count walk=tree-walk}
+:::
+
 ## What the layering buys, and what it costs
 
 One engine under every surface means one behavior to test and document: an error, a result type or a notification is the same in the CLI, in Python, and over Bolt. A fix lands everywhere at once, and the clients stay thin. The same engine crates also compile to WebAssembly, which is how the browser build exists.

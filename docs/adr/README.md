@@ -124,5 +124,6 @@ Copy `template.md`.
 | [0044](0044-no-performance-page-or-benchmarks-in-docs.md) | The docs have no performance page and cite no benchmarks | Proposed |
 | [0045](0045-elements-on-cookbook-recipes.md) | Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader | Proposed |
 | [0046](0046-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |
+| [0047](0047-scale-demo.md) | The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws it with NVL's WebGL renderer, and shows only the reader's own run | Proposed |
 | [0048](0048-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |
 | [0052](0052-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |

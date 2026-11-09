@@ -69,7 +69,8 @@ function scaleBar(plane: Plane): { meters: number; label: string } {
 }
 
 export default {
-  live: 'the circle and the box drag across the plane (arrow keys move them, plus and minus resize them), and each move runs the radius or box search again on the page\'s database in your browser with the shape as its parameters, lighting up the places it returns; a button creates or drops the point index, and the parse, plan and execute times and the scan\'s database hits show for each.',
+  // `box` and `index` are optional, so the sentence names them as the page may have them.
+  live: 'the circle drags across the plane (arrow keys move it, plus and minus resize it), and each move runs the radius search again on the page\'s database in your browser with the circle as its parameters, lighting up the places it returns and showing the parse, plan and execute times and the scan\'s database hits; where the page has a box search, a box drags and searches the same way, and where it names its point index, a button creates or drops the index and searches again.',
   validate(input) {
     const out: string[] = [];
     const a = input.attributes;

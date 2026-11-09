@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "cells": {
     "seed": {
       "kind": "table",
@@ -11,8 +11,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.08691099999999999,
+        "lower_ms": 0.067565,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.000766,
+        "rewrite_ms": 0.006032999999999999,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -39,8 +44,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.014475,
+        "lower_ms": 0.004966000000000001,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.000654,
+        "rewrite_ms": 0.0009629999999999999,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -93,8 +103,13 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.054024,
+        "lower_ms": 0.07699500000000001,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001266,
+        "rewrite_ms": 0.004547,
         "rows": [
           {
             "name": "Grace",
@@ -123,7 +138,7 @@
     },
     "fulltext-search": {
       "kind": "table",
-      "text": "| name    | score |\n|---------|-------|\n| \"Noor\"  | 2.0   |\n| \"Grace\" | 1.0   |\n2 rows",
+      "text": "| name    | score               |\n|---------|---------------------|\n| \"Noor\"  | 0.6439728198009622  |\n| \"Grace\" | 0.22443993531397488 |\n2 rows",
       "table": {
         "columns": [
           "name",
@@ -136,11 +151,11 @@
         "rows": [
           [
             "\"Noor\"",
-            "2.0"
+            "0.6439728198009622"
           ],
           [
             "\"Grace\"",
-            "1.0"
+            "0.22443993531397488"
           ]
         ],
         "summary": "2 rows"
@@ -156,16 +171,21 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.040834999999999996,
+        "lower_ms": 0.068949,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001205,
+        "rewrite_ms": 0.003176,
         "rows": [
           {
             "name": "Noor",
-            "score": 2
+            "score": 0.6439728198009622
           },
           {
             "name": "Grace",
-            "score": 1
+            "score": 0.22443993531397488
           }
         ],
         "stats": {
@@ -186,7 +206,7 @@
     },
     "hybrid-intersection": {
       "kind": "table",
-      "text": "| name   | vector | fulltext |\n|--------|--------|----------|\n| \"Noor\" | 0.7151 | 1.0      |\n1 row",
+      "text": "| name   | vector | fulltext            |\n|--------|--------|---------------------|\n| \"Noor\" | 0.7151 | 0.43535502091904305 |\n1 row",
       "table": {
         "columns": [
           "name",
@@ -202,7 +222,7 @@
           [
             "\"Noor\"",
             "0.7151",
-            "1.0"
+            "0.43535502091904305"
           ]
         ],
         "summary": "1 row"
@@ -220,11 +240,16 @@
           "fulltext"
         ],
         "error": null,
+        "lex_parse_ms": 0.066295,
+        "lower_ms": 0.099358,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001736,
+        "rewrite_ms": 0.004403,
         "rows": [
           {
-            "fulltext": 1,
+            "fulltext": 0.43535502091904305,
             "name": "Noor",
             "vector": 0.7151
           }

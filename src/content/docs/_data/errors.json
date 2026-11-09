@@ -1,6 +1,6 @@
 {
   "$schema_note": "Every error an agent can meet, for /docs/reference/errors and explain_error (DOCS-PLAN.md §2, §8 check 3d). `id` is a stable anchor (#<id>); renaming one needs a redirect. `message` is quoted character for character, from the binary where `recorded` holds a run of it (replayed by `npm run docs:cli-check`; see cli.json `recording`), otherwise from upstream; `<name>` marks a variable part and `…` an elision. null means the sources do not say. `verify` marks what the release binary cannot show.",
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "upstream": {
     "repo": "relatedb/relate",
     "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
@@ -1025,8 +1025,8 @@
       ],
       "recorded": {
         "command": "RELATE_SNAPSHOT_FORMAT=csv relate -d ./x --mode envelope \"RETURN 1\"",
-        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\",\"retryable\":false}}\n",
-        "stderr": "Failed to open Relate: storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\n",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unknown snapshot codec 'csv' (expected parquet, json, markdown or rkyv)\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: unknown snapshot codec 'csv' (expected parquet, json, markdown or rkyv)\n",
         "exit": 1
       }
     },
@@ -1069,7 +1069,7 @@
       ],
       "recorded": {
         "command": "printf '.begin\\nCREATE (:Draft);\\n' | relate query --database ./s.rl --mode envelope",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.20136,\"execute_ms\":0.075027,\"lex_parse_ms\":0.002573,\"lower_ms\":0.0036119999999999998,\"parse_ms\":0.121828,\"plan_ms\":0.001559,\"result_generation_ms\":0.000167,\"rewrite_ms\":0.000317},\"truncated\":false}\n",
         "stderr": "Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.\n",
         "exit": 1
       }
@@ -1302,7 +1302,7 @@
       "severity": "warning",
       "recorded": {
         "command": "CLAUDECODE=1 relate --mode envelope \"UNWIND range(1, 250) AS x RETURN x\"",
-        "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"rowCap\":{\"kept\":100,\"total\":250},\"rows\":[{\"x\":1},{\"x\":2},{\"x\":3},{\"x\":4},{\"x\":5},{\"x\":6},{\"x\":7},{\"x\":8},{\"x\":9},{\"x\":10},{\"x\":11},{\"x\":12},{\"x\":13},{\"x\":14},{\"x\":15},{\"x\":16},{\"x\":17},{\"x\":18},{\"x\":19},{\"x\":20},{\"x\":21},{\"x\":22},{\"x\":23},{\"x\":24},{\"x\":25},{\"x\":26},{\"x\":27},{\"x\":28},{\"x\":29},{\"x\":30},{\"x\":31},{\"x\":32},{\"x\":33},{\"x\":34},{\"x\":35},{\"x\":36},{\"x\":37},{\"x\":38},{\"x\":39},{\"x\":40},{\"x\":41},{\"x\":42},{\"x\":43},{\"x\":44},{\"x\":45},{\"x\":46},{\"x\":47},{\"x\":48},{\"x\":49},{\"x\":50},{\"x\":51},{\"x\":52},{\"x\":53},{\"x\":54},{\"x\":55},{\"x\":56},{\"x\":57},{\"x\":58},{\"x\":59},{\"x\":60},{\"x\":61},{\"x\":62},{\"x\":63},{\"x\":64},{\"x\":65},{\"x\":66},{\"x\":67},{\"x\":68},{\"x\":69},{\"x\":70},{\"x\":71},{\"x\":72},{\"x\":73},{\"x\":74},{\"x\":75},{\"x\":76},{\"x\":77},{\"x\":78},{\"x\":79},{\"x\":80},{\"x\":81},{\"x\":82},{\"x\":83},{\"x\":84},{\"x\":85},{\"x\":86},{\"x\":87},{\"x\":88},{\"x\":89},{\"x\":90},{\"x\":91},{\"x\":92},{\"x\":93},{\"x\":94},{\"x\":95},{\"x\":96},{\"x\":97},{\"x\":98},{\"x\":99},{\"x\":100}],\"truncated\":true}\n",
+        "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"planCache\":\"miss\",\"rowCap\":{\"kept\":100,\"total\":250},\"rows\":[{\"x\":1},{\"x\":2},{\"x\":3},{\"x\":4},{\"x\":5},{\"x\":6},{\"x\":7},{\"x\":8},{\"x\":9},{\"x\":10},{\"x\":11},{\"x\":12},{\"x\":13},{\"x\":14},{\"x\":15},{\"x\":16},{\"x\":17},{\"x\":18},{\"x\":19},{\"x\":20},{\"x\":21},{\"x\":22},{\"x\":23},{\"x\":24},{\"x\":25},{\"x\":26},{\"x\":27},{\"x\":28},{\"x\":29},{\"x\":30},{\"x\":31},{\"x\":32},{\"x\":33},{\"x\":34},{\"x\":35},{\"x\":36},{\"x\":37},{\"x\":38},{\"x\":39},{\"x\":40},{\"x\":41},{\"x\":42},{\"x\":43},{\"x\":44},{\"x\":45},{\"x\":46},{\"x\":47},{\"x\":48},{\"x\":49},{\"x\":50},{\"x\":51},{\"x\":52},{\"x\":53},{\"x\":54},{\"x\":55},{\"x\":56},{\"x\":57},{\"x\":58},{\"x\":59},{\"x\":60},{\"x\":61},{\"x\":62},{\"x\":63},{\"x\":64},{\"x\":65},{\"x\":66},{\"x\":67},{\"x\":68},{\"x\":69},{\"x\":70},{\"x\":71},{\"x\":72},{\"x\":73},{\"x\":74},{\"x\":75},{\"x\":76},{\"x\":77},{\"x\":78},{\"x\":79},{\"x\":80},{\"x\":81},{\"x\":82},{\"x\":83},{\"x\":84},{\"x\":85},{\"x\":86},{\"x\":87},{\"x\":88},{\"x\":89},{\"x\":90},{\"x\":91},{\"x\":92},{\"x\":93},{\"x\":94},{\"x\":95},{\"x\":96},{\"x\":97},{\"x\":98},{\"x\":99},{\"x\":100}],\"timings\":{\"elapsed_ms\":0.416445,\"execute_ms\":0.277546,\"lex_parse_ms\":0.026738,\"lower_ms\":0.02603,\"parse_ms\":0.093026,\"plan_ms\":0.038747000000000004,\"result_generation_ms\":0.00042100000000000004,\"rewrite_ms\":0.0070160000000000005},\"truncated\":true}\n",
         "stderr": "warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows\n",
         "exit": 0
       }
@@ -1329,13 +1329,13 @@
       "recorded": [
         {
           "command": "relate --mode envelope \"MATCH (n:Nobody) SET n.seen = true\"",
-          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.251201,\"execute_ms\":0.077605,\"lex_parse_ms\":0.005149,\"lower_ms\":0.008584,\"parse_ms\":0.16567700000000002,\"plan_ms\":0.004542,\"result_generation_ms\":0.000106,\"rewrite_ms\":0.000614},\"truncated\":false}\n",
           "stderr": "note: write statement changed nothing; the graph is unchanged\n",
           "exit": 0
         },
         {
           "command": "printf '.begin\\nMATCH (n:Nobody) SET n.seen = true;\\n.commit\\n' | relate query --database ./s.rl --mode envelope",
-          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.21830999999999998,\"execute_ms\":0.063314,\"lex_parse_ms\":0.005225,\"lower_ms\":0.0079,\"parse_ms\":0.148538,\"plan_ms\":0.003975,\"result_generation_ms\":0.000101,\"rewrite_ms\":0.000596},\"truncated\":false}\n",
           "stderr": "note: write statement 2 of 3 changed nothing; the graph is unchanged\nnote: .commit changed nothing; the transaction applied no changes\n",
           "exit": 0
         }
@@ -1362,7 +1362,7 @@
       "recorded": {
         "command": "relate serve --database :memory:",
         "stdout": "",
-        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1387,7 +1387,7 @@
       "recorded": {
         "command": "relate --read-only serve --database :memory: --http 7474",
         "stdout": "",
-        "stderr": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1487,7 +1487,7 @@
       "recorded": {
         "command": "relate serve --database :memory: --http 7474 --auth",
         "stdout": "",
-        "stderr": "Error: --auth requires USER:PASSWORD or none\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: --auth requires USER:PASSWORD or none\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1512,7 +1512,7 @@
       "recorded": {
         "command": "relate serve --database :memory: --auth a:b --mcp stdio < /dev/null",
         "stdout": "",
-        "stderr": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1709,7 +1709,7 @@
       "recorded": {
         "command": "env -u HOME relate telemetry off",
         "stdout": "",
-        "stderr": "Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)\n",
+        "stderr": "Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)\n",
         "exit": 1
       }
     },
@@ -2393,7 +2393,7 @@
       ],
       "recorded": {
         "command": "RELATE_SHARD_TARGET_BYTES=0 relate --database ./s \"CREATE (:A)\"",
-        "stdout": "",
+        "stdout": "{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":0.458725,\"execute_ms\":0.30162100000000003,\"lex_parse_ms\":0.0034460000000000003,\"lower_ms\":0.005435,\"parse_ms\":0.150748,\"plan_ms\":0.001258,\"result_generation_ms\":0.00054,\"rewrite_ms\":0.000458}}\n",
         "stderr": "Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824\n",
         "exit": 1
       }
@@ -3272,7 +3272,7 @@
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE VECTOR INDEX a FOR (p:Person) ON (p.focus) WITH [p.role]; CREATE VECTOR INDEX b FOR (p:Person) ON (p.focus) WITH [p.role] OPTIONS {indexConfig: {\\`vector.dimensions\\`: 4}}\"",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: EquivalentSchemaRuleAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.206592,\"execute_ms\":0.122523,\"lex_parse_ms\":0.004044,\"lower_ms\":0.001092,\"parse_ms\":0.081385,\"plan_ms\":0.00092,\"result_generation_ms\":0.000115,\"rewrite_ms\":0.00018099999999999998},\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: EquivalentSchemaRuleAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
         "stderr": "semantic error: EquivalentSchemaRuleAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
         "exit": 6
       }
@@ -3296,7 +3296,7 @@
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE INDEX i FOR (p:P) ON (p.x); CREATE INDEX i FOR (p:P) ON (p.x)\"",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: IndexAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.170068,\"execute_ms\":0.092933,\"lex_parse_ms\":0.002264,\"lower_ms\":0.000941,\"parse_ms\":0.074412,\"plan_ms\":0.00104,\"result_generation_ms\":0.000106,\"rewrite_ms\":0.000204},\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: IndexAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
         "stderr": "semantic error: IndexAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
         "exit": 6
       }
@@ -4139,7 +4139,7 @@
       "recorded": {
         "command": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"query\":\"CREATE (:B)\"}}}' | relate serve --mcp stdio --database ./graph.rl --read-only",
         "setup": "relate --database ./graph.rl \"CREATE (:A)\"",
-        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"0.16.1\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"0.1.2\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
         "stderr": "serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails\nserve: MCP (stdio) serving on stdin/stdout (auth: none)\nserve: stdin closed, shutting down\n",
         "exit": 0
       }
@@ -5222,5 +5222,5 @@
       "engine-unsupported-administration-command"
     ]
   },
-  "recorded_with": "relate 0.16.1 (ac441ec), source build"
+  "recorded_with": "relate 0.1.2 (f0c09d2), release build"
 }

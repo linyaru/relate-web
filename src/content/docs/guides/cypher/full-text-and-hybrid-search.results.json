@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "cells": {
     "seed": {
       "kind": "table",
@@ -11,8 +11,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 2.235849,
+        "lower_ms": 0.191411,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.0008500000000000001,
+        "rewrite_ms": 0.008653,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -39,8 +44,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.017492,
+        "lower_ms": 0.005912000000000001,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.000821,
+        "rewrite_ms": 0.001116,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -60,7 +70,7 @@
     },
     "search": {
       "kind": "table",
-      "text": "| id   | text                                             | score |\n|------|--------------------------------------------------|-------|\n| \"n6\" | \"Recovery tests cut the WAL at every byte.\"      | 2.0   |\n| \"n1\" | \"The WAL replays on open and trims a torn tail.\" | 1.0   |\n2 rows",
+      "text": "| id   | text                                             | score              |\n|------|--------------------------------------------------|--------------------|\n| \"n6\" | \"Recovery tests cut the WAL at every byte.\"      | 1.1371966628886316 |\n| \"n1\" | \"The WAL replays on open and trims a torn tail.\" | 0.4118477668724633 |\n2 rows",
       "table": {
         "columns": [
           "id",
@@ -76,12 +86,12 @@
           [
             "\"n6\"",
             "\"Recovery tests cut the WAL at every byte.\"",
-            "2.0"
+            "1.1371966628886316"
           ],
           [
             "\"n1\"",
             "\"The WAL replays on open and trims a torn tail.\"",
-            "1.0"
+            "0.4118477668724633"
           ]
         ],
         "summary": "2 rows"
@@ -99,17 +109,22 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.058293,
+        "lower_ms": 0.07132100000000001,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.0015990000000000002,
+        "rewrite_ms": 0.004118,
         "rows": [
           {
             "id": "n6",
-            "score": 2,
+            "score": 1.1371966628886316,
             "text": "Recovery tests cut the WAL at every byte."
           },
           {
             "id": "n1",
-            "score": 1,
+            "score": 0.4118477668724633,
             "text": "The WAL replays on open and trims a torn tail."
           }
         ],
@@ -131,7 +146,7 @@
     },
     "terms": {
       "kind": "table",
-      "text": "| query           | ids                            |\n|-----------------|--------------------------------|\n| \"wal\"           | [\"n1\", \"n6\"]                   |\n| \"replay\"        | []                             |\n| \"replays\"       | [\"n1\", \"n5\"]                   |\n| \"test\"          | []                             |\n| \"the\"           | [\"n1\", \"n2\", \"n3\", \"n5\", \"n6\"] |\n| \"pull-request\"  | [\"n3\"]                         |\n| \"\\\"torn tail\\\"\" | [\"n1\"]                         |\n| \"tor*\"          | []                             |\n8 rows",
+      "text": "| query           | ids                            |\n|-----------------|--------------------------------|\n| \"wal\"           | [\"n6\", \"n1\"]                   |\n| \"replay\"        | []                             |\n| \"replays\"       | [\"n5\", \"n1\"]                   |\n| \"test\"          | []                             |\n| \"the\"           | [\"n5\", \"n3\", \"n2\", \"n6\", \"n1\"] |\n| \"pull-request\"  | [\"n3\"]                         |\n| \"\\\"torn tail\\\"\" | [\"n1\"]                         |\n| \"tor*\"          | []                             |\n8 rows",
       "table": {
         "columns": [
           "query",
@@ -144,7 +159,7 @@
         "rows": [
           [
             "\"wal\"",
-            "[\"n1\", \"n6\"]"
+            "[\"n6\", \"n1\"]"
           ],
           [
             "\"replay\"",
@@ -152,7 +167,7 @@
           ],
           [
             "\"replays\"",
-            "[\"n1\", \"n5\"]"
+            "[\"n5\", \"n1\"]"
           ],
           [
             "\"test\"",
@@ -160,7 +175,7 @@
           ],
           [
             "\"the\"",
-            "[\"n1\", \"n2\", \"n3\", \"n5\", \"n6\"]"
+            "[\"n5\", \"n3\", \"n2\", \"n6\", \"n1\"]"
           ],
           [
             "\"pull-request\"",
@@ -188,13 +203,18 @@
           "ids"
         ],
         "error": null,
+        "lex_parse_ms": 0.077793,
+        "lower_ms": 0.107336,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001763,
+        "rewrite_ms": 0.004998,
         "rows": [
           {
             "ids": [
-              "n1",
-              "n6"
+              "n6",
+              "n1"
             ],
             "query": "wal"
           },
@@ -204,8 +224,8 @@
           },
           {
             "ids": [
-              "n1",
-              "n5"
+              "n5",
+              "n1"
             ],
             "query": "replays"
           },
@@ -215,11 +235,11 @@
           },
           {
             "ids": [
-              "n1",
-              "n2",
-              "n3",
               "n5",
-              "n6"
+              "n3",
+              "n2",
+              "n6",
+              "n1"
             ],
             "query": "the"
           },
@@ -258,7 +278,7 @@
     },
     "page": {
       "kind": "table",
-      "text": "| id   | score |\n|------|-------|\n| \"n5\" | 1.0   |\n| \"n6\" | 1.0   |\n2 rows",
+      "text": "| id   | score               |\n|------|---------------------|\n| \"n3\" | 0.2064639029341305  |\n| \"n6\" | 0.19550121782258376 |\n2 rows",
       "table": {
         "columns": [
           "id",
@@ -270,12 +290,12 @@
         ],
         "rows": [
           [
-            "\"n5\"",
-            "1.0"
+            "\"n3\"",
+            "0.2064639029341305"
           ],
           [
             "\"n6\"",
-            "1.0"
+            "0.19550121782258376"
           ]
         ],
         "summary": "2 rows"
@@ -291,16 +311,21 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.044576000000000005,
+        "lower_ms": 0.055836,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001176,
+        "rewrite_ms": 0.003304,
         "rows": [
           {
-            "id": "n5",
-            "score": 1
+            "id": "n3",
+            "score": 0.2064639029341305
           },
           {
             "id": "n6",
-            "score": 1
+            "score": 0.19550121782258376
           }
         ],
         "stats": {
@@ -321,7 +346,7 @@
     },
     "narrow": {
       "kind": "table",
-      "text": "| id   | text                                       | score |\n|------|--------------------------------------------|-------|\n| \"n4\" | \"Release notes list every fixed scenario.\" | 1.0   |\n| \"n5\" | \"The docs build replays every cell.\"       | 1.0   |\n2 rows",
+      "text": "| id   | text                                       | score               |\n|------|--------------------------------------------|---------------------|\n| \"n4\" | \"Release notes list every fixed scenario.\" | 0.21872908528665308 |\n| \"n5\" | \"The docs build replays every cell.\"       | 0.21872908528665308 |\n2 rows",
       "table": {
         "columns": [
           "id",
@@ -337,12 +362,12 @@
           [
             "\"n4\"",
             "\"Release notes list every fixed scenario.\"",
-            "1.0"
+            "0.21872908528665308"
           ],
           [
             "\"n5\"",
             "\"The docs build replays every cell.\"",
-            "1.0"
+            "0.21872908528665308"
           ]
         ],
         "summary": "2 rows"
@@ -360,17 +385,22 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.073171,
+        "lower_ms": 0.094307,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001939,
+        "rewrite_ms": 0.004158,
         "rows": [
           {
             "id": "n4",
-            "score": 1,
+            "score": 0.21872908528665308,
             "text": "Release notes list every fixed scenario."
           },
           {
             "id": "n5",
-            "score": 1,
+            "score": 0.21872908528665308,
             "text": "The docs build replays every cell."
           }
         ],
@@ -399,8 +429,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.030795,
+        "lower_ms": 0.008728,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.00075,
+        "rewrite_ms": 0.001503,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -457,8 +492,13 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.047329,
+        "lower_ms": 0.05729,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001169,
+        "rewrite_ms": 0.003402,
         "rows": [
           {
             "id": "n6",
@@ -491,7 +531,7 @@
     },
     "fulltext-list": {
       "kind": "table",
-      "text": "| id   | score |\n|------|-------|\n| \"n6\" | 2.0   |\n| \"n1\" | 1.0   |\n2 rows",
+      "text": "| id   | score              |\n|------|--------------------|\n| \"n6\" | 1.1371966628886316 |\n| \"n1\" | 0.4118477668724633 |\n2 rows",
       "table": {
         "columns": [
           "id",
@@ -504,11 +544,11 @@
         "rows": [
           [
             "\"n6\"",
-            "2.0"
+            "1.1371966628886316"
           ],
           [
             "\"n1\"",
-            "1.0"
+            "0.4118477668724633"
           ]
         ],
         "summary": "2 rows"
@@ -524,16 +564,21 @@
           "score"
         ],
         "error": null,
+        "lex_parse_ms": 0.047084,
+        "lower_ms": 0.063318,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.001495,
+        "rewrite_ms": 0.003692,
         "rows": [
           {
             "id": "n6",
-            "score": 2
+            "score": 1.1371966628886316
           },
           {
             "id": "n1",
-            "score": 1
+            "score": 0.4118477668724633
           }
         ],
         "stats": {
@@ -612,8 +657,13 @@
           "project"
         ],
         "error": null,
+        "lex_parse_ms": 0.25103400000000003,
+        "lower_ms": 0.343757,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.0021809999999999998,
+        "rewrite_ms": 0.011481,
         "rows": [
           {
             "fulltext_rank": 1,
@@ -706,8 +756,13 @@
           "state"
         ],
         "error": null,
+        "lex_parse_ms": 0.11575400000000001,
+        "lower_ms": 0.384822,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.0019,
+        "rewrite_ms": 0.0063289999999999996,
         "rows": [
           {
             "labelsOrTypes": [

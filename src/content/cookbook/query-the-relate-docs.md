@@ -148,13 +148,13 @@ ORDER BY score DESC, s.id
 ```
 
 ```table
-| page                             | heading               | score |
-|----------------------------------|-----------------------|-------|
-| "guides/cypher/vector-search"    | "Prerequisites"       | 10.0  |
-| "guides/agents/connect-over-mcp" | "If it goes wrong"    | 9.0   |
-| "guides/agents/connect-over-mcp" | "What the agent sees" | 8.0   |
-| "guides/cypher/vector-search"    | "Store the vectors"   | 8.0   |
-| "guides/agents/connect-over-mcp" | "Connect over MCP"    | 7.0   |
+| page                          | heading                             | score              |
+|-------------------------------|-------------------------------------|--------------------|
+| "guides/cypher/vector-search" | "Prerequisites"                     | 2.547764420743209  |
+| "guides/cypher/vector-search" | "Find the nearest nodes"            | 2.063288800525987  |
+| "guides/cypher/vector-search" | "Search by vector similarity"       | 1.9268616825015725 |
+| "guides/agents/agent-safety"  | "Back up before a write"            | 1.8785330521976553 |
+| "guides/cypher/vector-search" | "See the search on 40 real vectors" | 1.3010194157583352 |
 5 rows
 ```
 
@@ -239,7 +239,7 @@ ORDER BY rrf DESC, s.id LIMIT $k
 | "Cursor"                                       | "guides/agents/connect-over-mcp" | 1           | 1             | 0.0328 |
 | "Check destructive statements before they run" | "guides/agents/agent-safety"     | 2           | null          | 0.0161 |
 | "If it goes wrong"                             | "guides/agents/agent-safety"     | null        | 2             | 0.0161 |
-| "Turn on safe mode"                            | "guides/agents/agent-safety"     | null        | 3             | 0.0159 |
+| "Keep an agent safe"                           | "guides/agents/agent-safety"     | null        | 3             | 0.0159 |
 | "Windsurf"                                     | "guides/agents/connect-over-mcp" | 3           | null          | 0.0159 |
 5 rows
 ```

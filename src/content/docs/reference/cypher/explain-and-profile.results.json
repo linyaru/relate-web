@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "cells": {
     "seed": {
       "kind": "table",
@@ -11,8 +11,13 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.10862,
+        "lower_ms": 0.137368,
         "notifications": [],
         "plan": null,
+        "plan_cache": "miss",
+        "result_generation_ms": 0.0010359999999999998,
+        "rewrite_ms": 0.0034869999999999996,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -39,6 +44,8 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 0.053161,
+        "lower_ms": 0.077819,
         "notifications": [],
         "plan": {
           "profiled": false,
@@ -74,6 +81,9 @@
           "schema": "relate.plan/v1",
           "statement": "MATCH (p:Person)-[:WORKS_ON]->(proj:Project) WITH proj, count(p) AS people WHERE people > 1 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5"
         },
+        "plan_cache": "miss",
+        "result_generation_ms": 0,
+        "rewrite_ms": 0.0035329999999999997,
         "rows": [],
         "stats": {
           "constraints_added": 0,
@@ -100,6 +110,8 @@
         "columnTypes": [],
         "columns": [],
         "error": null,
+        "lex_parse_ms": 1.861537,
+        "lower_ms": 0.069758,
         "notifications": [],
         "plan": {
           "profiled": false,
@@ -135,6 +147,9 @@
           "schema": "relate.plan/v1",
           "statement": "MATCH (p:Person) OPTIONAL MATCH (p)-[:KNOWS]->(f) RETURN p.name AS name, f.name AS friend"
         },
+        "plan_cache": "miss",
+        "result_generation_ms": 0,
+        "rewrite_ms": 0.003787,
         "rows": [],
         "stats": {
           "constraints_added": 0,

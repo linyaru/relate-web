@@ -25,14 +25,14 @@ let conn = try db.connect()                      // connect(namespace: "system")
 let r = try conn.query("MATCH (n:Person {name: $name}) RETURN n", ["name": "Ada"])
 r.columns; r.rows; r.records                     // [String], [[CypherValue]], [[String: CypherValue]]
 r.queryType      // .read | .write | .readWrite | .schema   (ADR-0162)
-r.namespace      // resolved namespace (ADR-0117)
+r.namespace      // .neo4j | .system | .systemOntologies, resolved (ADR-0117)
 r.stats          // QueryStats, the 11 counters
 r.notifications  // [] on a plain run; EXPLAIN / PROFILE populate it
 r.plan           // PlanDocument? (relate.plan/v1)
 r.bookmark       // String?, the auto-commit write's bookmark (ADR-0502)
 r.elapsedMs      // engine time; r.parseMs / r.planMs / r.executeMs — its
                 // phase split (ADR-0491), sum never exceeding the total
-try conn.transaction { tx in try tx.query("CREATE (:A)") }  // rollback on throw
+try conn.transaction { tx in try tx.query("CREATE (:A)") }  // rollback on throw (body or commit)
 try db.checkpoint()
 ```
 
@@ -46,6 +46,8 @@ day: 2))`, `.point(.init(srid: 4326, x: -105.0, y: 40.0, z: nil))`).
 
 ## Gotchas
 
+- **`queryType` / `namespace` are closed enums** — a value outside the
+  vocabulary throws `RelateError.decoding` (`ABI contract violated: ...`).
 - A result map key containing an interior NUL is refused with an error (the C ABI looks keys up NUL-terminated); string values keep their NULs.
 - **`Connection` is not `Sendable`** — the compiler stops you sharing one
   across actors. Own it inside one actor; `Database` is shareable, open one
@@ -53,7 +55,7 @@ day: 2))`, `.point(.init(srid: 4326, x: -105.0, y: 40.0, z: nil))`).
 - **Blocking calls** — queries run synchronously; never call them on the
   `MainActor`.
 - **Every value is typed** — nodes and relationships carry element ids
-  (`"4:relate:n0"`, `elementId(n) = $id` round-trips) plus the
+  (`"4:relate-neo4j:n0"`, `elementId(n) = $id` round-trips) plus the
   deprecated numeric ids Cypher's `id()` returns (`node.id`,
   `rel.id`/`rel.startId`/`rel.endId`, ADR-0506 — use them for entity
   equality, not lookups), temporals arrive

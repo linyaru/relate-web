@@ -35,7 +35,7 @@ relate --mode envelope "RETURN 1 AS ok"
 {"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
 ```
 
-The output should be exactly that line. Every statement this page runs passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
+The output should be exactly that line. Every statement an agent runs on this page passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
 
 The envelope is one of relate's [output modes](/docs/reference/cli/output-modes). This statement runs in your browser, on the engine this page loads, and the terminal below shows it in four of those modes: `table`, `envelope`, `jsonl` and `toon`.
 
@@ -278,8 +278,35 @@ Four `WORKS_ON` relationships. Noor is on the TCK.
 
 ## Read an error and its exit code
 
-Let's make a mistake on purpose: a statement that uses `$name` without binding it.
+Let's make a mistake on purpose: a statement that uses `$name` without binding it. A person at a terminal reads the message and the :term[exit code]{id=exit-code}; an agent reads the error object as well, and branches on its fields.
 
+::::agentic
+:::human[At a terminal]
+```bash verify
+relate --database ./team.rl --read-only --mode table 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
+echo "exit=$?"
+```
+
+```text
+semantic error: ParameterMissing: Expected parameter(s): name
+exit=6
+```
+
+The message names the missing parameter, and exit code 6 means relate rejected the statement before it ran. The [errors reference](/docs/reference/errors#engine-parameter-missing) lists the message with its remedy. The fix is the missing `--param`:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
+```
+
+```text
++--------------+
+| role         |
++--------------+
+| "maintainer" |
++--------------+
+```
+:::
+:::agent[From an agent]
 ```bash verify
 relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'
 echo "exit=$?"
@@ -310,22 +337,27 @@ relate --database ./team.rl --read-only --mode envelope --param name=Noor 'MATCH
 ```text
 {"columnTypes":["STRING"],"columns":["role"],"notifications":[],"rows":[{"role":"maintainer"}],"truncated":false}
 ```
+:::
+::::
 
 Noor is a maintainer.
 
 ## Open the MCP surface read-only
 
-The last step serves the store to an agent harness over MCP, on stdio, read-only. For Claude Code:
+The last step serves the store to an agent harness over MCP, on stdio, read-only. For Claude Code, a person adds the server with one command. An agent writes the same server into the repository's `.mcp.json` instead, and Claude Code asks the person before it uses a server from that file.
 
+::::agentic
+:::human[At a terminal]
 ```bash
 claude mcp add relate -- relate serve --mcp stdio --database ./team.rl --read-only
 ```
 
 To allow writes, remove `--read-only`.
+:::
+:::agent[From an agent]
+The entry goes in `.mcp.json` at the project root, which can be committed with the repository:
 
-To commit the same server to a repository, the `.mcp.json` block is:
-
-```json
+```json title=".mcp.json"
 {
   "mcpServers": {
     "relate": {
@@ -337,6 +369,8 @@ To commit the same server to a repository, the `.mcp.json` block is:
 ```
 
 To allow writes, remove `"--read-only"` from `args`.
+:::
+::::
 
 Opened read-only, the server lists two tools, `read_cypher` and `get_schema`; `write_cypher` is listed only when the store is writable. A write sent to `read_cypher` comes back as a tool error, `Only MATCH queries are allowed for read-query`, and the store is unchanged.
 

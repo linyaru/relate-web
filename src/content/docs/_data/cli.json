@@ -3000,6 +3000,14 @@
         "expected_sha256": "82f092b56f3d4f29583c757e4002ef56874b6ef56a2491c1d7860583ad4770c8"
       },
       {
+        "command": "relate --database ./team.rl --read-only --mode table 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
+        "expected_sha256": "a83f3ad30028166688edccf709b643702e6067b479a8a69b7d99658ff9ea4112"
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'",
+        "expected_sha256": "e157ffe4aef0510f9bc8daf60df633a8d8a53669b1aa80f85a3e6d4907c8cf52"
+      },
+      {
         "command": "relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
         "expected_sha256": "4270b82f01d08c325ba12ff4166c445dc702c3a0a08717fc794f82d2f964988f"
       },
@@ -3052,8 +3060,12 @@
         "expected_sha256": "f4e921a5875e373517d59ea132b78374a87619978bea7a3c75b3de19a4f9cc77"
       },
       {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "8c44206e1ba1ce745f814ff625cb956483ff47b6aae88d0cd9fd4826d85c9e49"
+        "command": "relate --mode table \"RETURN 1 AS ok\"",
+        "expected_sha256": "30469e7c745c9804ceec92251435d8b5aff0f97f6d9666cd9ceeaa49e81c712f"
+      },
+      {
+        "command": "relate --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
+        "expected_sha256": "a518081b42e2923d1096273e71869b97fd673e1c9b97673c7fe5752bbc9d93ce"
       }
     ],
     "guides/agents/agent-safety.mdx": [

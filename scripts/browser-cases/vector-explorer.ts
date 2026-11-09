@@ -1,7 +1,8 @@
 // cookbook:browser cases for `:::vector-explorer`
 // (src/lib/docs/elements/vector-explorer.ts). The runner opens the first
 // built page carrying it, which is full-text-and-hybrid-search (the hybrid
-// view); the scatter cases go to vector-search themselves. Numbers come from
+// view); the scatter cases go to vector-search themselves, and the last case
+// to the search reference, whose hybrid view weights its lists. Numbers come from
 // the engine, and the cases check them two ways that do not go through the
 // element: the ranking cell's own Run (its live table), and the similarity
 // computed here from the page's own data block and question vector. Nothing
@@ -11,6 +12,7 @@ import { scenario, type BrowserCases, type BrowserTab, type Outcome } from './_k
 
 const SCATTER_PAGE = '/docs/guides/cypher/vector-search/';
 const HYBRID_PAGE = '/docs/guides/cypher/full-text-and-hybrid-search/';
+const WEIGHTED_PAGE = '/docs/reference/cypher/search/';
 
 /** Go to `path` unless the tab's page already carries the view (`hybrid`: a host with `lists`). */
 async function onView(tab: BrowserTab, hybrid: boolean, path: string) {
@@ -266,6 +268,38 @@ export default {
             return { log: ['9 by euclidean, then ' + rings() + ' recorded after Reset, then cosine k = 3'], failures };
           `),
         );
+      },
+    },
+    {
+      // The search reference's view weights its lists (weights=, constant=): the engine's fused statement must agree with the weighted arithmetic too.
+      name: "the weighted hybrid view agrees with the engine's weighted fusion",
+      scenario: async (tab: BrowserTab): Promise<Outcome> => {
+        const here = await tab.evaluate<string>('location.pathname');
+        if (here !== WEIGHTED_PAGE) await tab.navigate(WEIGHTED_PAGE);
+        return tab.evaluate<Outcome>(scenario(`
+        const log = [], failures = [];
+        const h = [...document.querySelectorAll('docs-element[data-element="vector-explorer"]')].find((x) => JSON.parse(x.dataset.attrs || '{}').weights);
+        if (!h) return { log: [], failures: ['no weighted hybrid view on ' + location.pathname] };
+        h.scrollIntoView({ block: 'center' });
+        expect(log, failures, 'the weighted view goes live', await until(() => h.dataset.state === 'live', 15000), h.dataset.state);
+        const L = h.querySelector('.element-live');
+        const attrs = JSON.parse(h.dataset.attrs);
+        expect(log, failures, 'the caption says the shares are weighted', /times its weight/.test(L.querySelector('.vx-fused caption')?.textContent || ''));
+        const status = L.querySelector('.vx-status');
+        const range = L.querySelector('.vx-range');
+        expect(log, failures, 'the slider stops at the max the page sets', range.max === attrs.max, 'max ' + range.max);
+        const fusedRows = () => [...L.querySelectorAll('.vx-fused tbody tr')];
+        const recorded = fusedRows().map((r) => r.lastElementChild.textContent).filter(Boolean);
+        expect(log, failures, 'the recorded fused statement agrees with the weighted arithmetic', recorded.length > 0 && recorded.every((t) => /\\(same\\)/.test(t)), recorded.join(' | '));
+        const k = Number(range.value) > 1 ? Number(range.value) - 1 : 2;
+        range.value = String(k);
+        range.dispatchEvent(new Event('input', { bubbles: true }));
+        await until(() => new RegExp("^From this tab's run.* lists with k = " + k).test(status.textContent) || /failed|Could not/.test(status.textContent), 120000);
+        expect(log, failures, 'moving k runs the lists on the engine', /^From this tab's run on relate [\\d.]+/.test(status.textContent), status.textContent);
+        const engine = fusedRows().map((r) => r.lastElementChild.textContent).filter(Boolean);
+        expect(log, failures, "every score of the engine's weighted fusion equals the arithmetic", engine.length === Math.min(k, fusedRows().length) && engine.every((t) => /\\(same\\)/.test(t)), engine.join(' | '));
+        return { log: ['k ' + k + ': ' + engine.length + ' weighted engine scores agree'], failures };
+      `));
       },
     },
   ],

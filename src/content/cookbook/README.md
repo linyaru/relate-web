@@ -277,7 +277,7 @@ npm run cookbook:diagrams
 
 That writes `diagrams/<slug>-<n>-light.svg` and `-dark.svg` beside the
 recipes, in the site's colours (the Night/Day tokens in
-`src/styles/base.css`) and its Public Sans, and for a data model also
+`src/styles/base.css`) and its Relate Sans, and for a data model also
 `<slug>-<n>-labels.json`, the colour of each label, which the website's
 graph view uses so a result's nodes match the diagram. It needs Chrome
 (`CHROME_PATH`, or a usual install location) and no network. For a data

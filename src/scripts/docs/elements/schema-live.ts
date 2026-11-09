@@ -41,7 +41,7 @@ function authoredFigure(host: HTMLElement): Map<string, string> | null {
   return null;
 }
 
-/** Text widths for the layout, measured as the build measures them: Public Sans at the drawing's sizes. */
+/** Text widths for the layout, measured as the build measures them: Relate Sans at the drawing's sizes. */
 function canvasMeasure(): (text: string, font: Font) => number {
   const g = document.createElement('canvas').getContext('2d')!;
   return (text, font) => {

@@ -23,7 +23,7 @@ export { drawResultGraph, measure } from './checks/cells.ts';
 export { diagramColors, esc, mix, siteTokens, type DiagramColors, type Theme, type Tokens };
 
 /** The site's font stack, as the other drawings name it. */
-export const FONT = '"Public Sans",system-ui,sans-serif';
+export const FONT = '"Relate Sans",system-ui,sans-serif';
 
 /**
  * An SVG document around `body`: `id` is unique on the page (scope `style`

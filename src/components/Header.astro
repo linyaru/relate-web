@@ -73,11 +73,11 @@ const links = [
   }
   themeToggle.addEventListener('click', () => {
     const current = root.getAttribute('data-theme');
-    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const sysLight = window.matchMedia('(prefers-color-scheme: light)').matches;
     let next;
     if (current === 'dark') next = 'light';
     else if (current === 'light') next = 'dark';
-    else next = sysDark ? 'light' : 'dark';
+    else next = sysLight ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
   });

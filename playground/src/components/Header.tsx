@@ -22,7 +22,7 @@ export function Header({ engineReady, resetting, onReset }: Props) {
       style={{ height: 56, paddingLeft: isMobile ? 12 : 24, paddingRight: isMobile ? 8 : 16 }}
     >
       <Flex flexDirection="row" gap="12" alignItems="center" className="n-shrink-0 n-min-w-0">
-        {/* The site's brand: logomark + `relate` wordmark in Fira Code, linking home. */}
+        {/* The site's brand: logomark + `relate` wordmark in Relate Mono, linking home. */}
         <a
           href="/"
           title="relate home"
@@ -36,7 +36,7 @@ export function Header({ engineReady, resetting, onReset }: Props) {
           }}
         >
           <RelateMark style={{ height: 24, width: 'auto', flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Fira Code', ui-monospace, monospace", fontWeight: 500, fontSize: 16 }}>
+          <span style={{ fontFamily: "'Relate Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 16 }}>
             relate
           </span>
         </a>

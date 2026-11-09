@@ -7,37 +7,41 @@ import { blockTokens, mix, resolveTokens, siteTokens, themeTokens } from './toke
 const CSS = `
 /* a comment with :root { --nope: #000; } in it */
 :root {
-  --bg: #F2EAD4;   /* Cream */
-  --fg: #181414;
-  --accent: #0A6190;
-  --code-bg: #181414;
-  --ring: var(--accent);
+  --surface-0: #101013;   /* Night */
+  --ink: #F1F1F3;
+  --brand: #8FE3E8;
+  --term-bg: #101013;
+  --bg: var(--surface-0);
+  --ring: var(--brand);
 }
-[data-theme="dark"] {
-  --bg: #002B43;
-  --fg: #F2EAD4;
-  --accent: #8FE3E8;
+:root[data-theme="light"] {
+  --surface-0: #FAFAFA;
+  --ink: #0A1114;
+  --brand: #0A6190;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111111; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --surface-0: #EEEEEE; } }
 `;
 
 test('blockTokens reads one block, ignoring comments and look-alike selectors', () => {
   assert.deepEqual(blockTokens(CSS, ':root'), {
-    '--bg': '#F2EAD4',
-    '--fg': '#181414',
-    '--accent': '#0A6190',
-    '--code-bg': '#181414',
-    '--ring': 'var(--accent)',
+    '--surface-0': '#101013',
+    '--ink': '#F1F1F3',
+    '--brand': '#8FE3E8',
+    '--term-bg': '#101013',
+    '--bg': 'var(--surface-0)',
+    '--ring': 'var(--brand)',
   });
-  assert.equal(blockTokens(CSS, '[data-theme="dark"]')['--bg'], '#002B43');
+  assert.equal(blockTokens(CSS, ':root[data-theme="light"]')['--surface-0'], '#FAFAFA');
   assert.throws(() => blockTokens(CSS, '.missing'), /no \.missing block/);
 });
 
-test('themeTokens layers dark over light and resolves var() in each theme', () => {
+test('themeTokens layers light over dark and resolves var() and aliases in each theme', () => {
   const { light, dark } = themeTokens(CSS);
-  assert.equal(light['--ring'], '#0A6190');
   assert.equal(dark['--ring'], '#8FE3E8');
-  assert.equal(dark['--code-bg'], '#181414');
+  assert.equal(light['--ring'], '#0A6190');
+  assert.equal(dark['--bg'], '#101013');
+  assert.equal(light['--bg'], '#FAFAFA');
+  assert.equal(light['--term-bg'], '#101013'); // a token the light block does not set is shared
   assert.throws(() => resolveTokens({ '--a': 'var(--b)', '--b': 'var(--a)' }), /refers to itself/);
   assert.throws(() => resolveTokens({ '--a': 'var(--missing)' }), /--missing is not defined/);
 });

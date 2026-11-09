@@ -53,6 +53,14 @@ ranks a section for words it no longer holds.
   the vector statements, for a replay that loads the vectors as one
   parameter. The capability catalog's labels join through a marked
   extension point when their source exists, as ADR-0020 says.
+- **Filter property.** `docs_vector` declares `page` with `WITH [s.page]`,
+  so a vector search can filter inside the search, before it ranks:
+  `WHERE s.page IN $pages` searches only the sections of pages a traversal
+  chose and still returns `LIMIT` rows. relate filters a vector search
+  only on declared properties (`WrongPropertyForVectorSearchFilter`
+  otherwise), and the recipe's statements must run unchanged on the whole
+  graph. `docs:check` fails when the replayed index covers other
+  properties.
 - **Recipe.** "Query the relate docs" loads a generated subset: every
   section of four fixed pages, text cut to 480 characters, vectors rounded
   to four decimals, the links among those pages, and the two questions
@@ -92,6 +100,11 @@ ranks a section for words it no longer holds.
   `RelateDb` takes only a read-only flag, and `COMBINE` fails there with
   the preview error even with the variable set. Revisit when it leaves
   preview.
+- **A vector index without filter properties, filtered after the
+  search.** One property fewer to maintain. Rejected: a `WHERE` after
+  `SEARCH` drops rows from the top `LIMIT` it already chose, so a scoped
+  search returns fewer sections, or none, where the scope's best ones
+  rank below other pages'.
 - **Mean pooling, Workers AI's default.** No parameter to remember.
   Rejected: Cloudflare's page recommends cls for accuracy on longer
   inputs, which sections are.

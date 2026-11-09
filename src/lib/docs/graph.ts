@@ -59,7 +59,8 @@
 // `short`), so the check can name it; the build fails on it before it ships.
 //
 // Indexes: the full-text index `docs` on (:Section) heading and text, the
-// vector index `docs_vector` on (:Section) embedding (384 dimensions, cosine),
+// vector index `docs_vector` on (:Section) embedding (384 dimensions, cosine,
+// filterable on `page`),
 // and the full-text index `problems` on (:Problem) text.
 //
 // Extension points (DOCS-PLAN.md §3.5, §3.8): a label joins LABELS and a
@@ -757,6 +758,13 @@ export const EMBEDDING_DIMENSION = 384;
 export const EMBEDDING_PROPERTY = 'embedding';
 export const VECTOR_INDEX = 'docs_vector';
 /**
+ * The Section properties `docs_vector` declares with `WITH [...]`: a vector
+ * search may filter on them inside the search, before it ranks (ADR-0028).
+ * `page` lets a statement search only the sections of pages a traversal
+ * chose (`WHERE s.page IN $pages`), as the cookbook recipe does.
+ */
+export const VECTOR_FILTER_PROPERTIES = ['page'] as const;
+/**
  * The model, as the artifact records it. The transformers.js weights
  * (`onnx` at `revision`, fp32) and the Workers AI model are both
  * BAAI/bge-small-en-v1.5, so a query embedded on the docs MCP Worker with
@@ -1056,7 +1064,7 @@ export function seedScript(g: DocsGraph, { vectors = true }: { vectors?: boolean
     ...schemaLines(g),
     `//   (:Section).${EMBEDDING_PROPERTY}: VECTOR<FLOAT32>(${EMBEDDING_DIMENSION}), ${EMBEDDING_MODEL.id} (Workers AI ${EMBEDDING_MODEL.workers_ai}, ${EMBEDDING_MODEL.pooling} pooling, normalized), on ${g.vectors.size} of ${g.nodes.filter((n) => n.label === 'Section').length} sections`,
     `//   FULLTEXT INDEX ${FULLTEXT_INDEX} on (:Section) heading and text`,
-    `//   VECTOR INDEX ${VECTOR_INDEX} on (:Section) ${EMBEDDING_PROPERTY}, ${EMBEDDING_DIMENSION} dimensions, cosine`,
+    `//   VECTOR INDEX ${VECTOR_INDEX} on (:Section) ${EMBEDDING_PROPERTY}, ${EMBEDDING_DIMENSION} dimensions, cosine, filterable on ${VECTOR_FILTER_PROPERTIES.join(', ')}`,
     `//   FULLTEXT INDEX ${PROBLEMS_INDEX} on (:Problem) text`,
     '',
   ];
@@ -1101,7 +1109,7 @@ export function seedScript(g: DocsGraph, { vectors = true }: { vectors?: boolean
     '',
     `CREATE FULLTEXT INDEX ${FULLTEXT_INDEX} IF NOT EXISTS FOR (s:Section) ON EACH [s.heading, s.text];`,
     `CREATE FULLTEXT INDEX ${PROBLEMS_INDEX} IF NOT EXISTS FOR (n:Problem) ON EACH [n.text];`,
-    `CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR (s:Section) ON (s.${EMBEDDING_PROPERTY}) OPTIONS {indexConfig: {\`vector.dimensions\`: ${EMBEDDING_DIMENSION}, \`vector.similarity_function\`: 'cosine'}};`,
+    `CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR (s:Section) ON (s.${EMBEDDING_PROPERTY}) WITH [${VECTOR_FILTER_PROPERTIES.map((p) => `s.${p}`).join(', ')}] OPTIONS {indexConfig: {\`vector.dimensions\`: ${EMBEDDING_DIMENSION}, \`vector.similarity_function\`: 'cosine'}};`,
     '',
   );
   return lines.join('\n');
@@ -1300,6 +1308,7 @@ export function graphJson(g: DocsGraph) {
       label: 'Section',
       property: EMBEDDING_PROPERTY,
       index: VECTOR_INDEX,
+      filters: [...VECTOR_FILTER_PROPERTIES],
       dimension: EMBEDDING_DIMENSION,
       similarity: 'cosine',
       model: EMBEDDING_MODEL.id,

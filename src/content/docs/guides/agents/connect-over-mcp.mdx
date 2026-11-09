@@ -66,14 +66,19 @@ A relative store path resolves against the directory the host starts the server 
 
 ### Claude Code
 
+A person adds the server with `claude mcp add`. An agent working in the repository writes the same server into `.mcp.json` at the project root, a file the person can review and commit.
+
+::::agentic
+:::human[At a terminal]
 ```bash
 claude mcp add relate -- relate serve --mcp stdio --database ./graph.rl --read-only
 ```
 
 To allow writes, remove `--read-only`.
 
-That adds the server for you in the current project (the default `local` scope, kept in `~/.claude.json`). With `--scope project`, Claude Code writes it to `.mcp.json` at the project root instead, so it can be committed:
-
+That adds the server for you in the current project (the default `local` scope, kept in `~/.claude.json`). With `--scope project`, Claude Code writes the same entry to `.mcp.json` at the project root instead, so it can be committed.
+:::
+:::agent[From an agent]
 ```json title=".mcp.json"
 {
   "mcpServers": {
@@ -87,7 +92,11 @@ That adds the server for you in the current project (the default `local` scope, 
 
 To allow writes, remove `"--read-only"` from `args`.
 
-Claude Code asks before it uses a project-scoped server from `.mcp.json`. `claude mcp list` shows each server with its health status, and `/mcp` inside a session shows its tools.
+The entry is the one `claude mcp add --scope project` writes. Claude Code asks before it uses a project-scoped server from `.mcp.json`, so the person approves the server the agent added.
+:::
+::::
+
+`claude mcp list` shows each server with its health status, and `/mcp` inside a session shows its tools.
 
 ### Claude Desktop
 

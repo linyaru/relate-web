@@ -57,21 +57,42 @@ Relate v0.16.1
 License: Apache 2.0 (binary)
 ```
 
-Then run one statement and ask for the :term[envelope]{id=envelope}, the JSON form an agent reads:
+Then run one statement. A person reads the answer as a table; an agent asks for the :term[envelope]{id=envelope}, the JSON form it parses, and checks the :term[exit code]{id=exit-code}:
 
+::::agentic
+:::human[At a terminal]
+```bash verify
+relate --mode table "RETURN 1 AS ok"
+```
+
+```text
++----+
+| ok |
++----+
+| 1  |
++----+
+```
+
+One column, one row. `table` is the default when the output goes to a terminal, so `relate "RETURN 1 AS ok"` prints the same table there.
+:::
+:::agent[From an agent]
 ```bash verify
 relate --mode envelope "RETURN 1 AS ok"
+echo "exit=$?"
 ```
 
 ```text
 {"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+exit=0
 ```
 
-Notice that the envelope lists the columns and their types, and `truncated` says whether rows were cut. Those exact bytes are what the Agent prompt tells an agent to expect.
+Notice that the envelope lists the columns and their types, and `truncated` says whether rows were cut. The envelope's exact bytes are what the Agent prompt tells an agent to expect, and exit code 0 means its rows are the answer.
+:::
+::::
 
 ## What you built
 
-You have a verified `relate` binary on your `PATH`, and it answers in the JSON an agent reads. With no `--database`, that statement ran against an in-memory :term[store]{id=store}, which forgets everything when the process exits.
+You have a verified `relate` binary on your `PATH`, and it answers both as a table you can read and as the JSON an agent parses. With no `--database`, that statement ran against an in-memory :term[store]{id=store}, which forgets everything when the process exits.
 
 ## Next
 

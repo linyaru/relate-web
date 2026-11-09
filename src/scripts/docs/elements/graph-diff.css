@@ -1,0 +1,67 @@
+/* :::graph-diff, the graph diff (src/scripts/docs/elements/graph-diff.ts). Tokens only; the view's colours are the same tokens, read by graph.ts. */
+.graph-diff { display: grid; gap: 10px; font-size: 14px; container-type: inline-size; min-width: 0; }
+.graph-diff .gd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.graph-diff .gd-said { margin: 0; color: var(--fg-muted); font-size: 13px; flex: 1 1 260px; min-width: 0; }
+.graph-diff .gd-summary { margin: 0; }
+.graph-diff .gd-problems { margin: 0; padding-left: 20px; color: var(--danger); font-size: 13px; }
+.graph-diff .gd-problems[hidden] { display: none; }
+
+/* The view and the table side by side where the element is wide, the table under the view otherwise. */
+.graph-diff .gd-body { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 900px) {
+  .graph-diff .gd-body { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+  .graph-diff .gd-table-wrap { max-height: clamp(380px, 66vh, 640px); }
+}
+.graph-diff .gd-view { display: grid; gap: 8px; min-width: 0; }
+
+.graph-diff .gd-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.graph-diff .gd-key { display: inline-flex; align-items: center; gap: 6px; }
+.graph-diff .gd-sample { display: inline-flex; }
+.graph-diff .gd-symbol { min-width: 0.8em; font-weight: 700; text-align: center; }
+.graph-diff .gd-word { font-weight: 600; }
+.graph-diff .gd-count { color: var(--fg-muted); }
+
+.graph-diff .gd-frame { position: relative; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.graph-diff .gd-stage { position: relative; height: clamp(320px, 56vh, 540px); touch-action: pan-y; }
+.graph-diff .gd-canvas { position: absolute; inset: 0; }
+/* One finger scrolls the page past the view until the reader taps into it. */
+.graph-diff.is-engaged .gd-stage { touch-action: none; }
+.graph-diff .gd-tools {
+  position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 2px; padding: 2px;
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+}
+.graph-diff .gd-tool {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--fg-muted); cursor: pointer;
+}
+.graph-diff .gd-tool:hover { background: var(--bg-inset); color: var(--fg); }
+.graph-diff .gd-hint {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 10px; max-width: calc(100% - 24px);
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; color: var(--fg-muted); text-align: center;
+}
+.graph-diff .gd-hint[hidden] { display: none; }
+.graph-diff .gd-picked { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--fg-muted); }
+
+.graph-diff .gd-changes { min-width: 0; }
+.graph-diff .gd-table-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.graph-diff .gd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.graph-diff .gd-table caption { text-align: left; color: var(--fg-muted); padding: 6px 8px; caption-side: top; }
+.graph-diff .gd-table th, .graph-diff .gd-table td { padding: 4px 8px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
+.graph-diff .gd-table thead th { position: sticky; top: 0; background: var(--bg-alt); }
+.graph-diff .gd-change { white-space: nowrap; font-weight: 600; }
+.graph-diff tr[data-status="removed"] .gd-change { color: var(--danger); }
+.graph-diff tr[data-status="added"] .gd-change { color: var(--success); }
+.graph-diff tr[data-status="changed"] .gd-change { color: var(--rel); }
+.graph-diff .gd-what { color: var(--fg-muted); overflow-wrap: anywhere; }
+.graph-diff .gd-pick {
+  padding: 0; border: 0; background: none; font: inherit; color: var(--fg); text-align: left; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; overflow-wrap: anywhere;
+}
+.graph-diff .gd-pick:hover { text-decoration-color: currentColor; }
+.graph-diff .gd-pick[aria-pressed="true"] { font-weight: 600; text-decoration-color: var(--accent); }
+.graph-diff .gd-pick:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+.graph-diff .gd-none { color: var(--fg-muted); }
+
+@media (max-width: 640px) {
+  .graph-diff .gd-stage { height: clamp(300px, 96vw, 440px); }
+}

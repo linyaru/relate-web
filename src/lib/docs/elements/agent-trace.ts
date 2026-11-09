@@ -48,6 +48,15 @@ function fences(source: string): { info: string; body: string }[] {
   return out;
 }
 
+/** The `parameters` of a JSON-RPC `tools/call` request line, or undefined when the line is not one or carries none. */
+function requestParameters(line: string): unknown {
+  try {
+    return (JSON.parse(line) as { params?: { arguments?: { parameters?: unknown } } }).params?.arguments?.parameters;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Every JSON value the page holds as data: its data blocks, the JSON files its commands write, the parameters of the JSON-RPC requests they send. */
 function pageData(input: ElementInput, verify: string[]): unknown[] {
   const out: unknown[] = Object.values(input.dataBlocks).flatMap((t) => {
@@ -57,6 +66,10 @@ function pageData(input: ElementInput, verify: string[]): unknown[] {
       return [];
     }
   });
+  const addRequest = (line: string) => {
+    const params = requestParameters(line);
+    if (params !== undefined) out.push(params);
+  };
   for (const body of verify) {
     for (const m of body.matchAll(/<<'?EOF'?\n([\s\S]*?)\nEOF/g)) {
       try {
@@ -64,15 +77,11 @@ function pageData(input: ElementInput, verify: string[]): unknown[] {
       } catch {
         /* a script, not data */
       }
-      for (const line of m[1].split('\n')) {
-        try {
-          const params = (JSON.parse(line) as { params?: { arguments?: { parameters?: unknown } } }).params?.arguments?.parameters;
-          if (params !== undefined) out.push(params);
-        } catch {
-          /* not a JSON-RPC line */
-        }
-      }
+      for (const line of m[1].split('\n')) addRequest(line);
     }
+    // A request in a single-quoted shell argument (`printf '%s\n' '{…}'`),
+    // the place verifyStatements also reads its statement from.
+    for (const m of body.matchAll(/'([^']*)'/g)) addRequest(m[1]);
   }
   return out;
 }

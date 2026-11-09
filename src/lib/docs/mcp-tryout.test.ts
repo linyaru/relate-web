@@ -287,6 +287,16 @@ test('a trace replays only calls the page makes', async () => {
   assert.match(problems, /`note` says where the call comes from/);
 });
 
+test('a request a verify fence sends in a printf argument lends the trace its statement and its parameters', async () => {
+  const trace = await loadSpec('agent-trace');
+  const cell = { id: 'seed', code: "CREATE (:Person {name: 'Ada'})", index: 1, title: null, line: 1, name: 'seed', params: null, expectError: false } as unknown as ElementInput['cells'][number];
+  const request = '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_cypher","arguments":{"statement":"MATCH (p:Person {name: $name}) DETACH DELETE p","parameters":{"name":"Ada"}}}}';
+  const page = "```bash verify\nprintf '%s\\n' \\\n  '" + request + "' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null\n```\n";
+  const step = (name: string) => ({ trace: JSON.stringify({ steps: [{ tool: 'read_cypher', arguments: { statement: 'MATCH (p:Person {name: $name}) DETACH DELETE p', parameters: { name } }, note: 'The refused delete.', expect: 'error' }] }) });
+  assert.deepEqual(trace.validate!(scratch(page, { steps: 'trace', from: 'seed' }, step('Ada'), [cell])), []);
+  assert.match(trace.validate!(scratch(page, { steps: 'trace', from: 'seed' }, step('Eve'), [cell])).join('\n'), /not data the page holds/);
+});
+
 test('a tryout shows all three tools, each with the arguments its schema takes', async () => {
   const tryout = await loadSpec('mcp-tryout');
   const input = (calls: unknown) => ({ ...scratch('', { calls: 'c' }, { c: JSON.stringify({ calls }) }), name: 'mcp-tryout' });

@@ -5,7 +5,7 @@ level: Intermediate
 category: Search and retrieval
 features: [SEARCH, VECTOR INDEX, FULLTEXT INDEX, vector search filter, quantified path pattern, COLLECT subquery, COUNT subquery, label expression, vector()]
 browser: full
-dataset: The relate docs graph's pages, glossary terms, capabilities, problems and recipes with the relationships the steps read, every section of five pages with its 384-dimension bge-small-en-v1.5 embedding, and 2 embedded questions (about 373 KB)
+dataset: The relate docs graph's pages, glossary terms, surfaces, capabilities, problems and recipes with the relationships the steps read, every section of five pages with its 384-dimension bge-small-en-v1.5 embedding, and 2 embedded questions (about 373 KB)
 source: The relate docs graph (https://relatedb.ai/docs/graph.cypher); section text from the pages, cut to 480 characters; vectors from the committed docs embeddings
 license: Apache-2.0
 ---

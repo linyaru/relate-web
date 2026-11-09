@@ -1195,7 +1195,7 @@ RETURN s.id AS id, s.page AS page, s.anchor AS anchor, s.heading AS heading, s.u
  * RECIPE_PAGES only, its text cut to RECIPE_TEXT_CHARS with whitespace
  * collapsed, its vector rounded to four decimals; and RECIPE_QUESTIONS with
  * their vectors from the artifact's `queries`. Left out: the other
- * sections, examples, CLI commands and flags, the indexes nodes, RELATED_TO
+ * sections, examples, CLI commands and flags, the Index nodes, RELATED_TO
  * and links to recipes, which no step reads.
  */
 export const RECIPE_SLUG = 'query-the-relate-docs';

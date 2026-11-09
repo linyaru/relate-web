@@ -19,6 +19,10 @@
 // it. Under prefers-reduced-motion nothing moves where the reader can see
 // it: the canvas is hidden while a layout runs (a switch, an expansion, its
 // Reset), shows once it has settled, and fits without animating.
+//
+// Two more kinds of view draw graphs their callers lay out: the network view
+// (`renderNetwork`, the live docs graph) and the scale view (`renderScale`,
+// the scale demo's hundred thousand nodes on NVL's WebGL renderer).
 
 import { NVL } from '@neo4j-nvl/base';
 import {
@@ -1380,6 +1384,167 @@ export function renderNetwork(host: HTMLElement, first: { nodes: NetNode[]; rels
       unwatchTheme();
       host.removeEventListener('pointerdown', pressed, { capture: true });
       for (const h of handlers) h.destroy();
+      nvl.destroy();
+    },
+  };
+}
+
+// ---------------------------------------------------------------- scale
+
+// A large graph drawn by NVL's WebGL renderer (`:::scale-demo`,
+// src/scripts/docs/elements/scale-demo.ts, draws up to a hundred thousand
+// nodes with it). The canvas renderer draws every node on the page's thread
+// and stalls at that size; the WebGL renderer draws dots and lines on the
+// GPU, without captions or arrowheads, and places at most 65,536 nodes
+// (SCALE_MAX_NODES). Nodes sit where the caller put them
+// (NVL's free layout), so nothing moves on load, under prefers-reduced-motion
+// or not, and the camera jumps to a fit. Only zoom and pan: hover and click
+// would hit-test every node on each pointer move. The view never falls back
+// to the canvas renderer: without WebGL (`webglAvailable()` false) the
+// caller draws nothing.
+
+/** A node of a scale view: its position in layout units. */
+export interface ScaleNode {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** A relationship of a scale view. */
+export interface ScaleRel {
+  id: string;
+  from: string;
+  to: string;
+}
+
+export interface ScaleOptions {
+  /** The element whose `is-full` class means the view fills the screen, where the wheel zooms at once. */
+  frame: HTMLElement;
+  /** A node's radius in layout units. */
+  size: number;
+  /** A wheel scrolled past the view without zooming it. */
+  onWheelPast: () => void;
+}
+
+/** What a scale view draws now, read from NVL, for a browser case. */
+export interface ScaleState {
+  /** The renderer NVL draws with ('webgl'). */
+  renderer: string;
+  nodes: number;
+  rels: number;
+  scale: number;
+}
+
+export interface ScaleView {
+  /** Fit the camera to every node, and keep refitting on a resize until the reader moves it. */
+  fit(): void;
+  zoomBy(factor: number): void;
+  state(): ScaleState;
+  destroy(): void;
+}
+
+/**
+ * The most nodes a scale view draws. NVL 1.2.2's WebGL renderer keeps node
+ * positions in one 256 x 256 float texture, one texel per node: the node
+ * after the 65,536th has no texel, and NVL draws it, and the lines to it,
+ * at another node's place (seen in Chrome at 70,000 nodes). The caller
+ * draws at most this many; `renderScale` refuses more.
+ */
+export const SCALE_MAX_NODES = 256 * 256;
+
+/** Whether this browser gives the page WebGL, which the scale view needs. */
+export function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = (canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+    // A probe's context is released at once: a page gets only so many.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
+  } catch {
+    return false;
+  }
+}
+
+/** Draw `nodes` and `rels` into `host` (which needs a height) with NVL's WebGL renderer at the positions given. Throws without WebGL. */
+export function renderScale(host: HTMLElement, nodes: ScaleNode[], rels: ScaleRel[], options: ScaleOptions): ScaleView {
+  if (!webglAvailable()) throw new Error('scale view: this browser gives the page no WebGL');
+  if (nodes.length > SCALE_MAX_NODES) throw new Error(`scale view: ${nodes.length} nodes, past the ${SCALE_MAX_NODES} NVL's WebGL renderer can place`);
+  let theme = canvasTheme();
+  const paintNode = (id: string) => ({ id, color: theme.shadow, size: options.size });
+  const paintRel = (id: string) => ({ id, color: theme.rel, width: 1 });
+  const nvl = new NVL(
+    host,
+    nodes.map((n) => ({ ...paintNode(n.id), x: n.x, y: n.y })) as never,
+    rels.map((r) => ({ ...paintRel(r.id), from: r.from, to: r.to })) as never,
+    {
+      renderer: 'webgl',
+      // Throw rather than fall back to the canvas renderer, which would stall the tab at this size.
+      disableWebGL: false,
+      layout: 'free',
+      disableWebWorkers: true,
+      disableTelemetry: true,
+      // The caller says in words what the view holds (its status line), not NVL's per-element live region.
+      disableAria: true,
+      minZoom: 0.001,
+      maxZoom: 4,
+    },
+    { onError: (err: unknown) => console.error('scale view:', err) },
+  );
+  const zoom = new ZoomInteraction(nvl);
+  const pan = new PanInteraction(nvl);
+  let moved = false; // the reader zoomed or panned: leave the camera where they put it
+  zoom.updateCallback('onZoom', () => (moved = true));
+  pan.updateCallback('onPan', () => (moved = true));
+  gateWheel(options.frame, host, options.onWheelPast);
+
+  // The box around the nodes, in layout units, with a node's margin.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    if (n.x < minX) minX = n.x;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.y > maxY) maxY = n.y;
+  }
+  const fitTo = () => {
+    const w = host.clientWidth;
+    const h = host.clientHeight;
+    if (!nodes.length || w === 0 || h === 0) return false;
+    const margin = 12 + options.size;
+    const fit = Math.min((w - 2 * margin) / Math.max(maxX - minX, 1), (h - 2 * margin) / Math.max(maxY - minY, 1));
+    nvl.setZoomAndPan(fit, (minX + maxX) / 2, (minY + maxY) / 2);
+    return true;
+  };
+  let width = 0;
+  let fitted = false;
+  const resized = new ResizeObserver(() => {
+    if (host.clientWidth === width && fitted) return;
+    width = host.clientWidth;
+    if (!moved && fitTo()) fitted = true;
+  });
+  resized.observe(host);
+
+  const unwatchTheme = watchTheme(() => {
+    theme = canvasTheme();
+    nvl.updateElementsInGraph(nodes.map((n) => paintNode(n.id)) as never, rels.map((r) => paintRel(r.id)) as never);
+  });
+
+  return {
+    fit() {
+      moved = false;
+      fitted = fitTo() || fitted;
+    },
+    zoomBy(factor) {
+      moved = true;
+      nvl.setZoom(nvl.getScale() * factor);
+    },
+    state() {
+      return { renderer: nvl.getCurrentOptions().renderer ?? 'canvas', nodes: nvl.getNodes().length, rels: nvl.getRelationships().length, scale: nvl.getScale() };
+    },
+    destroy() {
+      resized.disconnect();
+      unwatchTheme();
+      zoom.destroy();
+      pan.destroy();
       nvl.destroy();
     },
   };

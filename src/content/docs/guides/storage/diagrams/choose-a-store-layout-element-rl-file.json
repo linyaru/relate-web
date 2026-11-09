@@ -1,0 +1,18 @@
+{
+  "format": 2,
+  "element": "storage-animator",
+  "hash": "a54ee57ff5f35210e7e3681a6a818e4b628a98ad0784a641a13881e25196c1bc",
+  "inputs": [
+    "src/content/docs/_data/cli.json"
+  ],
+  "live": "Commit, Checkpoint and Crash step through what relate does with the WAL, the in-memory graph and the snapshot (inside one `.rl` file in the file view), and a mode switch with a crash slider shades what `full`, `everysecond` and `snapshot` can lose; under reduced motion each step waits for Next. It is a diagram of documented behaviour: no engine runs.",
+  "engine": false,
+  "text": "**One `.rl` file.** A single-file store keeps in one file the same tree a directory store spreads over a folder, WAL included. Its parts, in logical order rather than by byte position:\n\n| Part | Holds |\n| --- | --- |\n| Superblock | The container's version marker: magic `MDBCLB01`, version `1` (`relate info` prints `superblock version: 1`) |\n| Snapshot | `manifest.json` and the codec's files (with the default `parquet` codec, the files under `nodes/` and `relationships/`): the state at the last checkpoint |\n| WAL | `wal/NNNNNNNN.log` segments: every commit since the last checkpoint |\n| Space it reuses | The most space the snapshot and WAL have needed at once; later writes reuse what they no longer hold, and the file does not shrink |\n\nA commit appends its record to the open segment inside the file. A checkpoint writes the new snapshot files inside it, publishes them with `manifest.json` last, and deletes the segments the snapshot covers. A writer holds the file itself, with no lock files beside it, so a `--read-only` open is refused while a writer has it, and `--wal-dir` is refused for a `.rl` path. `relate clone` writes a compact copy that holds only the current state.",
+  "caption": "The parts of one .rl file, as relate documents it",
+  "svg": true,
+  "svgSha256": {
+    "light": "37eff98560275223d700cce2ffbe279f4f0994f40b1bc3e2492fa3720dca64d8",
+    "dark": "2fc3775b6db7d1740c0ab2d3939632bd9f719cd3b612bb8769abb3be240be475"
+  },
+  "textSha256": "7a0769823ff16cf2ddd3989dd21204bf42788bb8b85ca12073ab122ff769430d"
+}

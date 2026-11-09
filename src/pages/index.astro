@@ -1,8 +1,5 @@
 ---
-// Interim: renders the legacy page body, with the shared Header component and base.css
-// swapped in. Replace with real section components as pieces are extracted from
-// src/legacy/index.html (see CLAUDE.md).
-import legacy from '../legacy/index.html?raw';
+// The home page: the design's sections in order, between the shared top bar and footer.
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import Hero from '../components/Hero.astro';
@@ -10,12 +7,47 @@ import LoopDemo from '../components/LoopDemo.astro';
 import Diagram from '../components/Diagram.astro';
 import Quickstart from '../components/Quickstart.astro';
 import Chapters from '../components/Chapters.astro';
-import Cta from '../components/Cta.astro';
 import Community from '../components/Community.astro';
+import Cta from '../components/Cta.astro';
 import '../styles/base.css';
-const html = legacy.replace(/^<!DOCTYPE html>\s*/i, '');
-const [before, rest] = html.split('<!--SITE-HEADER-->');
-const [top, rest2] = rest.split('<!--SITE-HERO-->');
-const [between, after] = rest2.split('<!--SITE-FOOTER-->');
+
+const title = 'relate — the agent-native graph database';
+const description = 'relate is an open-source embedded database for AI agents. Give your agents a place to keep their data and see how it all connects. No signup. No server to deploy.';
 ---
-<Fragment set:html={before} /><Header /><Fragment set:html={top} /><Hero /><LoopDemo /><Diagram /><Quickstart /><Chapters /><Fragment set:html={between} /><Community /><Cta /><Footer play /><Fragment set:html={after} />
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preload" href="/fonts/relate-sans.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/relate-mono.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/favicon-192.png" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="canonical" href="https://relatedb.ai/" />
+    <link rel="describedby" href="/llms.txt" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content="https://relatedb.ai/" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <script is:inline>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+  </head>
+  <body>
+    <Header />
+    <main id="main">
+      <Hero />
+      <LoopDemo />
+      <Diagram />
+      <Quickstart />
+      <Chapters />
+      <Community />
+      <Cta />
+    </main>
+    <Footer play />
+  </body>
+</html>

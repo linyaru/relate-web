@@ -8,7 +8,7 @@ The site is pre-launch. Package names, release URLs and install URLs on the page
 
 | Path on the site | Source | What it is |
 |---|---|---|
-| `/` | `src/pages/index.astro`, `src/legacy/` | The home page |
+| `/` | `src/pages/index.astro` | The home page |
 | `/docs/` | `src/content/docs/`, `src/lib/docs/`, `src/pages/docs/` | The documentation: 142 pages, each with a markdown twin (`<page>.md`), `llms.txt`, a docs graph (`graph.cypher`, `graph.json`, `<page>.graph.md`), the glossary, the capability catalog and the interactive elements (plan viewer, agent-mode terminal, vector and geospatial explorers, MCP tryout, live schema, the docs graph itself) |
 | `/cookbook/` | `src/content/cookbook/`, `src/lib/cookbook/` | Recipes whose every Cypher step runs on the WASM engine, with recorded results, diagrams and a hand-off to the playground |
 | `/playground/` | `playground/` | The full-screen Cypher playground, its own Vite and React package |

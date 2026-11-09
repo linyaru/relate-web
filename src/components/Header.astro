@@ -13,15 +13,10 @@ const isCurrent = (href: string) => {
   const h = href.replace(/\/$/, '') || '/';
   return path === h || (h !== '/' && path.startsWith(`${h}/`));
 };
+const GITHUB = 'https://github.com/relatedb/relate';
 const links = [
-  { href: '/#quickstart', label: 'Quickstart' },
-  { href: '/#examples', label: 'Examples' },
-  { href: '/#reference', label: 'Reference' },
-  { href: '/#extensions', label: 'Extensions' },
-  { href: '/docs', label: 'Docs' },
-  { href: '/blog', label: 'Blog' },
+  { href: '/docs/', label: 'Docs' },
   { href: '/cookbook/', label: 'Cookbook' },
-  { href: 'https://github.com/relatedb/relate', label: 'GitHub', external: true },
   {
     href: playgroundHref,
     label: 'Playground',
@@ -29,6 +24,8 @@ const links = [
     icon: true,
     title: playgroundHref === '/playground/' ? undefined : 'Open this recipe in the playground',
   },
+  // On desktop GitHub is the pill on the right; the folded menu lists it here.
+  { href: GITHUB, label: 'GitHub', external: true, icon: true, cls: 'nl-gh' },
 ];
 ---
 <a class="skip" href="#main">Skip to content</a>
@@ -39,12 +36,13 @@ const links = [
     </a>
     <nav class="nav-links" id="topNav" aria-label="Main">
       {links.map((l) => (
-        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} title={'title' in l ? l.title : undefined} aria-current={isCurrent(l.href) ? 'page' : undefined}>
+        <a class={'cls' in l ? l.cls : undefined} href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} title={'title' in l ? l.title : undefined} aria-current={isCurrent(l.href) ? 'page' : undefined}>
           {l.label}{l.icon && <span aria-hidden="true">&nbsp;&#8599;</span>}{l.external && <span class="sr-only"> (opens in new tab)</span>}
         </a>
       ))}
     </nav>
     <div class="nav-right">
+      <a class="nav-gh" href={GITHUB} target="_blank" rel="noopener" aria-label="GitHub (opens in new tab)"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.5.8.5 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2z"/></svg><span>GitHub</span></a>
       <a class="nav-cta" href="/#quickstart">Get started</a>
       <button class="menu-btn" id="navToggle" type="button" aria-label="Open menu" aria-controls="topNav" aria-expanded="false"><span><i></i><i></i></span></button>
     </div>

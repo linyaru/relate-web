@@ -243,6 +243,12 @@ header.nav {
 .nav-links a:hover { background: var(--surface-2); }
 .nav-links a[aria-current='page'] { background: var(--surface-2); }
 .nav-right { margin-left: auto; display: flex; align-items: center; height: var(--header-h); }
+.nav-gh {
+  display: inline-flex; align-items: center; gap: 8px; height: var(--header-h); padding: 0 20px;
+  border-left: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 14px; transition: background-color .15s;
+}
+.nav-gh:hover { background: var(--surface-2); }
+.nav-links a.nl-gh { display: none; }
 .nav-cta {
   display: inline-flex; align-items: center;
   height: var(--header-h); padding: 0 22px;
@@ -262,8 +268,10 @@ header.nav {
 .menu-btn[aria-expanded="true"] i:first-child { transform: translateY(4.5px) rotate(45deg); }
 .menu-btn[aria-expanded="true"] i:last-child { transform: translateY(-4.5px) rotate(-45deg); }
 
-/* Nine links and a call to action need about 1130px; below that the links fold into the menu. */
-@media (max-width: 1180px) {
+/* Below this width the links fold into the menu (GitHub moves from the pill into it). */
+@media (max-width: 900px) {
+  .nav-gh { display: none; }
+  .nav-links a.nl-gh { display: inline-flex; }
   .lockup { padding: 0 16px; }
   .menu-btn { display: inline-flex; }
   .nav-links {

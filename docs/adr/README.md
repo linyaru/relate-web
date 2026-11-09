@@ -121,3 +121,4 @@ Copy `template.md`.
 | [0041](0041-mcp-tryout-and-agent-trace.md) | The MCP tryout and the agent trace answer tool calls in the page by relate serve's mapping, with recorded server answers where the engine cannot speak | Proposed |
 | [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |
 | [0043](0043-home-design-tokens-and-fonts.md) | The site takes its colours and type from the Relate home design: Night by default, three open-source faces, the older token names kept as aliases | Proposed |
+| [0046](0046-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |

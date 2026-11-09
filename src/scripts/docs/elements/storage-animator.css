@@ -1,0 +1,35 @@
+/* :::storage-animator (src/scripts/docs/elements/storage-animator.ts). Tokens only; the drawing's own colours are in its <style>, from the model's svgStyle. */
+.storage-animator { display: grid; gap: 10px; min-width: 0; font-size: 14px; }
+.sa-scenes { display: inline-flex; flex-wrap: wrap; gap: 0; }
+.sa-scenes .btn { border-radius: 0; margin-left: -1px; }
+.sa-scenes .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.sa-scenes .btn:last-child { border-radius: 0 6px 6px 0; }
+.storage-animator .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.storage-animator .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.sa-status { margin: 0; font-size: 13px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.sa-step { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-muted); justify-self: start; }
+.sa-step[hidden] { display: none; }
+.sa-step input { accent-color: var(--accent); }
+.sa-panel { display: grid; gap: 10px; min-width: 0; }
+.sa-panel[hidden] { display: none; }
+.sa-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sa-stage { min-width: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-alt); padding: 6px; }
+.sa-svg { display: block; width: 100%; height: auto; }
+/* The write path keeps its two rows side by side: on a narrow column it holds a readable size and scrolls inside its frame, as the site's diagrams do. */
+@media (max-width: 640px) { .sa-stage[data-view="write-path"] .sa-svg { width: 600px; max-width: none !important; } }
+.sa-say { margin: 0; min-height: 3em; font-size: 14px; overflow-wrap: anywhere; }
+.sa-modes { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; min-width: 0; }
+.sa-modes legend { float: left; margin-right: 6px; padding: 0; font-size: 13px; color: var(--fg-muted); }
+.sa-modes label { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; }
+.sa-modes input { accent-color: var(--accent); margin: 0; }
+.sa-crash-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.sa-crash-row input[type="range"] { flex: 1 1 160px; min-width: 0; accent-color: var(--accent); }
+.sa-crash-row output { min-width: 3.5em; font-variant-numeric: tabular-nums; }
+
+/* Motion: the part a step names fades in and a record that arrives drops into its segment. None of it under reduced motion (docs.css also stops every animation inside an element then). */
+@media (prefers-reduced-motion: no-preference) {
+  .sa-svg .on .box, .sa-svg .on .band, .sa-svg .arrow.on, .sa-svg .sync { animation: sa-in 0.5s var(--ease) both; }
+  .sa-svg .chip.new { transform-box: fill-box; animation: sa-drop 0.5s var(--ease) both; }
+}
+@keyframes sa-in { from { opacity: 0.25; } to { opacity: 1; } }
+@keyframes sa-drop { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }

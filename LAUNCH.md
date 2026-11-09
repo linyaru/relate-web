@@ -82,12 +82,19 @@ GitHub token.
 
 **Site**
 - [ ] `https://relatedb.ai/` loads over HTTPS, valid cert, `www` redirect works
-- [ ] No console errors; live WASM demo reaches "ready" and runs a sample query
+- [ ] No console errors; the playground (`/playground/`) reaches "ready" and runs a sample query
 - [ ] No remaining `cypherlite` / `neo4j-labs` / "labs" branding strings: `curl -s https://relatedb.ai/ https://relatedb.ai/llms.txt | grep -ci cypherlite` → `0`
 - [ ] Every link on the page resolves (run `lychee` against the live URL); no 404s to repos/releases/packages
 - [ ] `robots.txt` and `sitemap.xml` allow indexing; `noindex` removed; `llms.txt` served as text
 - [ ] Light/dark theme, mobile width, cli/agentic toggle, copy buttons all work
 - [ ] Version shown on the page matches the latest release tag
+
+**Install names** (the table under "Target names" is the source; the site must agree with it)
+- [ ] Before the first publish, confirm each name is free or ours: `pip index versions relate-db`, `npm view @relate/relate` and `npm view @relate/relate-wasm` (the `@relate` scope is ours), Maven Central search for `com.relate:relate` (group ownership verified), `go list -m github.com/relatedb/relate/clients/go`
+- [ ] After publish, each name resolves to the release just cut (same version as `relate --version`), not a squatted or stale package
+- [ ] No unlisted install name on the site: `grep -rhoE "pip install [a-z0-9_.-]+|npm install [@a-z0-9/_.-]+|cargo add [^\`<]+|go get [^\`< ]+" src public dist | sort -u` lists only names from the table; `grep -rhoE "relate-(linux|darwin|windows)[a-z0-9.-]*" dist | sort -u` matches the release's actual asset names
+- [ ] Native library and crate names (`relate-ffi`, `librelate_ffi`) match the release assets and the Java jar's bundled natives
+- [ ] The same names appear in `llms.txt`, `/skill.md`, the served skill, `relate skill install` output and the docs MCP resources
 
 **Install paths** (each one on a clean environment)
 - [ ] `curl -sSfL https://relatedb.ai/install.sh | bash` installs; `relate --version` matches the release; signature + SHA256SUMS verification passes

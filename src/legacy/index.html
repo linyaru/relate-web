@@ -19,6 +19,7 @@
 <meta property="og:url" content="https://relatedb.ai/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
+<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
   /* Shared fonts, tokens, reset and top-nav styles live in src/styles/base.css */
 
@@ -706,26 +707,6 @@
     .step-full .db-panel[data-db-panel="aura"] > div p { margin-top: 0; }
   }
 
-  /* ---------- Footer ---------- */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 28px 0 24px;
-    color: var(--fg-faint);
-    font-size: 13px;
-  }
-  footer .inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  footer a { color: var(--fg-muted); text-decoration: none; transition: color 0.1s; }
-  footer a:hover { color: var(--fg); }
-  footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
-  footer .meta { font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
-  footer .meta a { text-decoration: underline; }
-
   /* ---------- Cursor ---------- */
   .cursor {
     display: inline-block;
@@ -1054,7 +1035,7 @@
 <!--SITE-HEADER-->
 
 <!-- ============== MAIN ============== -->
-<main>
+<main id="main">
 
 <!-- ============== HERO ============== -->
 <section class="hero">
@@ -1954,21 +1935,7 @@ let stats = db.execute("MATCH (n:Person) RETURN n.name")?;</pre>
 
 </main>
 
-<!-- ============== FOOTER ============== -->
-<footer>
-  <div class="container inner">
-    <div class="meta">
-      relate <a href="https://github.com/relatedb/relate/releases" target="_blank" rel="noopener">v0.16.1</a> · open source
-    </div>
-    <div class="links">
-      <a href="https://github.com/relatedb/relate" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/relatedb/relate/issues" target="_blank" rel="noopener">Issues</a>
-      <a href="llms.txt">llms.txt</a>
-      <a href="https://github.com/relatedb/relate/blob/main/docs/tck/compliance.md" target="_blank" rel="noopener">TCK compliance</a>
-      <a href="https://github.com/relatedb/relate/blob/main/docs/adr/" target="_blank" rel="noopener">ADRs</a>
-    </div>
-  </div>
-</footer>
+<!--SITE-FOOTER-->
 
 <!-- ============== TOAST ============== -->
 <div class="toast" id="toast" role="status" aria-live="polite">

@@ -4,8 +4,10 @@
 // src/legacy/index.html (see CLAUDE.md).
 import legacy from '../legacy/index.html?raw';
 import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 import '../styles/base.css';
 const html = legacy.replace(/^<!DOCTYPE html>\s*/i, '');
-const [before, after] = html.split('<!--SITE-HEADER-->');
+const [before, rest] = html.split('<!--SITE-HEADER-->');
+const [between, after] = rest.split('<!--SITE-FOOTER-->');
 ---
-<Fragment set:html={before} /><Header /><Fragment set:html={after} />
+<Fragment set:html={before} /><Header /><Fragment set:html={between} /><Footer /><Fragment set:html={after} />

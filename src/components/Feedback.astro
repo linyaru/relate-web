@@ -1,14 +1,19 @@
 ---
-// "Got feedback?" — a disclosure that opens a page's GitHub Discussion (giscus, mapped by
-// pathname). giscus loads the first time it is opened, so the page makes no third-party
+// "Got feedback?" — a button that opens a modal with a page's GitHub Discussion (giscus, mapped by
+// pathname). giscus loads the first time the modal is opened, so the page makes no third-party
 // request by default. Without ids (src/lib/giscus.ts) it links to a new issue.
 import { GISCUS, giscusReady } from '../lib/giscus.ts';
 
 const issue = `https://github.com/${GISCUS.repo}/issues/new`;
 ---
-<details class="fb" id="feedback" data-pagefind-ignore>
-  <summary><span class="fb-t">Got feedback?</span><span class="fb-s">Corrections and suggestions are welcome.</span></summary>
+<div class="fb" id="feedback" data-pagefind-ignore>
+  <button type="button" class="fb-open" aria-haspopup="dialog"><span class="fb-t">Got feedback?</span><span class="fb-s">Corrections and suggestions are welcome.</span></button>
+  <dialog class="fb-dialog" aria-labelledby="fb-title">
   <div class="fb-in">
+    <div class="fb-head">
+      <h2 id="fb-title" class="fb-t">Got feedback?</h2>
+      <button type="button" class="fb-close" aria-label="Close">×</button>
+    </div>
     {giscusReady ? (
       <>
         <p>Sign in with GitHub to comment. It's a public discussion about this page.</p>
@@ -16,9 +21,9 @@ const issue = `https://github.com/${GISCUS.repo}/issues/new`;
         <noscript><a class="fb-link" href={issue} target="_blank" rel="noopener">Open an issue on GitHub<span class="sr-only"> (opens in new tab)</span></a></noscript>
         <script is:inline define:vars={{ GISCUS }}>
           (function () {
-            var d = document.currentScript.closest('details');
-            var host = d && d.querySelector('[data-giscus-box]');
-            if (!host) return;
+            var root = document.currentScript.closest('.fb');
+            var d = root.querySelector('dialog');
+            var host = d.querySelector('[data-giscus-box]');
             var theme = function () {
               var t = document.documentElement.dataset.theme;
               if (t === 'light' || t === 'dark') return t;
@@ -29,7 +34,7 @@ const issue = `https://github.com/${GISCUS.repo}/issues/new`;
               if (f && f.contentWindow) f.contentWindow.postMessage({ giscus: { setConfig: { theme: theme() } } }, 'https://giscus.app');
             };
             var load = function () {
-              d.removeEventListener('toggle', onToggle);
+              opener.removeEventListener('click', load);
               var s = document.createElement('script');
               s.src = 'https://giscus.app/client.js';
               s.async = true;
@@ -43,9 +48,8 @@ const issue = `https://github.com/${GISCUS.repo}/issues/new`;
               new MutationObserver(send).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
               window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', send);
             };
-            var onToggle = function () { if (d.open) load(); };
-            d.addEventListener('toggle', onToggle);
-            if (d.open) load();
+            var opener = root.querySelector('.fb-open');
+            opener.addEventListener('click', load);
           })();
         </script>
       </>
@@ -53,22 +57,39 @@ const issue = `https://github.com/${GISCUS.repo}/issues/new`;
       <a class="fb-link" href={issue} target="_blank" rel="noopener">Open an issue on GitHub<span class="sr-only"> (opens in new tab)</span></a>
     )}
   </div>
-</details>
+  </dialog>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('.fb').forEach((root) => {
+    const d = root.querySelector('dialog');
+    const open = root.querySelector('.fb-open');
+    if (!d || !open) return;
+    open.addEventListener('click', () => d.showModal());
+    root.querySelector('.fb-close')?.addEventListener('click', () => d.close());
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+  });
+</script>
 
 <style>
   .fb { margin: 48px 0 8px; border-top: 1px solid var(--line); user-select: text; -webkit-user-select: text; }
-  .fb summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 16px 0; cursor: pointer; list-style: none; }
-  .fb summary::-webkit-details-marker { display: none; }
-  .fb summary::before { content: ''; flex: none; align-self: center; width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 8px;
-    border-color: transparent transparent transparent currentColor; transition: transform .15s; color: var(--ink-muted, var(--ink)); }
-  .fb[open] summary::before { transform: rotate(90deg); }
-  .fb summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-  .fb-t { font-weight: 600; font-size: 16px; color: var(--ink); }
+  .fb-open { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; width: 100%; padding: 16px 0; cursor: pointer;
+    background: none; border: 0; font: inherit; text-align: left; color: inherit; }
+  .fb-open::before { content: ''; flex: none; align-self: center; width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 8px;
+    border-color: transparent transparent transparent currentColor; color: var(--ink-muted, var(--ink)); }
+  .fb-open:focus-visible, .fb-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .fb-t { font-weight: 600; font-size: 16px; color: var(--ink); margin: 0; }
   .fb-s { font-size: 14px; color: var(--ink-muted, var(--ink)); }
-  .fb-in { padding-bottom: 16px; }
+  .fb-dialog { width: min(680px, calc(100vw - 32px)); max-height: min(85vh, 900px); padding: 0; color: var(--ink);
+    background: var(--surface-2, var(--bg)); border: 1px solid var(--line); border-radius: 12px; overflow: auto; }
+  .fb-dialog::backdrop { background: rgb(0 0 0 / .55); }
+  .fb-in { padding: 20px 24px 24px; }
+  .fb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .fb-close { flex: none; width: 32px; height: 32px; font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink-muted, var(--ink));
+    background: none; border: 1px solid var(--line); border-radius: 8px; }
+  .fb-close:hover { border-color: var(--brand); color: var(--ink); }
   .fb-in p { margin: 0 0 12px; font-size: 14px; color: var(--ink-muted, var(--ink)); }
   .fb-link { display: inline-block; font-weight: 600; font-size: 14px; color: var(--ink);
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; text-decoration: none; }
   .fb-link:hover { border-color: var(--brand); }
-  @media (prefers-reduced-motion: reduce) { .fb summary::before { transition: none; } }
 </style>

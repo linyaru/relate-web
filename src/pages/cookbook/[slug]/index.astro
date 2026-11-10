@@ -6,7 +6,11 @@ import { pixels } from '../../../lib/cookbook/pixel-icons.ts';
 import Cookbook from '../../../layouts/Cookbook.astro';
 import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
 import { byCategory, esc, mb, playgroundHref, renderRecipe } from '../../../lib/cookbook/render.ts';
+import { COOKBOOK_DIR } from '../../../lib/cookbook/load.ts';
 import { cookbook, type Page } from '../../../lib/cookbook/site.ts';
+import { firstUpdated, lastUpdated } from '../../../lib/docs/content.ts';
+import { articleGraph } from '../../../lib/seo.ts';
+import { join } from 'node:path';
 
 export async function getStaticPaths() {
   const { pages } = await cookbook();
@@ -42,6 +46,18 @@ const contents = [...toc, ...(facts.length ? [{ id: 'about-the-data', label: 'Ab
 const others =
   byCategory(book.pages.map((p) => p.recipe), [f.category])[0]?.recipes.filter((r) => r.slug !== recipe.slug) ?? [];
 // The graph view colours each label as the recipe's data model does.
+const modified = lastUpdated(join(COOKBOOK_DIR, `${recipe.slug}.md`));
+const jsonld = [
+  articleGraph({
+    title: f.title,
+    description: f.summary,
+    path: base,
+    modified,
+    published: firstUpdated(join(COOKBOOK_DIR, `${recipe.slug}.md`)),
+    language: 'Cypher',
+    crumbs: [{ label: 'Cookbook', href: '/cookbook/' }],
+  }),
+];
 const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
 ---
 <Cookbook
@@ -50,6 +66,9 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
   footerLinks={[{ href: `${base}index.md`, label: 'Markdown' }]}
   playgroundHref={playgroundHref(recipe.slug)}
   recipe={recipe.slug}
+  twinHref={`${base}index.md`}
+  modified={modified}
+  jsonld={jsonld}
 >
   <script is:inline slot="head" type="application/json" id="label-colors" set:html={labelColors} />
   <div class="recipe-container">

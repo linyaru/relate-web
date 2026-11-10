@@ -5,7 +5,7 @@ import Base from './Base.astro';
 import DocsHeader from '../components/docs/DocsHeader.astro';
 import Foot from '../components/cookbook/Foot.astro';
 import RecipeBar from '../components/cookbook/RecipeBar.astro';
-import { CANONICAL_ORIGIN } from '../lib/cookbook/links.ts';
+import type { JsonLd } from '../lib/seo.ts';
 import '../styles/cookbook.css';
 import '../styles/docs-chrome.css';
 
@@ -18,18 +18,26 @@ interface Props {
   playgroundHref?: string;
   /** A recipe page: the docs header and the recipe bar (the slug marks the current recipe). */
   recipe?: string;
+  /** The recipe's markdown twin. */
+  twinHref?: string;
+  /** `YYYY-MM-DD`. */
+  modified?: string;
+  jsonld?: JsonLd[];
 }
-const { title, description, footerLinks = [], playgroundHref, recipe } = Astro.props;
-const canonical = new URL(Astro.url.pathname, CANONICAL_ORIGIN).href;
+const { title, description, footerLinks = [], playgroundHref, recipe, twinHref, modified, jsonld } = Astro.props;
 ---
-<Base title={title} description={description} playgroundHref={playgroundHref} chrome={recipe ? 'docs' : 'site'}>
+<Base
+  title={title}
+  description={description}
+  playgroundHref={playgroundHref}
+  chrome={recipe ? 'docs' : 'site'}
+  type={recipe ? 'article' : 'website'}
+  twinHref={twinHref}
+  describedby="/cookbook/llms.txt"
+  modified={modified}
+  jsonld={jsonld}
+>
   <Fragment slot="head">
-    <link rel="canonical" href={canonical} />
-    <link rel="describedby" href="/cookbook/llms.txt" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:type" content="article" />
     <slot name="head" />
   </Fragment>
   {recipe && <Fragment slot="header">

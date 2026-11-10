@@ -15,6 +15,7 @@ import Search from '../../components/docs/Search.astro';
 import { pixels } from '../../lib/cookbook/pixel-icons.ts';
 import { GROUP_BLURBS, orderedTasks, PRIMARY, taskHref } from '../../lib/docs/landing.ts';
 import { CANONICAL_PHRASE } from '../../lib/docs/llms.ts';
+import { collectionGraph } from '../../lib/seo.ts';
 import { readingOrder } from '../../lib/docs/nav.ts';
 import { byCategory } from '../../lib/cookbook/render.ts';
 import { cookbook } from '../../lib/cookbook/site.ts';
@@ -63,7 +64,7 @@ const exe = `${releaseNames(site.engine.version).prefix}-windows-amd64.exe`;
 const QUICK_ICONS = ['Get started', 'Agents', 'Evaluate'];
 const skillGuide = taskHref('guides/agents/install-the-skill', published);
 ---
-<Docs title="Docs" description={description} nav={site.nav} current="" twinHref="/docs/index.md" landing>
+<Docs title="Docs" description={description} nav={site.nav} current="" twinHref="/docs/index.md" landing jsonld={[collectionGraph('Docs', description, '/docs/')]}>
   <header class="landing-title">
     <p class="eyebrow"><a href="/">relate</a> / docs</p>
     <h1>Docs</h1>

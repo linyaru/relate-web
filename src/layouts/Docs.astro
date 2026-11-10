@@ -8,7 +8,7 @@ import Base from './Base.astro';
 import DocsHeader from '../components/docs/DocsHeader.astro';
 import Sidebar from '../components/docs/Sidebar.astro';
 import Toc from '../components/docs/Toc.astro';
-import { CANONICAL_ORIGIN } from '../lib/cookbook/links.ts';
+import type { JsonLd } from '../lib/seo.ts';
 import type { NavGroup } from '../lib/docs/nav.ts';
 import '../styles/cookbook.css';
 import '../styles/docs-chrome.css';
@@ -25,19 +25,24 @@ interface Props {
   twinHref?: string;
   /** The docs landing: the regular site header and no sidebar. */
   landing?: boolean;
+  /** `YYYY-MM-DD`. */
+  modified?: string;
+  /** The page's structured data (TechArticle and breadcrumbs). */
+  jsonld?: JsonLd[];
 }
-const { title, description, nav, current, headings = [], twinHref, landing = false } = Astro.props;
-const canonical = new URL(Astro.url.pathname.replace(/\/?$/, '/'), CANONICAL_ORIGIN).href;
+const { title, description, nav, current, headings = [], twinHref, landing = false, modified, jsonld } = Astro.props;
 ---
-<Base title={title} description={description} chrome={landing ? 'site' : 'docs'}>
+<Base
+  title={title}
+  description={description}
+  chrome={landing ? 'site' : 'docs'}
+  type={landing ? 'website' : 'article'}
+  twinHref={twinHref}
+  describedby="/docs/llms.txt"
+  modified={modified}
+  jsonld={jsonld}
+>
   <Fragment slot="head">
-    <link rel="canonical" href={canonical} />
-    {twinHref && <link rel="alternate" type="text/markdown" href={twinHref} title="This page as markdown" />}
-    <link rel="describedby" href="/docs/llms.txt" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:type" content="article" />
     <slot name="head" />
   </Fragment>
   {!landing && <DocsHeader section="Docs" slot="header" />}

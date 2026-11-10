@@ -4,6 +4,8 @@
 // Header and Footer components and base.css.
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import SeoHead from '../components/SeoHead.astro';
+import type { JsonLd } from '../lib/seo.ts';
 import '../styles/base.css';
 interface Props {
   title: string;
@@ -11,8 +13,19 @@ interface Props {
   playgroundHref?: string;
   /** `docs` swaps the top bar for the slotted docs header and lets the page fill the width (docs pages, recipe pages). */
   chrome?: 'site' | 'docs';
+  /** The page's canonical path when it is not the request path (Docs and Cookbook pass their own). */
+  path?: string;
+  type?: 'website' | 'article';
+  twinHref?: string;
+  describedby?: string;
+  modified?: string;
+  jsonld?: JsonLd[];
+  /** Never indexed, launch build included. */
+  noindex?: boolean;
 }
-const { title, description = '', playgroundHref, chrome = 'site' } = Astro.props;
+const { title, description = '', playgroundHref, chrome = 'site', path, type, twinHref, describedby, modified, jsonld, noindex } = Astro.props;
+// The 404 page answers at every missing URL, so it has no canonical and is never indexed.
+const notFound = Astro.url.pathname.replace(/\/$/, '') === '/404';
 ---
 <!doctype html>
 <html lang="en">
@@ -21,9 +34,17 @@ const { title, description = '', playgroundHref, chrome = 'site' } = Astro.props
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} — relate</title>
     {description && <meta name="description" content={description} />}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="apple-touch-icon" href="/favicon-192.png" />
+    <SeoHead
+      title={title}
+      description={description}
+      path={notFound ? undefined : (path ?? Astro.url.pathname)}
+      type={type}
+      twinHref={twinHref}
+      describedby={describedby}
+      modified={modified}
+      jsonld={jsonld}
+      noindex={noindex || notFound}
+    />
     <link rel="preload" href="/fonts/relate-sans.woff2" as="font" type="font/woff2" crossorigin />
     <script is:inline>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
     <slot name="head" />

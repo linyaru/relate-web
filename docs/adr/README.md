@@ -135,3 +135,4 @@ Copy `template.md`.
 | [0055](0055-borderless-top-bar-and-cookbook-grid.md) | The top bar is borderless, and the cookbook index is one filterable ruled grid | Proposed |
 | [0056](0056-docs-chrome-and-landing.md) | Docs and recipe pages get their own ruled header and sidebar; the docs landing is a plain site page | Proposed |
 | [0057](0057-hosted-docs-mcp-withdrawn-before-launch.md) | The hosted docs MCP server is withdrawn before launch; the site stays on Cloudflare Pages with its Pages Functions | Proposed |
+| [0058](0058-seo-head-and-indexability-switch.md) | One shared page head, JSON-LD per page kind, and a single switch for indexing | Proposed |

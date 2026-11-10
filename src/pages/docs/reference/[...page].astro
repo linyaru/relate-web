@@ -8,6 +8,7 @@ import Docs from '../../../layouts/Docs.astro';
 import { GENERATED_PAGES, pageUrl } from '../../../lib/docs/model.ts';
 import { breadcrumb, prevNext } from '../../../lib/docs/nav.ts';
 import { docsSite } from '../../../lib/docs/site.ts';
+import { articleGraph } from '../../../lib/seo.ts';
 
 export async function getStaticPaths() {
   const outside = GENERATED_PAGES.filter((p) => !p.id.startsWith('reference/'));
@@ -21,8 +22,9 @@ const page = site.generated.find((g) => g.id === Astro.props.id)!;
 const { html, headings, head } = page.rendered();
 const crumbs = breadcrumb(site.nav, page.id);
 const { prev, next } = prevNext(site.nav, page.id);
+const jsonld = [articleGraph({ title: page.meta.title, description: page.meta.description, path: page.url, modified: page.lastUpdated, crumbs })];
 ---
-<Docs title={page.meta.title} description={page.meta.description} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl}>
+<Docs title={page.meta.title} description={page.meta.description} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl} modified={page.lastUpdated} jsonld={jsonld}>
   {head && <Fragment slot="head" set:html={head} />}
   <div class="doc-top">
   <nav class="breadcrumb" aria-label="Breadcrumb" data-pagefind-ignore>

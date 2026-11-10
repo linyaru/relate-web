@@ -1,0 +1,63 @@
+---
+// The head metadata every page shares (ADR-0058): indexing, canonical URL, Open
+// Graph and Twitter cards, theme colour, the agent-facing alternates and any
+// JSON-LD. Base.astro renders it for the section pages and the home page
+// renders it directly, so the two cannot drift. The theme colours are the
+// `--surface-0` tokens from src/styles/base.css (Day #FAFAFA, Night #101013);
+// a meta tag cannot read CSS variables.
+import { absolute, canonicalPath, indexable, jsonLdText, OG_IMAGE, OG_IMAGE_ALT, SITE_NAME, type JsonLd } from '../lib/seo.ts';
+
+interface Props {
+  /** The page title as people read it (no site suffix); used for og:title and twitter:title. */
+  title: string;
+  description: string;
+  /** The page's path; its canonical URL is on the canonical origin. Omit for a page with no canonical (never indexed). */
+  path?: string;
+  /** `website` for the home page and indexes, `article` for a guide or recipe. */
+  type?: 'website' | 'article';
+  /** The page's markdown twin. */
+  twinHref?: string;
+  /** The agent index that describes this page's section. */
+  describedby?: string;
+  /** `YYYY-MM-DD`; becomes article:modified_time. */
+  modified?: string;
+  /** Structured data, one script per entry. */
+  jsonld?: JsonLd[];
+  /** Keep the page out of search even in the launch build (404, placeholders). */
+  noindex?: boolean;
+}
+const { title, description, path, type = 'website', twinHref, describedby, modified, jsonld = [], noindex = false } = Astro.props;
+const robots = !indexable() || noindex ? 'noindex, nofollow' : 'index, follow';
+const canonical = path === undefined || noindex ? undefined : absolute(canonicalPath(path));
+const image = absolute(OG_IMAGE);
+---
+<link rel="icon" href="/favicon.ico" sizes="48x48" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="robots" content={robots} />
+{canonical && <link rel="canonical" href={canonical} />}
+{twinHref && <link rel="alternate" type="text/markdown" href={twinHref} title="This page as markdown" />}
+{describedby && <link rel="describedby" href={describedby} />}
+<link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+<meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#101013" media="(prefers-color-scheme: dark)" />
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:locale" content="en_US" />
+<meta property="og:type" content={type} />
+<meta property="og:title" content={title} />
+{description && <meta property="og:description" content={description} />}
+{canonical && <meta property="og:url" content={canonical} />}
+<meta property="og:image" content={image} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={OG_IMAGE_ALT} />
+{type === 'article' && modified && <meta property="article:modified_time" content={modified} />}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+{description && <meta name="twitter:description" content={description} />}
+<meta name="twitter:image" content={image} />
+<meta name="twitter:image:alt" content={OG_IMAGE_ALT} />
+{jsonld.map((data) => <script type="application/ld+json" set:html={jsonLdText(data)} />)}

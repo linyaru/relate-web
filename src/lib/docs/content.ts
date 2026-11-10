@@ -150,31 +150,42 @@ function warnOnce(message: string) {
 }
 
 /**
- * The date a page file last changed: its last commit, or for a file with
- * uncommitted changes or none, the file's modification time.
+ * The dates a page file changed in git: `first` its first commit (datePublished)
+ * and `last` its last commit (dateModified). For a file with uncommitted
+ * changes or no commits, or no git checkout, both are the file's mtime.
  */
 // Two git processes per page made every dev request to /docs/ take ~10s (the dev server rebuilds the
 // site on each call), so a result is kept until the file's mtime changes.
-const updatedCache = new Map<string, { mtime: number; date: string }>();
+const updatedCache = new Map<string, { mtime: number; first: string; last: string }>();
 
 export function lastUpdated(file: string): string {
-  const mtime = statSync(file).mtimeMs;
-  const hit = updatedCache.get(file);
-  if (hit && hit.mtime === mtime) return hit.date;
-  const date = readLastUpdated(file);
-  updatedCache.set(file, { mtime, date });
-  return date;
+  return cachedDates(file).last;
 }
 
-function readLastUpdated(file: string): string {
+export function firstUpdated(file: string): string {
+  return cachedDates(file).first;
+}
+
+function cachedDates(file: string): { first: string; last: string } {
+  const mtime = statSync(file).mtimeMs;
+  const hit = updatedCache.get(file);
+  if (hit && hit.mtime === mtime) return hit;
+  const dates = { mtime, ...readDates(file) };
+  updatedCache.set(file, dates);
+  return dates;
+}
+
+function readDates(file: string): { first: string; last: string } {
+  const fileDate = () => statSync(file).mtime.toISOString().slice(0, 10);
   try {
     const dirty = execFileSync('git', ['status', '--porcelain', '--', file], { cwd: ROOT, encoding: 'utf8' }).trim();
     if (!dirty) {
-      const date = execFileSync('git', ['log', '-1', '--format=%cs', '--', file], { cwd: ROOT, encoding: 'utf8' }).trim();
-      if (date) return date;
+      // One `git log`: oldest first, so the first line is the first commit and the last line the latest.
+      const dates = execFileSync('git', ['log', '--reverse', '--format=%cs', '--', file], { cwd: ROOT, encoding: 'utf8' }).trim().split('\n');
+      if (dates[0]) return { first: dates[0], last: dates[dates.length - 1] };
     }
   } catch {
     // Not a git checkout: fall through to the file's time.
   }
-  return statSync(file).mtime.toISOString().slice(0, 10);
+  return { first: fileDate(), last: fileDate() };
 }

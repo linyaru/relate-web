@@ -30,13 +30,6 @@ const first = tabs[0];
 ---
 <section class="hero" aria-labelledby="h-hero" data-hero data-version={version} data-tabs={JSON.stringify(tabs)} data-prompt={PROMPT}>
   <div class="hero-in">
-    <!-- The hackathon banner runs one month; remove it then. relate.devpost.com goes live with the hackathon. -->
-    <div class="ann">
-      <span class="ann-t">Relate Hackathon</span>
-      <span class="ann-x">Build something with Relate</span>
-      <a class="ann-b" href="https://relate.devpost.com" target="_blank" rel="noopener" aria-label="Join the Relate Hackathon (opens in new tab)">Join<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
-    </div>
-
     <h1 id="h-hero">Agents <span class="hh-t" aria-hidden="true"><svg viewBox="0 0 16 14" shape-rendering="crispEdges"><path fill="#010609" d="M5 1h6v1h-6zM4 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM12 3h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM7 5h2v1h-2zM13 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM6 7h1v1h-1zM9 7h1v1h-1zM13 7h1v1h-1zM2 8h1v1h-1zM6 8h1v1h-1zM9 8h1v1h-1zM13 8h1v1h-1zM1 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM14 9h1v1h-1zM1 10h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM14 10h1v1h-1zM1 11h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM14 11h1v1h-1zM2 12h4v1h-4zM10 12h4v1h-4z"/><path fill="#D6F7F8" d="M5 2h6v1h-6zM4 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM9 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM10 7h1v1h-1zM3 8h1v1h-1zM10 8h1v1h-1zM2 9h1v1h-1zM10 9h1v1h-1zM2 10h1v1h-1zM10 10h1v1h-1zM2 11h1v1h-1zM10 11h1v1h-1z"/><path fill="#8FE3E8" d="M5 3h1v1h-1zM7 3h2v1h-2zM10 3h1v1h-1zM4 4h1v1h-1zM11 4h1v1h-1zM4 5h2v1h-2zM10 5h2v1h-2zM4 6h1v1h-1zM11 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM3 9h2v1h-2zM11 9h2v1h-2zM3 10h2v1h-2zM11 10h2v1h-2z"/><path fill="#4C99A4" d="M11 3h1v1h-1zM7 4h2v1h-2zM12 4h1v1h-1zM6 5h1v1h-1zM12 5h1v1h-1zM5 6h1v1h-1zM12 6h1v1h-1zM5 7h1v1h-1zM12 7h1v1h-1zM5 8h1v1h-1zM12 8h1v1h-1zM5 9h1v1h-1zM13 9h1v1h-1zM5 10h1v1h-1zM13 10h1v1h-1zM3 11h3v1h-3zM11 11h3v1h-3z"/><path fill="#FF8E6A" d="M5 4h1v1h-1zM10 4h1v1h-1z"/></svg></span> that understand data.</h1>
     <p class="hero-sub">
       Relate is an open-source embedded database for AI agents. Give your agents a place to keep their data
@@ -73,21 +66,22 @@ const first = tabs[0];
       </div>
       <p class="sr-only" id="hi-live" aria-live="polite"></p>
     </div>
+
+    <!-- The hackathon banner runs one month; remove it then. relate.devpost.com goes live with the hackathon. -->
+    <div class="ann">
+      <span class="ann-t">Relate Hackathon</span>
+      <span class="ann-x">Build something with Relate</span>
+      <a class="ann-b" href="https://relate.devpost.com" target="_blank" rel="noopener" aria-label="Join the Relate Hackathon (opens in new tab)">Join<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
   </div>
 </section>
 
 <style>
   .hero { position: relative; padding: 72px 24px 56px; text-align: center; overflow: hidden; }
-  .hero::before {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
-    background:
-      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 40%),
-      radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--rel) 8%, transparent), transparent 40%);
-  }
   .hero-in { position: relative; max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
 
   .ann {
-    display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 0 44px; padding: 4px;
+    display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 40px 0 0; padding: 4px;
     border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-1);
   }
   .ann-t {

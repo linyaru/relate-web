@@ -1,0 +1,223 @@
+/* The docs chrome, shared by docs pages and recipe pages: the ruled full-width
+   header, search, and the sidebar. Tokens only (base.css). */
+
+:root {
+  --docs-w: 1440px; /* header and body share this box */
+  --side-w: 264px;
+}
+
+/* ---------- Header: lockup, section name, links, search ---------- */
+.dh {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--surface-0) 92%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.dh-in {
+  display: flex; align-items: center; gap: 14px;
+  height: var(--header-h); max-width: var(--docs-w); margin: 0 auto; padding: 0 24px;
+}
+.dh-lockup { display: inline-flex; align-items: center; flex: none; min-height: 44px; color: var(--logo); text-decoration: none; }
+.dh-lockup .lockup-mark { display: block; height: 20px; width: auto; }
+.dh-sep { flex: none; width: 1px; height: 22px; background: var(--line-strong, var(--line)); transform: rotate(20deg); }
+a.dh-section { flex: none; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+.dh-links { display: flex; align-items: center; gap: 24px; margin-left: auto; padding-right: 8px; }
+.dh-links a { color: var(--ink-muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.dh-links a:hover, .dh-links a[aria-current='page'] { color: var(--ink); }
+.dh-links a[aria-current='page'] { box-shadow: 0 6px 0 -5px var(--ink); }
+
+.docs-nav-toggle {
+  display: none; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; margin-left: -8px;
+  color: var(--ink-muted); cursor: pointer; background: transparent; border: 0; border-radius: 6px;
+}
+.docs-nav-toggle:hover, .docs-nav-toggle[aria-expanded='true'] { color: var(--ink); background: var(--surface-2); }
+.docs-nav-toggle svg { width: 20px; height: 20px; }
+
+/* ---------- Search ---------- */
+.docs-search { position: relative; flex: none; width: 260px; }
+.docs-search input {
+  width: 100%; height: 36px; padding: 0 44px 0 12px; font: 400 14px var(--font-sans);
+  color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+}
+.docs-search input::placeholder { color: var(--ink-muted); }
+.docs-search input:focus { outline: none; border-color: var(--ink); }
+.search-key {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font: 400 11px var(--font-mono); color: var(--ink-muted);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; pointer-events: none;
+}
+.search-results {
+  position: absolute; top: calc(100% + 8px); right: 0; width: min(520px, calc(100vw - 32px));
+  max-height: 70vh; overflow-y: auto; padding: 6px; z-index: 60;
+  background: var(--surface-0); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-overlay);
+}
+a.search-hit { display: block; padding: 8px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+a.search-hit:hover, a.search-hit:focus { background: var(--surface-2); outline: none; color: var(--ink); }
+.hit-title { display: block; font-weight: 600; font-size: 14px; }
+.hit-excerpt { display: block; font-size: 13px; color: var(--ink-muted); line-height: 1.45; margin-top: 2px; }
+.hit-excerpt mark { background: var(--highlight); color: var(--on-highlight); border-radius: 2px; }
+.search-note { margin: 0; padding: 8px 10px; font-size: 13px; color: var(--ink-muted); }
+
+/* ---------- Shell: sidebar | content, under the header ---------- */
+.chrome-shell { max-width: var(--docs-w); margin: 0 auto; padding: 0 24px; }
+.chrome-shell .docs-grid { min-height: calc(100vh - var(--header-h)); }
+
+/* ---------- Sidebar: sections > pages and groups > nested pages ---------- */
+.docs-sidebar {
+  align-self: start; position: sticky; top: var(--header-h);
+  height: calc(100vh - var(--header-h)); overflow-y: auto; overscroll-behavior: contain;
+  padding: 28px 20px 48px 0; font-size: 14px; border-right: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+.nav-top { margin-bottom: 4px; }
+.nav-section { margin-top: 20px; }
+.nav-section-title {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 6px 10px; border-radius: 6px;
+  font: 500 11px/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted);
+}
+.nav-section-title::before { content: ''; flex: none; width: 6px; height: 6px; background: var(--ink-muted); }
+/* Section headings are disclosures: a chevron on the right says so. */
+summary.nav-section-title { cursor: pointer; list-style: none; user-select: none; margin-bottom: 4px; }
+summary.nav-section-title::-webkit-details-marker { display: none; }
+summary.nav-section-title::after {
+  content: ''; margin-left: auto; width: 6px; height: 6px;
+  border-right: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(-45deg); transition: transform .15s;
+}
+details.nav-section[open] > summary.nav-section-title::after { transform: rotate(45deg); }
+summary.nav-section-title:hover { color: var(--ink); background: var(--surface-2); }
+.nav-section:has(a[aria-current='page']) > .nav-section-title { color: var(--ink); }
+/* The header already links these; the sidebar repeats them only where the header's links are hidden. */
+.nav-more { display: none; }
+.nav-section:has(a[aria-current='page']) > .nav-section-title::before { background: var(--ink); }
+
+.nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.docs-sidebar .nav-list a {
+  position: relative; display: block; padding: 5px 10px; border-radius: 6px; line-height: 1.4;
+  color: var(--ink-muted); text-decoration: none;
+}
+.docs-sidebar .nav-list a:hover { color: var(--ink); background: var(--surface-2); }
+.docs-sidebar .nav-list a[aria-current='page'] { color: var(--ink); background: var(--surface-2); font-weight: 600; }
+.docs-sidebar .nav-list a[aria-current='page']::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 2px; background: var(--ink);
+}
+
+/* Languages: one icon per client page, a wrapped row. */
+.nav-langs { display: flex; flex-wrap: wrap; gap: 2px; margin: 20px 0 24px; padding: 0; }
+.nav-langs-title {
+  flex: 0 0 100%; margin: 0 0 6px; padding: 0 10px;
+  font: 500 11px/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted);
+}
+.docs-sidebar .nav-langs a { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; }
+.docs-sidebar .nav-langs a[aria-current='page']::before { left: 8px; right: 8px; top: auto; bottom: 2px; width: auto; height: 2px; }
+
+/* Groups: a disclosure whose pages hang off a rule. */
+.nav-group > summary {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 6px; cursor: pointer; list-style: none;
+  color: var(--ink); font-weight: 500; line-height: 1.4; user-select: none;
+}
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::before {
+  content: ''; flex: none; width: 6px; height: 6px; margin: 0 2px 0 1px;
+  border-right: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(-45deg); transition: transform .15s;
+}
+.nav-group[open] > summary::before { transform: rotate(45deg); }
+.nav-group > summary:hover { background: var(--surface-2); }
+.nav-group:has(a[aria-current='page']) > summary { font-weight: 600; }
+.nav-group > .nav-list { margin: 2px 0 6px 14px; padding-left: 8px; border-left: 1px solid var(--line); }
+.docs-sidebar .nav-group > .nav-list a { font-size: 13.5px; padding: 4px 10px; }
+.nav-group > .docs-sidebar .nav-list a[aria-current='page']::before { left: -9px; top: 4px; bottom: 4px; }
+
+/* ---------- Narrow screens: the sidebar is the header's menu ---------- */
+@media (max-width: 900px) {
+  .dh-in { gap: 10px; padding: 0 16px; }
+  .docs-nav-toggle { display: inline-flex; }
+  .dh-links, .dh-sep { display: none; }
+  .nav-more { display: block; }
+  .docs-search { flex: 1; width: auto; margin-left: auto; }
+  .search-key { display: none; }
+  .docs-sidebar { position: static; height: auto; padding: 8px 0 0; border-right: 0; overflow: visible; }
+  .chrome-shell { padding: 0 16px; }
+  /* With the script, the sidebar is a panel under the header. */
+  .chrome-shell[data-nav-js] .docs-sidebar {
+    position: fixed; top: calc(var(--header-h) + 8px); left: 12px; right: 12px; z-index: 46; display: none;
+    max-height: calc(100vh - var(--header-h) - 24px); overflow-y: auto; padding: 4px 12px 16px;
+    background: var(--surface-0); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-overlay);
+  }
+  .chrome-shell[data-nav-js] .docs-sidebar.open { display: block; }
+}
+
+/* ---------- Recipe pages: the header's box is the site's, and a bar of recipes sits under it ---------- */
+.dh--cookbook { --docs-w: var(--page-w); }
+.rb {
+  position: sticky; top: var(--header-h); z-index: 48;
+  background: color-mix(in srgb, var(--surface-0) 92%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.rb-in { display: flex; align-items: center; gap: 12px; max-width: var(--page-w); height: 52px; margin: 0 auto; padding: 0 24px; }
+a.rb-all { flex: none; color: var(--ink-muted); font-size: 14px; font-weight: 500; text-decoration: none; }
+a.rb-all:hover { color: var(--ink); }
+.rb-slash { color: var(--line-strong, var(--line)); }
+.rb-picker { position: relative; min-width: 0; }
+.rb-picker > summary {
+  display: flex; align-items: center; gap: 10px; max-width: min(520px, 62vw); height: 36px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink);
+  cursor: pointer; list-style: none; user-select: none;
+}
+.rb-picker > summary::-webkit-details-marker { display: none; }
+.rb-picker > summary:hover, .rb-picker[open] > summary { border-color: var(--ink-muted); }
+.rb-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.rb-cat { flex: none; font: 500 11px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.rb-chev {
+  flex: none; width: 6px; height: 6px; margin: -3px 2px 0;
+  border-right: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted); transform: rotate(45deg); transition: transform .15s;
+}
+.rb-picker[open] .rb-chev { transform: rotate(-135deg); margin-top: 3px; }
+.rb-panel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: min(760px, calc(100vw - 32px));
+  max-height: min(70vh, 640px); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface-0); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-overlay);
+}
+.rb-filter { position: sticky; top: 0; z-index: 1; padding: 10px; background: var(--surface-0); border-bottom: 1px solid var(--line); }
+.rb-filter input {
+  width: 100%; height: 38px; padding: 0 12px; font: 400 14px var(--font-sans); color: var(--ink);
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+}
+.rb-filter input:focus { outline: none; border-color: var(--ink); }
+.rb-group { padding: 14px 10px 6px; }
+.rb-group[hidden], .rb-panel [hidden] { display: none; }
+.rb-group h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 0 8px; font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.rb-group h2::before { content: ''; width: 6px; height: 6px; background: var(--ink-muted); }
+.rb-group ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+a.rb-item { display: block; height: 100%; padding: 8px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+a.rb-item:hover, a.rb-item:focus-visible { background: var(--surface-2); outline: none; color: var(--ink); }
+a.rb-item[aria-current='page'] { background: var(--surface-2); }
+.rb-item strong { display: block; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.rb-sum { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--ink-muted); }
+.rb-level { display: block; margin-top: 4px; font: 500 10.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); opacity: .85; }
+.rb-empty { margin: 0; padding: 20px 18px; color: var(--ink-muted); font-size: 14px; }
+.rb-prevnext { display: flex; gap: 4px; margin-left: auto; }
+a.rb-step { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border-radius: 6px; color: var(--ink-muted); font-size: 13px; text-decoration: none; white-space: nowrap; }
+a.rb-step:hover { color: var(--ink); background: var(--surface-2); }
+.cb-shell .engine-bar { top: calc(var(--header-h) + 52px); }
+.cb-shell [id] { scroll-margin-top: calc(var(--header-h) + 68px); }
+@media (max-width: 900px) {
+  .rb-in { padding: 0 16px; }
+  .rb-group ul { grid-template-columns: 1fr; }
+  .rb-prevnext, .rb-slash, .rb-cat { display: none; }
+  .rb-picker { flex: 1; }
+  .rb-picker > summary { max-width: none; }
+  .cb-shell .engine-bar { position: static; }
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* The theme picker in this bar is a size down from the footer's. */
+.dh .themesw { flex: none; }
+.dh .themesw button { width: 32px; height: 28px; }
+@media (max-width: 560px) { .dh .themesw button { width: 28px; } }

@@ -132,3 +132,5 @@ Copy `template.md`.
 | [0052](0052-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |
 | [0053](0053-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |
 | [0054](0054-replays-mask-timing-values.md) | CLI replays compare output with timing values masked, and pages show a real run's timings | Proposed |
+| [0055](0055-borderless-top-bar-and-cookbook-grid.md) | The top bar is borderless, and the cookbook index is one filterable ruled grid | Proposed |
+| [0056](0056-docs-chrome-and-landing.md) | Docs and recipe pages get their own ruled header and sidebar; the docs landing is a plain site page | Proposed |

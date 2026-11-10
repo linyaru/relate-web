@@ -2,6 +2,7 @@
 // A recipe's page: its prose, each step with its recorded result, its
 // diagrams, where its data comes from, and the other recipes in its category.
 import RecipeCard from '../../../components/cookbook/RecipeCard.astro';
+import { pixels } from '../../../lib/cookbook/pixel-icons.ts';
 import Cookbook from '../../../layouts/Cookbook.astro';
 import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
 import { byCategory, esc, mb, playgroundHref, renderRecipe } from '../../../lib/cookbook/render.ts';
@@ -20,6 +21,13 @@ const f = recipe.front;
 // The markdown and data links resolve with or without a trailing slash on the page URL.
 const base = `/cookbook/${recipe.slug}/`;
 const { html, lede, toc, inline } = renderRecipe(book, page);
+// The neighbours, in the same by-category order the recipe bar steps through.
+const ordered = byCategory(book.pages.map((p) => p.recipe)).flatMap((g) => g.recipes);
+const at = ordered.findIndex((r) => r.slug === recipe.slug);
+const prev = at > 0 ? ordered[at - 1] : null;
+const next = at >= 0 && at < ordered.length - 1 ? ordered[at + 1] : null;
+const prevIcon = pixels((prev ?? recipe).front.category);
+const nextIcon = pixels((next ?? recipe).front.category);
 
 const DEFAULT_LICENSE = 'Apache-2.0';
 const facts = (
@@ -41,6 +49,7 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
   description={f.summary}
   footerLinks={[{ href: `${base}index.md`, label: 'Markdown' }]}
   playgroundHref={playgroundHref(recipe.slug)}
+  recipe={recipe.slug}
 >
   <script is:inline slot="head" type="application/json" id="label-colors" set:html={labelColors} />
   <div class="recipe-container">
@@ -113,11 +122,33 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
           )}
         </section>
       )}
+      {(prev || next) && (
+        <nav class="pn" aria-label="Previous and next recipe" data-pagefind-ignore>
+          {prev ? (
+            <a class="pn-link pn-prev" href={`/cookbook/${prev.slug}/`} rel="prev">
+              <span class="pn-dir">&larr; Previous</span>
+              <svg class="cb-px" viewBox={`0 0 ${prevIcon.w} ${prevIcon.h}`} width={prevIcon.w * 2} height={prevIcon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={prevIcon.d} /></svg>
+              <strong>{prev.front.title}</strong>
+              <span class="pn-sum">{prev.front.summary}</span>
+              <span class="cb-meta">{prev.front.category} <i>/</i> {prev.front.level}</span>
+            </a>
+          ) : <span />}
+          {next ? (
+            <a class="pn-link pn-next" href={`/cookbook/${next.slug}/`} rel="next">
+              <span class="pn-dir">Next &rarr;</span>
+              <svg class="cb-px" viewBox={`0 0 ${nextIcon.w} ${nextIcon.h}`} width={nextIcon.w * 2} height={nextIcon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={nextIcon.d} /></svg>
+              <strong>{next.front.title}</strong>
+              <span class="pn-sum">{next.front.summary}</span>
+              <span class="cb-meta">{next.front.category} <i>/</i> {next.front.level}</span>
+            </a>
+          ) : <span />}
+        </nav>
+      )}
       <section class="more">
         {others.length > 0 ? (
           <>
             <h2 id="more-recipes">More in {f.category}</h2>
-            <ul class="recipe-list">
+            <ul class="cb-grid">
               {others.map((r) => <RecipeCard recipe={r} />)}
             </ul>
           </>
@@ -131,4 +162,5 @@ const labelColors = JSON.stringify(page.labels).replaceAll('<', '\\u003c');
 
 <script>
   import '../../../scripts/cookbook/runtime.ts';
+  import '../../../scripts/docs/toc-spy.ts';
 </script>

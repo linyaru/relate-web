@@ -1,17 +1,23 @@
 ---
-// The docs landing (/docs/, DOCS-PLAN.md §2 "Landing"): three buttons, the
-// task index as the one primary navigation, the four doors under it, the
-// install strip and the agent strip. A task whose page is not written yet
-// renders as text, not a link.
+// The docs landing (/docs/, DOCS-PLAN.md §2 "Landing"): on the regular site
+// shell with no sidebar. Above the fold, two columns: the title, search and three
+// buttons, and the agent card (install, the AGENTS.md block to copy, llms.txt).
+// Then the task index as the one primary navigation (a ruled grid of cards, each
+// headed by a link into its section) and a few cookbook examples. A task whose
+// page is not written yet renders as text, not a link.
+import RecipeCard from '../../components/cookbook/RecipeCard.astro';
 import { agentsMd, releaseNames } from '../../components/docs/install.ts';
 import TabsStrip from '../../components/docs/TabsStrip.astro';
 import Docs from '../../layouts/Docs.astro';
-import { isNotYetPublic } from '../../lib/cookbook/links.ts';
 import { esc } from '../../lib/cookbook/result-view.ts';
 import { highlighter } from '../../lib/docs/highlight.ts';
-import { orderedTasks, PRIMARY, taskHref } from '../../lib/docs/landing.ts';
+import Search from '../../components/docs/Search.astro';
+import { pixels } from '../../lib/cookbook/pixel-icons.ts';
+import { GROUP_BLURBS, orderedTasks, PRIMARY, taskHref } from '../../lib/docs/landing.ts';
 import { CANONICAL_PHRASE } from '../../lib/docs/llms.ts';
-import { SECTIONS } from '../../lib/docs/model.ts';
+import { readingOrder } from '../../lib/docs/nav.ts';
+import { byCategory } from '../../lib/cookbook/render.ts';
+import { cookbook } from '../../lib/cookbook/site.ts';
 import { docsSite } from '../../lib/docs/site.ts';
 
 const site = await docsSite();
@@ -27,87 +33,169 @@ const code = (text: string, lang: string) => {
     `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>`
   );
 };
-const DOORS: Record<string, string> = {
-  'get-started': 'Tutorials: one path from nothing to a working result.',
-  guides: 'How-to guides: the steps for one task, for readers who know what they want.',
-  reference: 'The facts: every command, flag, clause, function and error.',
-  concepts: 'How relate works and why, and the trade-offs it makes.',
+// Where each card's heading goes: the first page of its section (the sections have no page of their own).
+const firstPage = (prefix: string) => readingOrder(site.nav).find((p) => p.id === prefix || p.id.startsWith(`${prefix}/`))?.id;
+const GROUP_PAGE: Record<string, string | undefined> = {
+  Evaluate: 'concepts/where-relate-fits',
+  'Get started': firstPage('get-started'),
+  Agents: firstPage('guides/agents'),
+  Guides: firstPage('guides'),
+  Reference: firstPage('reference'),
+  Concepts: firstPage('concepts'),
 };
+const GROUP_MORE: Record<string, string> = {
+  Evaluate: 'Where relate fits',
+  'Get started': 'All tutorials',
+  Agents: 'All agent guides',
+  Guides: 'All guides',
+  Reference: 'All reference',
+  Concepts: 'All concepts',
+};
+const book = await cookbook();
+const recipes = byCategory(book.pages.map((p) => p.recipe)).map((g) => g.recipes[0]).slice(0, 3);
+const SHOWN = 6; // tasks a card lists; the rest are one click away in its section
 const releases = 'https://github.com/relatedb/relate/releases';
 const description = `Documentation for ${CANONICAL_PHRASE}: install it, connect an agent, look up a command or an error.`;
+// On the page the domain is dropped; the meta description keeps the canonical phrase.
+const lede = description.replace(' (relatedb.ai)', '');
+const exe = `${releaseNames(site.engine.version).prefix}-windows-amd64.exe`;
+// An icon per quick link, in PRIMARY's order (Get started, Connect your agent, Does relate fit?).
+const QUICK_ICONS = ['Get started', 'Agents', 'Evaluate'];
+const skillGuide = taskHref('guides/agents/install-the-skill', published);
 ---
-<Docs title="Docs" description={description} nav={site.nav} current="" twinHref="/docs/index.md">
-  <header class="doc-head landing-head">
-    <h1>relate docs</h1>
-    <p class="lede">{description}</p>
-    <p class="landing-buttons">
-      {PRIMARY.map((b, i) => {
-        const href = taskHref(b.page, published);
-        return href ? (
-          <a class={`btn${i === 0 ? ' primary' : ''}`} href={href}>{b.text}</a>
-        ) : (
-          <span class="btn is-pending" title="This page is not written yet">{b.text}</span>
-        );
-      })}
-    </p>
+<Docs title="Docs" description={description} nav={site.nav} current="" twinHref="/docs/index.md" landing>
+  <header class="landing-title">
+    <p class="eyebrow"><a href="/">relate</a> / docs</p>
+    <h1>Docs</h1>
+    <p class="lede">{lede}</p>
   </header>
+
+  <div class="landing-top">
+    <div class="you-card">
+      <p class="col-label">For you</p>
+      <h2>Start here</h2>
+      <div class="landing-search" data-pagefind-ignore><Search placeholder="Search the docs" /></div>
+      <ul class="quick-links">
+        {PRIMARY.map((b, i) => {
+          const href = taskHref(b.page, published);
+          const icon = pixels(QUICK_ICONS[i] ?? 'Guides');
+          const row = (
+            <>
+              <svg class="cb-px" viewBox={`0 0 ${icon.w} ${icon.h}`} width={icon.w * 2} height={icon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={icon.d} /></svg>
+              <span class="ql-text">{b.text}</span>
+              <span class="ql-arrow" aria-hidden="true">&rarr;</span>
+            </>
+          );
+          return <li>{href ? <a href={href}>{row}</a> : <span class="ql-pending" title="This page is not written yet">{row}</span>}</li>;
+        })}
+      </ul>
+    </div>
+
+    <aside class="agent-card" aria-labelledby="for-agents">
+      <p class="col-label">For your agent</p>
+      <h2 id="for-agents">Install, then hand it over</h2>
+      <TabsStrip detect="os" tabs={[{ key: 'macos-linux', label: 'macOS and Linux' }, { key: 'windows', label: 'Windows' }]}>
+        <Fragment slot="macos-linux">
+          <Fragment set:html={code('curl -sSfL https://relatedb.ai/install.sh | bash', 'bash')} />
+          <p class="agent-note">Checks the release's signed SHA256SUMS first, and installs to <code>~/.local/bin</code>.</p>
+        </Fragment>
+        <Fragment slot="windows">
+          <Fragment set:html={code(exe, 'text')} />
+          <p class="agent-note">
+            Download it from the <a href={releases} target="_blank" rel="noopener">releases page<span aria-hidden="true">&nbsp;&#8599;</span><span class="sr-only"> (opens in new tab)</span></a>.
+          </p>
+        </Fragment>
+      </TabsStrip>
+      <p class="agent-actions">
+        <button class="agent-copy" id="agentCopy" type="button" hidden>
+          <svg class="ic-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>
+          <svg class="ic-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+          <span class="agent-copy-label">Copy instructions for your agent</span>
+        </button>
+        <a class="agent-link" href="/docs/llms.txt" target="_blank" rel="noopener">llms.txt</a>
+      </p>
+      <textarea id="agent-copy" hidden>{agentsMd(site.engine.version)}</textarea>
+    </aside>
+  </div>
 
   <section class="landing-tasks" aria-labelledby="i-want-to">
     <h2 id="i-want-to">I want to…</h2>
-    <div class="task-groups">
-      {tasks.map((g) => (
-        <div class="task-group">
-          <h3>{g.id}</h3>
-          <ul>
-            {g.tasks.map((t) => {
-              const href = taskHref(t.page, published);
-              return <li>{href ? <a href={href}>{t.text}</a> : <span class="is-pending" title="This page is not written yet">{t.text}</span>}</li>;
-            })}
-          </ul>
-        </div>
-      ))}
-    </div>
-  </section>
-
-  <section class="landing-doors" aria-labelledby="the-sections">
-    <h2 id="the-sections">The sections</h2>
-    <ul class="doors">
-      {SECTIONS.map((s) => {
-        const href = taskHref(s.id, published);
+    <ul class="task-grid">
+      {tasks.map((g) => {
+        const icon = pixels(g.id);
+        const item = (t: (typeof g.tasks)[number]) => {
+          const href = taskHref(t.page, published);
+          return <li>{href ? <a href={href}>{t.text}</a> : <span class="is-pending" title="This page is not written yet">{t.text}</span>}</li>;
+        };
         return (
-          <li>
-            {href ? <a href={href}>{s.label}</a> : <span class="door-title">{s.label}</span>}
-            <span>{DOORS[s.id]}</span>
+          <li class="task-card">
+            <svg class="cb-px" viewBox={`0 0 ${icon.w} ${icon.h}`} width={icon.w * 2} height={icon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={icon.d} /></svg>
+            <h3>{GROUP_PAGE[g.id] ? <a href={`/docs/${GROUP_PAGE[g.id]}/`}>{g.id}</a> : g.id}</h3>
+            <p class="task-blurb">{GROUP_BLURBS[g.id]}</p>
+            <ul class="task-list">{g.tasks.slice(0, SHOWN).map(item)}</ul>
+            {GROUP_PAGE[g.id] && <a class="task-all" href={`/docs/${GROUP_PAGE[g.id]}/`}>{GROUP_MORE[g.id]} <span aria-hidden="true">&rarr;</span></a>}
           </li>
         );
       })}
-      <li><a href="/cookbook/">Cookbook</a><span>Worked examples, each run against the engine on every build.</span></li>
     </ul>
   </section>
 
-  <section class="landing-install" aria-labelledby="install">
-    <h2 id="install">Install</h2>
-    <TabsStrip detect="os" tabs={[{ key: 'macos-linux', label: 'macOS and Linux' }, { key: 'windows', label: 'Windows' }]}>
-      <Fragment slot="macos-linux">
-        <Fragment set:html={code('curl -sSfL https://relatedb.ai/install.sh | bash', 'bash')} />
-        <p>The script checks the release's signed SHA256SUMS and installs nothing if a check fails. It installs to <code>~/.local/bin</code>.</p>
-      </Fragment>
-      <Fragment slot="windows">
-        <p>
-          Download <code>{releaseNames(site.engine.version).prefix}-windows-amd64.exe</code> from the {isNotYetPublic(releases) ? 'releases page' : <a href={releases}>releases page</a>}.
-        </p>
-      </Fragment>
-    </TabsStrip>
+  <section class="landing-cookbook" aria-labelledby="cookbook">
+    <h2 id="cookbook">Learn from a recipe</h2>
+    <p class="section-note">Worked examples with a small dataset and plain Cypher. Every step runs in your browser.</p>
+    <div class="cookbook">
+      <ul class="cb-grid">
+        {recipes.map((r) => <RecipeCard recipe={r} />)}
+      </ul>
+    </div>
+    <p class="section-more"><a href="/cookbook/">See all {book.pages.length} recipes <span aria-hidden="true">&rarr;</span></a></p>
   </section>
 
-  <section class="landing-agents" aria-labelledby="for-agents">
-    <h2 id="for-agents">For agents</h2>
-    <p>
-      Point your agent at <a href="/docs/llms.txt">/docs/llms.txt</a>: a facts block, then every page by task. Every page is
-      also markdown: add <code>.md</code> to its URL. <code>relate skill install</code> adds the agent skill to the agents it
-      finds. <a href="/docs/feedback.md">/docs/feedback.md</a> says how a wrong or missing page is reported.
-    </p>
-    <p>Add this to your repository's <code>AGENTS.md</code> or <code>CLAUDE.md</code>:</p>
-    <Fragment set:html={code(agentsMd(site.engine.version), 'markdown')} />
+  <section class="landing-use" aria-labelledby="use-the-docs">
+    <h2 id="use-the-docs">Using the docs with an agent</h2>
+    <ul class="task-grid">
+      <li class="task-card">
+        <h3>Every page is markdown</h3>
+        <p class="task-blurb">Add <code>.md</code> to any page's URL for the same page as plain text, the way an agent reads it. <a href="/docs/llms.txt" target="_blank" rel="noopener">llms.txt</a> lists every page by task.</p>
+      </li>
+      <li class="task-card">
+        <h3>Install the skill</h3>
+        <p class="task-blurb"><code>relate skill install</code> adds the relate skill to the agents it finds on your machine.</p>
+        <Fragment set:html={code('relate skill install', 'bash')} />
+        {skillGuide && <a class="task-all" href={skillGuide}>About the skill <span aria-hidden="true">&rarr;</span></a>}
+      </li>
+      <li class="task-card">
+        <h3>Something wrong or missing?</h3>
+        <p class="task-blurb">A page that is wrong, unclear or absent is reported from <a href="/docs/feedback.md">/docs/feedback.md</a>, which says how.</p>
+        <a class="task-all" href="/docs/feedback.md">Report a wrong page <span aria-hidden="true">&rarr;</span></a>
+      </li>
+    </ul>
   </section>
 </Docs>
+
+<script>
+  // The agent card's copy button: copies the AGENTS.md block and shows a tick for a moment.
+  const btn = document.getElementById('agentCopy') as HTMLButtonElement | null;
+  const source = document.getElementById('agent-copy') as HTMLTextAreaElement | null;
+  if (btn && source) {
+    btn.hidden = false;
+    const label = btn.querySelector<HTMLElement>('.agent-copy-label')!;
+    const idle = label.textContent;
+    let timer: number | undefined;
+    const show = (done: boolean, text: string) => {
+      btn.classList.toggle('is-done', done);
+      label.textContent = text;
+    };
+    btn.addEventListener('click', async () => {
+      let ok = true;
+      try {
+        await navigator.clipboard.writeText(source.value);
+      } catch {
+        ok = false;
+      }
+      show(ok, ok ? 'Copied' : 'Copy failed');
+      clearTimeout(timer);
+      timer = window.setTimeout(() => show(false, idle ?? ''), 1800);
+    });
+  }
+</script>

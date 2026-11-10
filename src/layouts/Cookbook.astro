@@ -2,8 +2,12 @@
 // Shell for the cookbook's pages (/cookbook/ and /cookbook/<slug>/): the shared
 // Base layout plus the cookbook styles, head tags, footer, and page chrome.
 import Base from './Base.astro';
+import DocsHeader from '../components/docs/DocsHeader.astro';
+import Foot from '../components/cookbook/Foot.astro';
+import RecipeBar from '../components/cookbook/RecipeBar.astro';
 import { CANONICAL_ORIGIN } from '../lib/cookbook/links.ts';
 import '../styles/cookbook.css';
+import '../styles/docs-chrome.css';
 
 interface Props {
   title: string;
@@ -12,11 +16,13 @@ interface Props {
   footerLinks?: { href: string; label: string }[];
   /** Where the header's Playground link goes (a recipe page opens its recipe). */
   playgroundHref?: string;
+  /** A recipe page: the docs header and the recipe bar (the slug marks the current recipe). */
+  recipe?: string;
 }
-const { title, description, footerLinks = [], playgroundHref } = Astro.props;
+const { title, description, footerLinks = [], playgroundHref, recipe } = Astro.props;
 const canonical = new URL(Astro.url.pathname, CANONICAL_ORIGIN).href;
 ---
-<Base title={title} description={description} playgroundHref={playgroundHref}>
+<Base title={title} description={description} playgroundHref={playgroundHref} chrome={recipe ? 'docs' : 'site'}>
   <Fragment slot="head">
     <link rel="canonical" href={canonical} />
     <link rel="describedby" href="/cookbook/llms.txt" />
@@ -26,22 +32,19 @@ const canonical = new URL(Astro.url.pathname, CANONICAL_ORIGIN).href;
     <meta property="og:type" content="article" />
     <slot name="head" />
   </Fragment>
-  <div class="cookbook">
+  {recipe && <Fragment slot="header">
+      <DocsHeader section="Cookbook" playgroundHref={playgroundHref} menu={false} />
+      <RecipeBar current={recipe} />
+    </Fragment>}
+  <div class:list={['cookbook', recipe && 'cb-shell container']}>
     <slot />
-    <footer class="cookbook-foot">
-      <div class="inner">
-        <div class="meta">relate cookbook</div>
-        <div class="links">
-          {footerLinks.map((l) => <a href={l.href}>{l.label}</a>)}
-          <a href="/cookbook/">All recipes</a>
-          <a href="/cookbook/llms.txt">llms.txt</a>
-        </div>
-      </div>
-    </footer>
+    <Foot links={footerLinks} />
   </div>
 </Base>
 
 <script>
+  import '../scripts/docs/chrome.ts';
+
   // Page chrome. Recipe pages add the steps' runtime (scripts/cookbook/runtime.ts).
 
   // Copy buttons: a static code block's (shown here), and a result's "Copy as

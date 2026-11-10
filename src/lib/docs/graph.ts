@@ -767,8 +767,8 @@ export const VECTOR_FILTER_PROPERTIES = ['page'] as const;
 /**
  * The model, as the artifact records it. The transformers.js weights
  * (`onnx` at `revision`, fp32) and the Workers AI model are both
- * BAAI/bge-small-en-v1.5, so a query embedded on the docs MCP Worker with
- * `pooling: "cls"` lands in the same space as the sections embedded here.
+ * BAAI/bge-small-en-v1.5, so a query embedded by either with `pooling: "cls"`
+ * lands in the same space as the sections embedded here.
  */
 export const EMBEDDING_MODEL = {
   id: 'BAAI/bge-small-en-v1.5',
@@ -1120,37 +1120,6 @@ const VECTOR_CHUNK = 100;
 
 /** The last line of each seed statement that sets section vectors. */
 export const VECTOR_SEED_END = `${VECTOR_LOAD_STATEMENT.replace('UNWIND $rows AS row', '] AS row')};`;
-
-/**
- * A seed script (the served /docs/graph.cypher) without the statements that
- * set the section vectors: the same bytes as seedScript(g, {vectors: false}).
- * For a replay that does not search by vector, such as the docs MCP Worker
- * until it embeds queries; both indexes are still created, the vector one
- * empty. Throws when the seed is not one seedScript() wrote.
- */
-export function seedWithoutVectors(seed: string): string {
-  const lines = seed.split('\n');
-  const out: string[] = [];
-  let removed = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i] !== 'UNWIND [') {
-      out.push(lines[i]);
-      continue;
-    }
-    let j = i + 1;
-    while (j < lines.length && !lines[j].startsWith('] AS row ')) j++;
-    if (j === lines.length) throw new Error(`seedWithoutVectors: the UNWIND statement at line ${i + 1} has no end`);
-    if (lines[j] === VECTOR_SEED_END) {
-      // seedScript() puts one blank line before the first vector statement.
-      if (removed === 0 && out[out.length - 1] === '') out.pop();
-      removed++;
-    } else {
-      out.push(...lines.slice(i, j + 1));
-    }
-    i = j;
-  }
-  return out.join('\n');
-}
 
 // ---------------------------------------------------------------------------
 // Hybrid search over the docs graph, and the cookbook recipe's subset

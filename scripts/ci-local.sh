@@ -2,20 +2,19 @@
 # Runs the required check (.github/workflows/cookbook.yml) on this machine, in
 # the same order, so a branch that passes here passes there: the unit tests,
 # adr:check, docs:check, docs:lint (Vale), cookbook:check, the type checks,
-# the build, docs:check --built, the docs MCP Worker's bundle and type check,
-# and cookbook:browser.
+# the build, docs:check --built and cookbook:browser.
 #
 #   npm run ci                        the whole required check
 #   npm run ci -- --no-browser        everything but the headless Chrome run
 #   npm run ci -- --cli               also docs:cli-check against $RELATE_BIN
 #                                     (or `relate` on PATH): docs-cli-check.yml
-#   npm run ci -- --agent-endpoints   also docs:mcp-check and
-#                                     docs:negotiation-check: docs-mcp.yml
+#   npm run ci -- --agent-endpoints   also docs:negotiation-check:
+#                                     docs-negotiation.yml
 #   npm run ci -- --from <step>       start at a step (its name as printed)
 #
-# Needs what CI installs: `npm ci`, `npm ci --prefix playground`, `npm ci
-# --prefix workers/docs-mcp`, Vale 3.25.1 (bash scripts/vale/install.sh), and
-# Chrome for cookbook:browser (CHROME_PATH). It never commits or records:
+# Needs what CI installs: `npm ci`, `npm ci --prefix playground`, Vale 3.25.1
+# (bash scripts/vale/install.sh), and Chrome for cookbook:browser
+# (CHROME_PATH). It never commits or records:
 # a failing step prints its output and the run stops there, with the step to
 # resume from.
 set -euo pipefail
@@ -43,7 +42,7 @@ export CI="${CI:-true}"
 export DO_NOT_TRACK=1
 
 steps=(
-  "unit-tests|npm run cookbook:test && npm run docs:test && npm test --prefix workers/docs-mcp"
+  "unit-tests|npm run cookbook:test && npm run docs:test"
   "adr-check|npm run adr:check"
   "docs-check|npm run docs:check"
   "docs-lint|npm run docs:lint"
@@ -52,12 +51,9 @@ steps=(
   "type-check-playground|npm run check:playground"
   "build|npm run build"
   "docs-check-built|npm run docs:check -- --built"
-  "mcp-bundle|npm run bundle --prefix workers/docs-mcp"
-  "mcp-type-check|npm run check --prefix workers/docs-mcp"
 )
 if [ "$browser" = 1 ]; then steps+=("browser|npm run cookbook:browser"); fi
 if [ "$endpoints" = 1 ]; then
-  steps+=("mcp-check|npm run docs:mcp-check")
   steps+=("negotiation-check|npm run docs:negotiation-check")
 fi
 if [ "$cli" = 1 ]; then steps+=("cli-check|npm run docs:cli-check"); fi

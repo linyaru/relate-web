@@ -1,5 +1,5 @@
 // The docs:evals harness (DOCS-PLAN.md §3.8, "The cold-start eval"): the
-// task suite's shape, the four conditions, the transcript reader and the
+// task suite's shape, the three conditions, the transcript reader and the
 // graders. scripts/docs-evals.ts is the command; this module holds
 // everything it does that a unit test can reach (src/lib/docs/evals.test.ts).
 //
@@ -74,11 +74,9 @@ export const FIXTURES_DIR = join(EVALS_DIR, 'fixtures');
 export const SYSTEM_PROMPT_FILE = join(EVALS_DIR, 'system-prompt.md');
 export const SKILL_DIR = join(ROOT, 'public/skills/relate');
 export const EVALS_DATA_FILE = join(ROOT, 'src/content/docs/_data/evals.json');
-/** The hosted docs MCP endpoint, a launch-day target (DOCS_EVALS_MCP_URL points the condition elsewhere, such as a local `wrangler dev`). */
-export const DOCS_MCP_URL = 'https://relatedb.ai/mcp';
 
-/** The four conditions (DOCS-PLAN.md §3.8): nothing; the AGENTS.md snippet; the skill; the docs MCP endpoint. */
-export const CONDITIONS = ['none', 'agents-md', 'skill', 'docs-mcp'] as const;
+/** The three conditions (DOCS-PLAN.md §3.8): nothing; the AGENTS.md snippet; the skill. */
+export const CONDITIONS = ['none', 'agents-md', 'skill'] as const;
 export type Condition = (typeof CONDITIONS)[number];
 
 export interface Expect {
@@ -254,11 +252,8 @@ export interface Prepared {
  *              src/components/docs/install.ts pinned to `version`
  *   skill      the published skill bundle (public/skills/relate/) under
  *              .agents/skills/relate/ and .claude/skills/relate/
- *   docs-mcp   .mcp.json naming the hosted docs MCP server (the Claude Code
- *              project form on guides/agents/connect-over-mcp)
  * Each one is also named in the environment, for a wrapper whose agent reads
- * them from flags instead (DOCS_EVALS_AGENTS_MD, DOCS_EVALS_SKILL_DIR,
- * DOCS_EVALS_MCP_URL, DOCS_EVALS_MCP_CONFIG).
+ * them from flags instead (DOCS_EVALS_AGENTS_MD, DOCS_EVALS_SKILL_DIR).
  */
 export async function prepare(task: Task, condition: Condition, runDir: string, bin: string, home: string, version: string): Promise<Prepared> {
   const workdir = join(runDir, 'work');
@@ -278,11 +273,6 @@ export async function prepare(task: Task, condition: Condition, runDir: string, 
   } else if (condition === 'skill') {
     for (const d of ['.agents/skills/relate', '.claude/skills/relate']) cpSync(SKILL_DIR, join(workdir, d), { recursive: true });
     env.DOCS_EVALS_SKILL_DIR = join(workdir, '.agents/skills/relate');
-  } else if (condition === 'docs-mcp') {
-    const url = process.env.DOCS_EVALS_MCP_URL || DOCS_MCP_URL;
-    writeFileSync(join(workdir, '.mcp.json'), `${JSON.stringify({ mcpServers: { 'relate-docs': { type: 'http', url } } }, null, 2)}\n`);
-    env.DOCS_EVALS_MCP_URL = url;
-    env.DOCS_EVALS_MCP_CONFIG = join(workdir, '.mcp.json');
   }
   return { workdir, env };
 }

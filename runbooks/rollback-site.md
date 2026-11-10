@@ -33,8 +33,6 @@ change `main`; follow with a revert so the next deploy does not reintroduce it.
   are fetched from upstream at deploy time. Reverting a commit here leaves them
   as upstream has them. To pull a bad release off the site, mark it a prerelease
   or delete it upstream and redeploy: [release-discovery.md](release-discovery.md).
-- **The docs MCP Worker** deploys separately, from `main`, after the site:
-  [docs-mcp-worker.md](docs-mcp-worker.md).
 - **`public/wasm/`** is a plain commit; a revert restores the previous engine.
 
 ## Confirm

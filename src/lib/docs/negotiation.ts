@@ -349,10 +349,7 @@ export type SectionResult =
  * uses (at most five), and a trailer line naming the full page's canonical
  * URL. The anchor is the page's HTML heading id (pass `opts.html`, the
  * built page, so generated pages' ids pair up) or a twin heading's slug. An
- * unknown anchor returns the anchors the page has. The hosted docs MCP
- * server's `get_page` (workers/docs-mcp) answers a heading with this same
- * function, passing the page's heading ids from its bundle as `html`, so
- * `?section=` and `get_page` return the same bytes.
+ * unknown anchor returns the anchors the page has.
  */
 export function sliceSection(
   twin: string,

@@ -121,11 +121,10 @@ NVL, the graph view, includes a telemetry module. The cookbook and docs pages re
 
 | Item | Status |
 | --- | --- |
-| Host | Decided: Cloudflare Pages serves `relatedb.ai`, and a Cloudflare Worker serves the docs MCP endpoint at `/mcp`. Neither is deployed yet; until then a preview of the site is served by GitHub Pages. |
-| Docs MCP logs | Decided: calls counted per tool and per client user agent, searches with no result counted, and nothing else; no query text is kept. The fields are listed on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged); the counts (calls, refusals, failures and completion rate per tool) are published on [Hosted docs MCP usage](/docs/reference/server/docs-mcp-usage), with the period they cover. With Workers AI, the text of a `search_docs` query is sent to Cloudflare Workers AI to compute its vector; the Worker does not log it, and what Workers AI records is to be published at launch ([threat model](/docs/reference/server/docs-mcp#threat-model)). |
+| Host | Decided: Cloudflare Pages serves `relatedb.ai`. It is not deployed yet; until then a preview of the site is served by GitHub Pages. |
 | Docs page analytics | Decided, not deployed: Cloudflare Web Analytics on the docs pages, with no cookies and no script beyond Cloudflare's own |
-| Agent-path hits | Decided, not deployed: one Worker log line per request for a `.md` twin, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, the skill, or `/mcp`, keyed by user agent and tool; searches with no result counted; no query text |
-| What Cloudflare logs, and for how long | Not published yet; to be published at launch, when the Cloudflare account exists, on [The hosted docs MCP server](/docs/reference/server/docs-mcp#what-is-logged) |
+| Agent-path hits | Decided, not deployed: one log line per request for a `.md` twin, a data file a twin links, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, or the skill, with the path, the status and the user agent; no query string |
+| What Cloudflare logs, and for how long | Not published yet; to be published on this page at launch, when the Cloudflare account exists |
 
 ## See also
 

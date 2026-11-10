@@ -323,7 +323,7 @@ export function recordedCommit(): string | null {
   return data?.commit ?? null;
 }
 
-/** The graph's seed script path: the docs-graph artifact the hosted MCP's Worker replays (ADR-0015). */
+/** The graph's seed script path: the docs-graph artifact (ADR-0015). */
 export const GRAPH_SEED_PATH = '/docs/graph.cypher';
 
 /**

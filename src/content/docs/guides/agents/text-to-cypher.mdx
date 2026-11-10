@@ -5,7 +5,7 @@ description: Give a model the graph's schema from the db.schema procedures or ge
 order: 70
 surfaces: [cypher, mcp, cli, python, agents]
 prerequisites: [get-started/first-graph]
-related: [concepts/problems-relate-solves#text-to-cypher, reference/cypher/differences-from-neo4j, reference/server/docs-mcp, guides/cypher/ontology, guides/cypher/tune-a-query, reference/server/mcp, reference/errors#notifications, guides/agents/connect-over-mcp]
+related: [concepts/problems-relate-solves#text-to-cypher, reference/cypher/differences-from-neo4j, guides/cypher/ontology, guides/cypher/tune-a-query, reference/server/mcp, reference/errors#notifications, guides/agents/connect-over-mcp]
 ---
 
 This guide shows you how to turn a question into a Cypher :term[statement]{id=statement} with a language model and check that statement before it runs. The model gets three things it cannot guess: this graph's schema, read from the engine; the places where relate's dialect differs from the Neo4j examples it was trained on; and a check that plans the statement with `EXPLAIN`, so a wrong label or a Neo4j-only procedure comes back as a message the model can repair, not as an empty result.
@@ -236,10 +236,6 @@ relate --database ./team.rl --read-only --mode envelope --timeout 10s "MATCH (p:
 :::
 ::::
 
-## Check without a store: the hosted docs server
-
-The hosted relate docs MCP server offers the same check with no relate installed. Its `validate_cypher` tool plans a statement with `EXPLAIN` on a fresh, empty engine and returns the plan, the notifications with their remedies, or the error with its line, column and, for a Neo4j habit, the matching row of the Differences table. Its store is empty, so every label is unknown there and those warnings carry `empty_store: true`; the schema check belongs on your own store. The server's `text-to-cypher` prompt packages the loop for a host whose user picks it: the intent, the schema or where to get it, the Differences table, and the steps to write, validate, and repair. [The hosted docs MCP server](/docs/reference/server/docs-mcp) documents both, with the server's limits; its URL is a launch-day target.
-
 ## Verify
 
 The repaired statement returns one row per project with its head count, and planning it reports no unknown names:
@@ -272,7 +268,6 @@ relate --database ./team.rl --read-only --mode envelope "EXPLAIN MATCH (p:Person
 
 - [Text-to-Cypher](/docs/concepts/problems-relate-solves#text-to-cypher) in the capability catalog.
 - [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j): every Neo4j habit, its error, and what to write instead.
-- [The hosted docs MCP server](/docs/reference/server/docs-mcp): `validate_cypher`, the `text-to-cypher` prompt, and the limits.
 - [MCP server](/docs/reference/server/mcp): `get_schema` and `read_cypher` on your own store.
 - [Tune a query](/docs/guides/cypher/tune-a-query): reading plans and acting on performance notifications.
 - [Errors](/docs/reference/errors#notifications): every notification with its code and remedy.

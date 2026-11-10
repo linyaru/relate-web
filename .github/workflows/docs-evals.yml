@@ -1,9 +1,8 @@
 # The cold-start eval (DOCS-PLAN.md §3.8; scripts/docs-evals.ts): the task
 # suite in scripts/evals/tasks.json through one headless coding agent under
-# the four conditions (nothing, the AGENTS.md block, the skill, the docs MCP
-# endpoint), graded by assertions on the stores it leaves, then a pull
-# request with src/content/docs/_data/evals.json and the summary for a person
-# to review. No model grades anything, and nothing is committed to main: the
+# the three conditions (nothing, the AGENTS.md block, the skill), graded by
+# assertions on the stores it leaves, then a pull request with
+# src/content/docs/_data/evals.json and the summary for a person to review. No model grades anything, and nothing is committed to main: the
 # only commit goes to the pull request's branch.
 #
 # Triggers (never a schedule or a push: every run spends money on the
@@ -26,9 +25,7 @@
 #   agent_command  DOCS_EVALS_AGENT_COMMAND: DOCS_EVALS_AGENT (default: the
 #                  Claude Code wrapper, scripts/evals/agents/claude-code.sh)
 #   harness        DOCS_EVALS_HARNESS: the name and version the scores carry
-#   conditions     DOCS_EVALS_CONDITIONS: a comma list (default: all four)
-#   mcp_url        DOCS_EVALS_MCP_URL: to point the docs-mcp condition at a
-#                  server other than https://relatedb.ai/mcp
+#   conditions     DOCS_EVALS_CONDITIONS: a comma list (default: all three)
 #
 # Secrets (the operator sets the one the agent needs; the run fails closed
 # without either):
@@ -39,7 +36,7 @@
 #                      Cookbook check starts (as in engine-release.yml)
 #
 # Two jobs, because the agent runs with unrestricted Bash and reads untrusted
-# content (the docs MCP server's answers, the task files):
+# content (the docs and skill it reads, the task files):
 #   evals  contents: read only. The checkout keeps no credential in
 #          .git/config (persist-credentials: false); the model keys are given
 #          to the one step that runs the agent, and scripts/docs-evals.ts
@@ -71,11 +68,7 @@ on:
       conditions:
         description: Conditions, a comma list
         required: false
-        default: none,agents-md,skill,docs-mcp
-      mcp_url:
-        description: DOCS_EVALS_MCP_URL (default https://relatedb.ai/mcp)
-        required: false
-        default: ''
+        default: none,agents-md,skill
   repository_dispatch:
     types: [relate-release]
 
@@ -101,8 +94,7 @@ jobs:
       AGENT_PACKAGE: ${{ inputs.agent_package || vars.DOCS_EVALS_AGENT_PACKAGE }}
       HARNESS: ${{ inputs.harness || vars.DOCS_EVALS_HARNESS }}
       AGENT_COMMAND: ${{ inputs.agent_command || vars.DOCS_EVALS_AGENT_COMMAND || 'bash scripts/evals/agents/claude-code.sh' }}
-      CONDITIONS: ${{ inputs.conditions || vars.DOCS_EVALS_CONDITIONS || 'none,agents-md,skill,docs-mcp' }}
-      MCP_URL: ${{ inputs.mcp_url || vars.DOCS_EVALS_MCP_URL || '' }}
+      CONDITIONS: ${{ inputs.conditions || vars.DOCS_EVALS_CONDITIONS || 'none,agents-md,skill' }}
     steps:
       - name: Check the inputs and secrets
         env:
@@ -155,7 +147,7 @@ jobs:
         run: |
           relate --version
           export RELATE_BIN="$HOME/.local/bin/relate"
-          export DOCS_EVALS_AGENT="$AGENT_COMMAND" DOCS_EVALS_HARNESS="$HARNESS" DOCS_EVALS_MCP_URL="$MCP_URL"
+          export DOCS_EVALS_AGENT="$AGENT_COMMAND" DOCS_EVALS_HARNESS="$HARNESS"
           out="$RUNNER_TEMP/evals-out"
           mkdir -p "$out"
           # --out merges this run into the copy, so the artifact is the whole new data file.

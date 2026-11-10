@@ -309,7 +309,6 @@ import {
   sha256Hex,
   toFloat16Bits,
   VECTOR_INDEX,
-  seedWithoutVectors,
   VECTOR_LOAD_STATEMENT,
   vectorRows,
   withRecipeData,
@@ -419,22 +418,6 @@ test('the seed sets fresh vectors only, creates the vector index, and the WASM a
   } finally {
     db2.free();
   }
-});
-
-test('seedWithoutVectors strips exactly the vector statements a served seed carries', () => {
-  const plain = buildGraph(fixture());
-  assert.equal(seedWithoutVectors(seedScript(plain)), seedScript(plain));
-  const g = buildGraph({ ...fixture(), embeddings: artifactFor(plain) });
-  assert.ok(g.vectors.size > 0);
-  assert.equal(seedWithoutVectors(seedScript(g)), seedScript(g, { vectors: false }));
-  // The real graph: more than one vector statement (100 rows each).
-  const real = buildGraph(graphInput());
-  if (real.vectors.size) assert.ok(real.vectors.size > 100);
-  const stripped = seedWithoutVectors(seedScript(real));
-  assert.equal(stripped, seedScript(real, { vectors: false }));
-  assert.doesNotMatch(stripped, /SET s\.embedding/);
-  assert.match(stripped, new RegExp(`CREATE VECTOR INDEX ${VECTOR_INDEX} `));
-  assert.throws(() => seedWithoutVectors('UNWIND [\n{id: 1}'), /has no end/);
 });
 
 test('readEmbeddings: a malformed artifact names the file and the command', () => {

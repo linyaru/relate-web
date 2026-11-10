@@ -14,8 +14,6 @@
 # with its structural checks), their prose is linted with Vale (`docs:lint`),
 # and after the build `docs:check -- --built` checks the built pages, twins,
 # llms.txt, the generated pages' files, the sitemap and the skills indexes.
-# The hosted docs MCP server (workers/docs-mcp) gets its unit tests, its type
-# check and its bundle step here; docs-mcp.yml runs it under wrangler dev.
 # Replaying CLI recordings and language samples needs a relate binary or the
 # clients, so those run weekly in docs-cli-check.yml and docs-samples.yml.
 #
@@ -60,7 +58,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             playground/package-lock.json
-            workers/docs-mcp/package-lock.json
 
       - run: npm ci
 
@@ -68,15 +65,10 @@ jobs:
       - name: Install playground
         run: npm ci --prefix playground
 
-      # The hosted docs MCP server is its own package too (workers/docs-mcp).
-      - name: Install the docs MCP Worker
-        run: npm ci --prefix workers/docs-mcp
-
       - name: Unit tests
         run: |
           npm run cookbook:test
           npm run docs:test
-          npm test --prefix workers/docs-mcp
 
       - name: Check decision records
         run: npm run adr:check
@@ -108,17 +100,6 @@ jobs:
 
       - name: Check built docs
         run: npm run docs:check -- --built
-
-      # Bundles dist/ for the Worker; fails when a twin and the docs graph
-      # disagree about a section, or ?section= cannot find one. The Worker
-      # itself runs under wrangler dev in docs-mcp.yml (paths filter).
-      - name: Bundle the docs MCP Worker
-        run: npm run bundle --prefix workers/docs-mcp
-
-      # After the bundle: the Worker imports its generated/ files (the docs
-      # JSON, the WASM glue), so tsc needs them in place.
-      - name: Type check the docs MCP Worker
-        run: npm run check --prefix workers/docs-mcp
 
       # In headless Chrome (preinstalled on the runner) on the built site:
       # every recipe's steps run, the page controls on one recipe, the

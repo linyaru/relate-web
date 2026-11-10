@@ -2,7 +2,11 @@
 
 Plan for the documentation section of the site. Status: **phases 0 to 2
 built** (141 published pages, none planned); phase 3 and the backlog are in
-§10. Decisions are in §11 and recorded as ADRs in `docs/adr/`.
+§10. Decisions are in §11 and recorded as ADRs in `docs/adr/`. The hosted
+docs MCP server (§3.7, and the parts of §3.8 and §10 that build on it) was
+built and then withdrawn before launch (ADR-0057): its Worker, checks, usage
+page and docs pages are gone from the repository, and the text about it here
+is kept as the design to return to.
 
 Reviewed for this plan: the upstream checkout at `../relate` (README,
 `docs/` — `api/`, `guides/`, `reference/`, `cookbook/`, `limitations.md`,
@@ -13,8 +17,8 @@ under `surfaces/relate-cli/src/skill/bundle/`) and this repo (Astro 7.4,
 
 **Scope.** This plan covers the documentation section of the site, served
 under `/docs/`, and the agent-facing surfaces that belong to it (the markdown
-twins, `/docs/llms.txt`, the skill files, the docs graph, and the hosted docs
-MCP endpoint). It does not change the rest of the site: the home page
+twins, `/docs/llms.txt`, the skill files and the docs graph; the hosted docs
+MCP endpoint was planned too and is withdrawn, ADR-0057). It does not change the rest of the site: the home page
 (`src/pages/index.astro` and the legacy markup it renders), the cookbook
 (`/cookbook/`), the playground (`/playground/`), the blog placeholder, the
 shared header and navigation, or the design tokens in `base.css`. The docs
@@ -399,7 +403,11 @@ first, one capability per page, one name per thing, exact strings, limits
 stated in-band, nothing only in images or behind a click) are part of the
 style guide, §4.7, so there is one contract, not two.
 
-### 3.7 The hosted docs MCP server (decision 8: in)
+### 3.7 The hosted docs MCP server (decision 8: in; withdrawn before launch, ADR-0057)
+
+**Withdrawn.** The server below was built as `workers/docs-mcp/` and removed
+before launch, since it was not ready to ship (ADR-0057). This section is the
+design a later ADR would start from; nothing in it is on the site.
 
 `https://relatedb.ai/mcp`, MCP streamable HTTP, stateless, unauthenticated,
 read-only, rate-limited. It is the docs graph of 3.5 served by relate's own
@@ -1817,7 +1825,7 @@ same change.
 | 1 | ADR-0003 custom docs layout, not Starlight |
 | 3, 5, 6, 11 | ADR-0004 Diátaxis sections with plain URL names (tutorials per language, no versioning, agents as a door) |
 | 9, 10 | ADR-0005 markdown-first delivery for agents |
-| 8 | ADR-0006 hosted docs MCP server |
+| 8 | ADR-0006 hosted docs MCP server (withdrawn before launch: ADR-0057) |
 | 7 | ADR-0007 docs published as a relate graph |
 | 4, 12, 13, 14, 15 | ADR-0008 style guide and voice (language picker, naming, spelling, "we", Vale) |
 | 16 | ADR-0009 glossary terms as toggletips |

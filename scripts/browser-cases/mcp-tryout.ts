@@ -27,14 +27,33 @@ const HELPERS = `
 /** Bring the element live and return { ok }, in the page. */
 const LIVE = scenario(`const h = await live('mcp-tryout'); return { log: [], failures: h ? [] : ['the element did not go live'] };`);
 
-/** The viewport centre of the first element matching `selector` inside the host, after scrolling it into view. */
+/**
+ * The viewport centre of the first element matching `selector` inside the host,
+ * after scrolling it into view and waiting until it holds still; and a one-shot
+ * recorder of where the next press lands (`window.__mcpPress`: 'target', or what
+ * it hit instead), which swallows the click of a press that missed.
+ */
 async function centre(tab: BrowserTab, selector: string): Promise<{ x: number; y: number } | null> {
   return tab.evaluate(`(async () => {
     const el = document.querySelector(${JSON.stringify(`${HOST} ${selector}`)});
     if (!el) return null;
     // Instantly: the site scrolls smoothly, and a point measured mid-scroll misses.
     el.scrollIntoView({ block: 'center', behavior: 'instant' });
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // A late font or a lazy element settling above moves the button after the scroll: wait for six still frames (5 s at most).
+    await document.fonts.ready;
+    let last = '', still = 0;
+    const t0 = performance.now();
+    while (still < 6 && performance.now() - t0 < 5000) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const r = el.getBoundingClientRect();
+      const key = [r.left, r.top, r.width, r.height].join();
+      still = key === last ? still + 1 : 0;
+      last = key;
+    }
+    const describe = (t) => (t && t.tagName ? t.tagName.toLowerCase() + (t.className && typeof t.className === 'string' ? '.' + t.className.trim().split(/\\s+/).join('.') : '') : 'nothing');
+    window.__mcpPress = null;
+    window.addEventListener('pointerdown', (e) => { window.__mcpPress = el.contains(e.target) ? 'target' : describe(e.target); }, { capture: true, once: true });
+    window.addEventListener('click', (e) => { if (!el.contains(e.target)) { e.preventDefault(); e.stopPropagation(); } }, { capture: true, once: true });
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   })()`);
@@ -116,14 +135,27 @@ export default {
         };
         const up = await tab.evaluate<Outcome>(LIVE);
         if (up.failures.length) return up;
+        const notes: string[] = [];
         const state = () => tab.evaluate<{ pressed: string; listed: string }>(`(() => { const h = document.querySelector(${JSON.stringify(HOST)}); return { pressed: h.querySelector('.mcp-ro').getAttribute('aria-pressed'), listed: h.querySelector('.mcp-listed').textContent }; })()`);
         const clickAt = async (selector: string) => {
           // A send's reply is awaited by its marker: clear it first, so the previous live reply does not count.
           await tab.evaluate(`(() => { const s = document.querySelector(${JSON.stringify(`${HOST} .mcp-call[data-tool=write_cypher]`)}); if (s) s.querySelector('.mcp-out').dataset.reply = 'pending'; })()`);
-          const at = await centre(tab, selector);
-          if (!at) return false;
-          await tab.click(at.x, at.y);
-          return true;
+          // A press that never reached the button tests nothing (its click is swallowed): measure again and press once more.
+          // A press that reached it and changed nothing is the element's failure, which the checks below report.
+          let missed = '';
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const at = await centre(tab, selector);
+            if (!at) break;
+            await tab.click(at.x, at.y);
+            const landed = await tab.evaluate<string | null>('window.__mcpPress');
+            if (landed === 'target') {
+              if (missed) notes.push(`a press aimed at ${selector} landed on ${missed}; measured again`);
+              return true;
+            }
+            missed = landed ?? 'nothing';
+          }
+          check(`a real press reaches ${selector}`, false, missed ? `it landed on ${missed}, twice` : 'not found');
+          return false;
         };
         // Serve read-only on (the page may start with it on: readonly=on).
         if ((await state()).pressed !== 'true') await clickAt('.mcp-ro');
@@ -146,7 +178,7 @@ export default {
         await clickAt('.mcp-call[data-tool=write_cypher] .mcp-send');
         const rw = await tab.evaluate<Sent>(settled('.mcp-call[data-tool=write_cypher]'));
         check('write_cypher writes, with counters from the engine', rw.source === 'engine' && /"isError":false/.test(rw.reply) && /"stats":/.test(rw.text ?? ''), `${rw.source}: ${rw.reply.slice(0, 120)}`);
-        return { log: [`read-only: ${ro.text}; writable: ${rw.source}`, ...log], failures };
+        return { log: [[`read-only: ${ro.text}; writable: ${rw.source}`, ...notes].join('; '), ...log], failures };
       },
     },
     {

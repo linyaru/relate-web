@@ -1,25 +1,70 @@
 ---
 // Not found. Points readers at the docs and agents at /docs/llms.txt (DOCS-PLAN.md §3.1).
+// Same visual language as the home hero: the pixel mascot as the 0.
 import Base from '../layouts/Base.astro';
+
+const links = [
+  { href: '/docs/', title: 'The docs', note: 'Task-first guides for you and your agent. Every page is also markdown at its URL plus .md.' },
+  { href: '/cookbook/', title: 'The cookbook', note: 'Worked examples with recorded results. Run each step in your browser, or hand a recipe to your agent.' },
+  { href: '/playground/', title: 'The playground', note: 'Write Cypher against the real engine in your browser. Nothing to install, no server to deploy.' },
+  { href: '/skill.md', title: 'The agent skill', note: 'The briefing your agent reads to install relate, create a database and start answering questions.' },
+];
 ---
 <Base title="Page not found" description="This page does not exist.">
-  <div class="not-found">
-    <h1>Page not found</h1>
-    <p class="lead">There is no page at this address.</p>
-    <ul>
-      <li><a href="/docs/">The docs</a>: start from the task index.</li>
-      <li><a href="/docs/llms.txt" target="_blank" rel="noopener">/docs/llms.txt</a>: the index for agents. Every docs page is also markdown at its URL plus <code>.md</code>.</li>
-      <li><a href="/cookbook/">The cookbook</a>: worked examples.</li>
-      <li><a href="/">The home page</a>.</li>
+  <section class="nf" aria-labelledby="nf-h">
+    <div class="nf-l">
+    <p class="nf-code" aria-hidden="true">
+      <span class="nf-d">4</span><span class="nf-m"><svg viewBox="0 0 16 14" shape-rendering="crispEdges"><path fill="#010609" d="M5 1h6v1h-6zM4 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM12 3h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM7 5h2v1h-2zM13 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM6 7h1v1h-1zM9 7h1v1h-1zM13 7h1v1h-1zM2 8h1v1h-1zM6 8h1v1h-1zM9 8h1v1h-1zM13 8h1v1h-1zM1 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM14 9h1v1h-1zM1 10h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM14 10h1v1h-1zM1 11h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM14 11h1v1h-1zM2 12h4v1h-4zM10 12h4v1h-4z"/><path fill="#D6F7F8" d="M5 2h6v1h-6zM4 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM9 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM10 7h1v1h-1zM3 8h1v1h-1zM10 8h1v1h-1zM2 9h1v1h-1zM10 9h1v1h-1zM2 10h1v1h-1zM10 10h1v1h-1zM2 11h1v1h-1zM10 11h1v1h-1z"/><path fill="#8FE3E8" d="M5 3h1v1h-1zM7 3h2v1h-2zM10 3h1v1h-1zM4 4h1v1h-1zM11 4h1v1h-1zM4 5h2v1h-2zM10 5h2v1h-2zM4 6h1v1h-1zM11 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM3 9h2v1h-2zM11 9h2v1h-2zM3 10h2v1h-2zM11 10h2v1h-2z"/><path fill="#4C99A4" d="M11 3h1v1h-1zM7 4h2v1h-2zM12 4h1v1h-1zM6 5h1v1h-1zM12 5h1v1h-1zM5 6h1v1h-1zM12 6h1v1h-1zM5 7h1v1h-1zM12 7h1v1h-1zM5 8h1v1h-1zM12 8h1v1h-1zM5 9h1v1h-1zM13 9h1v1h-1zM5 10h1v1h-1zM13 10h1v1h-1zM3 11h3v1h-3zM11 11h3v1h-3z"/><path fill="#FF8E6A" d="M5 4h1v1h-1zM10 4h1v1h-1z"/></svg></span><span class="nf-d">4</span>
+    </p>
+    <h1 id="nf-h">This node doesn't exist.</h1>
+    <p class="nf-sub">That address isn't in the docs, the cookbook or anywhere else on the site. It may have moved, or the link may be mistyped. Pick up from one of these instead.</p>
+    <p class="nf-agents">Agent? The index is <a href="/docs/llms.txt" target="_blank" rel="noopener"><code>/docs/llms.txt</code></a>, and every docs page is also markdown at its URL plus <code>.md</code>.</p>
+    </div>
+
+    <ul class="nf-links">
+      {links.map((l) => (
+        <li><a href={l.href}><span class="t">{l.title}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></span><span class="n">{l.note}</span></a></li>
+      ))}
     </ul>
-  </div>
+
+  </section>
 </Base>
 
-<style is:global>
-  .not-found { padding: 48px 0 96px; max-width: 680px; }
-  .not-found h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 12px; }
-  .not-found .lead { color: var(--fg-muted); font-size: 1.1rem; margin: 0 0 24px; }
-  .not-found a { color: var(--accent); }
-  .not-found li { margin: 6px 0; }
-  .not-found code { font-family: var(--font-mono); font-size: 0.9em; }
+<style>
+  .nf { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; padding: 72px 0 112px; }
+  .nf-l { display: flex; flex-direction: column; align-items: flex-start; }
+  .nf-code {
+    display: flex; align-items: center; justify-content: flex-start; gap: .04em; margin: 0;
+    font: 400 clamp(96px, 15vw, 200px) / 1 var(--pixel); color: var(--ink);
+  }
+  .nf-d { text-shadow: .035em .035em 0 var(--brand-line); }
+  .nf-m { display: inline-flex; height: .9em; transform: rotate(-8deg); }
+  .nf-m :global(svg) { height: 100%; width: auto; animation: nf-bob 3.2s ease-in-out infinite; filter: drop-shadow(0 .06em 0 var(--brand-soft)); }
+  @keyframes nf-bob {
+    0%, 100% { transform: translateY(.04em) rotate(0); }
+    25% { transform: translateY(-.1em) rotate(-5deg); }
+    75% { transform: translateY(-.05em) rotate(6deg); }
+  }
+  h1 { margin: 20px 0 0; font: 500 clamp(30px, 4.4vw, 52px) / 1.05 var(--font); letter-spacing: -.04em; text-wrap: balance; color: var(--ink); }
+  .nf-sub { margin: 16px 0 0; max-width: 44ch; color: var(--ink-muted); font-size: 18px; line-height: 28px; text-wrap: pretty; }
+
+  .nf-links { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; text-align: left; }
+  .nf-links a {
+    display: flex; flex-direction: column; gap: 6px; height: 100%; padding: 16px 18px; text-decoration: none;
+    background: var(--surface-1); border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink);
+    transition: background-color .15s, border-color .15s, transform .15s var(--ease);
+  }
+  .nf-links a:hover { background: var(--surface-2); border-color: var(--brand-line); transform: translateY(-2px); }
+  .nf-links a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .nf-links .t { display: inline-flex; align-items: center; gap: 4px; font: 500 16px/1.2 var(--font); }
+  .nf-links .t svg { color: var(--brand); transition: transform .15s; }
+  .nf-links a:hover .t svg { transform: translateX(3px); }
+  .nf-links .n { color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+  .nf-agents { margin: 24px 0 0; max-width: 56ch; color: var(--ink-muted); font-size: 14px; line-height: 22px; }
+  .nf-agents a { color: var(--brand); }
+  .nf-agents code { font: 400 .92em var(--mono); }
+  @media (max-width: 560px) { .nf-links { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .nf { grid-template-columns: 1fr; gap: 40px; padding: 40px 0 80px; } }
+  @media (prefers-reduced-motion: reduce) { .nf-m :global(svg) { animation: none; } }
 </style>
+

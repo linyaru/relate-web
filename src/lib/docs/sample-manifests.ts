@@ -1,5 +1,5 @@
 // Manifests for the verified language samples (DOCS-PLAN.md §3.8 "Examples as
-// executable artifacts with manifests", phase 3; ADR-0052): each ```<lang> run
+// executable artifacts with manifests", phase 3; ADR-0053): each ```<lang> run
 // fence on a published page (samples.ts) is also served as one JSON document,
 // the way a cookbook recipe is served as recipe.json and results.json:
 //

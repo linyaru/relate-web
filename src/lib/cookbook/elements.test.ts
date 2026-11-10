@@ -1,4 +1,4 @@
-// Interactive elements on recipe pages (ADR-0045): the parser finds the
+// Interactive elements on recipe pages (ADR-0046): the parser finds the
 // directives, the markdown renders them where the parser found them, the
 // cookbook side turns a recipe into the framework's page, and the twin
 // carries each element's static form instead of its directive.

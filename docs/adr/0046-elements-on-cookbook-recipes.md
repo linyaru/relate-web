@@ -1,4 +1,4 @@
-# ADR-0045: Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader
+# ADR-0046: Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader
 
 Status: Proposed
 

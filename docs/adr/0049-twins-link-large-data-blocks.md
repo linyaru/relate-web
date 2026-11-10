@@ -1,4 +1,4 @@
-# ADR-0048: A twin links a data block over 2 KiB to a per-page data file instead of inlining it
+# ADR-0049: A twin links a data block over 2 KiB to a per-page data file instead of inlining it
 
 Status: Proposed
 

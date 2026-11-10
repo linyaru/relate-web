@@ -60,5 +60,5 @@ adjective-driven competitive marketing stands everywhere.
 
 ## Later references
 
-- Superseded in part by ADR-0044: `reference/performance` is removed and
+- Superseded in part by ADR-0045: `reference/performance` is removed and
   the docs cite no benchmarks; the fit page stands.

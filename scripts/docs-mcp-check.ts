@@ -680,7 +680,7 @@ async function smoke(): Promise<void> {
     return p;
   });
   {
-    // Every page whose twin links a data block instead of carrying it (ADR-0048): the stub is in get_page's bytes.
+    // Every page whose twin links a data block instead of carrying it (ADR-0049): the stub is in get_page's bytes.
     const linking = readdirSync(join(DIST, 'docs'), { recursive: true, encoding: 'utf8' })
       .filter((f) => f.endsWith('.md') && !f.endsWith('/index.md') && !f.endsWith('.graph.md'))
       .sort()

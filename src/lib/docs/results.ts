@@ -213,7 +213,7 @@ export const graphHash = (graph: RecordedGraph, extras = '') =>
 
 export const graphHashComment = (hash: string) => `<!-- result graph sha256:${hash} -->`;
 
-/** A page's diagrams/ directory and file stem (a docs page's `.mdx`, or a cookbook recipe's `.md`, ADR-0045). */
+/** A page's diagrams/ directory and file stem (a docs page's `.mdx`, or a cookbook recipe's `.md`, ADR-0046). */
 export const pageDiagrams = (file: string) => ({ dir: join(dirname(file), 'diagrams'), stem: basename(file).replace(/\.mdx?$/, '') });
 
 /**

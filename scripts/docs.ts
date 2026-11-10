@@ -924,7 +924,7 @@ function checkTwin(page: PageFile, text: string, site: Site, links: { pages: Set
     if (n.type === 'code') twinFences.add(fenceKey(n.lang, n.value));
   });
   const offset = frontmatterLines(text);
-  // A data block over 2 KiB is a stub linking its file (ADR-0048), checked against the block's bytes.
+  // A data block over 2 KiB is a stub linking its file (ADR-0049), checked against the block's bytes.
   const data = twinDataProblems(id, collectCells(source).data, twinTree);
   for (const problem of data.problems) report(file, null, 'error', 'twin-data', problem);
   visitAll(source, (n) => {
@@ -1267,7 +1267,7 @@ function checkBuilt(site: Site) {
     const twin = readFileSync(twinFile, 'utf8');
     twinStructure(twin, p.id, twinFile, site);
     const twinTree = parseMarkdown(splitFrontmatter(twin, rel(twinFile)).body);
-    // Every data block built at /docs/<page>/data/<name>.json, and every stub naming its file's bytes (ADR-0048).
+    // Every data block built at /docs/<page>/data/<name>.json, and every stub naming its file's bytes (ADR-0049).
     try {
       const blocks = collectCells(parsePage(splitFrontmatter(readFileSync(p.file, 'utf8'), rel(p.file)).body)).data;
       for (const problem of builtDataProblems(DIST, p.id, blocks, twinTree)) report(twinFile, null, 'error', 'twin-data', problem);

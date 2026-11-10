@@ -8,7 +8,7 @@
 // runnable (`<cypher-cell>` and its data attributes, the hidden Run/Edit
 // buttons, editors and output tabs), so it can upgrade them in place.
 //
-// An element directive (ADR-0045) renders as the docs pages render one:
+// An element directive (ADR-0046) renders as the docs pages render one:
 // `<docs-element>` holding its recorded static form (the children, the
 // generated text, the light and dark picture, the "Live:" line) and an
 // empty live pane, which the element's module fills once the page runtime

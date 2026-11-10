@@ -1,5 +1,5 @@
 // `:::timeline{cell=… start=… [end=…] [record-start=… record-end=…] [lane=…] [label=…] [asof=… param=… match=… [match-record=…] [key=…]]}`:
-// the timeline view (DOCS-PLAN.md §7.3, ADR-0051). It draws a step's rows on
+// the timeline view (DOCS-PLAN.md §7.3, ADR-0052). It draws a step's rows on
 // a time axis: point events in lanes (a trajectory's steps by kind), or
 // intervals with an open end where the end is null (a fact's valid time), and
 // for bi-temporal rows a second, record-time bar under each. Every column is
@@ -57,7 +57,7 @@ function asOfStart(input: ElementInput): number[] {
   return t === null ? [] : [t];
 }
 
-/** What the page calls the statement it draws: a recipe's step (ADR-0045), a docs page's cell. */
+/** What the page calls the statement it draws: a recipe's step (ADR-0046), a docs page's cell. */
 const nounOf = (input: ElementInput): Noun => (input.page.id.startsWith('cookbook/') ? 'step' : 'cell');
 
 /** The drawing's width in the static form (its viewBox; it scales down with the column). */

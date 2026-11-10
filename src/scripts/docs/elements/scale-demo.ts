@@ -1,4 +1,4 @@
-// `:::scale-demo`, the scale demo (DOCS-PLAN.md §7.3, ADR-0047; the build
+// `:::scale-demo`, the scale demo (DOCS-PLAN.md §7.3, ADR-0048; the build
 // side, and the static form, are src/lib/docs/elements/scale-demo.ts). Live,
 // it shows the three cells' recordings beside empty columns, a size picker
 // and a Build button with a note on memory. Nothing runs until the reader

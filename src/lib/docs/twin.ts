@@ -94,7 +94,7 @@ export function verifiedBy(file: string, body: string, tree: Root, version: stri
 
 /**
  * The twin's `samples`: the manifest URL of each verified sample on the page,
- * in page order (sample-manifests.ts, ADR-0052); empty when the page has none
+ * in page order (sample-manifests.ts, ADR-0053); empty when the page has none
  * or its samples have problems (docs:check reports those).
  */
 export function sampleManifests(id: string, body: string): string[] {

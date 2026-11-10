@@ -1,4 +1,4 @@
-# ADR-0050: The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own
+# ADR-0051: The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own
 
 Status: Proposed
 
@@ -11,8 +11,8 @@ view, with added, removed and changed elements coloured, on the migration
 rehearsal recipe and on `guides/storage/clone-and-convert`, built on the
 graph view. The interactive element framework (ADR-0035) gives an element a
 recorded static form and a browser module; recipes take elements by the same
-directive (ADR-0045); NVL is drawn only in the one graph module (ADR-0010);
-and `page.scratch()` gives an element a database of its own (ADR-0047).
+directive (ADR-0046); NVL is drawn only in the one graph module (ADR-0010);
+and `page.scratch()` gives an element a database of its own (ADR-0048).
 
 Three facts shape it. Element ids are not stable: another store, a clone, or
 the same statements run again on a fresh database may number nodes and

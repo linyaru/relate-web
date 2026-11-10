@@ -121,12 +121,12 @@ Copy `template.md`.
 | [0041](0041-mcp-tryout-and-agent-trace.md) | The MCP tryout and the agent trace answer tool calls in the page by relate serve's mapping, with recorded server answers where the engine cannot speak | Proposed |
 | [0042](0042-live-docs-graph.md) | The live docs graph draws a build-made view of the docs graph through the one graph module, with a static form that changes only when pages do | Proposed |
 | [0043](0043-home-design-tokens-and-fonts.md) | The site takes its colours and type from the Relate home design: Night by default, three open-source faces, the older token names kept as aliases | Proposed |
-| [0044](0044-no-performance-page-or-benchmarks-in-docs.md) | The docs have no performance page and cite no benchmarks | Proposed |
-| [0045](0045-elements-on-cookbook-recipes.md) | Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader | Proposed |
-| [0046](0046-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |
-| [0047](0047-scale-demo.md) | The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws nothing, and shows only the reader's own run | Proposed |
-| [0048](0048-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |
-| [0049](0049-in-browser-embeddings.md) | The reader's own question is embedded in the browser with the docs' own model on the query-the-relate-docs recipe, fetched from the Hugging Face hub behind a button and checked against pinned hashes | Proposed |
-| [0050](0050-graph-diff.md) | The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own | Proposed |
-| [0051](0051-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |
-| [0052](0052-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |
+| [0045](0045-no-performance-page-or-benchmarks-in-docs.md) | The docs have no performance page and cite no benchmarks | Proposed |
+| [0046](0046-elements-on-cookbook-recipes.md) | Cookbook recipes take the docs pages' interactive elements by the same directive, recorded by the cookbook and loaded by the docs element loader | Proposed |
+| [0047](0047-storage-animator.md) | The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames | Proposed |
+| [0048](0048-scale-demo.md) | The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws nothing, and shows only the reader's own run | Proposed |
+| [0049](0049-twins-link-large-data-blocks.md) | A twin links a data block over 2 KiB to a per-page data file instead of inlining it | Proposed |
+| [0050](0050-in-browser-embeddings.md) | The reader's own question is embedded in the browser with the docs' own model on the query-the-relate-docs recipe, fetched from the Hugging Face hub behind a button and checked against pinned hashes | Proposed |
+| [0051](0051-graph-diff.md) | The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own | Proposed |
+| [0052](0052-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |
+| [0053](0053-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |

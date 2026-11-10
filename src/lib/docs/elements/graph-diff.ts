@@ -1,5 +1,5 @@
 // `:::graph-diff{before=<cell> after=<cell> key=<property>}`: the graph
-// diff (DOCS-PLAN.md §7.3, ADR-0050). Two cells of the page return a graph
+// diff (DOCS-PLAN.md §7.3, ADR-0051). Two cells of the page return a graph
 // state each, before and after a change the page makes between them (a
 // migration); the element matches their nodes by the `key` property and
 // their relationships by type and the key of each end, and shows what was

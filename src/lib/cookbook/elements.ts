@@ -1,4 +1,4 @@
-// Interactive elements on cookbook recipe pages (ADR-0045): the docs
+// Interactive elements on cookbook recipe pages (ADR-0046): the docs
 // framework's elements (ADR-0035; src/lib/docs/elements.ts), placed in a
 // recipe with the same directive, `:::<name>{attrs}` … `:::`. Node only: the
 // build (site.ts) and scripts/cookbook.ts import it, never the browser.

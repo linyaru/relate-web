@@ -1,4 +1,4 @@
-// The timeline's model and drawing (`:::timeline`, ADR-0051): shared by the
+// The timeline's model and drawing (`:::timeline`, ADR-0052): shared by the
 // build side (src/lib/docs/elements/timeline.ts, which draws the static form
 // from a step's recorded rows) and the browser module
 // (src/scripts/docs/elements/timeline.ts, which draws the same picture from a

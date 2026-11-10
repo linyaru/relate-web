@@ -1,4 +1,4 @@
-# ADR-0051: The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement
+# ADR-0052: The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement
 
 Status: Proposed
 
@@ -14,7 +14,7 @@ time and record time whose as-of statement answers "what was true on
 `t`" and "what did the log believe on `t`" differently. The bi-temporal
 recipe carried a hand-drawn gantt of the same decisions, whose dates and
 open ends were typed by hand. The interactive element framework
-(ADR-0035) and its extension to recipes (ADR-0045) require the engine's
+(ADR-0035) and its extension to recipes (ADR-0046) require the engine's
 own numbers, a static form built at record time, a lazy module and a
 case file.
 

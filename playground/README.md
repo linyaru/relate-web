@@ -84,7 +84,7 @@ button runs it with its own parameter file, which also becomes the editor's.
 way as `#docs=<page>[&cell=<id>]`: the playground reads the page's markdown
 twin, `../docs/<page>.md`, for its cells and parameters blocks; a block the
 twin links instead of carrying (a ```` ```json data=<name> src=<url> ````
-stub, ADR-0048) is fetched from `../docs/<page>/data/<name>.json` on this
+stub, ADR-0049) is fetched from `../docs/<page>/data/<name>.json` on this
 site and checked against the stub's size and SHA-256 before it runs. See `src/lib/recipe-link.ts`,
 `src/hooks/useRecipeSession.ts`, and `src/components/RecipeDialog.tsx`.
 

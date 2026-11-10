@@ -15,7 +15,7 @@
 // - a fence whose language is `mermaid` is a diagram (ADR-0135).
 //
 // A line `:::<name>{attrs}` at column 0, up to a line `:::`, is an
-// interactive element of the docs framework (ADR-0035, ADR-0045): the docs'
+// interactive element of the docs framework (ADR-0035, ADR-0046): the docs'
 // container directive, with the same attribute syntax. Its children are
 // plain markdown (no fences). Which names exist, and what each element
 // makes of the recipe, is src/lib/cookbook/elements.ts's to say (it needs

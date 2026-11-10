@@ -1,6 +1,6 @@
 // The script budget (DOCS-PLAN.md §7.1): a docs page ships under 60 KB of
 // its own JavaScript before the lazy chunks, and so does a cookbook page,
-// which runs the same element loader (ADR-0045). docs:check --built
+// which runs the same element loader (ADR-0046). docs:check --built
 // measures each built docs and cookbook page: the scripts the browser runs eagerly, which are every
 // classic or module <script> (inline text, or a `src` resolved in dist/) and,
 // transitively, the modules those import statically. A module reached only
@@ -102,7 +102,7 @@ export interface BudgetRow {
 
 /**
  * Every built page under `dist`/docs, and under `dist`/cookbook (the recipe
- * pages run the same page runtime and element loader, ADR-0045), with its
+ * pages run the same page runtime and element loader, ADR-0046), with its
  * eager scripts, largest first.
  */
 export function measurePages(dist: string, sections: readonly string[] = ['docs', 'cookbook']): BudgetRow[] {

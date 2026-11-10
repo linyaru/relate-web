@@ -1,6 +1,6 @@
 // `:::embed-question{cell=<vector search step>}`: embed a question of the
 // reader's own in the browser (DOCS-PLAN.md §7.3 "In-browser embeddings",
-// ADR-0049). The step names a stored vector by the question text (its first
+// ADR-0050). The step names a stored vector by the question text (its first
 // line is `MATCH (question:Question {text: $q})`) and searches a vector
 // index with it. Live, behind a button that states the download size, the
 // element fetches bge-small-en-v1.5 at the revision the page's vectors were
@@ -15,7 +15,7 @@
 // The static form says what the button downloads and from where (sizes
 // measured from the pinned files), shows the line the element swaps in, and
 // holds the step's recorded result for the page's stored question. It
-// carries no timing (ADR-0044): the only number besides the recording is
+// carries no timing (ADR-0045): the only number besides the recording is
 // the download size the button states.
 
 import { markdownTable } from '../element-kit.ts';

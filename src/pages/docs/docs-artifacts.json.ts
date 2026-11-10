@@ -4,7 +4,7 @@
 // /.well-known/skills/<name>/), the /skill.md alias, the docs graph's seed script (/docs/graph.cypher), the
 // glossary as data (/docs/glossary.json), the capability catalog
 // (/docs/capabilities.json), the verified samples' index (/docs/samples.json)
-// and every sample manifest (ADR-0052), and relate-docs.rl once it exists under public/docs/. No
+// and every sample manifest (ADR-0053), and relate-docs.rl once it exists under public/docs/. No
 // timestamp, so the bytes change only with the content; the release key signs
 // them at launch (docs-artifacts.json.sig beside it, LAUNCH.md; the manifest
 // does not name it, so signing never changes the signed bytes) and docs:check

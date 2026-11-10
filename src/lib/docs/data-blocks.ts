@@ -1,5 +1,5 @@
 // A docs page's ```json data=<name> blocks as files, and the stub a twin
-// carries in place of a large one (ADR-0048).
+// carries in place of a large one (ADR-0049).
 //
 // The build serves every block at /docs/<page>/data/<name>.json
 // (src/pages/docs/[...block].json.ts): the block's text exactly as the page

@@ -170,7 +170,7 @@ export interface Bundle {
   /** /docs/capabilities.json byte for byte, its URL and the page it is generated from. */
   capabilities: { text: string; source: string; page: string };
   examples: Record<string, ExampleRecipe>;
-  /** /docs/samples.json byte for byte and its URL, and every sample manifest (ADR-0052). */
+  /** /docs/samples.json byte for byte and its URL, and every sample manifest (ADR-0053). */
   samples: { index: { text: string; source: string }; manifests: SampleEntry[] };
   dialect: { page: string; url: string; md_url: string; rows: DialectRow[] };
   /** The fixed parts of the text-to-cypher prompt: the Differences table, verbatim, and its page. */

@@ -639,7 +639,7 @@ function sampleBlock(node: Code, info: SampleInfo, st: State): Node[] {
   const output = recorded.text.replace(/\n$/, '');
   // Twin: the fence as written (meta kept), then a ```text block holding the output; the twin's frontmatter lists the manifests.
   if (st.target === 'markdown') return [node, { type: 'code', lang: 'text', meta: null, value: output }];
-  // The sample's manifest (sample-manifests.ts, ADR-0052): the program, this output and the client build, as JSON.
+  // The sample's manifest (sample-manifests.ts, ADR-0053): the program, this output and the client build, as JSON.
   const manifest = sampleManifestPath(pageIdOf(st.ctx.file), id);
   return [
     html(

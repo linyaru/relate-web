@@ -1,5 +1,5 @@
 // `:::scale-demo{build=<cell> count=<cell> walk=<cell> [sizes="1000,10000,100000"]}`:
-// the scale demo (DOCS-PLAN.md §7.3, ADR-0047). Three cells of the page,
+// the scale demo (DOCS-PLAN.md §7.3, ADR-0048). Three cells of the page,
 // recorded at the small size their parameters block gives `n`, are run again
 // in the reader's browser at a size the reader picks, up to a hundred
 // thousand nodes, on a database of the element's own (PageApi.scratch: a
@@ -11,7 +11,7 @@
 //
 // The static form says what the demo does and holds the three cells'
 // recorded results at the page's size. It carries no timing and no memory
-// figure: those exist only after a run in the reader's tab (ADR-0044). The
+// figure: those exist only after a run in the reader's tab (ADR-0045). The
 // browser module is src/scripts/docs/elements/scale-demo.ts.
 
 import { markdownTable } from '../element-kit.ts';

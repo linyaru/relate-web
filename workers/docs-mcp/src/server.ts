@@ -356,7 +356,7 @@ export function createServer(observe: CallObservation, ai?: AiBinding): McpServe
     },
   );
 
-  // The verified language samples (ADR-0052): the index and each manifest, byte for byte as the site serves them.
+  // The verified language samples (ADR-0053): the index and each manifest, byte for byte as the site serves them.
   server.registerResource(
     'samples',
     'relate-docs://samples',

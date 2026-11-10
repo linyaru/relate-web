@@ -1,5 +1,5 @@
 // cookbook:browser cases for `:::embed-question`, embed your own question
-// (src/lib/docs/elements/embed-question.ts, ADR-0049): it goes live with the
+// (src/lib/docs/elements/embed-question.ts, ADR-0050): it goes live with the
 // download size on its button and fetches nothing, starts no worker and no
 // engine before the press; then, after one press (the model's files come
 // from the Hugging Face hub at the pinned revision, so this case needs the

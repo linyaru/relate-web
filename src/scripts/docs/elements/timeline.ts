@@ -1,5 +1,5 @@
 // `:::timeline`, the timeline view (the build side and its static form:
-// src/lib/docs/elements/timeline.ts; ADR-0051). Live: the drawn step's rows on
+// src/lib/docs/elements/timeline.ts; ADR-0052). Live: the drawn step's rows on
 // a time axis, read again from every run of the step (the reader's own Run,
 // with whatever they typed, or the element's Run the step), so an edit to
 // the step or its parameters redraws it. Where the page names an as-of step,

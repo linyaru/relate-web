@@ -6,7 +6,7 @@
 // the engine, and the cases check them two ways that do not go through the
 // element: the ranking cell's own Run (its live table), and the similarity
 // computed here from the page's own data block and question vector. Nothing
-// is checked against numbers typed here. On a recipe placement (ADR-0045:
+// is checked against numbers typed here. On a recipe placement (ADR-0046:
 // hybrid-recall carries the hybrid view) the cases run on the views the
 // recipe has; the scatter cases pass with a note there, since they run on
 // the docs page that has the scatter.

@@ -1,4 +1,4 @@
-# ADR-0049: The reader's own question is embedded in the browser with the docs' own model on the query-the-relate-docs recipe, fetched from the Hugging Face hub behind a button and checked against pinned hashes
+# ADR-0050: The reader's own question is embedded in the browser with the docs' own model on the query-the-relate-docs recipe, fetched from the Hugging Face hub behind a button and checked against pinned hashes
 
 Status: Proposed
 
@@ -15,7 +15,7 @@ the hybrid-recall recipe, not a model's output. The one model-made corpus
 on the site is the query-the-relate-docs recipe: docs sections carrying the
 committed bge-small-en-v1.5 vectors (ADR-0028: its ONNX conversion at a
 pinned revision, CLS pooling, normalized, made by transformers.js in Node),
-and recipes take elements (ADR-0045).
+and recipes take elements (ADR-0046).
 
 Five facts shape the rest. Every ONNX file of that revision is over
 Cloudflare Pages' 25 MiB per-file limit (fp32 133 MB, fp16 66.7 MB, the
@@ -31,7 +31,7 @@ which would join the site's install for code no browser runs; its browser
 build fetches its runtime from a CDN. The site loads no third-party script
 (ADR-0013), and nothing is written to the reader's browser storage
 (ADR-0035). A WebAssembly memory never shrinks until its worker ends
-(ADR-0047).
+(ADR-0048).
 
 ## Decision
 
@@ -73,7 +73,7 @@ engine bar's Reset brings back the recording and keeps the model.
 
 **Static form and checks.** The form says what the button downloads, from
 where and at what size, shows the swapped line, and holds the step's
-recorded rows; no timing (ADR-0044). In cookbook:browser the worker
+recorded rows; no timing (ADR-0045). In cookbook:browser the worker
 downloads the files from the hub and embeds both stored questions; each
 vector must reach cosine 0.9999 with the committed one as the recipe holds
 it and return the same five sections in the same order as that vector

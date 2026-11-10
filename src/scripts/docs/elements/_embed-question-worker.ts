@@ -1,4 +1,4 @@
-// The model worker of `:::embed-question` (ADR-0049; the element is
+// The model worker of `:::embed-question` (ADR-0050; the element is
 // embed-question.ts beside this file). It owns bge-small-en-v1.5 in the tab:
 // the element starts it when the reader presses the download button, and
 // terminates it on Unload, on Reset of the element and when the page goes,

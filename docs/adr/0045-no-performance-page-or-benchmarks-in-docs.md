@@ -1,4 +1,4 @@
-# ADR-0044: The docs have no performance page and cite no benchmarks
+# ADR-0045: The docs have no performance page and cite no benchmarks
 
 Status: Proposed
 

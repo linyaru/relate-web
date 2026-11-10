@@ -1,4 +1,4 @@
-# ADR-0046: The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames
+# ADR-0047: The storage animator is a diagram of documented behaviour that runs no engine, drawn by one model for its static form and its live frames
 
 Status: Proposed
 

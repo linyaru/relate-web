@@ -4,7 +4,7 @@
 // a graph or JSON view needs one; a step's parameter file, data/<name>.json,
 // resolves beside it too.
 //
-// A recipe's interactive elements (ADR-0045) start here with the docs
+// A recipe's interactive elements (ADR-0046) start here with the docs
 // pages' element loader (src/scripts/docs/elements.ts), on the same engine
 // and database as the steps: each element's module loads when its host
 // comes near the viewport or the reader reaches it, never with the page.

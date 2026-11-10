@@ -201,7 +201,7 @@ export async function checkElements(site: ElementsSite, report: Report): Promise
  * The checks on one page's elements: its directives (validated, each with a
  * current, non-empty recorded form), its unknown containers when `rules`
  * says so, its cells' element words, and recorded forms left without their
- * directive. A recipe passes its run's recordings in `ctx` (ADR-0045).
+ * directive. A recipe passes its run's recordings in `ctx` (ADR-0046).
  */
 export async function checkPageElements(page: ElementPage, ctx: FormContext, report: Report, rules: PageRules): Promise<void> {
   const known = elementNames().join(', ') || 'none';

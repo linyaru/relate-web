@@ -1,4 +1,4 @@
-# ADR-0052: Each verified language sample is published as a manifest, with the client build it actually ran on
+# ADR-0053: Each verified language sample is published as a manifest, with the client build it actually ran on
 
 Status: Proposed
 

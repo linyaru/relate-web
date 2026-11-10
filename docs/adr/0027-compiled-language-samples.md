@@ -82,5 +82,5 @@ and it requires Python below 3.14.
 
 ## Later references
 
-- Extended by ADR-0052: each sample is also served as a manifest that
+- Extended by ADR-0053: each sample is also served as a manifest that
   names the client build it last ran on.

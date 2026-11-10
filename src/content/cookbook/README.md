@@ -271,7 +271,7 @@ flowchart LR
 
 ### Interactive elements
 
-A recipe can carry the docs' interactive elements (ADR-0045): the
+A recipe can carry the docs' interactive elements (ADR-0046): the
 geospatial explorer, the vector search explorer, the agent trace, the
 timeline, and every other element in `src/lib/docs/elements/`, with the directive a docs page
 uses. The element works on the recipe's own steps, data blocks and

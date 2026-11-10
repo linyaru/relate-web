@@ -39,7 +39,7 @@
 //   {element, cases}; scripts/browser-cases/_kit.ts documents the scenario
 //   language) runs on the first built docs page that carries its element
 //   (`data-element="<name>"`, or a cell whose `data-elements` names it), and
-//   again on the first built recipe page that carries it (ADR-0045).
+//   again on the first built recipe page that carries it (ADR-0046).
 //   Before its cases, each element's static form must show with scripts
 //   disabled (at 1400 px, and at 390 px without sideways scrolling), and its
 //   module and the engine must not load with the page while it is out of
@@ -1145,7 +1145,7 @@ interface BuiltPage {
 
 /**
  * Each element case file on the first built docs page with its element and
- * on the first built recipe page with it (ADR-0045): the same checks and the
+ * on the first built recipe page with it (ADR-0046): the same checks and the
  * same cases at both placements, so an element placed on a recipe is held to
  * what it does on a docs page. An element with no case file fails.
  */
@@ -1222,7 +1222,7 @@ async function runCase(name: string, label: string, path: string, scenario: stri
 
 /**
  * What each docs page with the page runtime (and one page without), and
- * each recipe page (ADR-0045: recipes run the same element loader), loads
+ * each recipe page (ADR-0046: recipes run the same element loader), loads
  * before any interaction, against the static count of budget.ts: a page
  * that loads a script the count does not see (an `import()` run as the page
  * loads), or more than the budget, fails. What loads when it comes near the

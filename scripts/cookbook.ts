@@ -2,7 +2,7 @@
 // Checks the cookbook (src/content/cookbook): every recipe parses and
 // validates, runs through the site's WASM engine (public/wasm) without
 // going other than it says, and reproduces each recorded `table` / `gram`
-// block; every interactive element on a recipe (ADR-0045) validates and has
+// block; every interactive element on a recipe (ADR-0046) validates and has
 // a current recorded static form; and the README index is current.
 //
 //   node scripts/cookbook.ts            check (npm run cookbook:check)

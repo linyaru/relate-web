@@ -332,7 +332,7 @@ export const GRAPH_SEED_PATH = '/docs/graph.cypher';
  * (src/pages/docs/graph.cypher.ts; the seed is deterministic,
  * src/lib/docs/graph.ts), the glossary as data (glossary.json.ts), the
  * capability catalog (capabilities.json.ts), and the verified samples' index
- * and every manifest (samples.json.ts, [...sample].json.ts; ADR-0052).
+ * and every manifest (samples.json.ts, [...sample].json.ts; ADR-0053).
  */
 export function builtArtifacts(): Served[] {
   return [

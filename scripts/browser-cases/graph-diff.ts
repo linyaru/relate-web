@@ -1,5 +1,5 @@
 // cookbook:browser cases for `:::graph-diff` (src/lib/docs/elements/graph-diff.ts),
-// on the migration-rehearsal recipe (ADR-0050): it goes live on the recorded
+// on the migration-rehearsal recipe (ADR-0051): it goes live on the recorded
 // diff without starting an engine, and its legend, table and graph view agree
 // with a diff the case works out itself from the page's recordings of the
 // before and after cells (nodes matched by the key property); each status

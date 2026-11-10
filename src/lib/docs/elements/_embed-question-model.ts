@@ -1,4 +1,4 @@
-// What `:::embed-question` (ADR-0049) runs in a reader's browser, pinned:
+// What `:::embed-question` (ADR-0050) runs in a reader's browser, pinned:
 // the model that made the docs' vectors (bge-small-en-v1.5 through its ONNX
 // conversion, at the revision `_data/embeddings.json` names, CLS pooling,
 // normalized), as its half-precision weights; the files the browser fetches
@@ -42,7 +42,7 @@ export interface PinnedFile {
  * The model files the browser fetches from the hub. The weights are
  * `onnx/model_fp16.onnx` (float16 weights, float32 inputs and outputs): the
  * fp32 file is 133 MB, and the 8-bit files' vectors drift with the
- * runtime's integer kernels or reorder the results (ADR-0049).
+ * runtime's integer kernels or reorder the results (ADR-0050).
  */
 export const MODEL_FILES: readonly PinnedFile[] = [
   { path: 'onnx/model_fp16.onnx', bytes: 66_749_212, sha256: '4d76223b73a3fd708f009a93a830a6ed5e536b07c77d3c812ba7b35a4988d767' },
@@ -65,7 +65,7 @@ export const MAX_QUESTION_CHARS = 200;
 
 /**
  * The least cosine similarity a browser's vector may have with the committed
- * vector of the same text (ADR-0049). Measured: 0.9999999 for these weights
+ * vector of the same text (ADR-0050). Measured: 0.9999999 for these weights
  * on onnxruntime-web; the committed vector is stored as float16 and the
  * recipe rounds it to four decimals, which costs less than 1e-6. A
  * different pooling of the same model gives about 0.95, the revision's

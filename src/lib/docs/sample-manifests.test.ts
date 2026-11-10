@@ -1,5 +1,5 @@
 // Unit tests for the verified samples' manifests (src/lib/docs/sample-manifests.ts,
-// ADR-0052) and their check (checks/sample-manifests.ts), on the example page,
+// ADR-0053) and their check (checks/sample-manifests.ts), on the example page,
 // whose sidecar records one sample in each language.
 
 import assert from 'node:assert/strict';

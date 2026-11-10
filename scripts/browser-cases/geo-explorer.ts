@@ -1,5 +1,5 @@
 // cookbook:browser cases for `:::geo-explorer` (src/lib/docs/elements/geo-explorer.ts),
-// on guides/cypher/geospatial and on the nearby-places recipe (ADR-0045): the plane draws the page's places; dragging
+// on guides/cypher/geospatial and on the nearby-places recipe (ADR-0046): the plane draws the page's places; dragging
 // the circle (pointer events) runs the radius cell on the engine and changes
 // the places it returns, and the search after the shape stops is the one
 // shown (its parameters are where the shape ended, its lit places what a

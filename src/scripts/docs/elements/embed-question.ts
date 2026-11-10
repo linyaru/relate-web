@@ -1,4 +1,4 @@
-// `:::embed-question`, embed your own question (DOCS-PLAN.md §7.3, ADR-0049;
+// `:::embed-question`, embed your own question (DOCS-PLAN.md §7.3, ADR-0050;
 // the build side and the static form are src/lib/docs/elements/embed-question.ts).
 // Live, it shows a question box holding the step's stored question, a
 // button that names the download size, the statement it will send, and the

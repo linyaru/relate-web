@@ -1,4 +1,4 @@
-// The data blocks' files and the twins' stubs (ADR-0048, src/lib/docs/data-blocks.ts).
+// The data blocks' files and the twins' stubs (ADR-0049, src/lib/docs/data-blocks.ts).
 //
 // From the source (docs:check): a page's ```json data=<name> block of up to
 // 2 KiB is in its twin verbatim (the twin round-trip checks that); a larger

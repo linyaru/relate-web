@@ -1,7 +1,7 @@
 // /cookbook/<slug>/index.md: the recipe file, for agents and llms.txt, with
 // each interactive element's directive replaced by its static form (the
 // children, the generated text, the "Live:" line, a link to the light
-// picture), as a docs page's twin gives an element (ADR-0045).
+// picture), as a docs page's twin gives an element (ADR-0046).
 import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { recipeTwin } from '../../../lib/cookbook/elements.ts';

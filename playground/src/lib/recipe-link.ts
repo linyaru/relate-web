@@ -14,7 +14,7 @@
 // fences are the cells and whose ```json data=<name> blocks their parameters
 // (src/lib/cookbook/cells.ts, shared with the docs build), so the hand-off is
 // the same text an agent reads. A block over 2 KiB is a stub in the twin
-// (```json data=<name> src=<url>, ADR-0048): the playground fetches its file,
+// (```json data=<name> src=<url>, ADR-0049): the playground fetches its file,
 // `../docs/<page>/data/<name>.json` on this site, and checks its size and
 // SHA-256 against the stub before the engine sees it.
 

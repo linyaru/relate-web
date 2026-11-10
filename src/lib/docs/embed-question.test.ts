@@ -1,5 +1,5 @@
 // Tests for `:::embed-question`'s pins and rewrite (src/lib/docs/elements/_embed-question-model.ts,
-// ADR-0049): the model it runs in the browser is the one the committed
+// ADR-0050): the model it runs in the browser is the one the committed
 // vectors name; the runtime file it bundles is the one the pinned package
 // ships, at the size and SHA-256 it states; the download size the button
 // states adds up from those pins; and the statement rewrite swaps exactly the

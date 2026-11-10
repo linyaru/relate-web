@@ -448,7 +448,7 @@ for (const slug of readdirSync(cookbookDist).sort()) {
 if (!Object.keys(examples).length) fail('dist/cookbook/ holds no recipe.json');
 
 // ---------------------------------------------------------------------------
-// The verified samples' manifests (ADR-0052): relate-docs://samples is
+// The verified samples' manifests (ADR-0053): relate-docs://samples is
 // /docs/samples.json byte for byte, relate-docs://sample/<page>/<id> each
 // manifest it lists. A manifest whose bytes do not hash to the index's
 // sha256 means a stale build.

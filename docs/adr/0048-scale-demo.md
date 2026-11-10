@@ -1,4 +1,4 @@
-# ADR-0047: The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws nothing, and shows only the reader's own run
+# ADR-0048: The scale demo builds a large tree from the page's own cells on a second engine in the tab, draws nothing, and shows only the reader's own run
 
 Status: Proposed
 
@@ -12,7 +12,7 @@ with the count and traversal times updating live, behind a button with a
 memory note, desktop first. The plan also had NVL's WebGL renderer draw
 the graph. The interactive element framework (ADR-0035) gives each
 element a recorded static form and a browser module on the page's one
-engine. ADR-0044 removed the performance page: no docs page publishes
+engine. ADR-0045 removed the performance page: no docs page publishes
 timings, throughput or benchmark results.
 
 Three facts shape it. The page's cells share one database, so a hundred
@@ -82,13 +82,13 @@ check that Free, Reset and Stop each put the recordings back.
   stop at a depth or count paths that multiply, and a tree's walk reaches
   every node below one exactly once.
 - **Report a memory figure in the static form.** Readers ask what it
-  costs. Rejected by ADR-0044; the sizing guide carries measured figures.
+  costs. Rejected by ADR-0045; the sizing guide carries measured figures.
 
 ## Consequences
 
 - The page API (`src/scripts/docs/element-api.ts`) has `scratch()`, which
   another element may use for a graph that must not touch the page's
-  (the graph diff does, ADR-0050).
+  (the graph diff does, ADR-0051).
 - graph.ts keeps its two kinds of view; nothing in the docs uses NVL's
   WebGL renderer.
 - The architecture page's database gains the small tree when its cells

@@ -1,4 +1,4 @@
-// `:::graph-diff`, the graph diff (DOCS-PLAN.md §7.3, ADR-0050; the build
+// `:::graph-diff`, the graph diff (DOCS-PLAN.md §7.3, ADR-0051; the build
 // side, and the static form, are src/lib/docs/elements/graph-diff.ts). Live,
 // it first draws the recorded diff of the `before` and `after` cells with the
 // one graph module's network view (src/scripts/cookbook/graph.ts

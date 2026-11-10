@@ -1,5 +1,5 @@
 // The verified samples' manifests, for docs:check (src/lib/docs/sample-manifests.ts,
-// ADR-0052).
+// ADR-0053).
 //
 // From the source: _data/samples.json is well formed, describes every sample
 // language (and every `env=<name>` a page uses), and records the pins

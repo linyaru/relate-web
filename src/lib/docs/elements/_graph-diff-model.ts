@@ -1,4 +1,4 @@
-// The graph diff's model (`:::graph-diff`, ADR-0050), shared by its build
+// The graph diff's model (`:::graph-diff`, ADR-0051), shared by its build
 // side (src/lib/docs/elements/graph-diff.ts, the static form) and its
 // browser module (src/scripts/docs/elements/graph-diff.ts, the live view),
 // so the recorded picture and the first live frame are the same diff laid

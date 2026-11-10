@@ -274,7 +274,7 @@ async function serverCases(base: string): Promise<void> {
     }
   }
   {
-    // A data block a twin links (ADR-0048): the static JSON file, byte for byte, whatever the Accept.
+    // A data block a twin links (ADR-0049): the static JSON file, byte for byte, whatever the Accept.
     const blocks = walkFiles(join(DIST, 'docs')).filter((f) => /\/data\/[A-Za-z0-9_-]+\.json$/.test(f));
     const file = blocks.sort((a, b) => statSync(b).size - statSync(a).size)[0];
     if (!file) expect('a docs data block is built', ['no file at /docs/<page>/data/<name>.json in dist/']);

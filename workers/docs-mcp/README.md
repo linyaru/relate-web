@@ -174,7 +174,7 @@ Search hits' `anchor` is what `heading` takes. A cell's parameters block
 over 2 KiB is a stub in the twin, so in every `get_page` answer: a
 ```` ```json data=<name> src=<url> ```` fence naming the block's
 `https://relatedb.ai/docs/<id>/data/<name>.json` file, its size, SHA-256
-and shape (ADR-0048); the Worker serves no copy of the file.
+and shape (ADR-0049); the Worker serves no copy of the file.
 
 `search_docs` searches the `Section` nodes of the docs graph, which holds
 every authored page; the generated glossary, changelog and docs MCP usage
@@ -275,7 +275,7 @@ or their URL, and recorded result, with the recipe's `verifies` summary),
 language sample's manifest URL and SHA-256, and each client's build) and
 `relate-docs://sample/{+path}` (listed once per verified sample as
 `relate-docs://sample/<page id>/<sample id>`: the manifest at
-`/docs/<page>/samples/<id>.json` byte for byte, ADR-0052: the program, its
+`/docs/<page>/samples/<id>.json` byte for byte, ADR-0053: the program, its
 recorded output, the client build it last ran on and how the docs' runner
 runs it). A missing resource is JSON-RPC `-32602` with `data.uri`.
 
@@ -334,7 +334,7 @@ on a 429; `Cache-Control: no-store`.
   one statement; no `EXPLAIN` or `PROFILE` prefix.
 - Size: 96 KiB of text per tool result or resource (the largest twin on
   2026-11-09, `guides/operate/troubleshooting`, is 91,970 bytes; a data
-  block over 2 KiB is a stub in its twin, ADR-0048, which took
+  block over 2 KiB is a stub in its twin, ADR-0049, which took
   `guides/cypher/vector-search` from 99,818 bytes to 24,290); longer text is cut at a line and says where the whole page is.
   Requests over 64 KiB (bytes) are refused: a larger `Content-Length` before
   anything is read, a chunked body as soon as the counting reader passes the

@@ -1318,7 +1318,7 @@ hand-off). A status bar names the engine version, which matches the page's
 | **MCP tryout** | the three MCP tools as buttons against the page's database: `get_schema`, `read_cypher`, `write_cypher`, each showing the JSON-RPC request and the envelope reply; a write under read-only refused | `connect-over-mcp`, MCP reference, agent-native concept | the engine (the tools are thin over `execute`) | 2 |
 | **Agent trace playback** | a transcript of an agent solving a task: each step a tool call with its live result, step-through and run-all; the trace from a cookbook recipe (tool-call provenance, agent memory) | agent-memory tutorial, `guides/integrations/`, cookbook | MCP tryout + cell runtime | 2 |
 | **The docs graph, live** | `reference/docs-graph` draws the docs graph (ADR-0007) with NVL: pages by section, links, terms; click a node to open the page; search highlights nodes. Not a landing hero: it fails §7.1's bar there | `reference/docs-graph` | NVL, the seed script | 2 |
-| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph (as built, nothing is drawn; ADR-0047), count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept | NVL `webgl` renderer | 3 |
+| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph (as built, nothing is drawn; ADR-0048), count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept | NVL `webgl` renderer | 3 |
 | Graph diff | before and after a migration: added, removed and changed elements coloured | migration-rehearsal recipe, `clone-and-convert` | graph view | 3 |
 | Timeline view | temporal and bi-temporal results on a time axis | agent-trajectory and bitemporal recipes | SVG | 3 |
 | Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view (a directive: ADR-0015's five phase 1 JSX components are taken by `<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`; not built yet, LAUNCH.md) | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
@@ -1345,7 +1345,7 @@ hand-off). A status bar names the engine version, which matches the page's
 - **One graph module.** All NVL use goes through one module extended from
   the cookbook's `graph.ts` (shared palette, label colours, theme watcher,
   inspector, expand). Canvas renderer (the scale demo, which would have
-  used WebGL, draws nothing; ADR-0047). Telemetry stays aliased out (`astro.config.mjs`). Instances are
+  used WebGL, draws nothing; ADR-0048). Telemetry stays aliased out (`astro.config.mjs`). Instances are
   destroyed on navigation.
 - **Static forms are built, not drawn by hand.** For each graph element
   the build lays the recorded result out with d3-force (already a
@@ -1742,30 +1742,30 @@ items deferred from phase 2 above are either here or in the backlog below).
 
 *As built (phase 3):*
 
-- Elements on cookbook recipe pages (ADR-0045): a recipe takes the same
+- Elements on cookbook recipe pages (ADR-0046): a recipe takes the same
   directives; `cookbook:record` writes their static forms, the recipe twin
   carries them, and the budget and browser cases cover recipe pages. Placed:
   the geospatial explorer on nearby-places, the hybrid view on
   hybrid-recall, and an agent trace of session 2 on the agent-memory recipe.
-- The storage animator (ADR-0046), `engine: false`, on
+- The storage animator (ADR-0047), `engine: false`, on
   `concepts/storage-and-durability` (replacing its mermaid diagram),
   `guides/operate/durability-modes` and `guides/storage/choose-a-store-layout`.
-- The scale demo (ADR-0047) on `concepts/architecture`, on a database of
+- The scale demo (ADR-0048) on `concepts/architecture`, on a database of
   its own (`page.scratch()`, a second engine worker); times only from the
   reader's run. It draws nothing: a WebGL drawing was built and removed,
   since NVL 1.2.2 places at most 65,536 nodes in WebGL.
-- In-browser embeddings (ADR-0049), `:::embed-question`, on the
+- In-browser embeddings (ADR-0050), `:::embed-question`, on the
   query-the-relate-docs recipe, not the vector-search guide: that recipe
   holds the site's only model-made vectors (bge-small-en-v1.5), while the
   guide's are hand-written or hashed word vectors. The weights come from the
   Hugging Face hub at a pinned revision after a button press (no ONNX file
   fits Cloudflare Pages' per-file limit); `reference/privacy-and-telemetry`
   states the request. The guide points at the recipe.
-- Graph diff (ADR-0050) on the migration-rehearsal recipe, on a
+- Graph diff (ADR-0051) on the migration-rehearsal recipe, on a
   `page.scratch()` database; not on `clone-and-convert`, whose two states
   are stores on disk compared by the CLI. `CellHandle.runParams()` fetches a
   step's dataset parameters.
-- The timeline view (ADR-0051) on the agent-trajectory-timeline and
+- The timeline view (ADR-0052) on the agent-trajectory-timeline and
   bitemporal-decisions recipes (replacing the hand-drawn gantt) and on
   `guides/agents/model-agent-memory`.
 - The weighted hybrid explorer on `reference/cypher/search`, whose fusion now
@@ -1778,11 +1778,11 @@ items deferred from phase 2 above are either here or in the backlog below).
   integrations have no trace: one would repeat the LangGraph and Vercel ones.
 - `::::agentic` on `get-started/install`, `get-started/agent-quickstart`
   (two sets) and `guides/agents/connect-over-mcp`.
-- Twin data blocks (ADR-0048): every data block is served at
+- Twin data blocks (ADR-0049): every data block is served at
   `/docs/<page>/data/<name>.json`, and a twin replaces a block over 2 KiB
   with a stub naming its URL, size, SHA-256 and shape (the vector-search
   twin went from 99,818 to 24,290 bytes).
-- Sample manifests (ADR-0052): every verified sample at
+- Sample manifests (ADR-0053): every verified sample at
   `/docs/<page>/samples/<id>.json`, with the index `/docs/samples.json`, the
   build each sample ran on from `_data/samples.json`, and docs MCP resources.
 - `guides/migrate/from-sqlite` and `guides/migrate/from-kuzu` (Kuzu 0.11.3,

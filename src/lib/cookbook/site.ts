@@ -3,7 +3,7 @@
 // recording, as `npm run cookbook:check` requires), its diagrams' renderings
 // read and checked, and a highlighter for its code. Computed once per build
 // and shared by every cookbook page and endpoint; any problem fails the build.
-// A recipe's interactive elements (ADR-0045, elements.ts) get their recorded
+// A recipe's interactive elements (ADR-0046, elements.ts) get their recorded
 // static forms here, read back against the replay and checked like a docs
 // page's.
 

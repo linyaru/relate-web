@@ -298,7 +298,7 @@ console.error(
   `docs:samples: ${ran} sample(s) run on ${pages.length} page(s)${skipped ? `, ${skipped} not run` : ''}` +
     `${args.record ? `, ${changedFiles} sidecar(s) updated` : ''}; ${errors.length} error(s), ${warnings.length} warning(s)`,
 );
-// The sample manifests state what each client was built from (ADR-0052); this run cannot know the commits, so it says where they go.
+// The sample manifests state what each client was built from (ADR-0053); this run cannot know the commits, so it says where they go.
 if (!errors.length && !skipped && ran) {
   console.error('docs:samples: every sample ran; src/content/docs/_data/samples.json records what this replay ran with (the commits each client was built from, the toolchain versions, the platform and today\'s date), which the sample manifests state');
 }

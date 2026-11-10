@@ -10,7 +10,7 @@ import { remarkDocs } from './src/lib/docs/remark.ts';
 
 // Static output. Interim preview host; switch to https://relatedb.ai at launch (see LAUNCH.md).
 export default defineConfig({
-  site: 'https://r31473.relatedb.ai',
+  site: 'https://relatedb.ai',
   output: 'static',
   trailingSlash: 'ignore',
   integrations: [

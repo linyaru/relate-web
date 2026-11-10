@@ -41,6 +41,6 @@ change `main`; follow with a revert so the next deploy does not reintroduce it.
 
 ```bash
 gh run list -R relatedb/relate-web -L 3
-curl -s https://r31473.relatedb.ai/ | head -c 400
+curl -s https://relatedb.ai/ | head -c 400
 npm run cookbook:check && npm run docs:check        # locally, on the reverted tree
 ```

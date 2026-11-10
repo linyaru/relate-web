@@ -11,7 +11,7 @@ The cookbook runs steps in a module worker (`src/scripts/cookbook/worker.ts`).
 
 1. Are the files served, with the right type?
    ```bash
-   HOST=https://r31473.relatedb.ai
+   HOST=https://relatedb.ai
    curl -sI $HOST/wasm/relate_bg.wasm | grep -i 'HTTP\|content-type\|content-length'   # 200, application/wasm, non-trivial size
    curl -sI $HOST/wasm/relate.js | head -3
    ```

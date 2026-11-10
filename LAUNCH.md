@@ -39,12 +39,12 @@ cypherlite-era redo) and should not be extended.
 - [ ] Regenerate or replace `releases.json`, `extensions.json` (+ `.sig`), `install.sh` from upstream: `install.sh` and `releases.json` now come from relate v0.1.2's release assets (`scripts/fetch-discovery.sh`); `extensions.json` (+ `.sig`) are still the cypherlite-era copies, since no relate extension release carries them yet
 - [ ] Update `sitemap.xml`, `robots.txt` (currently stealth-appropriate? decide), `update-website.yml`
 - [ ] Set up Pages / hosting and DNS for `relatedb.ai`; deploy workflow (old one lived on cypherlite `main`)
-- [ ] Add `noindex` / robots block while stealth; remove at launch
+- [x] Add `noindex` / robots block while stealth; remove at launch
 - [x] Playground is built by this site at `/playground/` (source: `playground/`, its own package); the header and the home page link it
 - [x] Cookbook is built by this site at `/cookbook/` (source: `src/content/cookbook/`); the header links it
 - [ ] Cookbook link policy: `src/lib/cookbook/links.ts` `NOT_PUBLIC_YET` drops links to `github.com/relatedb/` and `relatedb.ai` from recipe prose; delete those entries at launch
 - [ ] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) now point at `relatedb/relate`, which is private: they 404 for logged-out visitors until the repo is public, and the docs paths (`docs/tck/compliance.md`, `docs/adr/`, `docs/api/extensions/...`) must exist there
-- [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the preview host `r31473.relatedb.ai` is `noindex`)
+- [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the site is indexable)
 - [ ] `public/extensions.json` (+ `.sig`) is still the cypherlite-era copy (its tags are `cypherlite-extensions-…`); regenerate it from upstream when the first relate extension release is cut. `releases.json` is relate's (v0.1.0 to v0.1.2)
 - [x] After the first relate-named release: `continue-on-error` is gone from `.github/workflows/docs-cli-check.yml`, which now installs the latest release with `RELATE_UPSTREAM_TOKEN` (the private repository's release API answered 404 to the job's own token). Run it once by hand (workflow_dispatch) after this lands on `main`
 - [ ] Release discovery (ADR-0546, upstream): upstream's pipelines attach `install.sh` + `releases.json` (core release) and the signed `extensions.json` pair (extension release) as release assets, then send a `repository_dispatch` `relate-release` (`{kind: cli|extension, tag}`) here. Both deploy workflows run on it and `scripts/fetch-discovery.sh` pulls the files (newest release wins; signature verified; fails closed) before the build, so **a release is never held up by review** (runbook: `runbooks/release-discovery.md`). The checked-in `public/install.sh`, `releases.json`, `extensions.json(.sig)` are seed copies for local work and pre-release. Secrets are shared across the `relatedb` org: make `RELATE_UPSTREAM_TOKEN` (read on `relate`) visible to this repo and `RELATE_WEB_DISPATCH_TOKEN` (`contents:write` on this repo) visible to `relate`. Until `RELATE_UPSTREAM_TOKEN` is set the fetch is skipped with a notice; set the repo variable `RELATE_DISCOVERY_REQUIRED=true` at launch so a missing token fails the deploy. Not yet tried against real assets: dry-run on the first release (`gh workflow run` the deploy, or `npm run discovery:fetch` with a token)
@@ -246,10 +246,10 @@ Written in phase 2 part B (DOCS-PLAN.md §10); what a launch, a release or upstr
 - [ ] Integration traces: only `guides/integrations/claude-agent-sdk` reaches relate over MCP; the LangGraph and Vercel AI SDK traces replay their in-process statements as MCP calls and say so. Re-check when those pages' samples change
 - [ ] When ADR-0045 to ADR-0053 are accepted, add Later references lines where they amend earlier records (ADR-0010 for ADR-0051's network colours; ADR-0035 for recipes carrying elements, ADR-0046, and `page.scratch()`, ADR-0048; ADR-0039 for the search reference placement and ADR-0050; ADR-0027 already names ADR-0053), and change their status in `docs/adr/README.md`
 
-## Interim preview host (internal, unlisted)
+## Interim host: GitHub Pages at relatedb.ai
 
-- Host: `https://r31473.relatedb.ai/` (CNAME `r31473` → `relatedb.github.io` in GoDaddy DNS; `CNAME` file in the repo and deploy artifact).
-- Hostname is obscure, **not private**: certificate-transparency logs expose it. `index.html` has `noindex, nofollow` and `robots.txt` disallows all. Remove both at launch.
-- GitHub: `relatedb/relate-web` → Settings → Pages → Source: GitHub Actions, custom domain `r31473.relatedb.ai`, then Enforce HTTPS (after DNS verifies: `dig +short CNAME r31473.relatedb.ai` → `relatedb.github.io.`).
-- Optional: verify `relatedb.ai` at the org level (TXT record) so nobody else can claim its subdomains on Pages.
-- Retire this record and the `CNAME` file when switching hosts.
+- Host: `https://relatedb.ai/` (apex A records → GitHub Pages in DNS; `public/CNAME` = `relatedb.ai`; Settings → Pages custom domain `relatedb.ai`). The former preview host `r31473.relatedb.ai` is retired.
+- Indexable: the `noindex` meta tags are gone and `robots.txt` allows all with the sitemap line (2026-11-10).
+- [ ] Settings → Pages → Enforce HTTPS once the certificate issues (`dig +short A relatedb.ai`, then `curl -sI https://relatedb.ai/`).
+- [ ] Remove the `r31473` CNAME record in DNS; `www` should point at the apex (`relatedb.github.io` CNAME) so it redirects.
+- Optional: verify `relatedb.ai` at the org level (TXT record) so nobody else can claim it on Pages.

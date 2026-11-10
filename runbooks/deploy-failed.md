@@ -49,7 +49,7 @@ Worker):
 
 ```bash
 gh run list -R relatedb/relate-web -L 3        # newest Deploy site run: success
-curl -s https://r31473.relatedb.ai/ | grep -o '<title>[^<]*'
+curl -s https://relatedb.ai/ | grep -o '<title>[^<]*'
 ```
 
 ## Roll back

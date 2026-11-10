@@ -3,6 +3,7 @@
 // section, its pages, then its groups as disclosures (open around the current
 // page). A plain list, complete without JavaScript.
 import { pageUrl } from '../../lib/docs/model.ts';
+import { LANGUAGE_ICONS } from '../../lib/docs/language-icons.ts';
 import type { NavGroup, NavPage } from '../../lib/docs/nav.ts';
 
 interface Props {
@@ -12,25 +13,38 @@ interface Props {
 }
 const { nav, current } = Astro.props;
 const here = (p: NavPage | null) => (p && p.id === current ? 'page' : undefined);
+// Pages that are one client language ('get-started/python') show as an icon row.
+const langOf = (p: NavPage) => (LANGUAGE_ICONS[p.id.split('/').pop() ?? ''] && p.id.split('/').length === 2 ? p.id.split('/')[1] : null);
 const contains = (g: NavGroup) => current === g.id || current.startsWith(`${g.id}/`);
+// Sections are disclosures too: only the one holding the current page is open.
+const openSection = (i: number) => contains(nav[i]) || !nav.some(contains) && i === 0;
 ---
 <div class="docs-nav">
   <ul class="nav-list nav-top">
     <li><a href={pageUrl('')} aria-current={current === '' ? 'page' : undefined}>Overview</a></li>
   </ul>
-  {nav.map((section) => (
-    <section class="nav-section">
-      <h2 class="nav-section-title">
-        {section.index ? <a href={pageUrl(section.id)} aria-current={here(section.index)}>{section.label}</a> : section.label}
-      </h2>
+  {nav.map((section, i) => (
+    <details class="nav-section" open={openSection(i) || undefined}>
+      <summary class="nav-section-title">{section.label}</summary>
       <ul class="nav-list">
-        {section.pages.map((p) => (
+        {section.index && <li><a href={pageUrl(section.id)} aria-current={here(section.index)}>Overview</a></li>}
+        {section.pages.filter((p) => !langOf(p)).map((p) => (
           <li><a href={pageUrl(p.id)} aria-current={here(p)}>{p.label}</a></li>
         ))}
+        {section.pages.some(langOf) && (
+          <li class="nav-langs" role="group" aria-labelledby="nav-langs-title">
+            <h3 class="nav-langs-title" id="nav-langs-title">In your language</h3>
+            {section.pages.filter(langOf).map((p) => (
+              <a href={pageUrl(p.id)} aria-current={here(p)} aria-label={p.label} title={p.label}>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d={LANGUAGE_ICONS[langOf(p)!]} /></svg>
+              </a>
+            ))}
+          </li>
+        )}
         {section.groups.map((g) => (
           <li>
             <details class="nav-group" open={contains(g) || undefined}>
-              <summary>{g.label}</summary>
+              <summary><span>{g.label}</span></summary>
               <ul class="nav-list">
                 {g.index && <li><a href={pageUrl(g.id)} aria-current={here(g.index)}>Overview</a></li>}
                 {g.pages.map((p) => (
@@ -41,13 +55,14 @@ const contains = (g: NavGroup) => current === g.id || current.startsWith(`${g.id
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   ))}
-  <section class="nav-section">
+  <section class="nav-section nav-more">
     <h2 class="nav-section-title">More</h2>
     <ul class="nav-list">
       <li><a href="/cookbook/">Cookbook</a></li>
-      <li><a href="/docs/llms.txt">llms.txt</a></li>
+      <li><a href="/playground/" target="_blank" rel="noopener">Playground <span aria-hidden="true">&#8599;</span></a></li>
+      <li><a href="/docs/llms.txt" target="_blank" rel="noopener">llms.txt</a></li>
     </ul>
   </section>
 </div>

@@ -1,0 +1,464 @@
+---
+// "One statement at a time": a Cypher editor that types itself beside a canvas graph that grows as
+// each statement lands. Three presets (tabs). The editor text is in the markup, so the Cypher is
+// readable without JavaScript; the script draws the graph from that text (a small pattern parser
+// and a layered layout, nothing from the engine runs here) and plays the follow-up statements.
+// Every statement was run on the site's WASM build (see src/lib/home/demo-data.ts).
+import { PRESETS, presetIcon, hlEditor } from '../lib/home/demo-data.ts';
+
+const first = PRESETS[0];
+const text = first.statements.join('\n');
+---
+<section class="lg" id="graph" aria-labelledby="h-graph">
+  <div class="lg-h">
+    <p class="lg-eyebrow">Live graph</p>
+    <h2 id="h-graph">One statement at a time.</h2>
+    <p class="lg-lede">Pick a shape of data and watch the graph grow as each Cypher statement runs, with new facts landing in the connections that already exist.</p>
+  </div>
+  <div class="lg-box" id="lg-box">
+    <div class="lg-bar">
+      <div class="lg-tabs" id="lg-tabs" role="group" aria-label="Examples">
+        {PRESETS.map((p, i) => (
+          <button type="button" aria-pressed={i === 0 ? 'true' : 'false'} data-i={i}><span set:html={presetIcon(p.id)} /><span>{p.title}</span></button>
+        ))}
+      </div>
+      <span class="lg-file" translate="no">agent-memory.rl</span>
+    </div>
+    <div class="lg-ew">
+      <div class="lg-el"><span>Cypher</span><em aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></em></div>
+      <div class="lg-ed">
+        <pre id="lg-hl" aria-hidden="true" translate="no" set:html={hlEditor(text) + '\n'} />
+        <textarea id="lg-ta" spellcheck="false" autocapitalize="off" autocomplete="off" readonly tabindex="-1" aria-label="Cypher example. It types itself and the graph updates." aria-describedby="lg-status" translate="no">{text}</textarea>
+      </div>
+    </div>
+    <div class="lg-stage" id="lg-stage">
+      <canvas id="lg-canvas" aria-hidden="true"></canvas>
+      <noscript><p class="lg-nojs">The graph is drawn with JavaScript. Run in order, the statements on the left build it.</p></noscript>
+    </div>
+    <span id="lg-status" class="lg-live" role="status" aria-live="polite" translate="no"></span>
+  </div>
+</section>
+
+<style is:global>
+  .lg { position: relative; max-width: var(--page-w); margin: 0 auto; padding: 120px 24px 112px; }
+  .lg-h { margin-bottom: 48px; }
+  .lg-eyebrow { margin: 0; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .lg-h h2 { margin: 16px 0 0; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; color: var(--ink); }
+  .lg-lede { margin: 16px 0 0; max-width: 632px; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
+
+  .lg-box { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto 500px; border: 1px solid var(--line); background: var(--term-bg); box-shadow: var(--ui-shadow); overflow: hidden; }
+  .lg-bar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 16px 0 0; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .lg-tabs { display: flex; flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .lg-tabs button { display: inline-flex; align-items: center; flex: none; gap: 10px; min-height: 48px; padding: 0 18px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink-muted); font: 500 14px/1 var(--font); white-space: nowrap; cursor: pointer; transition: color .2s, background-color .2s; }
+  .lg-tabs button:hover { color: var(--ink); }
+  .lg-tabs button[aria-pressed="true"] { background: var(--surface-0); color: var(--ink); }
+  .lg-tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .lg-px { display: block; width: auto; height: 16px; }
+  .lg-file { flex: none; font: 400 12px/16px var(--mono); color: var(--ink-muted); }
+
+  .lg-ew { display: flex; flex-direction: column; min-width: 0; margin: 16px; border: 1px solid var(--line); background: var(--term-bg); }
+  .lg-el { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .lg-el em { display: flex; flex: none; gap: 2px; }
+  .lg-el em i { display: block; width: 4px; height: 5px; background: var(--line-strong); animation: lg-scan 1.4s steps(1) infinite; }
+  .lg-el em i:nth-child(1) { animation-delay: 0s; }
+  .lg-el em i:nth-child(2) { animation-delay: .175s; }
+  .lg-el em i:nth-child(3) { animation-delay: .35s; }
+  .lg-el em i:nth-child(4) { animation-delay: .525s; }
+  .lg-el em i:nth-child(5) { animation-delay: .7s; }
+  .lg-el em i:nth-child(6) { animation-delay: .875s; }
+  .lg-el em i:nth-child(7) { animation-delay: 1.05s; }
+  .lg-el em i:nth-child(8) { animation-delay: 1.225s; }
+  @keyframes lg-scan { 0% { background: var(--ink); } 25%, 100% { background: var(--line-strong); } }
+
+  .lg-ed { position: relative; flex: 1; min-height: 0; min-width: 0; background: var(--term-bg); }
+  .lg-ed pre, .lg-ed textarea { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 20px; border: 0; overflow: auto; font: 400 13px/22px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; scrollbar-width: none; }
+  .lg-ed pre { color: var(--term-ink); pointer-events: none; }
+  .lg-ed textarea { background: none; color: transparent; caret-color: var(--ink); resize: none; outline: none; }
+  .lg-ed .k { color: var(--term-kw); }
+  .lg-ed .n { color: var(--term-ink); font-weight: 500; }
+  .lg-ed .r { color: var(--term-dim); }
+  .lg-ed .s { color: var(--term-str); }
+
+  .lg-stage { position: relative; grid-column: 2; min-width: 0; background: var(--surface-0); }
+  .lg-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+  .lg-nojs { margin: 0; padding: 24px; color: var(--ink-muted); font-size: 14px; line-height: 22px; }
+  .lg-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .lg { padding: 72px 16px; }
+    .lg-h { margin-bottom: 32px; }
+    .lg-box { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 360px 400px; }
+    .lg-ew { grid-column: 1; margin: 0; border-width: 0 0 1px; }
+    .lg-stage { grid-column: 1; }
+    .lg-tabs button { padding: 0 14px; }
+    .lg-file { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lg-el em i { animation: none; }
+    .lg-el em i:nth-child(-n+2) { background: var(--ink); }
+  }
+</style>
+
+<script>
+  import { PRESETS, hlEditor } from '../lib/home/demo-data.ts';
+
+  interface GNode { key: string; n: string; t: string }
+  interface GEdge { a: number; b: number; r: string }
+  interface Pt { x: number; y: number }
+  interface Seg { u: number; v0: number; v1: number }
+  interface Route { e: GEdge; A: Rect; T: Rect; hz: boolean; s: number; hot: boolean; pa: number; pb: number; V: number[][]; S: number[][] }
+  interface Rect { cx: number; cy: number; w: number; h: number }
+  type Parsed = { N: GNode[]; E: GEdge[] } | { err: string };
+
+  const ta = document.getElementById('lg-ta') as HTMLTextAreaElement | null;
+  const hlEl = document.getElementById('lg-hl');
+  const stage = document.getElementById('lg-stage');
+  const canvas = document.getElementById('lg-canvas') as HTMLCanvasElement | null;
+  const stat = document.getElementById('lg-status');
+  const tabs = document.getElementById('lg-tabs');
+  const ctx = canvas?.getContext('2d');
+  if (ta && hlEl && stage && canvas && stat && tabs && ctx) {
+    const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const buttons = [...tabs.querySelectorAll<HTMLButtonElement>('button')];
+    const FONT = '"Relate Sans", system-ui, sans-serif';
+    const MONO = '"Relate Mono", monospace';
+
+    let nodes: GNode[] = [], edges: GEdge[] = [];
+    let born: Record<string, number> = {}, cur: Record<string, Pt> = {}, tg: Record<string, Pt> = {};
+    let W = 0, H = 0, gs = 1;
+
+    // Reads the pattern (a:Label {name: 'X'}) joined by -[:REL]-> or <-[:REL]- out of the statements.
+    function parse(src: string): Parsed {
+      if ((src.match(/\(/g) || []).length !== (src.match(/\)/g) || []).length) return { err: 'Check the parentheses.' };
+      const re = /\(\s*([A-Za-z_]\w*)?\s*(?::\s*([A-Za-z_]\w*))?\s*(?:\{([^}]*)\})?\s*\)|(<)?-\[\s*(?:[A-Za-z_]\w*)?\s*:\s*([A-Za-z_]\w*)[^\]]*\]-(>)?/g;
+      const toks: { gap: string; node: boolean; v?: string; l?: string; p?: string; left: boolean; rel?: string }[] = [];
+      let m: RegExpExecArray | null, last = 0;
+      while ((m = re.exec(src))) {
+        toks.push({ gap: src.slice(last, m.index), node: m[5] === undefined && m[0][0] === '(', v: m[1], l: m[2], p: m[3], left: !!m[4], rel: m[5] });
+        last = re.lastIndex;
+      }
+      const byKey: Record<string, number> = {}, vars: Record<string, string> = {}, N: GNode[] = [], E: GEdge[] = [];
+      const get = (t: (typeof toks)[number]): number | null => {
+        const name = t.p && (/name\s*:\s*'([^']*)'/.exec(t.p) || [])[1];
+        let k: string | null = name ? 'n:' + name : t.v && vars[t.v] ? vars[t.v] : null;
+        if (!k) { if (!t.l && !t.v) return null; k = 'v:' + (t.v || N.length) + ':' + N.length; }
+        if (!(k in byKey)) { byKey[k] = N.length; N.push({ key: k, n: name || t.v || t.l || '', t: t.l || '' }); }
+        else if (t.l && !N[byKey[k]].t) N[byKey[k]].t = t.l;
+        if (t.v) vars[t.v] = k;
+        return byKey[k];
+      };
+      const ids = toks.map((t) => (t.node ? get(t) : null));
+      toks.forEach((t, i) => {
+        if (t.node || !t.rel) return;
+        const a = ids[i - 1], b = ids[i + 1];
+        if (a == null || b == null || !/^\s*$/.test(t.gap) || !/^\s*$/.test(toks[i + 1].gap)) return;
+        E.push(t.left ? { a: b, b: a, r: t.rel } : { a, b, r: t.rel });
+      });
+      if (!N.length) return { err: "Write a pattern, like (a:Person {name: 'Maya'})-[:OWNS]->(b:Page {name: 'Pricing'})." };
+      return { N, E };
+    }
+
+    const css = () => {
+      const s = getComputedStyle(document.documentElement);
+      const g = (k: string) => s.getPropertyValue(k).trim();
+      return { bg: g('--surface-0'), s2: g('--surface-2'), ink: g('--ink'), mute: g('--ink-muted'), line: g('--line-strong'), tones: [g('--brand'), g('--rel'), g('--brand-hover'), g('--brand-line')] };
+    };
+
+    const box = (n: GNode) => {
+      const w = Math.max(ctx.measureText(n.n).width * 1.08, ctx.measureText(n.t || '').width * 1.1) + 46;
+      return { w: Math.max(104, w), h: 46 };
+    };
+
+    // Layered layout: rank by edge direction (sources left, sinks right), order each column by its
+    // neighbours, spread evenly. A graph that does not fit at natural size is scaled down (never
+    // overlapping), and stacks vertically on narrow stages.
+    function plan(Wl: number, Hl: number, fh?: boolean): { P: Pt[]; ok: boolean } {
+      const N = nodes, n = N.length, S = N.map(box), rank = N.map(() => 0);
+      for (let it = 0; it < n; it++) edges.forEach((e) => { if (e.a !== e.b && rank[e.a] + 1 < n && rank[e.b] < rank[e.a] + 1) rank[e.b] = rank[e.a] + 1; });
+      const nc = Math.max(...rank) + 1, colsA: number[][] = [];
+      for (let r = 0; r < nc; r++) colsA.push([]);
+      N.forEach((_, i) => colsA[rank[i]].push(i));
+      const nbr: number[][] = N.map(() => []);
+      edges.forEach((e) => { nbr[e.a].push(e.b); nbr[e.b].push(e.a); });
+      const pos: Record<number, number> = {};
+      const setPos = () => colsA.forEach((c) => c.forEach((i, k) => { pos[i] = k; }));
+      setPos();
+      const bary = (i: number, ok: (j: number) => boolean) => { const l = nbr[i].filter(ok); return l.length ? l.reduce((t, j) => t + pos[j], 0) / l.length : pos[i]; };
+      for (let pass = 0; pass < 3; pass++) {
+        for (let r = 1; r < nc; r++) { colsA[r].sort((x, y) => bary(x, (j) => rank[j] < r) - bary(y, (j) => rank[j] < r)); setPos(); }
+        for (let r = nc - 2; r >= 0; r--) { colsA[r].sort((x, y) => bary(x, (j) => rank[j] > r) - bary(y, (j) => rank[j] > r)); setPos(); }
+      }
+      const mw = Math.max(...S.map((b) => b.w)), mh = 46, padX = mw / 2 + 18, top = 30, bot = Hl - 46, tall = Math.max(...colsA.map((c) => c.length));
+      const hOK = (nc < 2 || (Wl - 2 * padX) / (nc - 1) >= mw + 72) && (tall - 1) * (mh + 34) <= bot - top - mh;
+      const vOK = (nc - 1) * (mh + 40) <= bot - top - mh && (tall < 2 || (tall - 1) * (mw + 24) <= Wl - 2 * padX);
+      const vert = !fh && !hOK && vOK;
+      const P: Pt[] = N.map(() => ({ x: Wl / 2, y: (top + bot) / 2 }));
+      const along = (count: number, idx: number, lo: number, hi: number, cap: number) => {
+        if (count === 1) return (lo + hi) / 2;
+        const step = Math.min(cap, (hi - lo) / (count - 1)), span = step * (count - 1), start = (lo + hi) / 2 - span / 2;
+        return start + idx * step;
+      };
+      const A = N.map(() => 0), lo = vert ? padX : top + mh / 2, hi = vert ? Wl - padX : bot - mh / 2;
+      const gap = vert ? mw + 24 : Math.max(mh + 40, Math.min(210, ((hi - lo) / Math.max(1, tall - 1)) * 0.9));
+      colsA.forEach((c) => c.forEach((i, k) => { A[i] = along(c.length, k, lo, hi, vert ? 220 : 170); }));
+      const settle = (r: number, ok: (j: number) => boolean) => {
+        const ids = colsA[r];
+        const d = ids.map((i) => { const l = nbr[i].filter(ok); return l.length ? l.reduce((t, j) => t + A[j], 0) / l.length : A[i]; });
+        let o: number[] = [];
+        ids.forEach((_, k) => { let v = d[k]; if (k && v < o[k - 1] + gap) v = o[k - 1] + gap; o.push(v); });
+        const over = o[o.length - 1] - hi; if (over > 0) o = o.map((v) => v - over);
+        const under = lo - o[0]; if (under > 0) o = o.map((v) => v + under);
+        ids.forEach((i, k) => { A[i] = o[k]; });
+      };
+      for (let r = 1; r < nc; r++) settle(r, (j) => rank[j] < r);
+      for (let r = nc - 2; r >= 0; r--) settle(r, (j) => rank[j] > r);
+      for (let r = 1; r < nc; r++) settle(r, (j) => rank[j] < r);
+      if (!vert) {
+        // Even out: cluster nearly-equal rows (never two nodes of one column), then space the distinct levels evenly.
+        const order = A.map((_, i) => i).sort((p, q) => A[p] - A[q]);
+        const cl: { ids: number[]; m: number }[] = [];
+        order.forEach((i) => {
+          const c = cl[cl.length - 1];
+          if (c && A[i] - c.m < gap * 0.12 && !c.ids.some((j) => rank[j] === rank[i])) c.ids.push(i); else cl.push({ ids: [i], m: A[i] });
+        });
+        const m = cl.length, span = m > 1 ? Math.min(hi - lo, (m - 1) * 96) : 0, st = m > 1 ? span / (m - 1) : 0, c0 = (lo + hi) / 2 - span / 2;
+        cl.forEach((c, k) => c.ids.forEach((i) => { A[i] = m > 1 ? c0 + k * st : (lo + hi) / 2; }));
+      } else {
+        const mn = Math.min(...A), mx = Math.max(...A), sh = (lo + hi) / 2 - (mn + mx) / 2;
+        for (let i = 0; i < A.length; i++) A[i] += sh;
+      }
+      colsA.forEach((c, r) => c.forEach((i) => {
+        if (!vert) { P[i].x = along(nc, r, padX, Wl - padX, 340); P[i].y = A[i]; }
+        else { P[i].y = along(nc, r, top + mh / 2, bot - mh / 2, 120); P[i].x = A[i]; }
+      }));
+      return { P, ok: fh ? hOK : hOK || vOK };
+    }
+
+    function solve() {
+      if (!W || !nodes.length) return;
+      ctx!.font = `500 14px ${FONT}`;
+      let res = plan(W, H, true), sc = 1, got = false;
+      for (const s of [1, 0.9, 0.82, 0.76]) { sc = s; res = plan(W / s, H / s, true); if (res.ok) { got = true; break; } }
+      if (!got) for (const s of [1, 0.9, 0.8, 0.72, 0.65, 0.58, 0.52]) { sc = s; res = plan(W / s, H / s); if (res.ok) break; }
+      gs = sc; tg = {};
+      nodes.forEach((nd, i) => { tg[nd.key] = res.P[i]; });
+    }
+
+    function layout() {
+      W = stage!.clientWidth; H = stage!.clientHeight;
+      if (!W || !H) return;
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas!.width = W * dpr; canvas!.height = H * dpr; ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      tg = {}; cur = {}; solve();
+    }
+
+    function draw(now = performance.now()) {
+      const g = ctx!;
+      if (!W) return;
+      const c = css();
+      g.clearRect(0, 0, W, H); g.fillStyle = c.bg; g.fillRect(0, 0, W, H);
+      g.textAlign = 'center'; g.font = `500 14px ${FONT}`;
+      g.save(); g.scale(gs, gs);
+      let moving = false;
+      const B: Rect[] = nodes.map((n) => {
+        const t = tg[n.key] || { x: W / 2, y: H / 2 }, c0 = cur[n.key] || (cur[n.key] = { x: t.x, y: t.y });
+        c0.x += (t.x - c0.x) * 0.16; c0.y += (t.y - c0.y) * 0.16;
+        if (Math.abs(t.x - c0.x) + Math.abs(t.y - c0.y) > 0.6) moving = true;
+        const s = box(n);
+        return { cx: c0.x, cy: c0.y, w: s.w, h: s.h };
+      });
+      const placed: number[][] = [];
+      const hotN = nodes.length ? nodes.reduce((b, n, i) => ((born[n.key] || 0) >= (born[nodes[b].key] || 0) ? i : b), 0) : -1;
+      const tone = (t: string) => { let h = 0; for (const ch of t || 'x') h = (h * 31 + ch.charCodeAt(0)) >>> 0; return c.tones[h % c.tones.length]; };
+
+      // Edge routing: ports aligned to their partners and spread per box side; straight when aligned,
+      // a single jog (own lane) between neighbours, a free track around any box in the way.
+      const R: (Route | null)[] = edges.map((e) => {
+        const A = B[e.a], T = B[e.b];
+        if (!A || !T) return null;
+        const dx = T.cx - A.cx, dy = T.cy - A.cy, hz = Math.abs(dx) >= Math.abs(dy);
+        return { e, A, T, hz, s: Math.sign(hz ? dx : dy) || 1, hot: e.a === hotN || e.b === hotN, pa: 0, pb: 0, V: [], S: [] };
+      });
+      const cu = (b: Rect, hz: boolean) => (hz ? b.cx : b.cy), cvv = (b: Rect, hz: boolean) => (hz ? b.cy : b.cx);
+      const hu = (b: Rect, hz: boolean) => (hz ? b.w : b.h) / 2, hv = (b: Rect, hz: boolean) => (hz ? b.h : b.w) / 2;
+      const grp: Record<string, { r: Route; end: 'pa' | 'pb'; d: number; hm: number; o: number }[]> = {};
+      R.forEach((r) => {
+        if (!r) return;
+        const { A, T, hz, s } = r, dv = cvv(T, hz) - cvv(A, hz), m1 = hv(A, hz) - 8, m2 = hv(T, hz) - 8;
+        let oa: number, ot: number;
+        if (Math.abs(dv) <= m1 + m2) {
+          const lo = Math.max(cvv(A, hz) - m1, cvv(T, hz) - m2), hi = Math.min(cvv(A, hz) + m1, cvv(T, hz) + m2), m = (lo + hi) / 2;
+          oa = m - cvv(A, hz); ot = m - cvv(T, hz);
+        } else { oa = Math.sign(dv) * m1; ot = -Math.sign(dv) * m2; }
+        const ka = r.e.a + '|' + hz + '|' + s, kb = r.e.b + '|' + hz + '|' + -s;
+        (grp[ka] = grp[ka] || []).push({ r, end: 'pa', d: oa, hm: m1, o: cvv(T, hz) });
+        (grp[kb] = grp[kb] || []).push({ r, end: 'pb', d: ot, hm: m2, o: cvv(A, hz) });
+      });
+      Object.values(grp).forEach((L) => {
+        L.sort((p, q) => p.d - q.d || p.o - q.o);
+        const n = L.length, hm = L[0].hm, gp = n > 1 ? Math.min(11, (2 * hm) / (n - 1)) : 0, o: number[] = [];
+        L.forEach((it, k) => { o.push(k ? Math.max(it.d, o[k - 1] + gp) : it.d); });
+        const over = o[n - 1] - hm; if (over > 0) for (let k = 0; k < n; k++) o[k] -= over;
+        const under = -hm - o[0]; if (under > 0) for (let k = 0; k < n; k++) o[k] += under;
+        L.forEach((it, k) => { it.r[it.end] = o[k]; });
+      });
+      const usedV: Seg[] = [], usedH: { v: number; u0: number; u1: number }[] = [];
+      const ov = (a0: number, a1: number, b0: number, b1: number, m: number) => Math.min(Math.max(a0, a1), Math.max(b0, b1)) + m > Math.max(Math.min(a0, a1), Math.min(b0, b1));
+      const routed = R.map((r, i) => [r, i] as const).filter((q): q is readonly [Route, number] => !!q[0])
+        .sort((p, q) => Math.abs(cu(p[0].T, p[0].hz) - cu(p[0].A, p[0].hz)) - Math.abs(cu(q[0].T, q[0].hz) - cu(q[0].A, q[0].hz)));
+      routed.forEach(([r]) => {
+        const { A, T, hz, s } = r, u1 = cu(A, hz) + s * hu(A, hz), u2 = cu(T, hz) - s * hu(T, hz);
+        const y1 = cvv(A, hz) + r.pa; let y2 = cvv(T, hz) + r.pb;
+        if (Math.abs(y1 - y2) < 1.5) y2 = y1;
+        const lo = Math.min(y1, y2), hi = Math.max(y1, y2), ul = Math.min(u1, u2) + 2, uh = Math.max(u1, u2) - 2;
+        const blk = B.filter((b) => b !== A && b !== T && cu(b, hz) - hu(b, hz) < uh && cu(b, hz) + hu(b, hz) > ul && cvv(b, hz) + hv(b, hz) + 8 > lo && cvv(b, hz) - hv(b, hz) - 8 < hi);
+        let V: number[][];
+        if (!blk.length && y1 === y2) V = [[u1, y1], [u2, y2]];
+        else if (!blk.length) {
+          let um = (u1 + u2) / 2;
+          const lim = Math.abs(u2 - u1) / 2 - 10;
+          for (let k = 0, found = false; k < 12 && !found; k++) {
+            const off = ((k + 1) >> 1) * 8 * (k % 2 ? 1 : -1);
+            if (Math.abs(off) > Math.max(0, lim)) continue;
+            const cc = (u1 + u2) / 2 + off;
+            if (!usedV.some((q) => Math.abs(q.u - cc) < 8 && ov(q.v0, q.v1, lo, hi, 4))) { um = cc; found = true; }
+          }
+          V = [[u1, y1], [um, y1], [um, y2], [u2, y2]];
+          usedV.push({ u: um, v0: lo, v1: hi });
+        } else {
+          const cand = [y1, y2, (y1 + y2) / 2];
+          blk.forEach((b) => { cand.push(cvv(b, hz) - hv(b, hz) - 14, cvv(b, hz) + hv(b, hz) + 14); });
+          const free = (v: number) => !blk.some((b) => Math.abs(v - cvv(b, hz)) < hv(b, hz) + 8) && !usedH.some((q) => Math.abs(q.v - v) < 8 && ov(q.u0, q.u1, ul, uh, 4));
+          const yt = cand.sort((p, q) => Math.abs(p - y1) + Math.abs(p - y2) - (Math.abs(q - y1) + Math.abs(q - y2))).find(free) ?? cand[0];
+          let ua = 0, ub = 0;
+          for (let k = 0; k < 8; k++) { const cc = u1 + s * (18 + k * 8); ua = cc; if (!usedV.some((q) => Math.abs(q.u - cc) < 8 && ov(q.v0, q.v1, Math.min(y1, yt), Math.max(y1, yt), 4))) break; }
+          for (let k = 0; k < 8; k++) { const cc = u2 - s * (18 + k * 8); ub = cc; if (!usedV.some((q) => Math.abs(q.u - cc) < 8 && ov(q.v0, q.v1, Math.min(y2, yt), Math.max(y2, yt), 4))) break; }
+          V = [[u1, y1], [ua, y1], [ua, yt], [ub, yt], [ub, y2], [u2, y2]];
+          usedV.push({ u: ua, v0: Math.min(y1, yt), v1: Math.max(y1, yt) }, { u: ub, v0: Math.min(y2, yt), v1: Math.max(y2, yt) });
+          usedH.push({ v: yt, u0: Math.min(ua, ub), u1: Math.max(ua, ub) });
+        }
+        r.V = V.map(([u, v]) => (hz ? [u, v] : [v, u]));
+        r.S = [];
+        for (let i = 0; i + 1 < r.V.length; i++) r.S.push([r.V[i][0], r.V[i][1], r.V[i + 1][0], r.V[i + 1][1]]);
+      });
+
+      R.forEach((r) => {
+        if (!r) return;
+        const { V, hot } = r;
+        g.strokeStyle = hot ? c.ink : c.mute; g.globalAlpha = hot ? 0.9 : 0.45; g.lineWidth = 1.25; g.lineJoin = 'miter';
+        g.beginPath(); g.moveTo(V[0][0], V[0][1]);
+        for (let i = 1; i < V.length; i++) g.lineTo(V[i][0], V[i][1]);
+        g.stroke();
+        g.fillStyle = hot ? c.ink : c.mute;
+        const L = V[V.length - 1];
+        g.fillRect(L[0] - 2.5, L[1] - 2.5, 5, 5); g.fillRect(V[0][0] - 2.5, V[0][1] - 2.5, 5, 5);
+        g.globalAlpha = 1;
+      });
+      R.forEach((r) => {
+        if (!r) return;
+        const { e, hot } = r;
+        g.font = `500 10px ${MONO}`;
+        const tw = g.measureText(e.r).width, hw = tw / 2 + 8, hh = 11;
+        const clash = (px: number, py: number) =>
+          B.some((b) => Math.abs(px - b.cx) < b.w / 2 + hw + 3 && Math.abs(py - b.cy) < b.h / 2 + hh + 3) ||
+          placed.some((q) => Math.abs(px - q[0]) < hw + q[2] / 2 + 8 + 4 && Math.abs(py - q[1]) < 2 * hh + 4) ||
+          R.some((o) => o && o !== r && o.S.some((sg) => (sg[1] === sg[3] ? Math.abs(sg[1] - py) < hh + 2 && Math.max(sg[0], sg[2]) > px - hw && Math.min(sg[0], sg[2]) < px + hw : Math.abs(sg[0] - px) < hw + 2 && Math.max(sg[1], sg[3]) > py - hh && Math.min(sg[1], sg[3]) < py + hh)));
+        const cands: { x: number; y: number; len: number }[] = [];
+        r.S.forEach((sg) => {
+          const horiz = sg[1] === sg[3], len = Math.abs(horiz ? sg[2] - sg[0] : sg[3] - sg[1]);
+          if (!horiz || len < tw + 26) return;
+          [0.5, 0.38, 0.62, 0.3, 0.7].forEach((f) => cands.push({ x: sg[0] + (sg[2] - sg[0]) * f, y: sg[1], len }));
+        });
+        cands.sort((p, q) => q.len - p.len);
+        let pick: { x: number; y: number } | undefined = cands.find((q) => !clash(q.x, q.y));
+        if (!pick) {
+          const sg = r.S.reduce((b, q) => (Math.abs(q[2] - q[0]) + Math.abs(q[3] - q[1]) > Math.abs(b[2] - b[0]) + Math.abs(b[3] - b[1]) ? q : b));
+          pick = { x: (sg[0] + sg[2]) / 2, y: (sg[1] + sg[3]) / 2 };
+        }
+        const mx = pick.x, my = pick.y;
+        placed.push([mx, my, tw]);
+        g.fillStyle = c.bg; g.fillRect(mx - tw / 2 - 7, my - 9, tw + 14, 18);
+        g.strokeStyle = hot ? c.ink : c.line; g.globalAlpha = hot ? 0.9 : 1; g.lineWidth = 1; g.strokeRect(mx - tw / 2 - 6.5, my - 8.5, tw + 13, 17); g.globalAlpha = 1;
+        g.fillStyle = hot ? c.ink : c.mute; g.textAlign = 'center'; g.fillText(e.r, mx, my + 3.5);
+      });
+      let anim = false;
+      nodes.forEach((n, i) => {
+        const k = RM ? 1 : Math.min(1, (now - (born[n.key] || 0)) / 260);
+        if (k < 1) anim = true;
+        const e = RM ? 1 : Math.ceil(k * 4) / 4;
+        const { cx, cy, w, h } = B[i], sc = 0.86 + 0.14 * e;
+        g.save(); g.globalAlpha = e; g.translate(cx, cy); g.scale(sc, sc);
+        const hot = i === hotN;
+        g.fillStyle = c.s2; g.fillRect(-w / 2, -h / 2, w, h);
+        g.strokeStyle = hot ? c.ink : c.line; g.lineWidth = 1; g.strokeRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1);
+        g.fillStyle = tone(n.t); g.fillRect(-w / 2 + 14, -h / 2 + 14, 8, 8);
+        g.textAlign = 'left'; g.fillStyle = c.ink; g.font = `500 14px ${FONT}`; g.fillText(n.n, -w / 2 + 32, -3);
+        g.fillStyle = c.mute; g.font = `500 11px ${MONO}`; g.fillText(n.t || '', -w / 2 + 32, 13);
+        g.textAlign = 'center'; g.restore();
+      });
+      g.restore();
+      if (anim || moving) requestAnimationFrame(draw);
+    }
+
+    const highlight = () => { hlEl!.innerHTML = hlEditor(ta!.value) + '\n'; };
+    function run() {
+      highlight();
+      const r = parse(ta!.value);
+      if ('err' in r) { stat!.textContent = r.err; return; }
+      const now = performance.now();
+      r.N.forEach((n) => { if (!(n.key in born)) born[n.key] = now; });
+      nodes = r.N; edges = r.E; solve();
+      stat!.textContent = `${nodes.length} nodes · ${edges.length} relationships`;
+      draw();
+    }
+    function load(i: number, all = false) {
+      born = {}; tg = {}; cur = {};
+      ta!.value = all ? PRESETS[i].statements.join('\n') : PRESETS[i].statements[0];
+      buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
+      run();
+    }
+
+    let rt: ReturnType<typeof setTimeout> | undefined;
+    new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(); }, 60); }).observe(stage);
+    new MutationObserver(() => draw()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => draw());
+    document.fonts?.ready.then(() => draw());
+
+    // Playback: the opening statement, then each follow-up typed in and run, then the next preset.
+    let seen = false, token = 0;
+    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    async function type(txt: string, my: number) {
+      ta!.value = ta!.value.replace(/\s+$/, '') + '\n';
+      for (const ch of txt) {
+        if (my !== token) return false;
+        ta!.value += ch; highlight(); ta!.scrollTop = ta!.scrollHeight; hlEl!.scrollTop = ta!.scrollTop;
+        await wait(ch === ' ' ? 26 : 16);
+      }
+      return my === token;
+    }
+    async function loop(start: number) {
+      const my = ++token;
+      let p = start;
+      for (;;) {
+        load(p); await wait(1800); if (my !== token) return;
+        for (const f of PRESETS[p].statements.slice(1)) {
+          if (!(await type(f, my))) return;
+          await wait(250); if (my !== token) return;
+          run(); await wait(2200); if (my !== token) return;
+        }
+        await wait(1400);
+        p = (p + 1) % PRESETS.length;
+      }
+    }
+
+    layout();
+    if (RM) {
+      load(0, true);
+      buttons.forEach((b, i) => b.addEventListener('click', () => load(i, true)));
+    } else {
+      load(0, true);
+      buttons.forEach((b, i) => b.addEventListener('click', () => { if (seen) loop(i); else load(i, true); }));
+      new IntersectionObserver((es) => { if (es[0].isIntersecting && !seen) { seen = true; loop(0); } }).observe(stage);
+    }
+  }
+</script>

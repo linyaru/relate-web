@@ -1,0 +1,181 @@
+---
+// "Run a query on connected data": three scenario cards beside a terminal that plays an agent
+// asking, writing Cypher and reading the rows back. The first scenario is in the markup, so the
+// section is complete without JavaScript; the script plays the scenarios in turn (a bar fills the
+// open card, then the next opens) and a click opens one. Sample data, scripted preview: each
+// statement was run on the site's WASM build (see src/lib/home/demo-data.ts).
+import { SCENARIOS, scenarioIcon, scenarioLines } from '../lib/home/demo-data.ts';
+
+const first = SCENARIOS[0];
+---
+<section class="dmo" id="demo" aria-labelledby="h-run">
+  <div class="dmo-h">
+    <h2 id="h-run">Run a query on connected data.</h2>
+    <p class="dmo-lede">Pick a scenario to watch an agent write Cypher and read the rows that come back. Sample data, scripted preview.</p>
+  </div>
+  <div class="dmo-box" id="dmo-box">
+    <div class="dmo-scen" id="dmo-scen" role="group" aria-label="Scenarios">
+      {SCENARIOS.map((s, i) => (
+        <button type="button" class="dmo-card" aria-pressed={i === 0 ? 'true' : 'false'} data-id={s.id}>
+          <span class="dmo-si" set:html={scenarioIcon(s.icon)} />
+          <span class="dmo-st">{s.title}</span>
+          <span class="dmo-sq">{s.ask}</span>
+          <i class="dmo-pb" aria-hidden="true"></i>
+        </button>
+      ))}
+    </div>
+    <div class="dmo-c" id="dmo-c" data-sc={first.id}>
+      <div class="dmo-hex" id="dmo-hex" aria-hidden="true"></div>
+      <div class="dmo-t">
+        <div class="dmo-bar"><span id="dmo-title" translate="no">{first.db} <em>ready</em></span></div>
+        <div class="dmo-body" id="dmo-out" aria-live="polite" translate="no" set:html={scenarioLines(first).join('')} />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  .dmo { position: relative; max-width: var(--page-w); margin: 0 auto; padding: 120px 24px 112px; }
+  .dmo-h { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 64px; align-items: end; margin-bottom: 48px; }
+  .dmo-h h2 { margin: 0; max-width: 14ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; color: var(--ink); }
+  .dmo-lede { margin: 0; max-width: 56ch; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
+
+  .dmo-box { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); border: 1px solid var(--line); background: var(--surface-0); box-shadow: var(--ui-shadow); overflow: hidden; }
+  .dmo-scen { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
+  .dmo-card { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 10px; min-width: 0; padding: 40px 24px; border: 0; border-radius: 0; background: none; color: var(--ink-muted); font: inherit; text-align: left; cursor: pointer; transition: background-color .3s, color .3s; }
+  .dmo-card + .dmo-card { border-top: 1px solid var(--line); }
+  .dmo-card:hover { color: var(--ink); }
+  .dmo-card:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .dmo-card[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+  .dmo-si { display: block; margin-bottom: 4px; }
+  .dmo-px { display: block; width: auto; height: 20px; }
+  .dmo-st { font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .dmo-sq { font: 500 22px/30px var(--font); letter-spacing: -.02em; }
+  .dmo-pb { position: absolute; left: 0; bottom: 0; width: 100%; height: 4px; background: var(--brand); transform: scaleX(0); transform-origin: 0 50%; }
+
+  /* The block is brand blue; each scenario shades its tiles from a different mix of the brand tokens. */
+  .dmo-c { --bg: var(--brand); --t0: var(--brand-hover); --t1: var(--brand-line); --t2: var(--brand-soft); --t3: var(--brand-line); --t4: var(--brand-soft);
+    position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: stretch; min-width: 0; padding: 64px 72px; background: var(--bg); transition: background-color .6s; }
+  .dmo-hex { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .dmo-hex svg { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity .6s ease; }
+  .dmo-c[data-sc="memory"] .dmo-hex [data-l="memory"], .dmo-c[data-sc="code"] .dmo-hex [data-l="code"], .dmo-c[data-sc="recs"] .dmo-hex [data-l="recs"] { opacity: 1; }
+  .dmo-hex [data-l="memory"] { --t0: var(--brand-hover); --t1: var(--brand-line); --t2: var(--brand-soft); --t3: var(--brand-line); --t4: var(--brand-soft); }
+  .dmo-hex [data-l="code"] { --t0: var(--brand-line); --t1: var(--brand-hover); --t2: var(--brand-line); --t3: var(--brand-soft); --t4: var(--brand-hover); }
+  .dmo-hex [data-l="recs"] { --t0: var(--brand-soft); --t1: var(--brand-line); --t2: var(--brand-hover); --t3: var(--brand-hover); --t4: var(--brand-line); }
+
+  .dmo-t { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--term-bg); color: var(--term-ink); box-shadow: 4px 4px 0 rgba(0, 0, 0, .24), 8px 8px 0 rgba(0, 0, 0, .12); }
+  .dmo-bar { display: flex; align-items: center; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--term-bg); font: 400 12px/16px var(--mono); color: var(--ink-muted); }
+  .dmo-bar em { font-style: normal; color: var(--success); }
+  .dmo-body { flex: 1; min-height: 420px; padding: 32px 40px; overflow: hidden; font: 400 13px/22px var(--mono); color: var(--term-ink); background: var(--term-bg); }
+  .dmo-body .tl { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .dmo-body .tl.fade { animation: dmo-fade .3s var(--ease) both; }
+  .dmo-body .dm { color: var(--term-dim); }
+  .dmo-body .k { color: var(--term-kw); }
+  .dmo-body .n { color: var(--term-node); }
+  .dmo-body .r { color: var(--term-dim); }
+  .dmo-body .s { color: var(--term-str); }
+  .dmo-body .res { width: 100%; margin-top: 12px; border-collapse: collapse; font: 400 13px/20px var(--mono); }
+  .dmo-body .res th { padding: 6px 16px 6px 0; text-align: left; font-weight: 500; white-space: nowrap; color: var(--term-dim); }
+  .dmo-body .res td { padding: 6px 16px 6px 0; vertical-align: top; }
+  .dmo-body .res td:not(:first-child) { white-space: nowrap; }
+  .dmo-body .res td.n { font-weight: 500; color: var(--ink); }
+  .dmo-body .res-meta { margin-top: 8px; color: var(--term-dim); }
+  @keyframes dmo-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 900px) {
+    .dmo { padding: 72px 16px; }
+    .dmo-h { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 32px; }
+    .dmo-box { grid-template-columns: minmax(0, 1fr); }
+    .dmo-scen { border-right: 0; border-bottom: 1px solid var(--line); }
+    .dmo-card { padding: 24px 16px; }
+    .dmo-sq { font-size: 18px; line-height: 26px; }
+    .dmo-c { padding: 40px 16px; }
+    .dmo-body { min-height: 380px; padding: 24px 16px; }
+    .dmo-body .res { font-size: 12px; }
+    .dmo-body .res td, .dmo-body .res th { padding-right: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dmo-c, .dmo-hex svg, .dmo-card { transition: none; }
+    .dmo-body .tl.fade { animation: none; }
+  }
+</style>
+
+<script>
+  import { SCENARIOS, scenarioLines, esc, type Scenario } from '../lib/home/demo-data.ts';
+  import { hexLayer, type HexVariant } from '../lib/home/hexfield.ts';
+
+  const box = document.getElementById('dmo-box');
+  const scen = document.getElementById('dmo-scen');
+  const out = document.getElementById('dmo-out');
+  const title = document.getElementById('dmo-title');
+  const block = document.getElementById('dmo-c');
+  const hex = document.getElementById('dmo-hex');
+  if (box && scen && out && title && block && hex) {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cards = [...scen.querySelectorAll<HTMLButtonElement>('.dmo-card')];
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const wait = (ms: number) => (reduce ? Promise.resolve() : sleep(ms));
+    let run = 0;
+
+    // The hex tiles: one pre-drawn layer per scenario, crossfaded; redrawn when the block resizes.
+    const VARIANTS: Record<Scenario['id'], HexVariant> = {
+      memory: { anchor: 'br', reach: 0.78, radius: 46, squash: 1.15 },
+      code: { anchor: 'tl', reach: 0.72, radius: 38, squash: 1.3 },
+      recs: { anchor: 'bl', reach: 0.8, radius: 54, squash: 1 },
+    };
+    let lw = 0, lh = 0;
+    const drawHex = () => {
+      const w = hex.clientWidth, h = hex.clientHeight;
+      if (!w || !h) return;
+      lw = w; lh = h;
+      hex.innerHTML = SCENARIOS.map((s) => `<svg data-l="${s.id}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${hexLayer(w, h, VARIANTS[s.id])}</svg>`).join('');
+    };
+    new ResizeObserver(() => { if (hex.clientWidth !== lw || hex.clientHeight !== lh) requestAnimationFrame(drawHex); }).observe(hex);
+    drawHex();
+
+    const ask = async (s: Scenario) => {
+      const id = ++run;
+      block.dataset.sc = s.id;
+      for (const c of cards) c.setAttribute('aria-pressed', String(c.dataset.id === s.id));
+      title.innerHTML = `${esc(s.db)} <em>running</em>`;
+      out.innerHTML = '';
+      const lines = scenarioLines(s, true);
+      const add = (html: string) => out.insertAdjacentHTML('beforeend', html);
+      add(lines[0]);
+      await wait(400); if (id !== run) return;
+      add(lines[1]);
+      for (const l of lines.slice(2, -1)) { await wait(260); if (id !== run) return; add(l); }
+      await wait(320); if (id !== run) return;
+      add(lines[lines.length - 1]);
+      title.innerHTML = `${esc(s.db)} <em>ready</em>`;
+    };
+
+    if (reduce) {
+      // No autoplay, no motion: a click shows the scenario at once.
+      cards.forEach((c) => c.addEventListener('click', () => ask(SCENARIOS.find((s) => s.id === c.dataset.id)!)));
+    } else {
+      // Autoplay once the demo is on screen: a 4px bar fills the open card, then the next opens.
+      // Hovering or focusing inside holds it; a hidden tab pauses it.
+      const DUR = 8000;
+      let idx = -1, prog = 0, auto = false, vis = false, held = false, lt = 0, raf = 0;
+      const setBar = (i: number, p: number) => cards.forEach((c, k) => { const b = c.querySelector<HTMLElement>('.dmo-pb'); if (b) b.style.transform = `scaleX(${k === i ? p : 0})`; });
+      const open = (i: number) => { idx = (i + cards.length) % cards.length; prog = 0; setBar(idx, 0); ask(SCENARIOS.find((s) => s.id === cards[idx].dataset.id)!); };
+      const tick = (t: number) => {
+        raf = 0;
+        if (!auto || !vis || held || document.hidden) { lt = 0; return; }
+        const dt = lt ? Math.min(100, t - lt) : 0;
+        lt = t; prog += dt / DUR;
+        if (prog >= 1) open(idx + 1); else setBar(idx, prog);
+        raf = requestAnimationFrame(tick);
+      };
+      const kick = () => { if (!raf && auto) { lt = 0; raf = requestAnimationFrame(tick); } };
+      cards.forEach((c, i) => c.addEventListener('click', () => { auto = true; open(i); kick(); }));
+      new IntersectionObserver((es) => { vis = es[0].isIntersecting; if (vis && idx < 0) { auto = true; open(0); } kick(); }, { threshold: 0.4 }).observe(box);
+      box.addEventListener('pointerenter', () => { held = true; });
+      box.addEventListener('pointerleave', () => { held = false; kick(); });
+      box.addEventListener('focusin', () => { held = true; });
+      box.addEventListener('focusout', () => { held = false; kick(); });
+      document.addEventListener('visibilitychange', kick);
+    }
+  }
+</script>

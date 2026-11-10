@@ -1,0 +1,17 @@
+---
+interface Props {
+  /** Extra links (a recipe page links its markdown). */
+  links?: { href: string; label: string }[];
+}
+const { links = [] } = Astro.props;
+---
+<footer class="cookbook-foot">
+  <div class="inner">
+    <div class="meta">relate cookbook</div>
+    <div class="links">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+      <a href="/cookbook/">All recipes</a>
+      <a href="/cookbook/llms.txt" target="_blank" rel="noopener">llms.txt</a>
+    </div>
+  </div>
+</footer>

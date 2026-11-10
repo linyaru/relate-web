@@ -1,12 +1,15 @@
 ---
 import type { Recipe } from '../../lib/cookbook/recipe.ts';
+import { pixels } from '../../lib/cookbook/pixel-icons.ts';
 interface Props { recipe: Recipe }
 const { recipe } = Astro.props;
+const icon = pixels(recipe.front.category);
 ---
 <li>
-  <a class="recipe-card" href={`/cookbook/${recipe.slug}/`}>
-    <span class="title">{recipe.front.title}</span>
-    <span class="summary">{recipe.front.summary}</span>
-    <span class="card-meta">{recipe.front.level}</span>
+  <a class="cb-card" href={`/cookbook/${recipe.slug}/`}>
+    <svg class="cb-px" viewBox={`0 0 ${icon.w} ${icon.h}`} width={icon.w * 2} height={icon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={icon.d} /></svg>
+    <span class="cb-title">{recipe.front.title}</span>
+    <span class="cb-sum">{recipe.front.summary}</span>
+    <span class="cb-meta">{recipe.front.category} <i>/</i> {recipe.front.level}</span>
   </a>
 </li>

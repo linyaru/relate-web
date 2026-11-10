@@ -5,8 +5,14 @@
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import '../styles/base.css';
-interface Props { title: string; description?: string; playgroundHref?: string }
-const { title, description = '', playgroundHref } = Astro.props;
+interface Props {
+  title: string;
+  description?: string;
+  playgroundHref?: string;
+  /** `docs` swaps the top bar for the slotted docs header and lets the page fill the width (docs pages, recipe pages). */
+  chrome?: 'site' | 'docs';
+}
+const { title, description = '', playgroundHref, chrome = 'site' } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -24,8 +30,8 @@ const { title, description = '', playgroundHref } = Astro.props;
     <slot name="head" />
   </head>
   <body>
-    <Header playgroundHref={playgroundHref} />
-    <main class="page container" id="main">
+    {chrome === 'docs' ? <slot name="header" /> : <Header playgroundHref={playgroundHref} />}
+    <main class={chrome === 'docs' ? 'page' : 'page container'} id="main">
       <slot />
     </main>
     <Footer />

@@ -1,6 +1,7 @@
 ---
-// Site-wide top bar: a bordered grid of cells (lockup, links, the call to action). Used by every
-// page (home and sections) so navigation stays consistent. The theme switch is in the footer.
+import ThemeSwitch from './ThemeSwitch.astro';
+// Site-wide top bar: lockup, links, the theme picker, GitHub and the call to action. Used by every
+// page (home and sections) so navigation stays consistent. The footer has a theme picker too.
 interface Props {
   /** Where the Playground link goes: a recipe page opens its recipe there (`/playground/#recipe=<slug>`). */
   playgroundHref?: string;
@@ -42,6 +43,7 @@ const links = [
       ))}
     </nav>
     <div class="nav-right">
+      <ThemeSwitch />
       <a class="nav-gh" href={GITHUB} target="_blank" rel="noopener" aria-label="GitHub (opens in new tab)"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.5.8.5 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2z"/></svg><span>GitHub</span></a>
       <a class="nav-cta" href="/#quickstart">Get started</a>
       <button class="menu-btn" id="navToggle" type="button" aria-label="Open menu" aria-controls="topNav" aria-expanded="false"><span><i></i><i></i></span></button>

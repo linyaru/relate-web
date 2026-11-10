@@ -78,8 +78,9 @@ const robot = sprite('robot');
     </div>
     <div class="qbox" data-say={JSON.stringify(steps.map((s) => s.say))}>
       <ol class="qrows">
-        {steps.map((s) => (
+        {steps.map((s, i) => (
           <li>
+            <button class="qhit" type="button" data-step={i} aria-label={`Replay from step ${i + 1}: ${s.h}`}></button>
             <i class="qsq" aria-hidden="true" set:html={marker} />
             <div><h3>{s.h}</h3><p>{s.p}</p></div>
             <span class="qtag" translate="no">{s.tag}</span>
@@ -115,7 +116,7 @@ const robot = sprite('robot');
 
 <style>
   .qs { padding: 0 24px 120px; background: var(--surface-0); border-top: 1px solid var(--line); }
-  .qs-in { max-width: 1232px; margin: 0 auto; }
+  .qs-in { max-width: var(--page-w); margin: 0 auto; }
   .qs-head { padding: 112px 0 56px; }
   .eyebrow { margin: 0; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
   h2 { margin: 16px 0 0; max-width: 16ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; color: var(--ink); }
@@ -130,6 +131,9 @@ const robot = sprite('robot');
     align-content: center; align-items: start; padding: 24px 32px; border-bottom: 1px solid var(--line); transition: background-color .3s;
   }
   .qrows li:last-child { border-bottom: 0; }
+  .qhit { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+  .qhit:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .qhit:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
   .qrows li.cur { background: var(--surface-2); }
   .qrows h3 { margin: 0; font: 500 18px/26px var(--font); letter-spacing: -.01em; color: var(--ink); }
   .qrows p { margin: 2px 0 0; font-size: 14px; line-height: 22px; color: var(--ink-muted); }
@@ -150,9 +154,9 @@ const robot = sprite('robot');
   .qrows li.done .qsq :global(.c) { opacity: 1; }
   @keyframes qsp { 0% { opacity: 1; } 70%, 100% { opacity: .14; } }
 
-  /* The prompt side: warm yellow with the build-time hex field behind a mascot and the prompt panel. */
+  /* The prompt side: brand blue with the build-time hex field behind a mascot and the prompt panel. */
   .qprompt {
-    --bg: #F6C244; --t0: #F9CF5E; --t1: #EAB332; --t2: #FBD97C; --t3: #DFA624; --t4: #FFEBB0;
+    --bg: #0A6190; --t0: #1470A2; --t1: #08557F; --t2: #2B84B0; --t3: #064668; --t4: #4C99A4;
     position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
     padding: 40px 72px 88px; background: var(--bg);
   }
@@ -219,10 +223,13 @@ const robot = sprite('robot');
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const live = box.querySelector<HTMLElement>('#qp-live')!;
 
-    // Steps tick off in turn while the block is on screen, then the loop restarts.
+    // Steps tick off in turn while the block is on screen, then the loop restarts. Clicking a step
+    // replays the animation from that step: the steps before it are done, it and the rest start over.
+    const hits = [...box.querySelectorAll<HTMLButtonElement>('.qhit')];
     if (reduced) {
       rows.forEach((r) => r.classList.add('done'));
       say.textContent = 'Ask me in Cypher';
+      hits.forEach((h) => h.addEventListener('click', () => { say.textContent = phases[Number(h.dataset.step)] ?? ''; }));
     } else {
       let k = 0, tm: ReturnType<typeof setTimeout> | undefined, visible = false;
       const step = () => {
@@ -242,6 +249,14 @@ const robot = sprite('robot');
         clearTimeout(tm);
         if (visible) tm = setTimeout(step, 700);
       }).observe(box);
+      hits.forEach((h) => h.addEventListener('click', () => {
+        const to = Number(h.dataset.step);
+        clearTimeout(tm);
+        visible = true;
+        k = to;
+        rows.forEach((r, i) => { r.classList.toggle('done', i < to); r.classList.remove('cur'); });
+        step();
+      }));
     }
 
     const write = async (text: string) => {

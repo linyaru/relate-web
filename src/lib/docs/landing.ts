@@ -18,6 +18,16 @@ export interface TaskGroup {
 export const LLMS_GROUPS = ['Evaluate', 'Get started', 'Agents', 'Guides', 'Reference', 'Concepts'] as const;
 export type LlmsGroup = (typeof LLMS_GROUPS)[number];
 
+/** What each group's card says it is for, on the landing page. */
+export const GROUP_BLURBS: Record<LlmsGroup, string> = {
+  Evaluate: 'Decide whether relate fits the problem, and what it does not do.',
+  'Get started': 'Install it and build a first graph, from the CLI or your language.',
+  Agents: 'Memory, MCP, the skill and the framework integrations.',
+  Guides: 'One task at a time: Cypher, embedding, serving, operating, migrating.',
+  Reference: 'Every command, flag, clause, function, API and error.',
+  Concepts: 'How relate works, and the trade-offs it makes.',
+};
+
 export const TASKS: TaskGroup[] = [
   {
     id: 'Evaluate',

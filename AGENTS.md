@@ -31,15 +31,14 @@ The engine lives in the upstream relate repository. The WASM copy under `public/
 - Some `cypherlite` strings intentionally remain until upstream artifacts are regenerated (old URLs, release asset names in `releases.json`, `install.sh`). Check `git grep -i cypherlite` before assuming a leftover is a bug.
 - Colours come from the tokens in `src/styles/base.css` (`--bg`, `--fg`, `--accent`, `--on-accent`, …), never hard-coded hex. Day is the default theme; Night via `data-theme="dark"` or `prefers-color-scheme`. Code and terminal blocks stay dark in both.
 - The site's tooling runs `.ts` directly on Node ≥ 22.18 (type stripping): keep `src/lib/cookbook/` and `src/lib/docs/` to erasable TypeScript (no enums, namespaces or parameter properties) and import with `.ts` extensions. `src/lib/cookbook/result-view.ts`, `cells.ts`, `graph-model.ts`, `palette.ts` and the `schema-*.ts` files are shared with the browser runtime, so keep them free of Node imports.
-- The engine is never bundled: the home page console, the cookbook and docs runtime, the playground and the Worker load it from `/wasm/` (or the Worker's copy) at runtime. The one NVL module is `src/scripts/cookbook/graph.ts` (pinned 1.2.2; `astro.config.mjs` aliases its Segment telemetry to an empty module).
-- The home page still renders the legacy single-file markup; keep its behaviour identical while porting (sections, ids, anchors, the lazy-loaded WASM console). Redesign and branding come after the faithful port.
+- The engine is never bundled: the cookbook and docs runtime, the playground and the Worker load it from `/wasm/` (or the Worker's copy) at runtime. The one NVL module is `src/scripts/cookbook/graph.ts` (pinned 1.2.2; `astro.config.mjs` aliases its Segment telemetry to an empty module).
+- The home page (`src/pages/index.astro`) is the Relate home design, one component per section in order: `Hero`, `LoopDemo` (See it work), `Diagram`, `Quickstart`, `Chapters` (Built for agents, Memory with structure, Zero to querying), `Community`, `Cta`, then `Footer play` (the pixel stickers that fall onto the arch, `public/js/footer-play.js`). Examples, Docker, extensions and the reference were removed from the home page: that content lives in the docs and the cookbook. The design export (`tmp/Relate Home.html`) is untracked.
 
 ## 2. Layout
 
 ### Site shell
 
-- `src/legacy/index.html` is the original whole-page markup (inline CSS and JS); `src/pages/index.astro` renders it unchanged and injects `Header` at the `<!--SITE-HEADER-->` marker. Extract sections into components incrementally, then delete the legacy file.
-- `src/components/Header.astro` is the one top bar (nav links, theme toggle, mobile menu and their JS); edit nav items there. `src/styles/base.css` holds the fonts, the Night (default) and Day tokens (the Relate home design's names: `--surface-*`, `--ink`, `--brand`, `--line`, `--term-*`; the older `--bg`/`--fg`/`--accent`/`--code-*` names are aliases of them), the fonts (Geist, Geist Mono and Pixelify Sans under the names Relate Sans/Mono/Pixel; licenses in `public/fonts/LICENSES.md`), the reset and the top-nav styles. `src/layouts/Base.astro` is the shell for section pages; `Placeholder.astro` wraps it for coming-soon pages.
+- `src/components/Header.astro` is the one top bar (nav links, mobile menu and their JS; ADR-0044); edit nav items there. `src/components/Footer.astro` is the one footer (link columns, the theme switch). `src/styles/base.css` holds the fonts, the Night (default) and Day tokens (the Relate home design's names: `--surface-*`, `--ink`, `--brand`, `--line`, `--term-*`; the older `--bg`/`--fg`/`--accent`/`--code-*` names are aliases of them), the fonts (Geist, Geist Mono and Pixelify Sans under the names Relate Sans/Mono/Pixel; licenses in `public/fonts/LICENSES.md`), the reset and the top-nav styles. `src/layouts/Base.astro` is the shell for section pages; `Placeholder.astro` wraps it for coming-soon pages.
 - Brand assets (source: the "Relate Brand Board" artifact): `public/favicon.svg` (+ `favicon-32.png`, `favicon-192.png`), `public/brand/`. The top-bar logomark is inlined in `Header.astro` and shaded via CSS vars. `public/img/favicon.png` is the old icon and is unused.
 - `public/` is copied to `dist/` as-is: `llms.txt`, `robots.txt`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`), `.nojekyll`, `CNAME`, `_routes.json`, `_redirects`, `fonts/`, `img/`, `skills/`, `skill.md`, `wasm/` (a copy of upstream `surfaces/relate-wasm/pkg/`: `relate.js`, `relate_bg.wasm`, `opfs.js`, `trap.js`, `snippets/`; it stays in `public/` so Vite never bundles or rewrites it).
 - `src/pages/sitemap.xml.ts` generates the sitemap (home, cookbook, every recipe, every docs page). `astro.config.mjs` `site` is the interim preview host; change it to `https://relatedb.ai` at launch. Canonical URLs use `CANONICAL_ORIGIN` (`relatedb.ai`); `NOT_PUBLIC_YET` in `src/lib/cookbook/links.ts` turns pre-launch links into text.
@@ -93,7 +92,9 @@ npm run dev:playground    # the playground's own dev server, http://localhost:51
 npm run mcp:dev           # the docs MCP Worker under wrangler dev --local, http://127.0.0.1:8787/mcp (no login; search_docs is full-text there)
 
 # build and type-check
-npm run build             # -> dist/ (astro build, then the playground into dist/playground/)
+npm run build             # -> dist/ (astro build, search index, then the playground into dist/playground/)
+npm run build:site        # the same without the playground (~80s); use it for site-only changes
+npm run build:playground  # reuses the last playground build when its inputs are unchanged (node_modules/.cache); build:playground:force rebuilds
 npm run check             # astro check
 npm run check:playground  # tsc for playground/
 npm run mcp:test          # the Worker's unit tests (no build needed) and its tsc (needs generated/, so after mcp:bundle)
@@ -140,7 +141,7 @@ cd <upstream relate checkout> && bash scripts/build-wasm.sh --mode release
 npm run skill:sync        # then review the diff of public/skills/relate/
 ```
 
-The WASM serves the home page console, the cookbook, the docs and the playground, so run `npm run cookbook:check` and `npm run docs:check` afterwards. If a recording differs, decide whether the engine changed on purpose; if so, `npm run cookbook:record` and `npm run docs:record`, and review the diffs. `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) are signed or generated upstream: the deploys fetch them from upstream's release assets (`scripts/fetch-discovery.sh`, no review; the checked-in copies are seed files); never hand-edit them. See `runbooks/release-discovery.md`. The samples environment and the CLI recordings follow the same pin (§1 "Upstream"); after a full samples replay, rewrite `_data/samples.json` with the commits and toolchain it ran on.
+The WASM serves the cookbook, the docs and the playground, so run `npm run cookbook:check` and `npm run docs:check` afterwards. If a recording differs, decide whether the engine changed on purpose; if so, `npm run cookbook:record` and `npm run docs:record`, and review the diffs. `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) are signed or generated upstream: the deploys fetch them from upstream's release assets (`scripts/fetch-discovery.sh`, no review; the checked-in copies are seed files); never hand-edit them. See `runbooks/release-discovery.md`. The samples environment and the CLI recordings follow the same pin (§1 "Upstream"); after a full samples replay, rewrite `_data/samples.json` with the commits and toolchain it ran on.
 
 ## 5. CI and deploys
 

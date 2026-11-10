@@ -153,7 +153,20 @@ function warnOnce(message: string) {
  * The date a page file last changed: its last commit, or for a file with
  * uncommitted changes or none, the file's modification time.
  */
+// Two git processes per page made every dev request to /docs/ take ~10s (the dev server rebuilds the
+// site on each call), so a result is kept until the file's mtime changes.
+const updatedCache = new Map<string, { mtime: number; date: string }>();
+
 export function lastUpdated(file: string): string {
+  const mtime = statSync(file).mtimeMs;
+  const hit = updatedCache.get(file);
+  if (hit && hit.mtime === mtime) return hit.date;
+  const date = readLastUpdated(file);
+  updatedCache.set(file, { mtime, date });
+  return date;
+}
+
+function readLastUpdated(file: string): string {
   try {
     const dirty = execFileSync('git', ['status', '--porcelain', '--', file], { cwd: ROOT, encoding: 'utf8' }).trim();
     if (!dirty) {

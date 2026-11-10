@@ -1,0 +1,154 @@
+---
+// "See it work": a scripted loop (no engine runs here): an agent asks, writes Cypher, relate answers
+// from the graph. Reads left to right: chat, query and result, graph. Sample data.
+---
+<section class="demo" aria-labelledby="h-demo">
+<div class="demo-h"><p class="eyebrow">See it work</p><h2 id="h-demo">From question to answer, in seconds.</h2><p class="lede">An agent asks a question, writes Cypher, and <span translate="no">Relate</span> reads the connected facts and returns rows. Sample data, scripted preview.</p></div>
+    <div class="uw" id="uw" aria-label="Example: an agent asks a question, Relate runs a Cypher query, and the answer comes back from the graph." role="img">
+      <div class="uw-bar" aria-hidden="true"><span class="uw-d"><i></i><i></i><i></i></span><span class="uw-t" translate="no">agent-memory.rl</span><span class="uw-s">Embedded</span></div>
+      <div class="uw-g" aria-hidden="true" translate="no">
+        <div class="uw-p uw-chat">
+          <div class="uw-h"><b><svg class="lu" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>Agent</b><span>Relate skill</span></div>
+          <div class="uw-m me" data-at="1">Who owns the page the Q3 launch depends on?</div>
+          <div class="uw-slot"><div class="uw-m ai uw-think" data-at="1" data-until="7"><svg class="pxr" viewBox="0 0 7 7" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><rect x="1" y="1" width="1" height="1" style="animation-delay:-0.000s"/><rect x="2" y="1" width="1" height="1" style="animation-delay:-1.125s"/><rect x="3" y="1" width="1" height="1" style="animation-delay:-1.050s"/><rect x="4" y="1" width="1" height="1" style="animation-delay:-0.975s"/><rect x="5" y="1" width="1" height="1" style="animation-delay:-0.900s"/><rect x="5" y="2" width="1" height="1" style="animation-delay:-0.825s"/><rect x="5" y="3" width="1" height="1" style="animation-delay:-0.750s"/><rect x="5" y="4" width="1" height="1" style="animation-delay:-0.675s"/><rect x="5" y="5" width="1" height="1" style="animation-delay:-0.600s"/><rect x="4" y="5" width="1" height="1" style="animation-delay:-0.525s"/><rect x="3" y="5" width="1" height="1" style="animation-delay:-0.450s"/><rect x="2" y="5" width="1" height="1" style="animation-delay:-0.375s"/><rect x="1" y="5" width="1" height="1" style="animation-delay:-0.300s"/><rect x="1" y="4" width="1" height="1" style="animation-delay:-0.225s"/><rect x="1" y="3" width="1" height="1" style="animation-delay:-0.150s"/><rect x="1" y="2" width="1" height="1" style="animation-delay:-0.075s"/></svg><span class="pxl-t">Thinking</span></div><div class="uw-m ai" data-at="7">Maya owns Pricing, and the Q3 launch depends on it. The launch email is also part of Q3.<small>From 3 facts in agent-memory.rl</small></div></div>
+        </div>
+        <div class="uw-p uw-q">
+          <div class="uw-h"><b>Cypher</b><span class="uw-run" data-at="2">Run</span></div>
+          <pre class="uw-c" data-at="2"><span class="k">MATCH</span> (<span class="n">t:Task</span> &#123;name: <span class="s">'Q3 launch'</span>&#125;)
+      &lt;-[<span class="r">:DEPENDS_ON</span>]-(<span class="n">p:Page</span>)
+      &lt;-[<span class="r">:OWNS</span>]-(<span class="n">o:Person</span>)
+<span class="k">RETURN</span> p.name, o.name</pre>
+          <table class="uw-r" data-at="6"><thead><tr><th>p.name</th><th>o.name</th></tr></thead><tbody><tr><td>Pricing</td><td>Maya</td></tr></tbody></table>
+        </div>
+        <div class="uw-p uw-graph">
+          <div class="uw-h"><b>Graph</b><span>4 nodes · 3 relationships</span></div>
+          <svg viewBox="0 0 380 270" class="gv">
+            <g class="ge" data-at="5"><path d="M92 74 L158 128"/><g class="gl"><rect x="96" y="90" width="52" height="18" rx="0"/><text x="122" y="103">OWNS</text></g></g>
+            <g class="ge" data-at="4"><path d="M214 128 L282 74"/><g class="gl"><rect x="212" y="88" width="84" height="18" rx="0"/><text x="254" y="101">DEPENDS_ON</text></g></g>
+            <g class="ge" data-at="3"><path d="M334 210 V76"/><g class="gl"><rect x="305" y="134" width="58" height="18" rx="0"/><text x="334" y="147">PART_OF</text></g></g>
+            <g class="gn" data-at="5"><rect x="20" y="28" width="104" height="46" rx="0"/><text x="72" y="47" class="t">PERSON</text><text x="72" y="63" class="n">Maya</text></g>
+            <g class="gn" data-at="4"><rect x="134" y="128" width="104" height="46" rx="0"/><text x="186" y="147" class="t">PAGE</text><text x="186" y="163" class="n">Pricing</text></g>
+            <g class="gn q" data-at="3"><rect x="262" y="28" width="104" height="46" rx="0"/><text x="314" y="47" class="t">TASK</text><text x="314" y="63" class="n">Q3 launch</text></g>
+            <g class="gn" data-at="3"><rect x="262" y="210" width="104" height="46" rx="0"/><text x="314" y="229" class="t">TASK</text><text x="314" y="245" class="n">Launch email</text></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+</section>
+
+<style>
+  .demo { position: relative; max-width: 1232px; margin: 0 auto; padding: 120px 24px 112px; }
+  .demo-h { margin-bottom: 48px; }
+  .eyebrow { margin: 0 0 16px; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .demo-h h2 { margin: 0; max-width: 18ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; }
+  .lede { margin: 20px 0 0; max-width: 56ch; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
+
+  .uw { border: 1px solid var(--line); background: var(--win); box-shadow: var(--ui-shadow); overflow: hidden; }
+  .uw-bar { display: flex; align-items: center; gap: 16px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .uw-d { display: flex; gap: 6px; }
+  .uw-d i { width: 8px; height: 8px; background: var(--line-strong); }
+  .uw-t { margin: 0 auto; transform: translateX(-20px); font: 400 12px/16px var(--mono); color: var(--ink-muted); }
+  .uw-s { padding: 2px 8px; border: 1px solid var(--line); font: 500 11px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .uw-g { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1.25fr); min-height: 400px; background: var(--surface-0); }
+  .uw-p { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 20px 22px; border-right: 1px solid var(--line); }
+  .uw-p:last-child { border-right: 0; }
+  .uw-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 500 13px/16px var(--font); }
+  .uw-h b { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; color: var(--ink); }
+  .uw-h b .lu { flex: none; }
+  .uw-h span { font: 400 11px/14px var(--mono); color: var(--ink-muted); }
+
+  .uw-m { padding: 12px 14px; font: 400 15px/22px var(--font); opacity: 0; transform: translateY(8px); transition: opacity .4s, transform .4s; }
+  .uw-m.on { opacity: 1; transform: none; }
+  .uw-m.me { align-self: flex-end; max-width: 92%; background: var(--surface-3); color: var(--ink); }
+  .uw-m.ai { padding-left: 0; color: var(--ink); }
+  .uw-m small { display: block; margin-top: 10px; font: 400 11px/14px var(--mono); color: var(--ink-muted); }
+  .uw-slot { display: grid; }
+  .uw-slot > .uw-m { grid-area: 1 / 1; }
+  .uw-think { display: flex; align-items: center; align-self: start; gap: 10px; padding: 10px 0 0; pointer-events: none; }
+  .pxr { display: block; flex: none; width: 16px; height: 16px; overflow: visible; color: var(--ink); }
+  .pxr rect { fill: currentColor; opacity: .16; }
+  .uw-think.on .pxr rect { animation: qsp 1.2s steps(6) infinite; }
+  .pxl-t { font: 400 13px/18px var(--font); color: var(--ink-muted); }
+  @keyframes qsp { 0% { opacity: 1; } 100% { opacity: .16; } }
+
+  .uw-run { padding: 3px 10px; border: 1px solid var(--line-strong); color: var(--ink-muted); transition: color .3s, background-color .3s, border-color .3s; }
+  .uw-run.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+  .uw-c { margin: 0; overflow: hidden; font: 400 13px/22px var(--mono); color: var(--ink); white-space: pre; opacity: .4; transition: opacity .4s; }
+  .uw-c.on { opacity: 1; }
+  .uw-c .k { color: var(--brand); }
+  .uw-c .n { color: var(--ink); }
+  .uw-c .r { color: var(--ink-muted); }
+  .uw-c .s { color: var(--term-str); }
+  .uw-r { width: 100%; margin-top: auto; border-collapse: collapse; font: 400 13px/20px var(--mono); opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s; }
+  .uw-r.on { opacity: 1; transform: none; }
+  .uw-r th { padding: 8px 10px; border: 1px solid var(--line); text-align: left; font-weight: 400; color: var(--ink-muted); }
+  .uw-r td { padding: 8px 10px; border: 1px solid var(--line); color: var(--ink); }
+
+  .gv { width: 100%; height: auto; background-color: var(--surface-0); }
+  .gv path { fill: none; stroke: var(--line-strong); stroke-width: 1.25; transition: stroke .4s; }
+  .gv .gl rect { fill: var(--surface-0); stroke: var(--line); }
+  .gv .gl text { font: 500 9px var(--mono); fill: var(--ink-muted); text-anchor: middle; letter-spacing: .04em; }
+  .gv .gn rect { fill: var(--surface-2); stroke: var(--line-strong); transition: stroke .4s, fill .4s; }
+  .gv .gn .t { font: 500 9px var(--mono); fill: var(--ink-muted); text-anchor: middle; letter-spacing: .04em; }
+  .gv .gn .n { font: 500 14px var(--font); fill: var(--ink); text-anchor: middle; }
+  .gv [data-at] { opacity: .45; transition: opacity .4s; }
+  .gv [data-at].on { opacity: 1; }
+  .gv .ge.on path { stroke: var(--brand); }
+  .gv .gn.on rect { stroke: var(--brand); }
+  .gv .gn.q.on rect { fill: var(--surface-3); }
+
+  @media (max-width: 900px) {
+    .demo { padding: 72px 16px 72px; }
+    .demo-h { margin-bottom: 32px; }
+    .uw-g { grid-template-columns: minmax(0, 1fr); }
+    .uw-p { border-right: 0; border-bottom: 1px solid var(--line); }
+    .uw-p:last-child { border-bottom: 0; }
+    .uw-t { display: none; }
+  }
+  @media (max-width: 900px) and (min-width: 561px) { .uw-c { overflow-x: auto; font-size: 12px; scrollbar-width: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .uw * { transition: none !important; }
+    .uw-think.on .pxr rect { animation: none; opacity: .6; }
+  }
+</style>
+
+<script>
+  // Plays the steps in order and loops: question, query, graph path, result, answer. Starts when
+  // the demo is on screen; with reduced motion it shows the final state and stays still.
+  const uw = document.getElementById('uw');
+  if (uw) {
+    const els = [...uw.querySelectorAll<HTMLElement>('[data-at]')];
+    const show = (n: number) => {
+      for (const e of els) {
+        const at = Number(e.dataset.at);
+        const until = e.dataset.until ? Number(e.dataset.until) : Infinity;
+        e.classList.toggle('on', at <= n && n < until);
+      }
+    };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      show(9);
+    } else {
+      let n = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let visible = false;
+      const step = () => {
+        if (!visible) return;
+        n++;
+        if (n > 7) {
+          timer = setTimeout(() => { n = 0; show(0); timer = setTimeout(step, 1200); }, 8000);
+          return;
+        }
+        show(n);
+        timer = setTimeout(step, n === 2 ? 1500 : 900);
+      };
+      new IntersectionObserver((entries) => {
+        visible = entries[0].isIntersecting;
+        clearTimeout(timer);
+        if (visible) {
+          if (n === 0 || n > 7) { n = 0; show(0); }
+          timer = setTimeout(step, 700);
+        }
+      }, { threshold: 0.3 }).observe(uw);
+    }
+  }
+</script>

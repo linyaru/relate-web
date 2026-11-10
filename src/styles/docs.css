@@ -8,8 +8,8 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 .docs-shell a { color: var(--accent); text-underline-offset: 2px; }
 .docs-shell a:hover { color: var(--accent-hover); }
 .docs-shell [hidden] { display: none !important; }
-/* Anchors land below the site header (56px) and the sticky docs bar (52px). */
-.docs-shell [id] { scroll-margin-top: 124px; }
+/* Anchors land below the site header (--header-h) and the sticky docs bar (52px). */
+.docs-shell [id] { scroll-margin-top: calc(var(--header-h) + 68px); }
 .docs-shell code { font-family: var(--font-mono); font-size: 0.88em; }
 .docs-shell :not(pre) > code {
   background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px;
@@ -24,7 +24,7 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 
 /* ---------- Docs bar: menu toggle (phones), title, search ---------- */
 .docs-bar {
-  position: sticky; top: 56px; z-index: 45;
+  position: sticky; top: var(--header-h); z-index: 45;
   display: flex; align-items: center; gap: 12px; height: 52px;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -76,13 +76,13 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
   .docs-grid.has-toc > .docs-main { grid-row: 1; }
   .docs-grid > .docs-toc {
     grid-column: 3; grid-row: 1; align-self: start;
-    position: sticky; top: 124px; max-height: calc(100vh - 140px); overflow-y: auto; padding-top: 32px;
+    position: sticky; top: calc(var(--header-h) + 68px); max-height: calc(100vh - var(--header-h) - 84px); overflow-y: auto; padding-top: 32px;
   }
 }
 
 /* ---------- Sidebar ---------- */
 .docs-sidebar {
-  align-self: start; position: sticky; top: 108px;
+  align-self: start; position: sticky; top: calc(var(--header-h) + 52px);
   max-height: calc(100vh - 108px); overflow-y: auto; padding: 24px 4px 40px 0; font-size: 14px;
 }
 .nav-section { margin-top: 20px; }
@@ -242,7 +242,7 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .docs-stub { color: var(--fg-muted); font-style: italic; }
 
 /* The engine bar (cookbook.css) sticks under the docs bar, not under the site header. */
-.docs-shell .engine-bar { top: 112px; margin: 20px 0 4px; }
+.docs-shell .engine-bar { top: calc(var(--header-h) + 56px); margin: 20px 0 4px; }
 .docs-shell a.btn.icon-only { color: var(--fg-muted); }
 .docs-shell a.btn.icon-only:hover { color: var(--fg); }
 /* A graph result's static form: the page's picture of the graph without JavaScript. */
@@ -339,7 +339,7 @@ docs-element > [hidden] { display: none; }
   .search-key { display: none; }
   /* With the script, the sidebar is a panel under the docs bar, like the header's menu. */
   .docs-shell[data-nav-js] .docs-sidebar {
-    position: fixed; top: 112px; left: 16px; right: 16px; z-index: 46; display: none;
+    position: fixed; top: calc(var(--header-h) + 56px); left: 16px; right: 16px; z-index: 46; display: none;
     max-height: calc(100vh - 124px); overflow-y: auto; padding: 4px 12px 16px;
     background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-overlay);
   }

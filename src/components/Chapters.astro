@@ -1,0 +1,317 @@
+---
+// Home "Why relate" chapters: a sticky chapter list beside three blocks (Built for agents,
+// Memory with structure, Zero to querying). The languages hub is drawn at build time; the only
+// script is the chapter list's scroll tracking and the lifeline animation.
+import { MASCOT_INNER } from '../lib/home/mascot.ts';
+
+const px = (d: string, vb: string, size: number, cls = '') =>
+  `<svg ${cls ? `class="${cls}" ` : ''}viewBox="${vb}" ${cls ? 'height' : 'width'}="${size}"${cls ? '' : ` height="${size}"`} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+const ways = [
+  { icon: px('M7 0h2v1h-2zM7 1h2v1h-2zM2 2h12v1h-12zM2 3h1v1h-1zM13 3h1v1h-1zM1 4h2v1h-2zM4 4h3v1h-3zM9 4h3v1h-3zM13 4h2v1h-2zM1 5h2v1h-2zM4 5h3v1h-3zM9 5h3v1h-3zM13 5h2v1h-2zM1 6h2v1h-2zM13 6h2v1h-2zM2 7h1v1h-1zM5 7h6v1h-6zM13 7h1v1h-1zM2 8h1v1h-1zM13 8h1v1h-1zM2 9h12v1h-12zM4 10h1v1h-1zM11 10h1v1h-1zM4 11h8v1h-8z', '0 0 16 16', 48), h: 'Agent skill', p: 'Teaches your coding agent to write Cypher for relate.' },
+  { icon: px('M5 0h1v1h-1zM7 0h2v1h-2zM10 0h1v1h-1zM5 1h1v1h-1zM7 1h2v1h-2zM10 1h1v1h-1zM3 2h10v1h-10zM3 3h1v1h-1zM12 3h1v1h-1zM1 4h3v1h-3zM12 4h3v1h-3zM3 5h1v1h-1zM6 5h4v1h-4zM12 5h1v1h-1zM1 6h3v1h-3zM6 6h1v1h-1zM9 6h1v1h-1zM12 6h3v1h-3zM1 7h3v1h-3zM6 7h1v1h-1zM9 7h1v1h-1zM12 7h3v1h-3zM3 8h1v1h-1zM6 8h4v1h-4zM12 8h1v1h-1zM1 9h3v1h-3zM12 9h3v1h-3zM3 10h1v1h-1zM12 10h1v1h-1zM3 11h10v1h-10zM5 12h1v1h-1zM7 12h2v1h-2zM10 12h1v1h-1zM5 13h1v1h-1zM7 13h2v1h-2zM10 13h1v1h-1z', '0 0 16 16', 48), h: 'MCP endpoint', p: 'Lets agents that speak MCP connect without glue code.' },
+  { icon: px('M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM2 3h1v1h-1zM4 3h3v1h-3zM13 3h1v1h-1zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM4 5h5v1h-5zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM13 7h1v1h-1zM2 8h12v1h-12zM1 9h2v1h-2zM13 9h2v1h-2zM0 10h16v1h-16zM0 11h1v1h-1zM15 11h1v1h-1zM0 12h16v1h-16z', '0 0 16 16', 48), h: 'Command line', p: 'Create, load and query a database right from the shell.' },
+  { icon: px('M1 1h6v1h-6zM1 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM6 3h8v1h-8zM1 4h1v1h-1zM14 4h1v1h-1zM1 5h1v1h-1zM14 5h1v1h-1zM1 6h1v1h-1zM14 6h1v1h-1zM1 7h1v1h-1zM14 7h1v1h-1zM1 8h1v1h-1zM14 8h1v1h-1zM1 9h1v1h-1zM14 9h1v1h-1zM1 10h14v1h-14z', '0 0 16 16', 48), h: 'Libraries', p: 'Embed relate in your own application, in your language.' },
+];
+const fx = [
+  { icon: px('M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM0 4h1v1h-1zM9 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM9 5h1v1h-1zM0 6h1v1h-1zM9 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM9 7h1v1h-1zM0 8h1v1h-1zM9 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1z', '0 0 10 10', 28, 'fxi'), h: 'Facts, not loose text', p: 'Decisions, people and documents become facts you can query.' },
+  { icon: px('M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM10 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM1 3h1v1h-1zM11 3h1v1h-1zM1 4h1v1h-1zM11 4h1v1h-1zM2 5h1v1h-1zM10 5h1v1h-1zM3 6h1v1h-1zM9 6h1v1h-1zM4 7h1v1h-1zM8 7h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1z', '0 0 13 11', 28, 'fxi'), h: 'Relationships and similarity together', p: 'One Cypher statement can combine both.' },
+];
+const chapters = [
+  { id: 'how', label: 'Built for agents' },
+  { id: 'facts', label: 'Memory with structure' },
+  { id: 'first', label: 'Zero to querying' },
+];
+
+// Memory-with-structure chips: nodes (light) and relationships (dark) in three marquee rows.
+const rows: { rv: boolean; items: [string, 'n' | 'r'][] }[] = [
+  { rv: false, items: [['Person Maya','n'],['DECIDED','r'],['Topic Pricing','n'],['DEPENDS_ON','r'],['Launch Q3','n'],['PART_OF','r'],['Task Launch email','n'],['OWNS','r'],['Page Pricing','n']] },
+  { rv: true, items: [['notes.md','n'],['MENTIONS','r'],['Person Maya','n'],['AFFECTS','r'],['Decision Annual plan','n'],['ABOUT','r'],['orders.csv','n'],['MENTIONS','r'],['thread.json','n']] },
+  { rv: false, items: [['OWNS','r'],['Page Pricing','n'],['DEPENDS_ON','r'],['Launch Q3','n'],['DECIDED','r'],['Person Maya','n'],['PART_OF','r'],['Topic Pricing','n'],['AFFECTS','r']] },
+];
+
+// The languages hub: eight pixel badges wired to the relate mark.
+const G: Record<string, string> = { R:'110101110101101', S:'011100010001110', P:'110101110100100', Y:'101101010010010', J:'001001001101010', W:'101101111111010', F:'111100110100100', A:'010101111101101', G:'011100101101011', O:'010101101101010', V:'101101101101010', C:'011100100100011' };
+const L: [string, string, string, number, number][] = [
+  ['Rust','RS','#F96746',200,50],['Python','PY','#6A82FF',320,50],['JavaScript','JS','#F6C244',460,140],['WebAssembly','WA','#8FE3E8',460,260],
+  ['Go','GO','#4C99A4',320,340],['Java','JV','#D43300',200,340],['Swift','SF','#FF8E6A',60,260],['C','C','#B7BAC2',60,140],
+];
+const badge = (t: string, c: string) => {
+  const w = t.length * 4 - 1, x0 = Math.floor((12 - w) / 2);
+  let g = '';
+  for (let i = 0; i < t.length; i++) { const b = G[t[i]]; for (let k = 0; k < 15; k++) if (b[k] === '1') g += `M${x0 + i * 4 + (k % 3)} ${3 + Math.floor(k / 3)}h1v1h-1z`; }
+  return `<path fill="rgba(0,0,0,.5)" d="M1 1h12v12h-12z"/><path fill="${c}" d="M0 0h12v12h-12z"/><path fill="rgba(0,0,0,.22)" d="M0 11h12v1h-12zM11 0h1v12h-1z"/><path fill="rgba(255,255,255,.35)" d="M0 0h11v1h-11zM0 0h1v11h-1z"/><path fill="#0E1114" d="${g}"/>`;
+};
+const T = ['M200 76V106L236 142V150','M320 76V106L284 142V150','M436 140H400L364 176H310','M436 260H400L364 224H310','M320 316V294L284 258V250','M200 316V294L236 258V250','M84 260H120L156 224H210','M84 140H120L156 176H210'];
+function pix(d: string): [number, number][] {
+  const pts: [number, number][] = [];
+  let cx = 0, cy = 0;
+  for (const m of d.matchAll(/([MHVL])(-?\d+)(?: (-?\d+))?/g)) {
+    const a1 = +m[2], a2 = +m[3];
+    if (m[1] === 'M') { cx = a1; cy = a2; } else if (m[1] === 'H') cx = a1; else if (m[1] === 'V') cy = a1; else { cx = a1; cy = a2; }
+    pts.push([cx, cy]);
+  }
+  const out: [number, number][] = [];
+  let last = '';
+  for (let i = 0; i < pts.length - 1; i++) {
+    const A = pts[i], B = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(B[0] - A[0], B[1] - A[1]) / 4));
+    for (let k = 0; k <= n; k++) {
+      const x = Math.floor((A[0] + ((B[0] - A[0]) * k) / n) / 4) * 4, y = Math.floor((A[1] + ((B[1] - A[1]) * k) / n) / 4) * 4, key = `${x},${y}`;
+      if (key !== last) { out.push([x, y]); last = key; }
+    }
+  }
+  return out;
+}
+let hub = '';
+for (const d of T) { const p = pix(d); p.forEach((q, i) => { hub += `<rect class="lpx" x="${q[0]}" y="${q[1]}" width="4" height="4" style="animation-delay:${((i / p.length) * 1.8).toFixed(2)}s"/>`; }); }
+hub += `<svg x="208" y="156" width="104" height="91" viewBox="0 0 16 14" shape-rendering="crispEdges">${MASCOT_INNER}</svg>`;
+for (const l of L) hub += `<g transform="translate(${l[3] - 21} ${l[4] - 21}) scale(3.5)">${badge(l[1], l[2])}</g>`;
+const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label="relate is available in Rust, Python, JavaScript, WebAssembly, Go, Java, Swift and C">${hub}</svg>`;
+---
+<div class="chapters" id="chapters">
+  <aside class="toc" id="toc" aria-label="About relate">
+    <ol>
+      <li class="toc-l" aria-hidden="true">Why relate</li>
+      {chapters.map((c, i) => <li><a href={`#${c.id}`} aria-current={i === 0 ? 'true' : undefined}>{c.label}</a></li>)}
+    </ol>
+  </aside>
+  <div class="chs">
+
+    <section class="chap" id="how" aria-labelledby="h-how">
+      <div class="mb-t">
+        <h2 id="h-how">Built for agents, wherever your agent runs.</h2>
+        <p class="lede">relate is a library inside your application. Your agent writes Cypher and relate answers with the results. Use the interface that fits your build.</p>
+      </div>
+      <div class="ways">
+        {ways.map((w) => <div><span class="ic" set:html={w.icon} /><h3>{w.h}</h3><p>{w.p}</p></div>)}
+      </div>
+      <div class="duo">
+        <div>
+          <h3>Your language, one library</h3>
+          <p>The same relate in Rust, Python, JavaScript, WebAssembly, Go, Java, Swift and C. Pick the one your application is written in.</p>
+          <div class="lvis" set:html={hubSvg} />
+        </div>
+        <div>
+          <h3>No server to run</h3>
+          <p>relate starts when your application does and stops when it stops. Nothing to host, nothing to keep running.</p>
+          <div class="life" aria-hidden="true" translate="no">
+            <div class="lh"><span>Your app</span><em data-s="a">stopped</em></div><div class="lr" data-r="a"></div>
+            <div class="lh"><span>relate</span><em data-s="b">stopped</em></div><div class="lr" data-r="b"></div>
+            <div class="la"><span>Start</span><span>Query</span><span>Stop</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chap" id="facts" aria-labelledby="h-facts">
+      <div class="fx-m">
+        <div class="pn">
+          <div class="chips" aria-hidden="true" translate="no">
+            {rows.map((r) => (
+              <div class="chip-row"><div class={`chip-tr${r.rv ? ' rv' : ''}`}>{r.items.map(([t, k]) => <span class={`ch ${k}`}>{t}</span>)}</div></div>
+            ))}
+          </div>
+          <div class="cq"><div class="code" translate="no"><span class="k">MATCH</span> (<span class="n">:Person</span> &#123;name: <span class="s">'Maya'</span>&#125;)-[<span class="r">:DECIDED</span>]-&gt;(<span class="n">:Topic</span>){'\n'}      -[<span class="r">:DEPENDS_ON</span>]-&gt;(<span class="n">:Launch</span>){'\n'}<span class="k">RETURN</span> <span class="n">Launch</span>.name</div></div>
+        </div>
+      </div>
+      <div class="fx-t">
+        <h2 id="h-facts">Memory with structure.</h2>
+        <p class="lede">Raw data becomes connected facts, so your agent can follow how people, decisions and documents relate. Relationships and similarity answer in one query.</p>
+        <div class="fx-p">
+          {fx.map((f) => <div><Fragment set:html={f.icon} /><h3>{f.h}</h3><p>{f.p}</p></div>)}
+        </div>
+      </div>
+    </section>
+
+    <section class="chap" id="first" aria-labelledby="h-first">
+      <div class="fs-t">
+        <h2 id="h-first">Zero to querying in seconds.</h2>
+        <p class="lede">Install the open-source package, create a database and start running your first query. No account, no instance and no server to deploy.</p>
+        <div class="tiny"><div class="code" translate="no"><span class="ps">$</span>curl -sSfL https://relatedb.ai/install.sh | bash{'\n'}<span class="ps">$</span>relate --mode envelope "<span class="k">RETURN</span> 1 <span class="k">AS</span> ok"{'\n'}<span class="dm">&#123;"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[&#123;"ok":1&#125;],"truncated":false&#125;</span></div></div>
+      </div>
+      <div class="fs-m">
+        <p class="big">Cypher you already know.</p>
+        <p class="sub">relate speaks the openCypher language and is tested against the openCypher TCK, the language contract. Where it differs from Neo4j, the docs say so.</p>
+        <a class="link" href="/docs/reference/cypher/differences-from-neo4j/">Read the differences<span aria-hidden="true">&nbsp;&#8599;</span></a>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<style>
+  .chapters {
+    display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: stretch;
+    max-width: 1392px; margin: 0 auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: var(--surface-0);
+  }
+  .toc { border-right: 1px solid var(--line); }
+  .toc ol { position: sticky; top: calc(var(--header-h) + 20px); list-style: none; margin: 0; padding: 20px 0; }
+  .toc-l { padding: 0 20px 14px; font: 500 12px/16px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); }
+  .toc a {
+    position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 8px 20px;
+    color: var(--ink-muted); font-size: 14px; line-height: 20px; text-decoration: none; transition: color .15s, background-color .15s;
+  }
+  .toc a::after { content: '\2192'; opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s; }
+  .toc a:hover { color: var(--ink); background: var(--surface-2); }
+  .toc a[aria-current] { color: var(--ink); background: var(--surface-2); font-weight: 500; }
+  .toc a[aria-current]::after { opacity: 1; transform: none; }
+  .toc a:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
+  .chs { min-width: 0; }
+  .chap { min-width: 0; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--header-h) + 8px); }
+  .chap:first-child { border-top: 0; }
+  h2 { margin: 0; font: 500 clamp(24px, 2.4vw, 36px) / 1.1 var(--font); letter-spacing: -.03em; color: var(--ink); text-wrap: balance; }
+  h3 { margin: 0; font: 600 20px/28px var(--font); letter-spacing: -.02em; color: var(--ink); }
+  .lede { margin: 0; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
+
+  /* Built for agents */
+  #how .mb-t { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 64px; align-items: center; padding: 72px 40px; }
+  .ways { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+  .ways > div { padding: 56px 40px 64px; border-left: 1px solid var(--line); }
+  .ways > div:first-child { border-left: 0; }
+  .ways :global(.ic) { display: block; width: 48px; height: 48px; margin-bottom: 40px; color: var(--ink); }
+  .ways p, .duo p { margin: 10px 0 0; color: var(--ink-muted); font-size: 15px; line-height: 24px; }
+  .duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+  .duo > div { padding: 56px 40px 64px; }
+  .duo > div + div { border-left: 1px solid var(--line); }
+  .lvis { margin-top: 32px; }
+  .lvis :global(svg.hubsvg) { display: block; width: 100%; height: auto; }
+  .lvis :global(.lpx) { fill: var(--line-strong); shape-rendering: crispEdges; animation: lpx 1.8s steps(1) infinite; }
+  @keyframes lpx { 0%, 22% { fill: #F96746; } 23%, 100% { fill: var(--line-strong); } }
+  .life { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 32px; padding: 20px; border: 1px solid var(--line); background: var(--surface-0); font: 400 12px/16px var(--mono); color: var(--ink-muted); }
+  .lh { display: flex; justify-content: space-between; margin: 16px 0 0; font: 500 11px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
+  .lh:first-child { margin-top: 0; }
+  .lh :global(em) { font-style: normal; color: var(--ink-muted); }
+  .lh :global(em.on) { color: var(--brand); }
+  .lr { display: grid; grid-template-columns: repeat(36, 1fr); gap: 2px; }
+  .lr :global(i) { aspect-ratio: 1; background: var(--line); transition: background-color .2s; }
+  .lr :global(i.on) { background: var(--brand); }
+  .la { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--line); font: 400 10px/14px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+
+  /* Memory with structure */
+  #facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 56px; align-items: center; padding: 72px 40px; }
+  .fx-m { min-width: 0; }
+  .pn { overflow: hidden; border: 1px solid var(--line-strong); padding: 56px 0 56px; display: flex; flex-direction: column; gap: 56px; background: var(--surface-0); }
+  .chips { display: flex; flex-direction: column; gap: 14px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  .chip-row { display: flex; overflow: hidden; }
+  .chip-tr { display: flex; gap: 12px; flex: none; padding-right: 12px; animation: mq 60s linear infinite; }
+  .chip-tr.rv { animation-direction: reverse; animation-duration: 75s; }
+  .chip-row:nth-child(3) .chip-tr { animation-duration: 90s; }
+  @keyframes mq { to { transform: translateX(-100%); } }
+  .ch { flex: none; padding: 10px 18px; background: #fff; color: #0A1114; font: 500 14px/20px var(--mono); white-space: nowrap; }
+  .ch.r { background: #0A1114; color: #E9EFF1; letter-spacing: .04em; }
+  .cq { margin: 0 auto; width: calc(100% - 80px); max-width: 560px; border: 1px solid var(--line); background: var(--surface-0); box-shadow: var(--ui-shadow); }
+  .code { padding: 24px 28px; background: var(--term-bg); color: var(--term-ink); font: 400 13px/22px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .code :global(.k), .code .k { color: var(--hl, var(--brand)); }
+  .code :global(.ps), .code .ps { color: var(--term-dim); margin-right: 10px; user-select: none; }
+  .code :global(.dm), .code .dm { color: var(--term-dim); }
+  .code .n { color: var(--md, var(--ink)); }
+  .code .r { color: var(--hl, var(--ink)); }
+  .code .s { color: var(--sh, var(--ink)); }
+  .fx-t .lede { margin-top: 20px; }
+  .fx-p { display: grid; gap: 32px; margin-top: 48px; }
+  .fx-p :global(.fxi) { display: block; width: auto; height: 28px; margin: 0 0 16px; color: var(--ink); }
+  .fx-p h3 { font: 600 16px/24px var(--font); letter-spacing: -.01em; margin: 0 0 6px; }
+  .fx-p p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 22px; }
+
+  /* Zero to querying */
+  #first { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fs-t { padding: 56px 40px 64px; }
+  .fs-t .lede { margin-top: 20px; }
+  .tiny { margin-top: 48px; max-width: 460px; border: 1px solid var(--line); box-shadow: var(--ui-shadow); background: var(--term-bg); }
+  .tiny .code { padding: 24px; font-size: 12px; }
+  .fs-m { display: flex; flex-direction: column; justify-content: flex-end; padding: 56px 40px 64px; border-left: 1px solid var(--line); }
+  .fs-m .big { margin: 0; font: 600 clamp(40px, 5.2vw, 72px) / .98 var(--font); letter-spacing: -.05em; color: var(--ink); max-width: 9ch; }
+  .fs-m .sub { margin: 28px 0 0; max-width: 42ch; color: var(--ink-muted); font-size: 16px; line-height: 26px; }
+  .link { align-self: flex-start; margin-top: 16px; color: var(--ink); font-size: 15px; text-underline-offset: 4px; }
+
+  @media (max-width: 1180px) {
+    .ways > div, .duo > div { padding: 40px 28px 48px; }
+    #how .mb-t { padding: 56px 28px; }
+  }
+  @media (max-width: 900px) {
+    .chapters { display: block; }
+    .toc { position: sticky; top: var(--header-h); z-index: 20; border-right: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-0) 92%, transparent); backdrop-filter: blur(14px); }
+    .toc ol { position: static; display: flex; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+    .toc ol::-webkit-scrollbar { display: none; }
+    .toc li { flex: none; }
+    .toc-l, .toc a::after { display: none; }
+    .toc a { min-height: 48px; padding: 0 12px; background: none !important; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .toc a[aria-current] { border-bottom-color: var(--ink); }
+    #how .mb-t { display: block; padding: 40px 24px; }
+    #how .mb-t .lede { margin-top: 16px; }
+    .ways { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ways > div { padding: 32px 24px 40px; border-top: 1px solid var(--line); }
+    .ways > div:nth-child(-n+2) { border-top: 0; }
+    .ways > div:nth-child(odd) { border-left: 0; }
+    .duo { grid-template-columns: minmax(0, 1fr); }
+    .duo > div { padding: 32px 24px 40px; }
+    .duo > div + div { border-left: 0; border-top: 1px solid var(--line); }
+    #facts { display: block; padding: 40px 24px; }
+    .fx-t { margin-top: 40px; }
+    #first { display: block; }
+    .fs-t, .fs-m { padding: 40px 24px; }
+    .fs-m { border-left: 0; border-top: 1px solid var(--line); }
+  }
+  @media (max-width: 560px) {
+    .ways { grid-template-columns: minmax(0, 1fr); }
+    .ways > div { border-left: 0 !important; border-top: 1px solid var(--line) !important; }
+    .ways > div:first-child { border-top: 0 !important; }
+    .cq { width: calc(100% - 32px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .chip-tr, .lvis :global(.lpx) { animation: none; } }
+</style>
+
+<script>
+  // Chapter list: highlight the chapter in view and scroll to it on click.
+  const secs = [...document.querySelectorAll<HTMLElement>('#chapters .chap')];
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('#toc a')];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cur = -1;
+  const set = (i: number) => {
+    if (i === cur) return;
+    cur = i;
+    links.forEach((a, k) => (k === i ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
+  };
+  links.forEach((a, i) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    secs[i].scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    history.replaceState(null, '', `#${secs[i].id}`);
+  }));
+  const pick = () => {
+    let best = 0;
+    const y = innerHeight * 0.35;
+    secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= y) best = i; });
+    set(best);
+  };
+  addEventListener('scroll', pick, { passive: true });
+  addEventListener('resize', pick);
+  pick();
+
+  // Lifeline: relate lives exactly as long as the application.
+  const life = document.querySelector<HTMLElement>('.life');
+  if (life) {
+    const C = 36;
+    const sa = life.querySelector<HTMLElement>('[data-s=a]')!, sb = life.querySelector<HTMLElement>('[data-s=b]')!;
+    life.querySelectorAll('.lr').forEach((r) => { for (let i = 0; i < C; i++) r.appendChild(document.createElement('i')); });
+    const A = [...life.querySelectorAll<HTMLElement>('[data-r=a] i')], B = [...life.querySelectorAll<HTMLElement>('[data-r=b] i')];
+    const paint = (t: number) => {
+      for (let i = 0; i < C; i++) {
+        A[i].classList.toggle('on', i >= 4 && i <= Math.min(t, 31));
+        B[i].classList.toggle('on', i >= 4 && i <= Math.min(t - 1, 31));
+      }
+      const ra = t >= 4 && t <= 36, rb = t >= 5 && t <= 36;
+      sa.textContent = ra ? 'running' : 'stopped';
+      sb.textContent = rb ? 'running' : 'stopped';
+      sa.classList.toggle('on', ra);
+      sb.classList.toggle('on', rb);
+    };
+    if (reduced) paint(31);
+    else {
+      let t = 0, iv: ReturnType<typeof setInterval> | undefined;
+      new IntersectionObserver((es) => {
+        clearInterval(iv);
+        if (es[0].isIntersecting) iv = setInterval(() => { t = (t + 1) % 46; paint(t > 36 ? -1 : t); }, 110);
+      }).observe(life);
+    }
+  }
+</script>

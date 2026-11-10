@@ -1,6 +1,7 @@
 {
   "name": "relate-web",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "version": "0.0.0",
   "scripts": {
@@ -10,8 +11,10 @@
     "mcp:bundle": "npm --prefix workers/docs-mcp run bundle",
     "mcp:test": "npm --prefix workers/docs-mcp test && npm --prefix workers/docs-mcp run check",
     "build": "astro build && npm run build:search && npm run build:playground",
+    "build:site": "astro build && npm run build:search",
     "build:search": "pagefind --site dist --glob \"{docs,cookbook}/**/*.html\"",
-    "build:playground": "npm --prefix playground run build -- --outDir ../dist/playground --emptyOutDir",
+    "build:playground": "node scripts/build-playground.mjs",
+    "build:playground:force": "node scripts/build-playground.mjs --force",
     "preview": "astro preview --host 127.0.0.1 --port 8765",
     "check": "astro check",
     "discovery:fetch": "bash scripts/fetch-discovery.sh",

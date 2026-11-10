@@ -1,0 +1,180 @@
+---
+// Home "Community": six pixel characters joined in a loop by labelled lines. A signal travels the
+// loop, each character hops as it arrives, and each can be dragged and springs back.
+const nodes: [string, string][] = [
+  ['you', 'M6 1h4v1h-4zM5 2h1v1h-1zM10 2h1v1h-1zM5 3h1v1h-1zM10 3h1v1h-1zM5 4h1v1h-1zM10 4h1v1h-1zM6 5h4v1h-4zM4 7h8v1h-8zM2 8h3v1h-3zM11 8h3v1h-3zM2 9h1v1h-1zM13 9h1v1h-1zM2 10h12v1h-12z'],
+  ['question', 'M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM2 3h1v1h-1zM4 3h8v1h-8zM13 3h1v1h-1zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM4 5h6v1h-6zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h12v1h-12zM3 8h2v1h-2zM3 9h1v1h-1z'],
+  ['answer', 'M5 1h6v1h-6zM4 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM12 4h1v1h-1zM3 5h1v1h-1zM12 5h1v1h-1zM3 6h1v1h-1zM12 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM5 8h1v1h-1zM10 8h1v1h-1zM5 9h6v1h-6zM5 10h1v1h-1zM10 10h1v1h-1zM5 11h6v1h-6zM6 12h4v1h-4z'],
+  ['recipe', 'M3 1h7v1h-7zM3 2h1v1h-1zM9 2h2v1h-2zM3 3h1v1h-1zM9 3h1v1h-1zM11 3h1v1h-1zM3 4h1v1h-1zM9 4h4v1h-4zM3 5h1v1h-1zM12 5h1v1h-1zM3 6h1v1h-1zM5 6h6v1h-6zM12 6h1v1h-1zM3 7h1v1h-1zM12 7h1v1h-1zM3 8h1v1h-1zM5 8h6v1h-6zM12 8h1v1h-1zM3 9h1v1h-1zM12 9h1v1h-1zM3 10h1v1h-1zM12 10h1v1h-1zM3 11h10v1h-10z'],
+  ['agent', 'M7 0h2v1h-2zM7 1h2v1h-2zM2 2h12v1h-12zM2 3h1v1h-1zM13 3h1v1h-1zM1 4h2v1h-2zM4 4h3v1h-3zM9 4h3v1h-3zM13 4h2v1h-2zM1 5h2v1h-2zM4 5h3v1h-3zM9 5h3v1h-3zM13 5h2v1h-2zM1 6h2v1h-2zM13 6h2v1h-2zM2 7h1v1h-1zM5 7h6v1h-6zM13 7h1v1h-1zM2 8h1v1h-1zM13 8h1v1h-1zM2 9h12v1h-12zM4 10h1v1h-1zM11 10h1v1h-1zM4 11h8v1h-8z'],
+  ['idea', 'M7 1h2v1h-2zM6 2h1v1h-1zM9 2h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM2 4h5v1h-5zM9 4h5v1h-5zM2 5h1v1h-1zM13 5h1v1h-1zM3 6h1v1h-1zM12 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM7 8h2v1h-2zM11 8h1v1h-1zM3 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM12 9h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM10 10h1v1h-1zM12 10h1v1h-1zM3 11h2v1h-2zM11 11h2v1h-2z'],
+];
+const edges = ['ASKS', 'GETS', 'BECOMES', 'HELPS', 'SPARKS', 'LEADS TO'];
+const label: Record<string, string> = { you: 'you', question: 'question', answer: 'answer', recipe: 'recipe', agent: 'agent', idea: 'idea' };
+---
+<section class="com" id="community" aria-labelledby="h-com">
+  <div class="com-in">
+    <div class="cm">
+      <div class="cg" aria-hidden="true">
+        <svg class="cg-l" focusable="false"></svg>
+        {nodes.map(([k, d]) => (
+          <span class="cgn" data-l={label[k]}><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d={d} /></svg></span>
+        ))}
+        {edges.map((e) => <span class="eg">{e}</span>)}
+        <i class="cg-d"></i>
+      </div>
+    </div>
+    <div class="com-t">
+      <h2 id="h-com">Build it with us, one recipe at a time.</h2>
+      <p class="lede">Share a recipe for the cookbook, report what you find, and show what your agents learned.</p>
+      <div class="btns">
+        <a class="btn" href="https://github.com/relatedb/relate" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.5.8.5 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2z"/></svg>GitHub<span class="sr-only"> (opens in new tab)</span></a>
+        <a class="btn" href="https://github.com/relatedb/relate-web" target="_blank" rel="noopener">Add a recipe<span class="sr-only"> (opens in new tab)</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .com { background: var(--surface-0); border-top: 1px solid var(--line); }
+  .com-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 56px; align-items: center; max-width: 1232px; margin: 0 auto; padding: 120px 24px; }
+  h2 { margin: 0; max-width: 16ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; color: var(--ink); text-wrap: balance; }
+  .lede { margin: 20px 0 0; max-width: 44ch; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 6px; background: var(--surface-2);
+    color: var(--ink); font: 500 15px/1 var(--font); text-decoration: none; transition: background-color .15s;
+  }
+  .btn:hover { background: var(--surface-3); }
+  .btn:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
+  .cm { min-width: 0; }
+  .cg {
+    position: relative; width: 100%; height: 560px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><rect x='11' y='11' width='1.5' height='1.5' fill='%23808890' fill-opacity='.22'/></svg>");
+  }
+  .cg-l { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .cg-l :global(line) { stroke: var(--line-strong); stroke-width: 1; }
+  .cgn {
+    position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+    background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink);
+    cursor: grab; touch-action: none; user-select: none; will-change: transform;
+    transition: background-color .45s ease, border-color .45s ease;
+  }
+  .cgn.drag { cursor: grabbing; }
+  .cgn.lit { background: var(--surface-3); border: 2px solid var(--ink); transition-duration: .08s; }
+  .cgn svg { width: 36px; height: 36px; flex: none; image-rendering: pixelated; }
+  .cgn::after {
+    content: attr(data-l); position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); padding: 2px 6px;
+    background: var(--surface-0); font: 500 11px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap;
+  }
+  .eg {
+    position: absolute; z-index: 3; transform: translate(-50%, -50%); padding: 3px 8px; background: var(--surface-0); color: var(--ink-muted);
+    border: 1px solid var(--line-strong); font: 500 10px/14px var(--mono); letter-spacing: .08em; transition: color .2s, border-color .2s;
+  }
+  .eg.on { background: var(--ink); color: var(--surface-0); border-color: var(--ink); }
+  .cg-d { position: absolute; left: 0; top: 0; z-index: 1; width: 8px; height: 8px; margin: 1px; pointer-events: none; will-change: transform; }
+  @media (max-width: 900px) {
+    .com-in { display: block; padding: 72px 16px; }
+    .cg { height: 440px; }
+    .com-t { margin-top: 48px; }
+  }
+  @media (max-width: 520px) { .cgn svg { width: 28px; height: 28px; } }
+</style>
+
+<script>
+  const cg = document.querySelector<HTMLElement>('.cg');
+  if (cg) {
+    const nodes = [...cg.querySelectorAll<HTMLElement>('.cgn')];
+    const chips = [...cg.querySelectorAll<HTMLElement>('.eg')];
+    const svg = cg.querySelector<SVGSVGElement>('.cg-l')!;
+    const dot = cg.querySelector<HTMLElement>('.cg-d')!;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const POS = [[.14, .2], [.5, .2], [.86, .2], [.86, .78], [.5, .78], [.14, .78]];
+    const DOT = ['#F96746', '#8FE3E8', '#6A82FF', '#90CB62'];
+    let W = 0, H = 0, S = 96, P: number[][] = [], run = false, vis = true, lastSeg = -1, lines: SVGLineElement[] = [], pend = false, pl = 0;
+    const hop: Record<number, number> = {};
+    const off = nodes.map(() => ({ x: 0, y: 0, vx: 0, vy: 0, d: false }));
+    const Q = (k: number) => [P[k][0] + off[k].x, P[k][1] + off[k].y];
+
+    // Dragged characters follow the pointer with a rubber-band limit and spring back on release.
+    function phys() {
+      const n = performance.now(), dt = Math.min(.032, (n - (pl || n)) / 1000);
+      pl = n;
+      let live = false;
+      off.forEach((o) => {
+        if (o.d) { live = true; return; }
+        o.vx += (-180 * o.x - 11 * o.vx) * dt; o.vy += (-180 * o.y - 11 * o.vy) * dt; o.x += o.vx * dt; o.y += o.vy * dt;
+        if (Math.abs(o.x) + Math.abs(o.y) + Math.abs(o.vx) + Math.abs(o.vy) < .05) { o.x = o.y = o.vx = o.vy = 0; } else live = true;
+      });
+      if (!live) pl = 0;
+      return live;
+    }
+    function wake() {
+      if (run || pend) return;
+      pend = true;
+      requestAnimationFrame(function f() {
+        const live = phys();
+        draw(reduced ? 0 : performance.now());
+        if (live) requestAnimationFrame(f); else pend = false;
+      });
+    }
+    nodes.forEach((n, k) => {
+      let sx = 0, sy = 0, bx = 0, by = 0, lt = 0, lx = 0, ly = 0;
+      const rub = (d: number) => 64 * Math.tanh(d / 64);
+      n.addEventListener('pointerdown', (e) => {
+        n.setPointerCapture(e.pointerId);
+        const o = off[k];
+        o.d = true; sx = e.clientX; sy = e.clientY; bx = o.x; by = o.y; lx = o.x; ly = o.y; lt = performance.now();
+        n.classList.add('drag'); wake();
+      });
+      n.addEventListener('pointermove', (e) => {
+        const o = off[k];
+        if (!o.d) return;
+        const nx = rub(bx + e.clientX - sx), ny = rub(by + e.clientY - sy), t = performance.now(), dt = Math.max(.008, (t - lt) / 1000);
+        o.vx = (nx - lx) / dt; o.vy = (ny - ly) / dt; lx = o.x = nx; ly = o.y = ny; lt = t;
+      });
+      const up = () => {
+        const o = off[k];
+        if (!o.d) return;
+        o.d = false; n.classList.remove('drag');
+        if (performance.now() - lt > 80) o.vx = o.vy = 0;
+        wake();
+      };
+      n.addEventListener('pointerup', up); n.addEventListener('pointercancel', up);
+    });
+
+    function layout() {
+      W = cg!.clientWidth; H = cg!.clientHeight; S = W < 520 ? 56 : 80;
+      P = POS.map(([x, y]) => [x * W, y * H]);
+      nodes.forEach((n, i) => { n.style.width = n.style.height = `${S}px`; n.style.left = `${P[i][0] - S / 2}px`; n.style.top = `${P[i][1] - S / 2}px`; });
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.innerHTML = P.map((p, i) => { const q = P[(i + 1) % P.length]; return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}"/>`; }).join('');
+      lines = [...svg.querySelectorAll<SVGLineElement>('line')];
+    }
+    function draw(now: number) {
+      if (run) phys();
+      const t = now / 1000, N = P.length, seg = (t * .55) % N, i = Math.floor(seg), f = seg - i, a = Q(i), b = Q((i + 1) % N);
+      lines.forEach((l, k) => {
+        const p = Q(k), q = Q((k + 1) % N);
+        l.setAttribute('x1', String(p[0])); l.setAttribute('y1', String(p[1])); l.setAttribute('x2', String(q[0])); l.setAttribute('y2', String(q[1]));
+      });
+      chips.forEach((c, k) => { const p = Q(k), q = Q((k + 1) % N); c.style.left = `${(p[0] + q[0]) / 2}px`; c.style.top = `${(p[1] + q[1]) / 2}px`; });
+      dot.style.transform = `translate(${a[0] + (b[0] - a[0]) * f - 5}px,${a[1] + (b[1] - a[1]) * f - 5}px)`;
+      dot.style.background = DOT[i % DOT.length];
+      if (i !== lastSeg) { lastSeg = i; hop[i] = now; }
+      nodes.forEach((n, k) => {
+        n.classList.toggle('lit', k === i && f < .5);
+        const h = hop[k] ? Math.max(0, 1 - (now - hop[k]) / 450) : 0;
+        n.style.transform = `translate(${off[k].x.toFixed(1)}px,${(off[k].y - h * 4).toFixed(1)}px) scale(${(1 + h * .03).toFixed(3)})`;
+      });
+      chips.forEach((c, k) => c.classList.toggle('on', k === i && f >= .5));
+    }
+    function frame(now: number) { if (!run) return; draw(now); requestAnimationFrame(frame); }
+    function start() { if (reduced || run || !vis || document.hidden) return; run = true; requestAnimationFrame(frame); }
+    new ResizeObserver(() => { layout(); if (reduced) draw(0); }).observe(cg);
+    new IntersectionObserver((es) => { vis = es[0].isIntersecting; if (vis) start(); else run = false; }).observe(cg);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) run = false; else start(); });
+    layout();
+    if (reduced) draw(0); else start();
+  }
+</script>

@@ -134,3 +134,4 @@ Copy `template.md`.
 | [0054](0054-replays-mask-timing-values.md) | CLI replays compare output with timing values masked, and pages show a real run's timings | Proposed |
 | [0055](0055-borderless-top-bar-and-cookbook-grid.md) | The top bar is borderless, and the cookbook index is one filterable ruled grid | Proposed |
 | [0056](0056-docs-chrome-and-landing.md) | Docs and recipe pages get their own ruled header and sidebar; the docs landing is a plain site page | Proposed |
+| [0057](0057-seo-head-and-indexability-switch.md) | One shared page head, JSON-LD per page kind, and a single switch for indexing | Proposed |

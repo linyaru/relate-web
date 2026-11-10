@@ -37,9 +37,10 @@ cypherlite-era redo) and should not be extended.
 
 - [ ] Replace remaining `cypherlite` URLs/package/asset names in `index.html`, `llms.txt`, `demo-scenarios.md` with the names above
 - [ ] Regenerate or replace `releases.json`, `extensions.json` (+ `.sig`), `install.sh` from upstream: `install.sh` and `releases.json` now come from relate v0.1.2's release assets (`scripts/fetch-discovery.sh`); `extensions.json` (+ `.sig`) are still the cypherlite-era copies, since no relate extension release carries them yet
-- [ ] Update `sitemap.xml`, `robots.txt` (currently stealth-appropriate? decide), `update-website.yml`
+- [ ] `update-website.yml`. `sitemap.xml` and `robots.txt` are generated (`src/pages/sitemap.xml.ts`, `src/pages/robots.txt.ts`); `robots.txt` follows the indexing switch below
 - [ ] Set up Pages / hosting and DNS for `relatedb.ai`; deploy workflow (old one lived on cypherlite `main`)
-- [ ] Add `noindex` / robots block while stealth; remove at launch
+- [x] `noindex` / robots block while stealth: every page and `robots.txt` follow one switch (ADR-0057), off by default
+- [ ] Launch build: set `PUBLIC_INDEXABLE=true` in the build step of `deploy-pages.yml` and `deploy-cf.yml` (a repository variable is enough); the pages lose `noindex` and `robots.txt` allows everything and names the sitemap. The 404 page and the blog placeholder stay `noindex`
 - [x] Playground is built by this site at `/playground/` (source: `playground/`, its own package); the header and the home page link it
 - [x] Cookbook is built by this site at `/cookbook/` (source: `src/content/cookbook/`); the header links it
 - [ ] Cookbook link policy: `src/lib/cookbook/links.ts` `NOT_PUBLIC_YET` drops links to `github.com/relatedb/` and `relatedb.ai` from recipe prose; delete those entries at launch
@@ -96,7 +97,8 @@ GitHub token.
 - [ ] No console errors; the playground (`/playground/`) reaches "ready" and runs a sample query
 - [ ] No remaining `cypherlite` / `neo4j-labs` / "labs" branding strings: `curl -s https://relatedb.ai/ https://relatedb.ai/llms.txt | grep -ci cypherlite` → `0`
 - [ ] Every link on the page resolves (run `lychee` against the live URL); no 404s to repos/releases/packages
-- [ ] `robots.txt` and `sitemap.xml` allow indexing; `noindex` removed; `llms.txt` served as text
+- [ ] With `PUBLIC_INDEXABLE=true`: `curl -s https://relatedb.ai/robots.txt` allows `/` and names the sitemap; `curl -s https://relatedb.ai/ | grep -o 'content="index, follow"'` matches; `/404` still says `noindex`; `llms.txt` served as text
+- [ ] Share cards: paste the home page, a docs page and a recipe into the Facebook Sharing Debugger, LinkedIn Post Inspector and the X card validator (the card is `public/og/default.png`); validate the JSON-LD in Google's Rich Results Test and the Schema.org validator
 - [ ] Light/dark theme, mobile width, cli/agentic toggle, copy buttons all work
 - [ ] Version shown on the page matches the latest release tag
 - [ ] Home "Zero to querying" shows no TCK pass count: the design's "3,893 tests passed" figure is not published by any engine document (upstream `docs/tck/compliance.md`: the count retired 2026-11-05 with the move to the spec harness). Add a number only when the harness publishes one, with its link
@@ -249,7 +251,7 @@ Written in phase 2 part B (DOCS-PLAN.md §10); what a launch, a release or upstr
 ## Interim preview host (internal, unlisted)
 
 - Host: `https://r31473.relatedb.ai/` (CNAME `r31473` → `relatedb.github.io` in GoDaddy DNS; `CNAME` file in the repo and deploy artifact).
-- Hostname is obscure, **not private**: certificate-transparency logs expose it. `index.html` has `noindex, nofollow` and `robots.txt` disallows all. Remove both at launch.
+- Hostname is obscure, **not private**: certificate-transparency logs expose it. every page has `noindex, nofollow` and `robots.txt` disallows all, until the build sets `PUBLIC_INDEXABLE=true` (ADR-0057).
 - GitHub: `relatedb/relate-web` → Settings → Pages → Source: GitHub Actions, custom domain `r31473.relatedb.ai`, then Enforce HTTPS (after DNS verifies: `dig +short CNAME r31473.relatedb.ai` → `relatedb.github.io.`).
 - Optional: verify `relatedb.ai` at the org level (TXT record) so nobody else can claim its subdomains on Pages.
 - Retire this record and the `CNAME` file when switching hosts.

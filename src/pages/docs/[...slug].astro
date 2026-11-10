@@ -22,6 +22,7 @@ import { resolveHref } from '../../lib/docs/links.ts';
 import { pageUrl } from '../../lib/docs/model.ts';
 import { breadcrumb, humanize, prevNext } from '../../lib/docs/nav.ts';
 import { docsSite, type DocsPage } from '../../lib/docs/site.ts';
+import { articleGraph } from '../../lib/seo.ts';
 
 export async function getStaticPaths() {
   const site = await docsSite();
@@ -35,6 +36,7 @@ const { Content, headings } = await render(page.entry);
 const data = page.entry.data;
 const crumbs = breadcrumb(site.nav, page.id);
 const { prev, next } = prevNext(site.nav, page.id);
+const jsonld = [articleGraph({ title: data.title, description: data.description ?? '', path: page.url, modified: page.lastUpdated, crumbs: crumbs })];
 
 // A prerequisite or related entry (`get-started/install`, `reference/x#anchor`,
 // `cookbook/<slug>`) as a link, or as text when its page does not exist yet.
@@ -59,7 +61,7 @@ const cells = hasCells(page.entry.body ?? '');
 const { elements, engine: elementEngine } = elementNeeds(page.file, page.entry.body ?? '');
 const quiet = !cells && !elementEngine;
 ---
-<Docs title={data.title} description={data.description ?? ''} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl}>
+<Docs title={data.title} description={data.description ?? ''} nav={site.nav} current={page.id} headings={headings} twinHref={page.twinUrl} modified={page.lastUpdated} jsonld={jsonld}>
   <div class="doc-top">
   <nav class="breadcrumb" aria-label="Breadcrumb" data-pagefind-ignore>
     <ol>

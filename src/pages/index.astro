@@ -11,6 +11,9 @@ import Quickstart from '../components/Quickstart.astro';
 import Chapters from '../components/Chapters.astro';
 import Community from '../components/Community.astro';
 import Cta from '../components/Cta.astro';
+import SeoHead from '../components/SeoHead.astro';
+import engine from '../content/docs/_data/engine.json';
+import { homeGraph } from '../lib/seo.ts';
 import '../styles/base.css';
 
 const title = 'relate — the agent-native graph database';
@@ -20,23 +23,13 @@ const description = 'relate is an open-source embedded database for AI agents. G
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="preload" href="/fonts/relate-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/relate-mono.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="apple-touch-icon" href="/favicon-192.png" />
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
-    <link rel="canonical" href="https://relatedb.ai/" />
-    <link rel="describedby" href="/llms.txt" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content="https://relatedb.ai/" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
+    <SeoHead title={title} description={description} path="/" describedby="/llms.txt" jsonld={[homeGraph(engine, description)]} />
     <script is:inline>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
   </head>
   <body>

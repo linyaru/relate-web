@@ -10,7 +10,7 @@ import { remarkDocs } from './src/lib/docs/remark.ts';
 
 // Static output. Interim preview host; switch to https://relatedb.ai at launch (see LAUNCH.md).
 export default defineConfig({
-  site: 'https://r31473.relatedb.ai',
+  site: 'https://relatedb.ai',
   output: 'static',
   trailingSlash: 'ignore',
   integrations: [
@@ -28,9 +28,9 @@ export default defineConfig({
     }),
   ],
   markdown: {
-    // Code blocks stay dark in both themes, as in the cookbook. remarkDocs
-    // highlights docs code itself (src/lib/docs/highlight.ts, same theme).
-    shikiConfig: { theme: 'github-dark-default', langs: ['cypher'] },
+    // Code follows the Day/Night theme (cookbook.css reads the --shiki-* variables).
+    // remarkDocs highlights docs code itself (src/lib/docs/highlight.ts, same themes).
+    shikiConfig: { themes: { light: 'github-light-default', dark: 'github-dark-default' }, defaultColor: false, langs: ['cypher'] },
   },
   vite: {
     // Agent worktrees (.claude/worktrees/) are whole copies of the repo; the

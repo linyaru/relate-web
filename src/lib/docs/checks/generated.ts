@@ -1,6 +1,6 @@
 // docs:check for the generated pages and endpoints (src/lib/docs/generated/):
-// the glossary, changelog and docs MCP usage pages, /docs/glossary.json, the
-// changelog feed and /docs/feedback.md.
+// the glossary and changelog pages, /docs/glossary.json, the changelog feed
+// and /docs/feedback.md.
 //
 // From the source:
 //   - no `.mdx` claims a generated page's id; each page renders, and its twin

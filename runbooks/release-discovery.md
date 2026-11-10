@@ -41,7 +41,7 @@ extensions with none published.
 ## Check what is live
 
 ```bash
-HOST=https://r31473.relatedb.ai
+HOST=https://relatedb.ai
 curl -s $HOST/releases.json | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.latest?.tag, r.generated_at)'
 gh release list -R relatedb/relate --limit 5                       # newest core release
 curl -s $HOST/install.sh | grep '^SIGNING_KEY'

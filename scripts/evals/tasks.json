@@ -6,7 +6,7 @@
       "id": "verify-install",
       "title": "Check the installed version and record it",
       "prompt": "relate is installed on this machine. Find out which version of relate it is, then create a relate store at ./eval.rl in this directory holding exactly one node labelled Install, with a string property version set to the version number relate reports (only the number, such as 1.2.3).",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "eval.rl",
       "assertions": [
         {
@@ -21,7 +21,7 @@
       "id": "team-graph",
       "title": "Create the team graph",
       "prompt": "Using relate, create a store at ./team.rl in this directory with three people (Person nodes with a name property): Ada, Grace and Noor, and two projects (Project nodes with a name property): relate and opencypher-tck. Ada and Grace work on relate and Noor works on opencypher-tck: connect each person to their project with a WORKS_ON relationship from the person to the project.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "team.rl",
       "assertions": [
         {
@@ -49,7 +49,7 @@
       "title": "Give an agent a long-term memory",
       "open_ended": true,
       "prompt": "This agent needs a long-term memory that a later session can query by who and what. Store the three facts below so that each person and each thing they are connected to can be looked up on its own, and keep the memory at ./memory in this directory (a file or a directory, whichever the storage you choose uses). Facts: Ada prefers tabs over spaces. Grace owns the billing service. The billing service deploys on Fridays.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "memory",
       "assertions": [
         {
@@ -72,7 +72,7 @@
       "open_ended": true,
       "files": "dependency-graph",
       "prompt": "Store this repository's dependency graph as declared in ./package.json: the package itself, each of its dependencies and devDependencies, and the version range each one asks for. Keep it at ./deps in this directory (a file or a directory, whichever the storage you choose uses), so that a later session can ask what depends on what.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "deps",
       "assertions": [
         {
@@ -99,7 +99,7 @@
       "id": "exit-code-5",
       "title": "Find what exit code 5 means",
       "prompt": "A script that runs relate exited with code 5. Find out what that exit code means in relate, then record it: create a relate store at ./answers.rl in this directory with exactly one node labelled Answer, with the integer property exit_code set to 5 and the string property code set to the error code relate's error object carries for exit code 5.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "answers.rl",
       "assertions": [
         {
@@ -114,7 +114,7 @@
       "id": "recover-validation-error",
       "title": "Recover from a validation_error",
       "prompt": "Run the statement below with relate against a new store at ./eval.rl in this directory, exactly as written the first time. If relate rejects it, correct the statement and run it again until it succeeds. Statement: CREATE (p:Person {name: 'Ada', role: 'engineer'}) RETURN p.name AS name,",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "eval.rl",
       "first_command": false,
       "assertions": [
@@ -137,7 +137,7 @@
       "title": "Pass a value as a parameter",
       "files": "parameters",
       "prompt": "Add one Person node to a new relate store at ./people.rl in this directory whose name property is exactly the first line of ./name.txt, without the trailing newline. The name contains a quote character.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "people.rl",
       "assertions": [
         {
@@ -159,7 +159,7 @@
       "title": "Make notes searchable by keyword",
       "files": "fulltext-notes",
       "prompt": "Load the three notes in ./notes/ into a relate store at ./notes.rl in this directory, one Note node per file with a title property (the file name without .md) and a body property (the file's text), and make the bodies searchable by keyword with a full-text index.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "notes.rl",
       "assertions": [
         {
@@ -183,7 +183,7 @@
         "CREATE (ada:Person {name: 'Ada'}), (grace:Person {name: 'Grace'}), (noor:Person {name: 'Noor'}), (r:Project {name: 'relate'}), (t:Project {name: 'opencypher-tck'}), (ada)-[:WORKS_ON]->(r), (grace)-[:WORKS_ON]->(r), (noor)-[:WORKS_ON]->(t)"
       ],
       "prompt": "./team.rl in this directory is a relate store that must not change. Find how many people work on each project in it, and write the answer to ./answer.txt, one line per project in the form <project>: <count>.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "team.rl",
       "assertions": [
         {
@@ -228,7 +228,7 @@
         "CREATE (:Person {name: 'Ada'}), (:Person {name: 'Grace'}), (:Person {name: 'Noor'})"
       ],
       "prompt": "In the relate store ./team.rl in this directory, make sure that no two Person nodes can ever have the same name. Keep the people already in it.",
-      "conditions": ["none", "agents-md", "skill", "docs-mcp"],
+      "conditions": ["none", "agents-md", "skill"],
       "store": "team.rl",
       "assertions": [
         {

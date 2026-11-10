@@ -3,10 +3,10 @@ title: MCP server
 description: relate's own MCP server over stdio or streamable HTTP; its three tools with input schemas and results, the read-only policy, refusals, auth, and limits.
 order: 40
 surfaces: [mcp, agents, cli]
-related: [guides/agents/connect-over-mcp, guides/serve/mcp, reference/server/docs-mcp, reference/cli/serve, reference/errors#mcp-errors, guides/agents/agent-safety, concepts/problems-relate-solves#graph-queries-over-mcp, reference/cypher/notifications]
+related: [guides/agents/connect-over-mcp, guides/serve/mcp, reference/cli/serve, reference/errors#mcp-errors, guides/agents/agent-safety, concepts/problems-relate-solves#graph-queries-over-mcp, reference/cypher/notifications]
 ---
 
-`relate serve --mcp` serves one relate :term[store]{id=store} to agent hosts over :term[MCP]{id=mcp} (the Model Context Protocol), with three tools: `get_schema`, `read_cypher` and `write_cypher`. It runs on the host's stdin and stdout (`--mcp stdio`) or as a streamable HTTP listener (`--mcp <port>`), and a store opened :term[read-only]{id=read-only} lists only the first two. This server reads and writes a store of yours. [The hosted docs MCP server](/docs/reference/server/docs-mcp) is a different server: it serves the relate documentation at `https://relatedb.ai/mcp`, opens no store, is a launch-day target that is not deployed yet, and has five tools of its own, none of which shares a name with these.
+`relate serve --mcp` serves one relate :term[store]{id=store} to agent hosts over :term[MCP]{id=mcp} (the Model Context Protocol), with three tools: `get_schema`, `read_cypher` and `write_cypher`. It runs on the host's stdin and stdout (`--mcp stdio`) or as a streamable HTTP listener (`--mcp <port>`), and a store opened :term[read-only]{id=read-only} lists only the first two. This server reads and writes a store of yours.
 
 ## Synopsis
 
@@ -346,7 +346,6 @@ The refusal texts `Only MATCH queries are allowed for read-query` and `Only writ
 ## See also
 
 - [Connect over MCP](/docs/guides/agents/connect-over-mcp): the configuration block for each agent host, every one opening the store `--read-only`
-- [The hosted docs MCP server](/docs/reference/server/docs-mcp): the documentation server at `https://relatedb.ai/mcp`, a launch-day target
 - [relate serve](/docs/reference/cli/serve): every `serve` flag, and the HTTP Query API and Bolt listeners beside MCP
 - [MCP errors](/docs/reference/errors#mcp-errors): each refusal and JSON-RPC error with its cause and remedy
 - [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and backups before an agent writes

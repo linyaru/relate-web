@@ -1,4 +1,4 @@
-// Head metadata and structured data shared by every page (ADR-0057): the one
+// Head metadata and structured data shared by every page (ADR-0058): the one
 // switch that makes the site indexable, absolute URLs on the canonical origin,
 // and the JSON-LD builders. Pure and free of Node imports beyond `process.env`,
 // so the layouts, the sitemap and the checks all read the same answers.
@@ -13,13 +13,13 @@ export const OG_IMAGE_ALT = 'relate: Agents that remember. The embedded graph da
 export const GITHUB_URL = 'https://github.com/relatedb/relate';
 
 /**
- * Whether the build is for search engines. Off until launch: every page says
- * `noindex, nofollow` and `/robots.txt` disallows everything. Set
- * `PUBLIC_INDEXABLE=true` for the launch build (LAUNCH.md).
+ * Whether the build is for search engines. On by default (the site is open to
+ * indexing); a build with `PUBLIC_INDEXABLE=false`, such as a preview, says
+ * `noindex, nofollow` on every page and `/robots.txt` disallows everything.
  */
 export function indexable(): boolean {
   const env = (import.meta as { env?: Record<string, string | undefined> }).env;
-  return (env?.PUBLIC_INDEXABLE ?? process.env.PUBLIC_INDEXABLE) === 'true';
+  return (env?.PUBLIC_INDEXABLE ?? process.env.PUBLIC_INDEXABLE) !== 'false';
 }
 
 /** A site path or URL as an absolute URL on the canonical origin. */

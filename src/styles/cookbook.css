@@ -218,6 +218,12 @@ docs-element > [hidden] { display: none; }
   font-family: var(--font-mono); font-size: 13.5px; line-height: 1.6; tab-size: 2;
 }
 .code-block pre code, .cell-code pre code { font-size: inherit; background: none; border: 0; padding: 0; }
+/* Shiki emits both themes as variables; Night uses the dark one, Day the light one. */
+.shiki, .shiki span { color: var(--shiki-dark); font-style: var(--shiki-dark-font-style); font-weight: var(--shiki-dark-font-weight); }
+:root[data-theme="light"] .shiki, :root[data-theme="light"] .shiki span { color: var(--shiki-light); font-style: var(--shiki-light-font-style); font-weight: var(--shiki-light-font-weight); }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .shiki, :root:not([data-theme="dark"]) .shiki span { color: var(--shiki-light); font-style: var(--shiki-light-font-style); font-weight: var(--shiki-light-font-weight); }
+}
 .copy-btn {
   position: absolute; top: 8px; right: 8px;
   font: 500 12px var(--font-sans); padding: 4px 8px; border-radius: 4px; cursor: pointer;

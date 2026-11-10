@@ -8,18 +8,20 @@ afterEach(() => {
 });
 
 describe('indexing switch', () => {
-  test('is off unless PUBLIC_INDEXABLE is exactly true', () => {
-    assert.equal(indexable(), false);
-    process.env.PUBLIC_INDEXABLE = '1';
-    assert.equal(indexable(), false);
+  test('is on unless PUBLIC_INDEXABLE is exactly false', () => {
+    assert.equal(indexable(), true);
     process.env.PUBLIC_INDEXABLE = 'true';
     assert.equal(indexable(), true);
+    process.env.PUBLIC_INDEXABLE = '0';
+    assert.equal(indexable(), true);
+    process.env.PUBLIC_INDEXABLE = 'false';
+    assert.equal(indexable(), false);
   });
 
   test('robots.txt follows it', () => {
-    assert.equal(robotsTxt(), 'User-agent: *\nDisallow: /\n');
-    process.env.PUBLIC_INDEXABLE = 'true';
     assert.equal(robotsTxt(), 'User-agent: *\nAllow: /\n\nSitemap: https://relatedb.ai/sitemap.xml\n');
+    process.env.PUBLIC_INDEXABLE = 'false';
+    assert.equal(robotsTxt(), 'User-agent: *\nDisallow: /\n');
   });
 });
 

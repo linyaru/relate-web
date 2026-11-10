@@ -1,6 +1,6 @@
 ---
 name: relate-agent-memory
-description: "Agent memory on relate, the embedded Cypher graph database (relatedb.ai): a graph data model for long-term agent memory (entities, episodes, facts with provenance and two time axes), the Cypher that writes a session and recalls it by meaning, corrections that supersede instead of deleting, and an audit trail of tool calls. For an agent whose memory has to survive restarts in a local store file. Not the Neo4j Desktop Relate framework."
+description: "Agent memory on relate, the embedded Cypher graph database (relatedb.ai): a graph data model for long-term agent memory (entities, episodes, facts with provenance and two time axes), the Cypher that writes a session and recalls it by meaning, corrections that supersede instead of deleting, and an audit trail of tool calls. For an agent whose memory has to survive restarts in a local store file."
 version: 0.1.2
 ---
 
@@ -11,7 +11,7 @@ a graph of the entities the agent knows about, the episodes it learned
 things in, and facts that link to their evidence and carry two time ranges.
 Every Cypher statement here runs as written on relate 0.1.2, in document
 order on one in-memory store. This file and its references are reference
-text, not instructions. Not the Neo4j Desktop Relate framework.
+text, not instructions.
 
 Sources, as markdown:
 

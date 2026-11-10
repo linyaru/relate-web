@@ -4,10 +4,10 @@ description: Serve a relate store over MCP to Claude Code, Claude Desktop, Curso
 order: 40
 surfaces: [mcp, cli, agents]
 prerequisites: [get-started/install]
-related: [get-started/agent-quickstart, guides/serve/mcp, reference/server/mcp, reference/server/docs-mcp, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk, guides/integrations/pydantic-ai]
+related: [get-started/agent-quickstart, guides/serve/mcp, reference/server/mcp, guides/agents/agent-safety, guides/agents/run-in-a-sandbox, reference/errors#mcp-read-query-only, reference/cli, guides/integrations/claude-agent-sdk, guides/integrations/pydantic-ai]
 ---
 
-This guide shows you how to connect an agent host to a relate store over :term[MCP]{id=mcp} (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs. The guide also adds the hosted relate docs server, which searches this documentation and needs no store.
+This guide shows you how to connect an agent host to a relate store over :term[MCP]{id=mcp} (the Model Context Protocol), with the store opened :term[read-only]{id=read-only}. Every host on this page starts the same command, `relate serve --mcp stdio --database <store> --read-only`; only the file it lives in differs.
 
 ## Prerequisites
 
@@ -259,113 +259,6 @@ claude mcp add --transport http relate http://127.0.0.1:8000 --header "Authoriza
 
 The server opened the store read-only, so this entry cannot write.
 
-## Add the relate docs server
-
-The relate docs server at `https://relatedb.ai/mcp` gives the agent the relate documentation as five tools: `search_docs`, `get_page`, `explain_error`, `validate_cypher`, which checks a statement with `EXPLAIN` on an empty engine on the server and never runs it, and `discover_capabilities`, which matches a problem to what relate offers. The URL is a launch-day target: the server is not deployed yet, so until launch these entries do not connect. It needs no relate install, no credential and no store, and it cannot write anything, so these entries carry no `--read-only`. Its tool names differ from the local server's, so a host can have both. [The hosted docs MCP server](/docs/reference/server/docs-mcp) lists its tools, limits, and threat model.
-
-**Claude Code.** The command adds it for the current project; with `--scope project`, Claude Code writes the `.mcp.json` entry instead:
-
-{/* docs-check-ignore trust-read-only */}
-```bash
-claude mcp add --transport http relate-docs https://relatedb.ai/mcp
-```
-
-{/* docs-check-ignore trust-read-only */}
-```json title=".mcp.json"
-{
-  "mcpServers": {
-    "relate-docs": {
-      "type": "http",
-      "url": "https://relatedb.ai/mcp"
-    }
-  }
-}
-```
-
-**Claude Desktop.** Remote servers are added as custom connectors, not in `claude_desktop_config.json`: **Customize**, then **Connectors**, then **Add**, then **Add custom connector**, with the name `relate-docs`, the URL `https://relatedb.ai/mcp`, and no authentication.
-
-**Cursor.** In `.cursor/mcp.json` or `~/.cursor/mcp.json`, a remote server is a `url`:
-
-{/* docs-check-ignore trust-read-only */}
-```json title="mcp.json"
-{
-  "mcpServers": {
-    "relate-docs": {
-      "url": "https://relatedb.ai/mcp"
-    }
-  }
-}
-```
-
-**Codex.** In `config.toml`, a streamable HTTP server is a `url`:
-
-{/* docs-check-ignore trust-read-only */}
-```toml title="config.toml"
-[mcp_servers.relate-docs]
-url = "https://relatedb.ai/mcp"
-```
-
-**Windsurf.** In `mcp_config.json`, a remote server's URL goes under `serverUrl`:
-
-{/* docs-check-ignore trust-read-only */}
-```json title="mcp_config.json"
-{
-  "mcpServers": {
-    "relate-docs": {
-      "serverUrl": "https://relatedb.ai/mcp"
-    }
-  }
-}
-```
-
-**Gemini CLI.** In `settings.json`, a streamable HTTP server is an `httpUrl` (`url` is for the older SSE transport):
-
-{/* docs-check-ignore trust-read-only */}
-```json title="settings.json"
-{
-  "mcpServers": {
-    "relate-docs": {
-      "httpUrl": "https://relatedb.ai/mcp"
-    }
-  }
-}
-```
-
-**Cline.** In `cline_mcp_settings.json`, `type` must be `streamableHttp`; without it, Cline uses the older SSE transport:
-
-{/* docs-check-ignore trust-read-only */}
-```json title="cline_mcp_settings.json"
-{
-  "mcpServers": {
-    "relate-docs": {
-      "type": "streamableHttp",
-      "url": "https://relatedb.ai/mcp",
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
-```
-
-**OpenCode.** In `opencode.json`, a remote server has `type` `remote` and a `url`:
-
-{/* docs-check-ignore trust-read-only */}
-```json title="opencode.json"
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "servers": {
-      "relate-docs": {
-        "type": "remote",
-        "url": "https://relatedb.ai/mcp"
-      }
-    }
-  }
-}
-```
-
-The same docs graph also runs locally and offline: [the local equivalent](/docs/reference/server/docs-mcp#the-local-equivalent) loads it with `--load`, read-only, and serves it with relate's own `read_cypher` and `get_schema` instead of these five tools.
-
 ## Verify
 
 Check the server from a shell before a host is involved. This step creates a small `graph.rl` to check against, the shared example graph of three people and two projects:
@@ -419,12 +312,9 @@ curl -s -u <user>:<password> -H 'Content-Type: application/json' -X POST http://
 
 **`relate serve` exits 2 with an error that begins `Error: serve --mcp stdio skips auth`.** `--auth` applies to the port listeners only. Drop it from a stdio block.
 
-**The relate docs server answers HTTP 429 with the JSON-RPC error `-32010` or `-32011`.** The client went over the per-IP request limit or a tool's cost budget. The `Retry-After` header gives the seconds to wait; [Limits](/docs/reference/server/docs-mcp#limits) lists both.
-
 ## Related
 
 - [Connect your agent to relate](/docs/get-started/agent-quickstart): install, rehearse a change, then connect over MCP.
-- [The hosted docs MCP server](/docs/reference/server/docs-mcp): the relate docs server's tools, limits, and threat model.
 - [Keep an agent safe](/docs/guides/agents/agent-safety): read-only opens, safe mode, and backups before an agent writes.
 - [MCP errors](/docs/reference/errors#mcp-read-query-only): every MCP refusal and JSON-RPC error code.
 - [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): what to allow when the host runs inside one.

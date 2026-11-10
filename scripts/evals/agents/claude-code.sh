@@ -13,16 +13,13 @@
 #   -p reads the prompt from stdin. --output-format stream-json needs
 #   --verbose; it goes to stdout, which the harness reads as the transcript.
 #   --allowedTools pre-approves the tools a task needs; a call that needs
-#   approval and is not listed is denied in a -p run. `mcp__relate-docs__*`
-#   matches every tool of the server named relate-docs
-#   (https://code.claude.com/docs/en/permissions, read 2026-11-07).
+#   approval and is not listed is denied in a -p run.
 #
-#   none, agents-md, docs-mcp: --bare, which skips auto-discovery of hooks,
+#   none, agents-md: --bare, which skips auto-discovery of hooks,
 #   skills, MCP servers, auto memory and CLAUDE.md, reads only
 #   ANTHROPIC_API_KEY, and sends no system reminders. Each condition is
 #   passed by flag: the system prompt (and, for agents-md, the AGENTS.md
-#   block) through --append-system-prompt-file, the docs MCP server through
-#   --mcp-config.
+#   block) through --append-system-prompt-file.
 #
 #   skill: not --bare. The headless page says bare mode loads skills from an
 #   --add-dir folder's .claude/skills/ but Claude "doesn't get the list of
@@ -64,10 +61,6 @@ if [ -n "${DOCS_EVALS_SKILL_DIR:-}" ]; then
   export HOME="$scratch/home"
 else
   args=(--bare "${args[@]}")
-fi
-if [ -n "${DOCS_EVALS_MCP_CONFIG:-}" ]; then
-  args+=(--mcp-config "$DOCS_EVALS_MCP_CONFIG")
-  tools="$tools,mcp__relate-docs__*"
 fi
 args+=(--allowedTools "$tools")
 

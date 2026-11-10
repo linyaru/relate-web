@@ -1,5 +1,5 @@
-// /robots.txt: disallow everything until the launch build sets PUBLIC_INDEXABLE=true
-// (src/lib/seo.ts, ADR-0057), then allow everything and name the sitemap.
+// /robots.txt: allow everything and name the sitemap, or disallow everything in a build
+// with PUBLIC_INDEXABLE=false (src/lib/seo.ts, ADR-0058).
 import type { APIRoute } from 'astro';
 
 import { robotsTxt } from '../lib/seo.ts';

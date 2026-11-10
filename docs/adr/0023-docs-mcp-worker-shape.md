@@ -1,8 +1,8 @@
 # ADR-0023: The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements
 
-Status: Proposed
+Status: Withdrawn
 
-Date: 2026-11-07
+Date: 2026-11-10
 
 ## Context
 
@@ -85,3 +85,5 @@ plus the seed replay is about 320 ms; warm searches take about 22 ms.
   statements (full-text, vector, vector load); it replays the seed without
   vectors and loads them on the first hybrid search. The cold start is
   re-measured with `npm run docs:mcp-check -- --coldstart 5`.
+- Withdrawn by ADR-0057: the hosted docs MCP server is removed before
+  launch.

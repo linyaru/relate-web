@@ -119,3 +119,9 @@ instructions; Workers Logs keeps lines for days, not months.
   is the sum of committed collections in the repository history.
 - The docs MCP page and the privacy page point at the usage page; changing
   what the Worker logs changes the page's "what is counted" table with it.
+
+## Later references
+
+- Amended by ADR-0057: the usage page and its collection script are
+  withdrawn with the Worker, and the evals run under three conditions
+  without `docs-mcp`.

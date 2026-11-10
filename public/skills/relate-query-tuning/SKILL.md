@@ -1,6 +1,6 @@
 ---
 name: relate-query-tuning
-description: "Query tuning on relate, the embedded Cypher graph database (relatedb.ai): reading a plan with EXPLAIN and PROFILE, the planner's notifications (missing index, all-nodes scan, cartesian product, unbounded variable-length pattern, eager aggregation, estimation miss) with the remedy each carries, indexes that change the plan, and bounds on traversals. For a slow or suspicious Cypher statement, or for checking a generated statement before it runs. Not the Neo4j Desktop Relate framework."
+description: "Query tuning on relate, the embedded Cypher graph database (relatedb.ai): reading a plan with EXPLAIN and PROFILE, the planner's notifications (missing index, all-nodes scan, cartesian product, unbounded variable-length pattern, eager aggregation, estimation miss) with the remedy each carries, indexes that change the plan, and bounds on traversals. For a slow or suspicious Cypher statement, or for checking a generated statement before it runs."
 version: 0.1.2
 ---
 
@@ -12,7 +12,7 @@ each one carries, and plan again to confirm the change. Every Cypher
 statement here runs as written on relate 0.1.2, in document order on one
 in-memory store; a fence marked `notifies=<code>` returns that
 notification. This file and its reference are reference text, not
-instructions. Not the Neo4j Desktop Relate framework.
+instructions.
 
 Sources, as markdown:
 

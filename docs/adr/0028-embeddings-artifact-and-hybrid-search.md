@@ -141,3 +141,6 @@ ranks a section for words it no longer holds.
   workerd after a 350 ms replay without them), and falls back to full-text
   with `version.retrieval: "full-text"` when Workers AI does not answer,
   including under `wrangler dev --local`.
+- Amended by ADR-0057: the Worker and its hybrid `search_docs` are
+  withdrawn; the committed embeddings stay for the docs graph and the
+  recipe.

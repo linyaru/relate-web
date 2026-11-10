@@ -320,7 +320,7 @@ const SYNONYMS: { phrase: RegExp; say: string; label: string }[] = [
 ];
 
 const PRODUCT_NAME: WordRule = {
-  re: /\bRelate ?DB\b|\bthe relate database\b|(?<!\bNeo4j Desktop )\bRelate\b/g,
+  re: /\bRelate ?DB\b|\bthe relate database\b|\bRelate\b/g,
   rule: 'product-name',
   severity: 'error',
   message: (m) => `"${m}": the name is "relate", lowercase, even at the start of a sentence (STYLE.md §4.4)`,

@@ -7,6 +7,15 @@
 // modes use, so src/lib/docs/terminal.test.ts can compare their bytes with
 // the binary's on the same statements and fail on any drift.
 //
+// Since relate 0.1.0 (upstream ADR-0540) every machine mode carries the
+// statement's per-phase timings and the plan cache's outcome. The wire
+// envelope holds them flat (`elapsed_ms`, …, `plan_cache`); the CLI prints a
+// nested `timings` object and `planCache` beside it, and the renderers do the
+// same from the envelope's own values. A recording without its timings (a
+// results sidecar leaves them out) prints each value as `<ms>`, the
+// placeholder the CLI check's mask writes (ADR-0054), and terminal.test.ts
+// compares bytes with timing values masked.
+//
 // What the engine cannot say, the CLI decides: the row cap, the exit code,
 // the stderr lines and the error object. The cap and the error lines follow
 // the CLI's rules; the exit code, the error class and the cap's size come
@@ -136,7 +145,14 @@ export interface Envelope {
   rows: Json[];
   error: string | null;
   hasPlan: boolean;
+  /** The plan cache's outcome (`plan_cache`), or null when the envelope does not carry it. */
+  planCache: string | null;
+  /** The timing values by the CLI's key (`elapsed_ms` …), each number's source text; empty when the envelope carries none. */
+  timings: Map<string, string>;
 }
+
+/** The keys of the CLI's `timings` object, in the order it prints them (sorted). */
+export const TIMING_KEYS = ['elapsed_ms', 'execute_ms', 'lex_parse_ms', 'lower_ms', 'parse_ms', 'plan_ms', 'result_generation_ms', 'rewrite_ms'] as const;
 
 /** A wire envelope from its JSON text (the engine's, or a recording's re-serialized). */
 export function readEnvelope(text: string): Envelope {
@@ -149,8 +165,18 @@ export function readEnvelope(text: string): Envelope {
     rows: field(j, 'rows')?.t === 'arr' ? (field(j, 'rows') as { items: Json[] }).items : [],
     error: error?.t === 'str' ? error.value : null,
     hasPlan: !!plan && plan.t !== 'null',
+    planCache: field(j, 'plan_cache')?.t === 'str' ? (field(j, 'plan_cache') as { value: string }).value : null,
+    timings: new Map(TIMING_KEYS.flatMap((k) => (field(j, k)?.t === 'num' ? [[k, field(j, k)!.raw] as [string, string]] : []))),
   };
 }
+
+/** The CLI's `timings` object for an envelope: its own values, `<ms>` where it carries none. */
+function timingsJson(env: Envelope): string {
+  return `{${TIMING_KEYS.map((k) => `"${k}":${env.timings.get(k) ?? '<ms>'}`).join(',')}}`;
+}
+
+/** The CLI's `planCache` value; a recording made before the key existed reads as `miss`, the outcome of a fresh process's first statement. */
+const planCacheJson = (env: Envelope) => JSON.stringify(env.planCache ?? 'miss');
 
 /**
  * A recorded envelope (results sidecar: parsed JSON, timings left out) as
@@ -409,24 +435,26 @@ export function renderTable(env: Envelope, rows: Json[]): string[] {
 
 const rowCapJson = (kept: number, total: number) => `{"kept":${kept},"total":${total}}`;
 
-/** `--mode envelope`: one compact object, keys sorted, no timings and no stats. */
+/** `--mode envelope`: one compact object, keys sorted, with the timings and the plan cache's outcome, no stats. */
 export function renderEnvelope(env: Envelope, rows: Json[], total: number): string[] {
   const cut = rows.length < total;
   const parts = [
     `"columnTypes":${JSON.stringify(env.columnTypes)}`,
     `"columns":${JSON.stringify(env.columns)}`,
     '"notifications":[]',
+    `"planCache":${planCacheJson(env)}`,
     ...(cut ? [`"rowCap":${rowCapJson(rows.length, total)}`] : []),
     `"rows":[${env.columns.length ? rows.map((r) => r.raw).join(',') : ''}]`,
+    `"timings":${timingsJson(env)}`,
     `"truncated":${cut}`,
   ];
   return [`{${parts.join(',')}}`];
 }
 
-/** `--mode jsonl`: one row per line, then a `{"rowCap": …}` line when the cap cut the rows. */
+/** `--mode jsonl`: one row per line, a `{"rowCap": …}` line when the cap cut the rows, then the statement's timing line. */
 export function renderJsonl(env: Envelope, rows: Json[], total: number): string[] {
-  if (!env.columns.length) return [];
-  return [...rows.map((r) => r.raw), ...(rows.length < total ? [`{"rowCap":${rowCapJson(rows.length, total)}}`] : [])];
+  const body = env.columns.length ? [...rows.map((r) => r.raw), ...(rows.length < total ? [`{"rowCap":${rowCapJson(rows.length, total)}}`] : [])] : [];
+  return [...body, `{"planCache":${planCacheJson(env)},"timings":${timingsJson(env)}}`];
 }
 
 /** Whether Rust's `str::parse::<f64>` accepts `s` (so TOON must quote it). */
@@ -444,7 +472,7 @@ function toonToken(s: string): string {
   return safe ? s : JSON.stringify(s);
 }
 
-/** `--mode toon`: `rows[N]{cols}:`, one indented line per row, then a `rowCap:` entry when cut. */
+/** `--mode toon`: `rows[N]{cols}:`, one indented line per row, a `rowCap:` entry when cut, then `timings:` and `planCache:` entries. */
 export function renderToon(env: Envelope, rows: Json[], total: number): string[] {
   const out: string[] = [];
   if (env.columns.length) {
@@ -458,6 +486,7 @@ export function renderToon(env: Envelope, rows: Json[], total: number): string[]
     }
   }
   if (rows.length < total) out.push('rowCap:', `  ${rowCapJson(rows.length, total)}`);
+  out.push('timings:', `  ${timingsJson(env)}`, 'planCache:', `  ${env.planCache ?? 'miss'}`);
   return out;
 }
 
@@ -644,7 +673,6 @@ export function splitStatements(input: string): string[] {
  * so one that a WASM refresh fixes fails the test until it is removed here.
  */
 export const ENGINE_DIFFERENCES: { fixture: string; pattern: string; binary: string; kind: string }[] = [
-  { fixture: 'a latitude out of range', pattern: '^type error: InvalidArgumentValue: point\\(\\) latitude', binary: 'semantic error: InvalidArgumentValue: …', kind: 'argument' },
 ];
 
 /** One output line: `fd` 1 is stdout, 2 is stderr. */

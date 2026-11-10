@@ -140,7 +140,7 @@ instance. Under `wrangler dev --local`, 30 sequential calls each answered in a
 median of 4.8 ms (`MATCH … RETURN` with notifications) and 4.2 ms
 (`RETURN 1`), against 3.7 ms for `explain_error` and 3.4 ms for
 `discover_capabilities`, which run no engine: the fresh instance costs about
-one millisecond. In relate 0.16.1, 300 chained `WITH` clauses (about 2.1 KB)
+one millisecond. In relate 0.1.2, 300 chained `WITH` clauses (about 2.1 KB)
 trap the WASM's plan serializer; that statement is the trap the tests and the
 smoke test use.
 

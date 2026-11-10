@@ -402,7 +402,7 @@ Every checkpoint of a durable store writes its schema as text under `.cypherlite
 - **Surfaces:** `cli`, `agents`
 - **Guides:** [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Keep the schema as files](/docs/guides/storage/schema-as-files)
 - **Reference:** [Storage formats](/docs/reference/storage/formats), [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints), [Schema clauses](/docs/reference/cypher/schema-clauses)
-- **Verified by:** the `bash verify` step 2 on [Storage formats](/docs/reference/storage/formats#directory-store-files), whose recorded output begins `` CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`); ``; the CLI check replays it against a relate binary
+- **Verified by:** the `bash verify` step 2 on [Storage formats](/docs/reference/storage/formats#wide-column-parquet), whose recorded output begins `layout: native directory`; the CLI check replays it against a relate binary
 
 ## Fresh graph per test run
 
@@ -443,7 +443,7 @@ A team with data in Neo4j or Aura often wants part of it local: for an agent to 
 - **Surfaces:** `cli`, `bolt`, `http`
 - **Guides:** [Pull a subgraph from Neo4j](/docs/guides/neo4j/pull-from-neo4j), [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j), [Migrate from Neo4j](/docs/guides/migrate/from-neo4j)
 - **Reference:** [relate pull](/docs/reference/cli/pull), [relate push](/docs/reference/cli/push), [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Where relate fits](/docs/concepts/where-relate-fits)
-- **Verified by:** the `bash verify` step 3 on [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j#give-each-label-a-merge-key), whose recorded output begins `{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}`; the CLI check replays it against a relate binary
+- **Verified by:** the `bash verify` step 3 on [Push a subgraph to Neo4j](/docs/guides/neo4j/push-to-neo4j#give-each-label-a-merge-key), whose recorded output begins `{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.072917000000000`; the CLI check replays it against a relate binary
 
 ## Shared store across processes
 

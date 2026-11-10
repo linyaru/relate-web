@@ -12,7 +12,7 @@ In about ten minutes, we give an agent a memory that outlives its session: one f
 
 ## Prerequisites
 
-- `relate` on your `PATH`: `relate --version` prints `Relate v0.16.1` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
+- `relate` on your `PATH`: `relate --version` prints `Relate v0.1.2` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
 - A terminal on macOS or Linux, in an empty directory.
 
 ## Create the memory store
@@ -148,7 +148,7 @@ serve: MCP (stdio) serving on stdin/stdout (auth: none)
 serve: stdin closed, shutting down
 ```
 
-The server answered each request and stopped when its input ended, as it does when a host closes it. `replies.jsonl` holds two lines, since a notification gets no reply. The first names the server, `relate-mcp` 0.16.1. The second is the write's result as JSON text inside the reply: `write_cypher` returns counters, not rows, so it shows `"nodes_created":2` and `"relationships_created":6`, an empty `rows`, and timings that change on every run. Let's read the store to see what the write did:
+The server answered each request and stopped when its input ended, as it does when a host closes it. `replies.jsonl` holds two lines, since a notification gets no reply. The first names the server, `relate-mcp` 0.1.2. The second is the write's result as JSON text inside the reply: `write_cypher` returns counters, not rows, so it shows `"nodes_created":2` and `"relationships_created":6`, an empty `rows`, and timings that change on every run. Let's read the store to see what the write did:
 
 ```bash verify
 relate --database ./memory.rl --read-only --mode table "MATCH (f:Fact)-[:FROM]->(ep:Episode) RETURN ep.id AS episode, ep.kind AS kind, f.text AS fact, f.closedAt IS NULL AS current ORDER BY episode"
@@ -321,7 +321,7 @@ relate query --database ./memory.rl --read-only --mode envelope --param 'vector=
 ```
 
 ```text
-{"columnTypes":["STRING","FLOAT","STRING","LIST"],"columns":["memory","score","evidence","replaced"],"notifications":[],"rows":[{"evidence":"read_file CODEOWNERS: release/ @ada","memory":"Ada reviews each relate release.","replaced":["Grace reviews each relate release."],"score":0.999},{"evidence":"Noor goes through new relate issues every Monday.","memory":"Noor triages new relate issues on Mondays.","replaced":[],"score":0.6178}],"truncated":false}
+{"columnTypes":["STRING","FLOAT","STRING","LIST"],"columns":["memory","score","evidence","replaced"],"notifications":[],"planCache":"miss","rows":[{"evidence":"read_file CODEOWNERS: release/ @ada","memory":"Ada reviews each relate release.","replaced":["Grace reviews each relate release."],"score":0.999},{"evidence":"Noor goes through new relate issues every Monday.","memory":"Noor triages new relate issues on Mondays.","replaced":[],"score":0.6178}],"timings":{"elapsed_ms":0.654417,"execute_ms":0.407083,"lex_parse_ms":0.048834,"lower_ms":0.06183400000000001,"parse_ms":0.1575,"plan_ms":0.0795,"result_generation_ms":0.00025,"rewrite_ms":0.009041},"truncated":false}
 ```
 
 A question embedded with the wrong model has the wrong length. The statement fails before it runs: the message goes to stderr, the error object to stdout, and the exit code is 6:

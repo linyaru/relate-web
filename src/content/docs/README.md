@@ -345,7 +345,7 @@ that drifts. Format 1:
 ```json
 {
   "format": 1,
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "cells": {
     "friends": {
       "kind": "table",
@@ -473,10 +473,10 @@ fails.
 
 **What a number says about itself.** Every element's status line opens
 with one of two phrases from `src/lib/docs/elements/_wording.ts`, then its
-own clause: `recordedLine` ("Recorded on relate 0.16.1 when the page was
+own clause: `recordedLine` ("Recorded on relate 0.1.2 when the page was
 built.", with the version the page's recordings were verified on, or the
 binary's for a CLI or server recording) before anything runs, and
-`liveLine` ("From this tab's run on relate 0.16.1, 0.8 ms in the engine.")
+`liveLine` ("From this tab's run on relate 0.1.2, 0.8 ms in the engine.")
 after a run, the time being the engine's own `elapsed_ms`. The place is
 always "this tab". Durations print with its `formatMs`: one decimal, `<0.1`
 below it, whole milliseconds from 100 up. A docs page is not cross-origin
@@ -786,19 +786,20 @@ To allow writes, remove `--read-only`.
 ## Facts and data files
 
 Only shipped behavior, verified against the relate binary the data files
-name (`recorded_with`) or the WASM build the site ships (`AGENTS.md`).
-Before launch that binary is a release-profile source build of upstream
-`ac441ec`: it reports 0.16.1 but includes engine changes made after the
-v0.16.1 release (engine.json `source_build`); the first relate release
-re-records everything (`LAUNCH.md`). Quote error messages, flags and JSON
-keys character for character.
+name (`recorded_with`) or the WASM build the site ships (`AGENTS.md`). That
+binary is a published release (today v0.1.2), installed through
+`install.sh`; each release re-records everything (`AGENTS.md` §4). Quote
+error messages, flags and JSON keys character for character. The one part of
+an output that changes from run to run, a timing value (the number after a
+JSON key ending `_ms`), is masked when a recording is replayed (ADR-0054), so
+a page shows the numbers of the run it was written from.
 
 The files under `_data/` hold the facts the generated components and
 checks read, so a page does not retype them:
 
 | File | Holds | Read by |
 | --- | --- | --- |
-| `engine.json` | `version`, `verified`, `date` and `commit` of the release the docs track (`source_build: true` while the recordings come from a source build), and the recorded `relate --version` (`version_check`) and envelope of `RETURN 1 AS ok` (`envelope_check`) | the generated `verified` field, `<Install />`, `llms.txt`, the lag check, `docs:cli-check` |
+| `engine.json` | `version`, `verified`, `date` and `commit` of the release the docs track (`source_build: true` only if the recordings ever come from a source build again), and the recorded `relate --version` (`version_check`) and envelope of `RETURN 1 AS ok` (`envelope_check`) | the generated `verified` field, `<Install />`, `llms.txt`, the lag check, `docs:cli-check` |
 | `cli.json` | commands, query-run flags, environment variables, output modes, the error object, exit codes, agent mode, and every command's recorded `--help` and `agent-context` | `<ExitCodes />`, `<Flags />`, `<EnvVars />`, the docs graph's "every flag is documented" check, `docs:cli-check` |
 | `errors.json` | CLI error classes and messages, engine errors with their GQL status, HTTP, Bolt and MCP refusals, the refusals a client library raises itself (`client`: Node.js, WebAssembly, C ABI), the Python exception classes and messages, notifications | `<Errors />`, `<ExitCodes />`, `explain_error`, the quoted-string check, `docs:cli-check` |
 | `changelog.json` | Per release: version, date, previous version, a summary, and items under Added, Changed, Deprecated, Removed and Fixed; the deprecation policy | the changelog page, its twin and `/docs/changelog.json` |

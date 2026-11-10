@@ -3,7 +3,7 @@
 `EXPLAIN` and `PROFILE` attach notifications to a plan; a plain run derives
 none. Each has a GQLSTATUS code, a severity, a category, a title, a
 description that names the labels, properties and counts involved, and a
-remedy. The descriptions below are quoted from runs on relate 0.16.1; the
+remedy. The descriptions below are quoted from runs on relate 0.1.2; the
 parts that name labels, properties and counts vary. The Cypher statements
 run in order on one in-memory store.
 
@@ -73,4 +73,4 @@ EXPLAIN MATCH (n {name: 'Ada'}) RETURN n
 
 `03C92` needs an aggregation over an estimated 100,000 rows or more, and
 `03C93` a `PROFILE` whose estimate misses by 10 times or more; both were
-reproduced on relate 0.16.1 over 100,000 nodes, too large for this file.
+reproduced on relate 0.1.2 over 100,000 nodes, too large for this file.

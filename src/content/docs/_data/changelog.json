@@ -6,6 +6,146 @@
   ],
   "releases": [
     {
+      "version": "0.1.2",
+      "date": "2026-11-09",
+      "published_at": "2026-11-09T22:07:38Z",
+      "previous": "0.1.1",
+      "summary": "Element ids carry the database's name, and a shortest path between two endpoints matched by property maps is searched from both ends.",
+      "changed": [
+        {
+          "text": "`elementId()` names the database: the first node of the default database is `4:relate-neo4j:n0` and its first relationship `5:relate-neo4j:r0`, where 0.1.1 returned `4:relate:n0` and `5:relate:r0`, and the clients, JSON output and Bolt carry the same strings.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/types-and-values",
+            "reference/cypher/functions"
+          ]
+        },
+        {
+          "text": "A `shortestPath` whose two endpoints are matched by property maps looks up both endpoints and searches from both ends at once."
+        },
+        {
+          "text": "Opening a store whose write-ahead log replays nothing no longer rebuilds its indexes."
+        },
+        {
+          "text": "`relate upgrade` no longer prints the notice of the rename after its status line."
+        }
+      ]
+    },
+    {
+      "version": "0.1.1",
+      "date": "2026-11-09",
+      "published_at": "2026-11-09T20:25:16Z",
+      "previous": "0.1.0",
+      "summary": "Full-text search reads the index's query syntax and ranks by BM25, and the Parquet codec can store each promoted property in a column of its own.",
+      "added": [
+        {
+          "text": "`--snapshot-format parquet-wide`, on a query run and on `relate serve`, which gains the flag: the Parquet codec writes one typed column per promoted property key, and from the store's next checkpoint on every later open keeps it wide.",
+          "pages": [
+            "reference/storage/formats",
+            "reference/cli/flags"
+          ]
+        },
+        {
+          "text": "Full-text search pages with `SKIP` and `OFFSET`, and `WITH ANALYZER` is evaluated per row, English stemming included."
+        }
+      ],
+      "changed": [
+        {
+          "text": "Full-text search passes the query string to the index's query syntax, so `AND` and `NOT` are operators while a lowercase `and` stays a term, and it ranks hits by BM25 scores, so a hit's `score` and the order of hits can differ from 0.1.0.",
+          "breaking": true,
+          "pages": [
+            "guides/cypher/full-text-and-hybrid-search",
+            "reference/cypher/search"
+          ]
+        },
+        {
+          "text": "The Java client's `QueryType`, `Namespace`, `Severity` and `Category` are enums instead of strings, and `PlanActual` carries the whole plan shape.",
+          "breaking": true,
+          "pages": [
+            "reference/api/java"
+          ]
+        },
+        {
+          "text": "POINT indexes seek radius and bounding-box queries through an R*-tree."
+        },
+        {
+          "text": "The variable-shadowing notification also looks inside the bodies of `EXISTS`, `COUNT` and `COLLECT` subqueries."
+        }
+      ],
+      "fixed": [
+        {
+          "text": "`round()` on a decimal, the sort order of temporal values, and the type of a nested list whose elements have mixed types."
+        },
+        {
+          "text": "A list value at a `WHERE` or `FILTER` position is coerced to a predicate."
+        },
+        {
+          "text": "`FINISH` is accepted after a catalog command that returns rows, and a schema command runs only as a statement of its own."
+        }
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-11-09",
+      "published_at": "2026-11-09T13:44:01Z",
+      "previous": "0.16.1",
+      "summary": "The first release published as relate, which restarts the version line at 0.1.0 after cypherlite's 0.16.1: the release assets are `relate-<os>-<arch>` and `relate-ffi-<target>.tar.gz`, and the signer and the signature namespace are `relate-release`, with the same key.",
+      "added": [
+        {
+          "text": "Every machine-readable result carries per-phase timings and the plan cache's outcome: `--mode envelope` and `--mode json` add a `timings` object and `planCache`, `--mode jsonl` ends each statement with a line holding both, `--mode toon` ends with `timings:` and `planCache:` entries, the envelope of MCP and the WebAssembly build adds `lex_parse_ms`, `rewrite_ms`, `lower_ms`, `result_generation_ms` and `plan_cache`, and the Rust crate's `QueryResult` adds the same four timings and `plan_cache()`; the C ABI and the other clients expose none of them yet.",
+          "pages": [
+            "reference/cli/output-modes"
+          ]
+        },
+        {
+          "text": "The `FOR` clause runs without a preview gate."
+        }
+      ],
+      "changed": [
+        {
+          "text": "`--mode json` prints an object for every statement, `{\"data\": [...], \"planCache\": ..., \"timings\": {...}}`, where 0.16.1 printed a bare array for a result the row cap did not cut.",
+          "breaking": true,
+          "pages": [
+            "reference/cli/output-modes"
+          ]
+        },
+        {
+          "text": "`--mode jsonl` prints one more line per statement, its timings, so a statement with no rows prints that one line instead of nothing.",
+          "breaking": true,
+          "pages": [
+            "reference/cli/output-modes"
+          ]
+        },
+        {
+          "text": "`relate clone` refuses a `markdown` store as the source of a `.rl` bundle unless `--to-snapshot-format` names `parquet` or `json`, with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`.",
+          "breaking": true,
+          "pages": [
+            "reference/cli/clone"
+          ]
+        },
+        {
+          "text": "Usage metrics are written to a local spool at exit and sent by the next run, so an exit never waits on the network, and `RELATE_TELEMETRY_FLUSH_MS` is removed; `relate telemetry off` deletes the spool.",
+          "pages": [
+            "reference/privacy-and-telemetry"
+          ]
+        }
+      ],
+      "fixed": [
+        {
+          "text": "`coll.max()` returns null when the list holds a null, as Neo4j does."
+        },
+        {
+          "text": "`toString()` of a path and an index into a null string return what Neo4j returns."
+        },
+        {
+          "text": "A count-style aggregate over a repeated node variable counts only self-loops."
+        },
+        {
+          "text": "In the Swift client, `transaction(_:)` rolls back when `commit()` throws."
+        }
+      ]
+    },
+    {
       "version": "0.16.1",
       "date": "2026-11-04",
       "published_at": "2026-11-04T17:26:42Z",

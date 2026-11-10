@@ -63,7 +63,7 @@ relate --database ./backups/team-2026-11-07.rl --read-only --mode envelope "MATC
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"planCache":"miss","rows":[{"nodes":5}],"timings":{"elapsed_ms":0.46954199999999996,"execute_ms":0.309667,"lex_parse_ms":0.027375,"lower_ms":0.038708,"parse_ms":0.100791,"plan_ms":0.05025,"result_generation_ms":0.000292,"rewrite_ms":0.008042},"truncated":false}
 ```
 
 `relate info` reads the backup's metadata without opening it, including the node and relationship counts at its last :term[checkpoint]{id=checkpoint}:
@@ -144,7 +144,7 @@ relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN p.
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"timings":{"elapsed_ms":0.549375,"execute_ms":0.380625,"lex_parse_ms":0.030459,"lower_ms":0.040791,"parse_ms":0.10675000000000001,"plan_ms":0.053209,"result_generation_ms":0.000209,"rewrite_ms":0.007958000000000002},"truncated":false}
 ```
 
 ## If it goes wrong

@@ -7,7 +7,7 @@ surfaces: [java]
 related: [guides/embed/java, get-started/java, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Java :term[client]{id=client} is the artifact `com.relate:relate`, package `com.relate`, for Java 17 or later. It calls the relate C library, `librelate_ffi`, through JNA (Java Native Access), and its jar carries that library; the library's C application binary interface (C ABI) is version 2. Its two dependencies are JNA and Jackson databind. Every call is synchronous, and every failure is an unchecked exception. This page describes the client as built from source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+The Java :term[client]{id=client} is the artifact `com.relate:relate`, package `com.relate`, for Java 17 or later. It calls the relate C library, `librelate_ffi`, through JNA (Java Native Access), and its jar carries that library; the library's C application binary interface (C ABI) is version 2. Its two dependencies are JNA and Jackson databind. Every call is synchronous, and every failure is an unchecked exception. This page describes the client of relate 0.1.2.
 
 ## Synopsis
 
@@ -35,8 +35,8 @@ public class Database implements AutoCloseable {
     public static class Result {
         public List<String> columns();
         public List<List<Object>> rows();
-        public String getQueryType();
-        public String getNamespace();
+        public QueryType getQueryType();
+        public Namespace getNamespace();
         public String getBookmark();
         public List<Notification> getNotifications();
         public PlanDocument getPlan();
@@ -57,8 +57,11 @@ public class Database implements AutoCloseable {
 | `Point` | record | `srid`, `x`, `y`, `z` (`null` on a 2D point) |
 | `DurationValue` | record | `months`, `days`, `seconds`, `nanos` |
 | `VectorValue` | record | `dtype`, `coordinates` |
+| `QueryType` | enum | `READ`, `WRITE`, `READ_WRITE`, `SCHEMA` |
+| `Namespace` | enum | `NEO4J`, `SYSTEM`, `SYSTEM_ONTOLOGIES` |
 | `Notification` | final class | One planner notification |
-| `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | classes with public fields | The structured plan |
+| `Severity`, `Category` | enums | A notification's severity and category |
+| `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart`, `PlanFrontier`, `PlanKernel` | classes with public fields | The structured plan |
 | `RelateException` | `RuntimeException` | The base of every client exception |
 | `TransientException`, `ClientException`, `DatabaseException` | subclasses of `RelateException` | The engine's classification of a failure |
 | `RelateException.Stage` | enum | `COMPILE`, `RUNTIME`, `INTERNAL` |
@@ -109,13 +112,13 @@ A failed `commit()` ends the transaction. A call on a closed connection or datab
 | --- | --- |
 | `columns()` | The column names, in `RETURN` order |
 | `rows()` | One `List<Object>` per row, cells in column order, typed as in [Values](#values) |
-| `getQueryType()` | `"r"` (read), `"w"` (write with no columns), `"rw"` (write with columns) or `"s"` (schema); `EXPLAIN` and `PROFILE` report the wrapped statement's type |
-| `getNamespace()` | `"neo4j"`, `"system"` or `"system_ontologies"`: the statement's `USE` target, else the session namespace |
+| `getQueryType()` | A `QueryType`: `READ`, `WRITE` (a write with no columns), `READ_WRITE` (a write with columns) or `SCHEMA`; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
+| `getNamespace()` | A `Namespace`: `NEO4J`, `SYSTEM` or `SYSTEM_ONTOLOGIES`; the statement's `USE` target, else the session namespace |
 | `getBookmark()` | An auto-commit write's bookmark, `relate:<n>`; `null` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
 | `getNotifications()` | The statement's notifications; filled by `EXPLAIN` and `PROFILE`, empty on a plain run |
 | `getPlan()` | The `relate.plan/v1` plan document under `EXPLAIN` or `PROFILE`; `null` on a plain run |
 
-A `Result` carries no mutation counters, column types, or timings. A bookmark's `<n>` grows across every connection of the store and orders as a number: as strings, `"relate:10"` sorts before `"relate:9"`.
+`QueryType`, `Namespace`, `Severity` and `Category` each have `wire()`, the string the C ABI carries: `QueryType.READ_WRITE.wire()` is `"rw"`, `Namespace.NEO4J.wire()` is `"neo4j"`, and a `Severity` or `Category` constant's string is its name. A `Result` carries no mutation counters, column types, or timings. A bookmark's `<n>` grows across every connection of the store and orders as a number: as strings, `"relate:10"` sorts before `"relate:9"`.
 
 ## Values
 
@@ -141,7 +144,7 @@ Each result cell is decoded into one Java type per Cypher kind:
 | `VECTOR` | `VectorValue`; `coordinates` holds `Long` for the `INTEGER*` types and `Double` for the `FLOAT*` types |
 | byte array | `List<Long>`, each 0 to 255 |
 
-An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`, so it round-trips through a parameter. The `long` ids are the deprecated numeric ids `id()` returns. A map key holding a NUL character, or a value kind the client does not know, throws `RelateException` instead of returning a value.
+An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`, so it round-trips through a parameter. The `long` ids are the deprecated numeric ids `id()` returns. A map key holding a NUL character, or a value kind the client does not know, throws `RelateException` instead of returning a value.
 
 ## Parameters
 
@@ -173,7 +176,7 @@ Any other type throws `IllegalArgumentException` before the statement runs, such
 | `TransientException` | The engine marks the failure retryable: a write-write :term[conflict]{id=conflict}, `Neo.TransientError.Transaction.Outdated`, message `write-write conflict`, or the retryable workspace cap | `true` |
 | `ClientException` | The code starts `Neo.ClientError.`: syntax, types, a missing parameter, an unknown namespace, a write on a read-only store | `false` |
 | `DatabaseException` | The code starts `Neo.DatabaseError.`: engine failures, a failed open, and the C boundary's `INTERNAL` stage | `false` |
-| `RelateException` | Any other code, and the client's own failures: native loading, a closed handle, a malformed C ABI payload | `false` |
+| `RelateException` | Any other code, and the client's own failures: native loading, a closed handle, a malformed C ABI payload, such as a query type, namespace, notification severity, or category outside its enum | `false` |
 
 Every class has these getters:
 
@@ -189,7 +192,7 @@ A conflict surfaces on an auto-commit statement or on `commit()`. After an `INTE
 
 ## Notifications and plans
 
-`Notification` has the getters `getCode()`, `getGqlStatus()`, `getSeverity()` (`INFORMATION` or `WARNING`), `getCategory()` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `getTitle()`, `getDescription()`, `getRemedy()` and `getOperatorId()`, a `Long` that is `null` on a statement-scoped notification. The list follows plan pre-order, then statement-scoped entries.
+`Notification` has the getters `getCode()`, `getGqlStatus()`, `getSeverity()` (a `Severity`: `INFORMATION` or `WARNING`), `getCategory()` (a `Category`: `PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `getTitle()`, `getDescription()`, `getRemedy()` and `getOperatorId()`, a `Long` that is `null` on a statement-scoped notification. The list follows plan pre-order, then statement-scoped entries.
 
 The plan classes have public fields:
 
@@ -197,8 +200,10 @@ The plan classes have public fields:
 | --- | --- |
 | `PlanDocument` | `schema` (`relate.plan/v1`), `profiled`, `statement`, `root` |
 | `PlanNode` | `operator`, `details`, `identifiers`, `estimatedRows`, `actual`, `children`, `warnings` (the operator's notifications) |
-| `PlanActual` | `rows`, `timeMs`, `dbHits`, `memoryBytes`, `hops`, `neighborWalks`, `nodeReads`, `start`; `null` on an `EXPLAIN` plan |
+| `PlanActual` | `rows`, `timeMs`, `totalTimeMs` (the operator's time plus its descendants'), `dbHits`, `seekMs`, `walkMs`, `loops` (a `Long`, `null` on an operator with no input clause), `memoryBytes`, `expressionBuiltBytes`, `hops`, `neighborWalks`, `nodeReads`, `batched`, `zoneSkips`, `frontier`, `frontierDecline` (`null` when the frontier never declined), `start`, `kernel` (`null` when no kernel served the walk); the whole object is `null` on an `EXPLAIN` plan |
 | `PlanStart` | `element`, `backward`, `reason` |
+| `PlanFrontier` | `edgeVisits`, `levels`, `endpoints`, `cells`, `memoHits`, `memoMisses`, `representativeProofs`, `searchProven`, `searchDisproven`, `declinedExhausted`, `budgetFraction`; all zeros when the operator walks no frontier |
+| `PlanKernel` | `rung`: `chain`, `hub-star`, `frontier-nfa` or `walker`; `hops`, a `Long` that only `chain` sets |
 
 ## Native library
 

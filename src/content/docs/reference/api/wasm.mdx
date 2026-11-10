@@ -194,7 +194,7 @@ A crash inside the engine (a Rust panic, stack exhaustion, an out-of-bounds acce
 
 | Absent | In its place |
 | --- | --- |
-| A version export | `CALL dbms.components() YIELD name, versions WHERE name = 'Relate' RETURN versions[0]` returns the engine version (`0.16.1`) |
+| A version export | `CALL dbms.components() YIELD name, versions WHERE name = 'Relate' RETURN versions[0]` returns the engine version (`0.1.2`) |
 | Opening a `.rl` file, a directory store, or a URL | `new RelateDb()` in memory, or `RelateDb.open('opfs://<name>')` |
 | A statement deadline or timeout | None; a page that runs the engine in a worker ends a statement with `worker.terminate()` |
 | Explicit transactions | Each statement commits on its own |

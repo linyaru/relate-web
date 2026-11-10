@@ -6,7 +6,7 @@ still holds. Record time, `recordedAt` to `closedAt`, is when the agent
 believed it; an open `closedAt` means it still does. A correction that
 arrives late closes the old fact on both axes, and the two axes then give
 different answers for the days in between. The statements below run in
-order on one in-memory store, on relate 0.16.1.
+order on one in-memory store, on relate 0.1.2.
 
 Sources: <https://relatedb.ai/cookbook/bitemporal-decisions/index.md> (a
 decision log through late corrections, a rejection and a planned change)

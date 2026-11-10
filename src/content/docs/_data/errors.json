@@ -1,6 +1,6 @@
 {
   "$schema_note": "Every error an agent can meet, for /docs/reference/errors and explain_error (DOCS-PLAN.md §2, §8 check 3d). `id` is a stable anchor (#<id>); renaming one needs a redirect. `message` is quoted character for character, from the binary where `recorded` holds a run of it (replayed by `npm run docs:cli-check`; see cli.json `recording`), otherwise from upstream; `<name>` marks a variable part and `…` an elision. null means the sources do not say. `verify` marks what the release binary cannot show.",
-  "verified": "0.16.1",
+  "verified": "0.1.2",
   "upstream": {
     "repo": "relatedb/relate",
     "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
@@ -26,7 +26,7 @@
         "docs/api/cli/examples/agents.md",
         "docs/api/bolt/spec.md",
         "docs/api/python/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "Another recorded form: `syntax error: parse error: expected RightParen, got \"RETURN\" (RETURN)`. The stderr form adds the source line and a caret under the column.",
       "recorded": [
@@ -62,7 +62,7 @@
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/bolt/spec.md",
         "docs/api/python/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope 'RETURN $x AS x'",
@@ -89,7 +89,7 @@
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/bolt/spec.md",
         "surfaces/relate-python/python/relate/exceptions.py",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "Recorded form: `semantic error: NumberOutOfRange` for a negative vector dimension; the prefix is `semantic error:` although the kind is `argument`. On Bolt the same rejection arrives at RUN as FAILURE `Neo.ClientError.General.InvalidArguments` with message `semantic error: NumberOutOfRange`.",
       "recorded": {
@@ -118,7 +118,7 @@
         "docs/api/http/spec.md § Error envelope",
         "docs/api/bolt/spec.md",
         "surfaces/relate-python/python/relate/exceptions.py",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN 1 / 0 AS x\"",
@@ -185,7 +185,7 @@
         "docs/api/cli/spec.md § Query-engine flags",
         "docs/api/cli/spec.md § Query-run errors",
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "The error object's `message` is `storage locked: <path>`; stderr prints `Failed to open Relate: storage locked: <path>`. A `--read-only` open of a `.rl` file is refused the same way while a writer holds it. For a directory store, `<path>` is the writer lock file inside it. `relate serve` on a store another process holds stops at startup with `Error: Failed to open Relate: storage locked: <path>` and exit code 1, not 5 ([cli-serve-open-failed](/docs/reference/errors#cli-serve-open-failed)); `relate clone` of a held `.rl` source exits 1 too ([cli-clone-locked](/docs/reference/errors#cli-clone-locked)).",
       "recorded": {
@@ -212,7 +212,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate clone ./a.rl ./b.rl",
@@ -240,7 +240,7 @@
       "note": "The query run reports the same lock with exit code 5 ([cli-conflict-locked](/docs/reference/errors#cli-conflict-locked)); `relate serve` exits 1.",
       "sources": [
         "docs/api/cli/spec.md § relate serve",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -278,7 +278,7 @@
         "docs/api/bolt/spec.md",
         "docs/api/python/spec.md § Error mapping for namespace errors",
         "docs/api/rust/errors.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --logical-graph-size-limit 1mb \"UNWIND range(1, 20000) AS i CREATE (:Item {i: i})\"",
@@ -303,7 +303,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --concurrent-logical-workspace-limit 1 \"UNWIND range(1, 1000) AS i RETURN collect(i) AS c\"",
@@ -330,7 +330,7 @@
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/rust/spec.md",
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "Recorded forms: `storage error: database not found: <path>` (a missing `.rl`), `storage error: read-only open requires an existing database at <path>` (a missing or empty directory), `storage error: read-only open requires an existing WAL at <path>/wal` (a directory store without its WAL folder), `storage error: snapshot codec mismatch: directory is <codec>, requested <codec>` (`--snapshot-format` against an existing store), `storage error: wal_dir is not supported for .rl single-file databases …` (`--wal-dir` with a `.rl` store; nothing is created), and `storage error: unsupported snapshot version <n>` (a store written by a newer relate; `relate info` prints `Failed to read store info: storage error: unsupported snapshot version <n>`). Also seen: `storage error: WAL checksum mismatch` (a damaged WAL record before the tail; `--read-only` and `relate clone` fail the same way, clone prefixed `Failed to clone database: `) and `storage error: unsupported graph value encoding: <n>` (JSON). stderr prefixes `Failed to open Relate: `.",
       "recorded": [
@@ -391,7 +391,7 @@
       "http_status": null,
       "note": "stderr prefixes `Failed to open Relate: `.",
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database bolt://localhost:7687 --mode envelope \"RETURN 1 AS ok\"",
@@ -417,7 +417,7 @@
       "note": "stderr prefixes `Failed to open Relate: `.",
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --read-only=live --mode envelope \"RETURN 1 AS ok\"",
@@ -485,10 +485,10 @@
         "docs/reference/cli-flags.md",
         "surfaces/relate-cli/src/skill/bundle/SKILL.md",
         "surfaces/relate-cli/src/errors.rs (kind execution)",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "stderr prints `Error: query timed out after <duration>`; the error object's `message` drops the `Error: ` prefix. `--timeout 0.1` prints as `100ms`.",
-      "settled_by": "relate 0.16.1 (ac441ec), source build",
+      "settled_by": "relate 0.1.2 (f0c09d2), release build",
       "recorded": {
         "command": "relate --mode envelope --timeout 100ms \"UNWIND range(1, 20000) AS a UNWIND range(1, 20000) AS b RETURN count(*) AS pairs\"",
         "stdout": "{\"error\":{\"code\":\"timeout\",\"exit_code\":7,\"kind\":\"execution\",\"message\":\"query timed out after 100ms\",\"retryable\":false}}\n",
@@ -512,7 +512,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Help and usage errors",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "An extra positional prints `Error: unexpected argument: <arg>`.",
       "recorded": [
@@ -565,7 +565,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --param 'p={bad' 'RETURN $p AS p'",
@@ -591,7 +591,7 @@
       "note": "Recorded forms: `Error: --fetch-params <name>: invalid JSON: <detail>` and `Error: --fetch-params <name>: reading <path>: <reason>` (for example `No such file or directory (os error 2)`, or `source exceeded the 64 MiB cap`). A value without `=` is a usage error instead: `Error: invalid --fetch-params value: expected name=value`, exit code 2. An HTTP source that answers an error status prints `Error: --fetch-params <name>: HTTP <status>` (observed as HTTP 404).",
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -625,7 +625,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --namespace graph \"RETURN 1 AS ok\"",
@@ -650,7 +650,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --namespace neo4j pull --query 'MATCH (n) RETURN n' --database ./pulled.rl",
@@ -675,7 +675,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_MAX_ROWS=all relate \"RETURN 1 AS ok\"",
@@ -700,7 +700,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_AGENT_MODE=yes relate \"RETURN 1 AS ok\"",
@@ -725,7 +725,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_DURABILITY_MODE=fast relate \"RETURN 1 AS ok\"",
@@ -750,7 +750,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_SAFE_MODE=yes relate \"RETURN 1 AS ok\"",
@@ -776,7 +776,7 @@
       "note": "The binary ends the message with an upstream reference in parentheses.",
       "sources": [
         "docs/api/cli/spec.md § Loading a store from a source",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --safe --load https://example.com/graph.rl \"RETURN 1 AS ok\"",
@@ -801,7 +801,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Loading a store from a source",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --load http://example.com/x.rl \"RETURN 1\"",
@@ -826,7 +826,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_LOGICAL_GRAPH_SIZE_LIMIT=lots relate \"RETURN 1 AS ok\"",
@@ -851,7 +851,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_EXPRESSION_MEMORY_LIMIT=lots relate \"RETURN 1 AS ok\"",
@@ -876,7 +876,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -909,7 +909,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -942,7 +942,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "The error object's `message` drops the `Failed to open Relate: ` prefix.",
       "recorded": {
@@ -969,7 +969,7 @@
       "note": "stderr prefixes `Failed to open Relate: `.",
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_PATTERN_ENGINE=bogus relate --mode envelope \"RETURN 1 AS x\"",
@@ -995,7 +995,7 @@
       "note": "stderr prefixes `Failed to open Relate: `.",
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_BULK_BATCH_THRESHOLD=x relate --mode envelope \"RETURN 1 AS x\"",
@@ -1013,20 +1013,20 @@
       "retryable": false,
       "gql_status": null,
       "neo4j_code": null,
-      "message": "storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)",
-      "cause": "`RELATE_SNAPSHOT_FORMAT` names no codec; the open of a persistent store fails.",
-      "remedy": "Use `parquet`, `json` or `markdown`, or unset it.",
+      "message": "storage error: unknown snapshot codec '<value>' (expected parquet, json, markdown or rkyv)",
+      "cause": "`RELATE_SNAPSHOT_FORMAT` names no codec the variable takes (`parquet-wide` is a flag value only); a query run's open fails, `:memory:` included.",
+      "remedy": "Use `parquet`, `json` or `markdown`, or unset it; for wide-column parquet, pass `--snapshot-format parquet-wide`.",
       "python_class": null,
       "http_status": null,
-      "note": "stderr prefixes `Failed to open Relate: `. The same value given as `--snapshot-format` is a usage error, exit code 2: `Error: invalid --snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`.",
+      "note": "stderr prefixes `Failed to open Relate: `. The same value given as `--snapshot-format` is a usage error, exit code 2: `Error: invalid --snapshot-format: storage error: unknown snapshot format '<value>' (expected parquet or json or markdown or parquet-wide)`. `rkyv` is not compiled into the release binary: `RELATE_SNAPSHOT_FORMAT=rkyv` fails the open with `storage error: rkyv snapshot codec is not compiled into this build (enable the \"rkyv-codec\" feature)`.",
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_SNAPSHOT_FORMAT=csv relate -d ./x --mode envelope \"RETURN 1\"",
-        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\",\"retryable\":false}}\n",
-        "stderr": "Failed to open Relate: storage error: unknown snapshot codec 'csv' (expected parquet, json or markdown)\n",
+        "stdout": "{\"error\":{\"code\":\"fatal_error\",\"exit_code\":1,\"kind\":\"storage\",\"message\":\"storage error: unknown snapshot codec 'csv' (expected parquet, json, markdown or rkyv)\",\"retryable\":false}}\n",
+        "stderr": "Failed to open Relate: storage error: unknown snapshot codec 'csv' (expected parquet, json, markdown or rkyv)\n",
         "exit": 1
       }
     },
@@ -1065,11 +1065,11 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf '.begin\\nCREATE (:Draft);\\n' | relate query --database ./s.rl --mode envelope",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.326208,\"execute_ms\":0.206833,\"lex_parse_ms\":0.0027089999999999996,\"lower_ms\":0.001708,\"parse_ms\":0.113917,\"plan_ms\":0.001375,\"result_generation_ms\":0.000041,\"rewrite_ms\":0.000292},\"truncated\":false}\n",
         "stderr": "Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.\n",
         "exit": 1
       }
@@ -1090,7 +1090,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf 'RETURN 1 AS \\377;' | relate query --mode envelope",
@@ -1115,7 +1115,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -1149,7 +1149,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --load-csv-dir ./csv \"LOAD CSV FROM 'file:///big.csv' AS row RETURN count(row) AS n\"",
@@ -1176,7 +1176,7 @@
       "note": "stderr prefixes `Failed to open Relate: `.",
       "sources": [
         "docs/api/rust/spec.md § Local LOAD CSV capability",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --load-csv-dir ./missing --mode envelope \"RETURN 1 AS ok\"",
@@ -1221,7 +1221,7 @@
       "sources": [
         "docs/api/cli/spec.md § Lifecycle commands",
         "docs/reference/cli-flags.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate skill install --agent cursor",
@@ -1247,7 +1247,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Help and usage errors",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate skill install --agent bogus",
@@ -1272,7 +1272,7 @@
       "http_status": null,
       "sources": [
         "relate skill --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate skill install",
@@ -1297,12 +1297,12 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Row cap",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "severity": "warning",
       "recorded": {
         "command": "CLAUDECODE=1 relate --mode envelope \"UNWIND range(1, 250) AS x RETURN x\"",
-        "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"rowCap\":{\"kept\":100,\"total\":250},\"rows\":[{\"x\":1},{\"x\":2},{\"x\":3},{\"x\":4},{\"x\":5},{\"x\":6},{\"x\":7},{\"x\":8},{\"x\":9},{\"x\":10},{\"x\":11},{\"x\":12},{\"x\":13},{\"x\":14},{\"x\":15},{\"x\":16},{\"x\":17},{\"x\":18},{\"x\":19},{\"x\":20},{\"x\":21},{\"x\":22},{\"x\":23},{\"x\":24},{\"x\":25},{\"x\":26},{\"x\":27},{\"x\":28},{\"x\":29},{\"x\":30},{\"x\":31},{\"x\":32},{\"x\":33},{\"x\":34},{\"x\":35},{\"x\":36},{\"x\":37},{\"x\":38},{\"x\":39},{\"x\":40},{\"x\":41},{\"x\":42},{\"x\":43},{\"x\":44},{\"x\":45},{\"x\":46},{\"x\":47},{\"x\":48},{\"x\":49},{\"x\":50},{\"x\":51},{\"x\":52},{\"x\":53},{\"x\":54},{\"x\":55},{\"x\":56},{\"x\":57},{\"x\":58},{\"x\":59},{\"x\":60},{\"x\":61},{\"x\":62},{\"x\":63},{\"x\":64},{\"x\":65},{\"x\":66},{\"x\":67},{\"x\":68},{\"x\":69},{\"x\":70},{\"x\":71},{\"x\":72},{\"x\":73},{\"x\":74},{\"x\":75},{\"x\":76},{\"x\":77},{\"x\":78},{\"x\":79},{\"x\":80},{\"x\":81},{\"x\":82},{\"x\":83},{\"x\":84},{\"x\":85},{\"x\":86},{\"x\":87},{\"x\":88},{\"x\":89},{\"x\":90},{\"x\":91},{\"x\":92},{\"x\":93},{\"x\":94},{\"x\":95},{\"x\":96},{\"x\":97},{\"x\":98},{\"x\":99},{\"x\":100}],\"truncated\":true}\n",
+        "stdout": "{\"columnTypes\":[\"INTEGER\"],\"columns\":[\"x\"],\"notifications\":[],\"planCache\":\"miss\",\"rowCap\":{\"kept\":100,\"total\":250},\"rows\":[{\"x\":1},{\"x\":2},{\"x\":3},{\"x\":4},{\"x\":5},{\"x\":6},{\"x\":7},{\"x\":8},{\"x\":9},{\"x\":10},{\"x\":11},{\"x\":12},{\"x\":13},{\"x\":14},{\"x\":15},{\"x\":16},{\"x\":17},{\"x\":18},{\"x\":19},{\"x\":20},{\"x\":21},{\"x\":22},{\"x\":23},{\"x\":24},{\"x\":25},{\"x\":26},{\"x\":27},{\"x\":28},{\"x\":29},{\"x\":30},{\"x\":31},{\"x\":32},{\"x\":33},{\"x\":34},{\"x\":35},{\"x\":36},{\"x\":37},{\"x\":38},{\"x\":39},{\"x\":40},{\"x\":41},{\"x\":42},{\"x\":43},{\"x\":44},{\"x\":45},{\"x\":46},{\"x\":47},{\"x\":48},{\"x\":49},{\"x\":50},{\"x\":51},{\"x\":52},{\"x\":53},{\"x\":54},{\"x\":55},{\"x\":56},{\"x\":57},{\"x\":58},{\"x\":59},{\"x\":60},{\"x\":61},{\"x\":62},{\"x\":63},{\"x\":64},{\"x\":65},{\"x\":66},{\"x\":67},{\"x\":68},{\"x\":69},{\"x\":70},{\"x\":71},{\"x\":72},{\"x\":73},{\"x\":74},{\"x\":75},{\"x\":76},{\"x\":77},{\"x\":78},{\"x\":79},{\"x\":80},{\"x\":81},{\"x\":82},{\"x\":83},{\"x\":84},{\"x\":85},{\"x\":86},{\"x\":87},{\"x\":88},{\"x\":89},{\"x\":90},{\"x\":91},{\"x\":92},{\"x\":93},{\"x\":94},{\"x\":95},{\"x\":96},{\"x\":97},{\"x\":98},{\"x\":99},{\"x\":100}],\"timings\":{\"elapsed_ms\":0.40641700000000003,\"execute_ms\":0.27999999999999997,\"lex_parse_ms\":0.019542,\"lower_ms\":0.028166,\"parse_ms\":0.076416,\"plan_ms\":0.042833,\"result_generation_ms\":0.001041,\"rewrite_ms\":0.006625},\"truncated\":true}\n",
         "stderr": "warning: result truncated to 100 rows (the statement returned 250); pass --max-rows 0 for all rows\n",
         "exit": 0
       }
@@ -1323,19 +1323,19 @@
       "http_status": null,
       "sources": [
         "surfaces/relate-cli/src/skill/bundle/references/agent-safety.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "severity": "notice",
       "recorded": [
         {
           "command": "relate --mode envelope \"MATCH (n:Nobody) SET n.seen = true\"",
-          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.39625,\"execute_ms\":0.254792,\"lex_parse_ms\":0.00325,\"lower_ms\":0.004458,\"parse_ms\":0.13362500000000002,\"plan_ms\":0.004208,\"result_generation_ms\":0.000083,\"rewrite_ms\":0.00029099999999999997},\"truncated\":false}\n",
           "stderr": "note: write statement changed nothing; the graph is unchanged\n",
           "exit": 0
         },
         {
           "command": "printf '.begin\\nMATCH (n:Nobody) SET n.seen = true;\\n.commit\\n' | relate query --database ./s.rl --mode envelope",
-          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n",
+          "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.28170799999999996,\"execute_ms\":0.149083,\"lex_parse_ms\":0.002417,\"lower_ms\":0.004083,\"parse_ms\":0.123833,\"plan_ms\":0.005208,\"result_generation_ms\":0.000041,\"rewrite_ms\":0.00025},\"truncated\":false}\n",
           "stderr": "note: write statement 2 of 3 changed nothing; the graph is unchanged\nnote: .commit changed nothing; the transaction applied no changes\n",
           "exit": 0
         }
@@ -1357,12 +1357,12 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate serve --database :memory:",
         "stdout": "",
-        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve has nothing to serve: pass --http PORT and/or --mcp PORT|stdio and/or --bolt PORT\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1382,12 +1382,12 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --read-only serve --database :memory: --http 7474",
         "stdout": "",
-        "stderr": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve takes --read-only after the verb, not before it (relate serve --read-only …)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1407,7 +1407,7 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate serve --database :memory: --http 7474 --auth ada",
@@ -1432,7 +1432,7 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_AUTH=ada relate serve --database :memory: --http 7474",
@@ -1457,7 +1457,7 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_AUTH=:pw relate serve --database :memory: --http 7474",
@@ -1482,12 +1482,12 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate serve --database :memory: --http 7474 --auth",
         "stdout": "",
-        "stderr": "Error: --auth requires USER:PASSWORD or none\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: --auth requires USER:PASSWORD or none\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1507,12 +1507,12 @@
       "http_status": null,
       "sources": [
         "relate serve --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate serve --database :memory: --auth a:b --mcp stdio < /dev/null",
         "stdout": "",
-        "stderr": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]\nRun 'relate serve --help' for more information.\n",
+        "stderr": "Error: serve --mcp stdio skips auth (the host spawned the process, ADR-0232); --auth applies to the --http PORT/--mcp PORT/--bolt listeners only\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
         "exit": 2
       }
     },
@@ -1552,7 +1552,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate query --database ./nope --read-only \"RETURN 1\"",
@@ -1576,7 +1576,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate query --database ./nope.rl --read-only \"RETURN 1\"",
@@ -1601,7 +1601,7 @@
       "http_status": null,
       "sources": [
         "relate clone --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate clone --wal-dir ./w ./s.rl ./d",
@@ -1627,7 +1627,7 @@
       "http_status": null,
       "sources": [
         "relate clone --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate clone --markdown-body-properties body ./s ./d",
@@ -1653,7 +1653,7 @@
       "http_status": null,
       "sources": [
         "relate clone --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate clone ./nope.rl ./x2",
@@ -1678,7 +1678,7 @@
       "http_status": null,
       "sources": [
         "relate info --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate info --database ./nope",
@@ -1696,20 +1696,21 @@
       "retryable": null,
       "gql_status": null,
       "neo4j_code": null,
-      "message": "Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)",
-      "cause": "`relate telemetry on` or `off` with neither `HOME` nor an absolute `XDG_CONFIG_HOME` set, so there is nowhere to write its config file.",
+      "message": "Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)",
+      "cause": "`relate telemetry on` or `off` with no config directory base: no absolute `XDG_CONFIG_HOME`, no `HOME`, and no absolute `APPDATA` or `USERPROFILE`, so there is nowhere to write its config file.",
       "remedy": "Set `HOME`, or set `XDG_CONFIG_HOME` to an absolute path; `DO_NOT_TRACK=1` turns usage metrics off without a config directory.",
       "python_class": null,
       "http_status": null,
       "note": "A failed write prints `Error: telemetry: writing <path>: <reason>` (from the source; not reproduced).",
       "sources": [
         "surfaces/relate-cli/src/telemetry_cmd.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build",
+        "surfaces/relate-cli/src/config_dir.rs"
       ],
       "recorded": {
         "command": "env -u HOME relate telemetry off",
         "stdout": "",
-        "stderr": "Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)\n",
+        "stderr": "Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)\n",
         "exit": 1
       }
     },
@@ -1730,7 +1731,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --from n.env --query 'MATCH (n) RETURN n' --database ./t.rl",
@@ -1757,7 +1758,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --from n.env --query 'MATCH (n) RETURN count(n) AS nodes' --database ./m.rl",
@@ -1784,7 +1785,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --from p.env --query 'MATCH (n) RETURN n' --database ./p.rl",
@@ -1811,7 +1812,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --query 'MATCH (n) RETURN n' --database :memory:",
@@ -1837,7 +1838,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "NEO4J_URI=http://127.0.0.1:9 NEO4J_PASSWORD=x relate pull --query 'MATCH (n) RETURN n' --database ./p1",
@@ -1863,7 +1864,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --from nokey.env --query 'MATCH (n) RETURN n' --database ./a.rl",
@@ -1890,7 +1891,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate pull --from n.env --query '' --database ./d.rl",
@@ -1917,7 +1918,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate push --to n.env --database ./t.rl --labels A --types B",
@@ -1944,7 +1945,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --namespace neo4j push --to n.env --database ./t.rl --dry-run",
@@ -1971,7 +1972,7 @@
       "sources": [
         "relate pull --help",
         "relate push --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate push --to n.env --database ./t.rl --dry-run --merge-key foo",
@@ -1998,7 +1999,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate run git-to-graph",
@@ -2024,7 +2025,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate run",
@@ -2050,7 +2051,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate extension install other --url http://example.com/x.tar.gz",
@@ -2076,7 +2077,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate extension remove nothing",
@@ -2102,7 +2103,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate extension init greet",
@@ -2129,7 +2130,7 @@
       "sources": [
         "relate run --help",
         "relate extension --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate extension check ./greet",
@@ -2197,7 +2198,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf '.mode csv\\n' | relate query",
@@ -2222,7 +2223,7 @@
       "http_status": null,
       "sources": [
         "relate --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode xml \"RETURN 1 AS x\"",
@@ -2247,7 +2248,7 @@
       "http_status": null,
       "sources": [
         "relate --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --width 10 \"RETURN 1 AS x\"",
@@ -2273,7 +2274,7 @@
       "note": "A variant ends `(the plan tree carries no PROFILE metrics)`; on 0.16.1 it appears for a `PROFILE` of `count()` over an Expand, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`. No error object is printed.",
       "sources": [
         "relate --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode speedscope \"RETURN 1 AS x\"",
@@ -2298,7 +2299,7 @@
       "http_status": null,
       "sources": [
         "relate --help",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_MARKDOWN_BODY_PROPERTIES='=' relate \"RETURN 1 AS x\"",
@@ -2323,7 +2324,7 @@
       "http_status": null,
       "sources": [
         "relate/relate/src/open_config.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -2356,7 +2357,7 @@
       "http_status": null,
       "sources": [
         "surfaces/relate-cli/src/main.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -2389,11 +2390,11 @@
       "http_status": null,
       "sources": [
         "relate-storage snapshot/native/mod.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_SHARD_TARGET_BYTES=0 relate --database ./s \"CREATE (:A)\"",
-        "stdout": "",
+        "stdout": "{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":1.226542,\"execute_ms\":1.1026250000000002,\"lex_parse_ms\":0.003125,\"lower_ms\":0.003084,\"parse_ms\":0.11791700000000001,\"plan_ms\":0.001625,\"result_generation_ms\":0.000166,\"rewrite_ms\":0.000292}}\n",
         "stderr": "Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824\n",
         "exit": 1
       }
@@ -2434,7 +2435,7 @@
       "note": "Recorded details: `missing source`, `missing parameter name`, `unsupported source (only http, https, and file paths): <source>`.",
       "sources": [
         "docs/api/cli/spec.md § Query-engine flags",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": [
         {
@@ -2479,7 +2480,7 @@
         "docs/api/http/spec.md § Error envelope",
         "docs/api/cli/spec.md § Query-engine flags",
         "surfaces/relate-cli/src/errors.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope 'MATCH (p:Person {name: $name}) RETURN p'",
@@ -2511,7 +2512,7 @@
         "docs/api/c/spec.md",
         "docs/limitations.md",
         "surfaces/relate-cli/src/errors.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"USE archive RETURN 1 AS x\"",
@@ -2558,7 +2559,7 @@
       "sources": [
         "docs/api/rust/errors.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN y AS y\"",
@@ -2587,7 +2588,7 @@
         "docs/api/bolt/spec.md",
         "docs/api/http/spec.md",
         "surfaces/relate-cli/src/errors.rs",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN 1 / 0 AS x\"",
@@ -2613,7 +2614,7 @@
       "sources": [
         "docs/api/rust/errors.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN round(1.25, 1, 'UNNECESSARY') AS r\"",
@@ -2659,7 +2660,7 @@
         "docs/api/rust/errors.md",
         "docs/api/python/spec.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "The message writes the 64 MiB (67,108,864-byte) cap as `64 MB`.",
       "recorded": {
@@ -2686,7 +2687,7 @@
       "sources": [
         "docs/api/bolt/spec.md",
         "docs/api/python/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --logical-graph-size-limit 1mb \"UNWIND range(1, 20000) AS i CREATE (:Item {i: i})\"",
@@ -2710,7 +2711,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --expression-memory-limit 1mb \"RETURN range(1, 1000000) AS r\"",
@@ -2739,7 +2740,7 @@
         "surfaces/relate-cli/src/skill/bundle/SKILL.md",
         "docs/limitations.md",
         "docs/api/c/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --namespace system_ontologies \"MATCH (n) RETURN n LIMIT 1\"",
@@ -2784,7 +2785,7 @@
         "docs/limitations.md",
         "docs/api/http/spec.md",
         "docs/api/python/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --namespace system \"CREATE DATABASE archive\"",
@@ -2809,7 +2810,7 @@
       "http_status": null,
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"USE neo4j SHOW DATABASES\"",
@@ -2834,7 +2835,7 @@
       "http_status": null,
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope --namespace system \"SHOW DATABASES YIELD name WITH name RETURN name\"",
@@ -2859,7 +2860,7 @@
       "http_status": null,
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN graph.names() AS g\"",
@@ -2884,7 +2885,7 @@
       "http_status": null,
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"USE neo4j RETURN 1 AS a UNION USE system RETURN 1 AS a\"",
@@ -2909,7 +2910,7 @@
       "http_status": null,
       "sources": [
         "docs/api/cli/spec.md § Environment",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN shout(1) AS y\"",
@@ -2933,7 +2934,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CALL apoc.meta.schema() YIELD value RETURN value\"",
@@ -2983,7 +2984,7 @@
         "docs/api/rust/spec.md",
         "docs/limitations.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "The message above is the unbounded-read refusal. An unlabeled new node gets `syntax error: SafeModeViolation: This statement is not allowed in safe mode: CREATE or MERGE of a new node `n` without a label. …`.",
       "recorded": [
@@ -3020,7 +3021,7 @@
         "docs/api/cli/spec.md",
         "docs/reference/cli-flags.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"MATCH (a)-[*1..600]->(b) RETURN count(*) AS c\"",
@@ -3045,7 +3046,7 @@
       "http_status": null,
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate query --mode envelope < big.cypher",
@@ -3072,7 +3073,7 @@
       "note": "The error object also carries `column` and `source`.",
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate query --mode envelope < nest.cypher",
@@ -3099,7 +3100,7 @@
       "name": "ValueDepthExceeded",
       "sources": [
         "docs/limitations.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN size(reduce(x = [], i IN range(1, 501) | [x])) AS depth\"",
@@ -3125,7 +3126,7 @@
       "sources": [
         "docs/api/rust/spec.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "note": "A `CALL` subquery runs once per input row and each run counts against the budget, so a `CALL { … }` over more than 100,000 rows fails, `IN TRANSACTIONS` included; the same statement over 99,999 rows succeeds.",
       "recorded": {
@@ -3156,7 +3157,7 @@
         "docs/api/cli/spec.md § Query-run errors",
         "docs/api/python/spec.md",
         "docs/api/bolt/spec.md",
-        "relate 0.16.1 (ac441ec), source build",
+        "relate 0.1.2 (f0c09d2), release build",
         "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08"
       ],
       "recorded": [
@@ -3193,7 +3194,7 @@
       "sources": [
         "docs/api/bolt/spec.md",
         "surfaces/relate-python/python/relate/exceptions.py",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"CREATE (:Entity {key: 'ada'})\"",
@@ -3219,7 +3220,7 @@
       "http_status": null,
       "sources": [
         "docs/reference/cypher-syntax.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN vector([0.1, 0.2, 0.3], 4, FLOAT32) AS v\"",
@@ -3243,7 +3244,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"MATCH (d:Doc) SEARCH d IN (VECTOR INDEX doc_vec FOR [0.1, 0.2, 0.3] LIMIT 1) RETURN d.id AS id\"",
@@ -3268,11 +3269,11 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE VECTOR INDEX a FOR (p:Person) ON (p.focus) WITH [p.role]; CREATE VECTOR INDEX b FOR (p:Person) ON (p.focus) WITH [p.role] OPTIONS {indexConfig: {\\`vector.dimensions\\`: 4}}\"",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: EquivalentSchemaRuleAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.4075,\"execute_ms\":0.288875,\"lex_parse_ms\":0.003875,\"lower_ms\":0.0011250000000000001,\"parse_ms\":0.113458,\"plan_ms\":0.001333,\"result_generation_ms\":0.000167,\"rewrite_ms\":0.000209},\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: EquivalentSchemaRuleAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
         "stderr": "semantic error: EquivalentSchemaRuleAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
         "exit": 6
       }
@@ -3292,11 +3293,11 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE INDEX i FOR (p:P) ON (p.x); CREATE INDEX i FOR (p:P) ON (p.x)\"",
-        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"rows\":[],\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: IndexAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
+        "stdout": "{\"columnTypes\":[],\"columns\":[],\"notifications\":[],\"planCache\":\"miss\",\"rows\":[],\"timings\":{\"elapsed_ms\":0.395916,\"execute_ms\":0.28774999999999995,\"lex_parse_ms\":0.003125,\"lower_ms\":0.000958,\"parse_ms\":0.10270800000000001,\"plan_ms\":0.0011250000000000001,\"result_generation_ms\":0.000209,\"rewrite_ms\":0.00020800000000000001},\"truncated\":false}\n{\"error\":{\"code\":\"validation_error\",\"committed\":1,\"exit_code\":6,\"kind\":\"semantic\",\"message\":\"semantic error: IndexAlreadyExists\",\"retryable\":false,\"statement\":2,\"statements\":2}}\n",
         "stderr": "semantic error: IndexAlreadyExists\nstatement 2 of 2 failed; 1 completed and committed; 0 not run\n",
         "exit": 6
       }
@@ -3316,7 +3317,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"DROP INDEX missing_index\"",
@@ -3361,8 +3362,8 @@
       "http_status": null,
       "note": "In the CLI shell a second `.begin` prints the message and exits 1; the Node.js client raises it from `begin()`.",
       "sources": [
-        "@relate/relate 0.16.1 (ac441ec), source build",
-        "relate 0.16.1 (ac441ec), source build"
+        "@relate/relate 0.1.2 (f0c09d2), release build",
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf '.begin\\n.begin\\n' | relate query --mode envelope",
@@ -3406,7 +3407,7 @@
       "python_class": "IntegrityError",
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"CREATE (:Person {name: 'Eli'})\"",
@@ -3431,7 +3432,7 @@
       "python_class": "IntegrityError",
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"CREATE ()-[:WORKS_ON {since: '2025'}]->()\"",
@@ -3456,7 +3457,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS UNIQUE\"",
@@ -3481,7 +3482,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"DROP CONSTRAINT project_name\"",
@@ -3505,7 +3506,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"DROP INDEX project_name\"",
@@ -3530,7 +3531,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --database ./s.rl --mode envelope \"CREATE CONSTRAINT person_role FOR (p:Person) REQUIRE p.role IS UNIQUE\"",
@@ -3555,7 +3556,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE INDEX x FOR (p:Person) ON (p.y) OPTIONS {foo: 1}\"",
@@ -3579,7 +3580,7 @@
       "python_class": "IntegrityError",
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE (a:Person)-[:KNOWS]->(:Person) WITH a DELETE a\"",
@@ -3603,7 +3604,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"MERGE (p:Person {name: null})\"",
@@ -3627,7 +3628,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"CREATE (:Person {tags: ['rust', 1]})\"",
@@ -3651,7 +3652,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"UNWIND [1, 2] AS i CREATE (:Log) WITH i CALL (i) { CREATE (:Row {v: i}) } IN TRANSACTIONS\"",
@@ -3676,7 +3677,7 @@
       "http_status": null,
       "note": "Two spaces follow the first period, as printed.",
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"USE system MATCH (n) RETURN n\"",
@@ -3702,7 +3703,7 @@
       "note": "The CLI prints it after `semantic error:`; the WebAssembly build after `type error:`.",
       "sources": [
         "public/wasm run",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "relate --mode envelope \"RETURN point({latitude: 91, longitude: 0}) AS p\"",
@@ -3729,8 +3730,8 @@
       "sources": [
         "docs/api/cli/spec.md",
         "Java, Go and Swift clients built from upstream 6a0c391 (relate 0.16.1), runs 2026-11-08",
-        "@relate/relate 0.16.1 (ac441ec), source build",
-        "relate 0.16.1 (ac441ec), source build"
+        "@relate/relate 0.1.2 (f0c09d2), release build",
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf '.commit\\n' | relate query",
@@ -3754,7 +3755,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_PREVIEW=ontology relate --mode envelope --param 'ontology=schema: https://example.com/schema.json' 'CALL db.ontology.set($ontology)'",
@@ -3778,7 +3779,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_PREVIEW=ontology relate --mode envelope --param 'ontology={\"schema\": \"x\"}' 'CALL db.ontology.set($ontology)'",
@@ -3802,7 +3803,7 @@
       "python_class": null,
       "http_status": null,
       "sources": [
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "RELATE_PREVIEW=ontology relate --namespace system --mode envelope 'CALL db.ontology.get()'",
@@ -4134,12 +4135,12 @@
       "note": "Returned as a tool result with `isError: true`, not as a JSON-RPC error.",
       "sources": [
         "docs/api/mcp/spec.md",
-        "relate 0.16.1 (ac441ec), source build"
+        "relate 0.1.2 (f0c09d2), release build"
       ],
       "recorded": {
         "command": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"query\":\"CREATE (:B)\"}}}' | relate serve --mcp stdio --database ./graph.rl --read-only",
         "setup": "relate --database ./graph.rl \"CREATE (:A)\"",
-        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"0.16.1\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"0.1.2\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
         "stderr": "serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails\nserve: MCP (stdio) serving on stdin/stdout (auth: none)\nserve: stdin closed, shutting down\n",
         "exit": 0
       }
@@ -5222,5 +5223,5 @@
       "engine-unsupported-administration-command"
     ]
   },
-  "recorded_with": "relate 0.16.1 (ac441ec), source build"
+  "recorded_with": "relate 0.1.2 (f0c09d2), release build"
 }

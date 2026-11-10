@@ -7,7 +7,7 @@ surfaces: [node]
 related: [guides/embed/node, get-started/node, reference/errors, reference/api/python, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The relate Node.js :term[client]{id=client} is the `@relate/relate` package: it loads the engine as a native library (`librelate_ffi`, the C ABI version 2) and runs it in the calling process against a :term[store]{id=store}. `query()` is synchronous and `queryAsync()` returns a Promise of the same result. The package ships TypeScript types in `index.d.ts`; the signatures on this page are read from those types and the package source, and checked against `@relate/relate` 0.16.1 on Node.js 25; the package requires Node.js 18 or later.
+The relate Node.js :term[client]{id=client} is the `@relate/relate` package: it loads the engine as a native library (`librelate_ffi`, the C ABI version 2) and runs it in the calling process against a :term[store]{id=store}. `query()` is synchronous and `queryAsync()` returns a Promise of the same result. The package ships TypeScript types in `index.d.ts`; the signatures on this page are read from those types and the package source, and checked against `@relate/relate` 0.1.2 on Node.js 26; the package requires Node.js 18 or later.
 
 ## Synopsis
 
@@ -35,7 +35,7 @@ db.checkpoint();
 | `CypherFloat`, `float(value)` | class, function | A number bound as `FLOAT` |
 | `CypherDate`, `CypherTime`, `CypherLocalTime`, `CypherDateTime`, `CypherLocalDateTime`, `CypherDuration`, `CypherPoint`, `CypherVector` | classes | Typed values for parameters and results |
 
-The types file also exports the TypeScript types `QueryType`, `Int64`, `NodeValue`, `RelationshipValue`, `PathValue`, `Row`, `Stats`, `Notification`, `PlanDocument`, `PlanNode`, `PlanStartReason`, `PlanActual` and `ParamValue`.
+The types file also exports the TypeScript types `QueryType`, `Namespace`, `Int64`, `NodeValue`, `RelationshipValue`, `PathValue`, `Row`, `Stats`, `Notification`, `PlanDocument`, `PlanNode`, `PlanStartReason`, `PlanActual` and `ParamValue`.
 
 ## Loading
 
@@ -96,9 +96,9 @@ A `Result` holds every row from the moment `query()` returns.
 | `rows` | `Row[]` | Rows as objects keyed by column name |
 | `stats` | `Stats` | The 11 mutation counters, zeros included: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed` |
 | `queryType` | `"r" \| "w" \| "rw" \| "s"` | A read, a write with no columns, a write that returns columns, a schema statement; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
-| `namespace` | `string` | The namespace the statement ran in: its `USE` target, else the session namespace |
+| `namespace` | `"neo4j" \| "system" \| "system_ontologies"` | The namespace the statement ran in: its `USE` target, else the session namespace |
 | `bookmark` | `string \| null` | An auto-commit write's bookmark, `relate:<n>`; `null` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
-| `notifications` | `Notification[]` | `[]` on a plain run; filled by `EXPLAIN` and `PROFILE`. Keys: `code`, `gql_status`, `severity`, `category`, `title`, `description`, `remedy`, and `operator_id` on operator-scoped kinds |
+| `notifications` | `Notification[]` | `[]` on a plain run; filled by `EXPLAIN` and `PROFILE`. Keys: `code`, `gql_status`, `severity` (`INFORMATION` or `WARNING`), `category` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `title`, `description`, `remedy`, and `operator_id` on operator-scoped kinds |
 | `plan` | `PlanDocument \| null` | `null` on a plain run; for `EXPLAIN` and `PROFILE`, a `relate.plan/v1` document with `schema`, `profiled`, `statement` and `root` |
 | `single()` | `Row` | The one row; zero or several throw `ResultNotSingleError: expected exactly one row, got <n>`, with `rowCount` |
 | `consume()` | `ResultSummary` | The summary; repeated calls return the same object |
@@ -135,7 +135,7 @@ Each result value carries its own type; there is no per-column type list.
 | `DURATION` | `CypherDuration` |
 | `POINT`, `VECTOR` | `CypherPoint`, `CypherVector` |
 
-A :term[node]{id=node} and a :term[relationship]{id=relationship} carry `elementId`, the string Cypher's `elementId()` returns (`4:relate:n0`, `5:relate:r0`), and `id`, what `id()` returns. A :term[path]{id=path} is an array of both. Byte arrays arrive as a list of integers 0 to 255, and UUIDs as strings.
+A :term[node]{id=node} and a :term[relationship]{id=relationship} carry `elementId`, the string Cypher's `elementId()` returns (`4:relate-neo4j:n0`, `5:relate-neo4j:r0`), and `id`, what `id()` returns. A :term[path]{id=path} is an array of both. Byte arrays arrive as a list of integers 0 to 255, and UUIDs as strings.
 
 | JavaScript parameter | Cypher value |
 | --- | --- |
@@ -182,7 +182,7 @@ Every integer field (the temporal and duration components, the values of an `INT
 | `RelateError` | Every failure the engine reports, from `open`, `connect`, `query`, `queryAsync` (as a rejection), `begin`, `commit`, `rollback`, `setNamespace` and `checkpoint` | `message`, `code` (the Neo4j status code), `gqlStatus` (the GQLSTATUS code), `stage` (`"compile"`, `"runtime"` or `"internal"`), `retryable`, and `isRetriable` (the same as `retryable`) |
 | `TypeError` | A wrong argument shape, or a parameter the client cannot convert | `message`: one of the [`TypeError` messages](#value-mapping), naming the value's path where there is one |
 | `ResultNotSingleError` | `result.single()` with zero or several rows | `message`, `rowCount` |
-| `Error` | The library is missing or has another ABI version, at `require` time; or an error shape the library sent is malformed (`ABI contract violated: …`) | `message` |
+| `Error` | The library is missing or has another ABI version, at `require` time; or the library sent a malformed error shape, or a query type or namespace outside the fixed values (`ABI contract violated: …`) | `message` |
 
 `retryable` is `true` only when re-running the same work can succeed, such as after a write-write conflict, which can surface on a statement or on `commit()`. A `stage` of `"internal"` marks a failure outside the statement. The [errors reference](/docs/reference/errors) lists every engine message with its codes.
 

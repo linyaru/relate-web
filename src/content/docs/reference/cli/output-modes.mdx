@@ -54,15 +54,15 @@ Agent mode is on under a detected agent harness with stdout not a terminal, or w
 | --- | --- | --- | --- | --- |
 | `table` | none | A boxed text table; strings in double quotes | no | no |
 | `csv` | `--csv` | CSV with RFC 4180 quoting and LF line endings, with a header row | no | no |
-| `json` | `--json` | One JSON array per result set; indented on a terminal, one line when piped; an object `{"data":[…],"rowCap":…}` when the row cap cut it | yes | yes |
-| `jsonl` | `--jsonl` | One JSON object per row | yes | yes |
-| `envelope` | none | One JSON object per result set: columns, types, rows, and flags | yes | yes |
+| `json` | `--json` | One JSON object per result set: the rows in `data`, with `planCache` and `timings`, and `rowCap` when the row cap cut them; indented on a terminal, one line when piped | yes | yes |
+| `jsonl` | `--jsonl` | One JSON object per row, then one `{"planCache":…,"timings":…}` line per result set | yes | yes |
+| `envelope` | none | One JSON object per result set: columns, types, rows, flags, `planCache` and `timings` | yes | yes |
 | `markdown` | `--markdown` | A GitHub-flavored table | no | yes |
 | `cypher` | none | One `CREATE` statement per row, values as Cypher literals | no | no |
-| `toon` | `--toon` | One `rows[N]{cols}:` header line, then one line per row | no | yes |
+| `toon` | `--toon` | One `rows[N]{cols}:` header line, one line per row, then `timings:` and `planCache:` entries | no | yes |
 | `speedscope` | none | A `PROFILE` plan as one speedscope profile document | yes, for a failed statement; the `PROFILE` refusal is stderr only | no |
 
-A mode with no error object prints a failure only on stderr, with the exit code; the [error object](#errors) section covers the rest. The in-band row cap report for each mode is on the [agent mode page](/docs/reference/cli/agent-mode#the-row-cap). An `EXPLAIN` or `PROFILE` result prints a plan object in `json`, `jsonl`, `envelope` and `toon`, in place of the shapes this table lists; [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile#the-plan-in-each-output-mode) shows each.
+A mode with no error object prints a failure only on stderr, with the exit code; the [error object](#errors) section covers the rest. `json`, `jsonl`, `envelope` and `toon` also report each statement's [timings and plan-cache outcome](#timings-and-the-plan-cache); `table`, `csv`, `markdown`, `cypher` and `speedscope` do not. The in-band row cap report for each mode is on the [agent mode page](/docs/reference/cli/agent-mode#the-row-cap). An `EXPLAIN` or `PROFILE` result prints a plan object in `json`, `jsonl`, `envelope` and `toon`, in place of the shapes this table lists; [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile#the-plan-in-each-output-mode) shows each.
 
 ## One query in every mode
 
@@ -120,10 +120,10 @@ relate --database ./team.rl --read-only --json "MATCH (p:Person)-[w:WORKS_ON]->(
 ```
 
 ```text
-[{"name":"Grace","since":2023},{"name":"Ada","since":2024}]
+{"data":[{"name":"Grace","since":2023},{"name":"Ada","since":2024}],"planCache":"miss","timings":{"elapsed_ms":0.498208,"execute_ms":0.288125,"lex_parse_ms":0.046125000000000006,"lower_ms":0.043583,"parse_ms":0.137083,"plan_ms":0.062541,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.008709000000000001}}
 ```
 
-Keys inside each row object are sorted alphabetically, in `json`, `jsonl` and `envelope` alike. The column order is the statement's; `envelope` carries it in `columns`.
+The rows are in `data`, beside the statement's `planCache` and `timings`. Keys are sorted alphabetically, in each row object and in the outer object, in `json`, `jsonl` and `envelope` alike. The column order is the statement's; `envelope` carries it in `columns`.
 
 ### `jsonl`
 
@@ -134,6 +134,7 @@ relate --database ./team.rl --read-only --jsonl "MATCH (p:Person)-[w:WORKS_ON]->
 ```text
 {"name":"Grace","since":2023}
 {"name":"Ada","since":2024}
+{"planCache":"miss","timings":{"elapsed_ms":0.45545800000000003,"execute_ms":0.257291,"lex_parse_ms":0.033833,"lower_ms":0.044042000000000005,"parse_ms":0.12995800000000002,"plan_ms":0.059625,"result_generation_ms":0.00025,"rewrite_ms":0.013625000000000002}}
 ```
 
 ### `envelope`
@@ -143,7 +144,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WOR
 ```
 
 ```text
-{"columnTypes":["STRING","INTEGER"],"columns":["name","since"],"notifications":[],"rows":[{"name":"Grace","since":2023},{"name":"Ada","since":2024}],"truncated":false}
+{"columnTypes":["STRING","INTEGER"],"columns":["name","since"],"notifications":[],"planCache":"miss","rows":[{"name":"Grace","since":2023},{"name":"Ada","since":2024}],"timings":{"elapsed_ms":0.427292,"execute_ms":0.250583,"lex_parse_ms":0.028833,"lower_ms":0.040375,"parse_ms":0.111167,"plan_ms":0.057292,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.007708},"truncated":false}
 ```
 
 ### `markdown`
@@ -182,9 +183,13 @@ relate --database ./team.rl --read-only --toon "MATCH (p:Person)-[w:WORKS_ON]->(
 rows[2]{name,since}:
   Grace,2023
   Ada,2024
+timings:
+  {"elapsed_ms":0.43375,"execute_ms":0.261625,"lex_parse_ms":0.028458,"lower_ms":0.0405,"parse_ms":0.109291,"plan_ms":0.055292,"result_generation_ms":0.000334,"rewrite_ms":0.007333999999999999}
+planCache:
+  miss
 ```
 
-The :term[TOON]{id=toon} header names the row count and the columns once; each row is two spaces, then the values separated by commas.
+The :term[TOON]{id=toon} header names the row count and the columns once; each row is two spaces, then the values separated by commas. The `timings:` and `planCache:` entries close the statement's block.
 
 ### `speedscope`
 
@@ -224,6 +229,7 @@ relate --database ./sp --read-only --mode jsonl "MATCH (r:Run) RETURN count(r) A
 speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)
 exit=1
 {"runs":1}
+{"planCache":"miss","timings":{"elapsed_ms":0.46045800000000003,"execute_ms":0.294958,"lex_parse_ms":0.031708,"lower_ms":0.0415,"parse_ms":0.105166,"plan_ms":0.052875,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.007458}}
 ```
 
 ## How values print
@@ -247,6 +253,7 @@ relate --database ./team.rl --read-only --mode jsonl "MATCH (p:Person {name: 'Ad
 
 ```text
 {"p":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}}
+{"planCache":"miss","timings":{"elapsed_ms":0.540834,"execute_ms":0.3735,"lex_parse_ms":0.029833000000000002,"lower_ms":0.041832999999999995,"parse_ms":0.108875,"plan_ms":0.05025,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00775}}
 ```
 
 `id` is the node's internal id within this store. A relationship prints with `"kind":"relationship"`.
@@ -281,21 +288,21 @@ Each statement prints its own result set, in the order the statements run:
 | --- | --- | --- | --- |
 | `table` | Two tables | The header only | Nothing |
 | `csv` | `a`, `1`, `b`, `2` on four lines | The header line | One empty line |
-| `json` | Two arrays, one per line | `[]` | `[]` |
-| `jsonl` | One line per row | Nothing | Nothing |
+| `json` | Two objects, one per line | An object with `"data":[]` | An object with `"data":[]` |
+| `jsonl` | Each statement's rows, each followed by its timing line | The timing line only | The timing line only |
 | `envelope` | Two envelopes, one per line | An envelope with `columns` and `"rows":[]` | An envelope with `"columns":[]` |
 | `markdown` | Two tables | The header and separator lines | Nothing |
 | `cypher` | One `CREATE` per row | Nothing | Nothing |
-| `toon` | Two `rows[1]{…}:` blocks | `rows[0]{name}:` | Nothing |
+| `toon` | Two `rows[1]{…}:` blocks, each with its `timings:` and `planCache:` entries | `rows[0]{name}:`, then the `timings:` and `planCache:` entries | The `timings:` and `planCache:` entries only |
 
-`jsonl` prints nothing for a read with no rows, the same as for a write. `envelope` tells the two apart:
+`jsonl` prints only the timing line for a read with no rows, the same as for a write. `envelope` tells the two apart:
 
 ```bash verify
 relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person {name: 'Zed'}) RETURN p.name AS name"
 ```
 
 ```text
-{"columnTypes":["ANY"],"columns":["name"],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["ANY"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.508375,"execute_ms":0.333625,"lex_parse_ms":0.028249999999999997,"lower_ms":0.039916999999999994,"parse_ms":0.110375,"plan_ms":0.054958,"result_generation_ms":0.000125,"rewrite_ms":0.007875},"truncated":false}
 ```
 
 ## The envelope
@@ -308,11 +315,59 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person {name: 
 | `columns` | always | The column names in the statement's order, even with no rows |
 | `notifications` | always | The statement's notifications; `[]` on a plain run |
 | `plan` | `EXPLAIN` and `PROFILE` only | The plan tree |
+| `planCache` | always | The plan-cache outcome, one of the [five values](#timings-and-the-plan-cache) |
 | `rowCap` | when the :term[row cap]{id=row-cap} cut the rows | `{"kept":N,"total":M}` |
 | `rows` | always | One object per row, as `json` prints it |
+| `timings` | always | The statement's phase timings in milliseconds, one object with [eight keys](#timings-and-the-plan-cache) |
 | `truncated` | always | `true` when the row cap cut the rows |
 
 The [agent mode page](/docs/reference/cli/agent-mode#the-envelope) lists every `columnTypes` name. New keys may be added; existing ones are never renamed.
+
+## Timings and the plan cache
+
+`json`, `jsonl`, `envelope` and `toon` report two facts for every statement that runs: where its time went, as a `timings` object, and whether a cached plan served it, as `planCache`. `table`, `csv`, `markdown`, `cypher` and `speedscope` print neither, and neither does the [error object](#errors) of a failed statement.
+
+| Mode | Where they print |
+| --- | --- |
+| `json` | The `planCache` and `timings` keys of the statement's object, beside `data`, and beside `notifications` and `plan` for `EXPLAIN` and `PROFILE` |
+| `jsonl` | One `{"planCache":…,"timings":{…}}` line after the statement's other lines: its rows, then a `{"rowCap":…}` line when the row cap cut them, or its plan object. A statement with no rows prints only this line |
+| `envelope` | The `planCache` and `timings` keys of the envelope |
+| `toon` | A `timings:` entry, the object as inline JSON, then a `planCache:` entry, as the last two entries of the statement's block, after `rowCap:` and `notifications:` |
+
+`timings` holds eight keys, sorted alphabetically like every other object these modes print. Each value is a number of milliseconds, measured on this run, so the digits change from run to run:
+
+| Key | Measures |
+| --- | --- |
+| `elapsed_ms` | The statement's wall-clock total |
+| `parse_ms` | The parse phase |
+| `lex_parse_ms` | Lexing and building the syntax tree, a part of `parse_ms` |
+| `rewrite_ms` | The rewrite pass, a part of `parse_ms` |
+| `lower_ms` | Validation and lowering, a part of `parse_ms` |
+| `plan_ms` | The plan phase |
+| `execute_ms` | The execute phase |
+| `result_generation_ms` | Building the result, a part of `execute_ms` |
+
+On a plan-cache hit, `lex_parse_ms`, `rewrite_ms` and `lower_ms` are `0.0`: the statement was not parsed again. `planCache` is one of five values:
+
+| Value | Meaning |
+| --- | --- |
+| `miss` | No cached plan served the statement, so it compiled from the start |
+| `hit-raw-fastpath` | A cached plan served it because the statement text matched an earlier statement exactly |
+| `hit-template` | A cached plan served it because the statement matched an earlier one with only its literal values changed |
+| `replan-generation-mismatch` | A cached plan matched, but the store had committed a write since it was compiled, so the statement planned again |
+| `bypassed` | The cache was not consulted, such as for a parameter whose name starts with the reserved `__AUTO_` prefix |
+
+The plan cache lives in the open store and starts empty on every CLI run, so a one-shot `relate "…"` reports `miss`. Several statements in one run share it. In this run, the second statement differs from the first only in a literal, and the third repeats the second:
+
+```bash verify
+relate --jsonl "RETURN 1 AS a; RETURN 2 AS a; RETURN 2 AS a" | jq -r 'select(.planCache) | .planCache'
+```
+
+```text
+miss
+hit-template
+hit-raw-fastpath
+```
 
 ## Errors
 
@@ -355,12 +410,25 @@ relate --json --pretty "RETURN 'Ada' AS name, 2024 AS since"
 ```
 
 ```text
-[
-  {
-    "name": "Ada",
-    "since": 2024
+{
+  "data": [
+    {
+      "name": "Ada",
+      "since": 2024
+    }
+  ],
+  "planCache": "miss",
+  "timings": {
+    "elapsed_ms": 0.48633299999999996,
+    "execute_ms": 0.35312499999999997,
+    "lex_parse_ms": 0.019084,
+    "lower_ms": 0.0265,
+    "parse_ms": 0.08887500000000001,
+    "plan_ms": 0.036167,
+    "result_generation_ms": 0.000166,
+    "rewrite_ms": 0.006208
   }
-]
+}
 ```
 
 `--width N` wraps `table` output to `N` display columns: the widest columns shrink and their cells continue on the next line. Without it, the width is the terminal's, else an exported `COLUMNS`, else the table's natural width. A value under `20` exits 2 with `Error: invalid --width: a width under 20 columns cannot hold a table; omit --width for the terminal default`.

@@ -40,8 +40,8 @@ export function __start(): void;
 /**
  * Render a script's envelopes (JSON strings, as `executeScript` returns
  * them) as a recording (ADR-0131, ADR-0132): JSON `{kind, text, table,
- * graph, stats}` from `relate_formatter::recording`, the renderer the
- * native cookbook harness uses. Throws on an envelope that is not wire JSON.
+ * graph, stats}` from `relate_formatter::recording`. Throws on an envelope
+ * that is not wire JSON.
  */
 export function renderResult(envelopes: string[]): string;
 
@@ -57,8 +57,8 @@ export interface InitOutput {
     readonly relatedb_open: (a: number, b: number, c: number) => any;
     readonly relatedb_reset: (a: number) => [number, number];
     readonly renderResult: (a: number, b: number) => [number, number, number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h0ea0d6ffaecae2fc: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hc288bbbf1dc9f1f7: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h37bb470ddbba42b5: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h6fa99028941e10d6: (a: number, b: number, c: any, d: any) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

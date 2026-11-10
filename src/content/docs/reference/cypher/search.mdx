@@ -74,11 +74,11 @@ An unknown key fails with `semantic error: InvalidInputValue`. A property whose 
 | --- | --- | --- | --- |
 | `LIMIT` | Required | Required | ``syntax error: parse error: expected LIMIT, got ")" (RightParen)`` |
 | `LIMIT` value | A non-negative integer; `0` returns no rows | Same | `syntax error: NumberOutOfRange: SEARCH LIMIT must be an INTEGER NOT NULL` |
-| Score | Only through `SCORE AS <var>`; higher is more similar | Only through `SCORE AS <var>`; the count of query-term occurrences | `syntax error: UndefinedVariable: variable 'score' not defined` |
+| Score | Only through `SCORE AS <var>`; higher is more similar | Only through `SCORE AS <var>`; a BM25 relevance score, higher is more relevant | `syntax error: UndefinedVariable: variable 'score' not defined` |
 | `WHERE` inside the search | Allowed, on the index's `WITH [...]` properties only, before ranking and `LIMIT` | Not allowed | `WrongPropertyForVectorSearchFilter`; ``syntax error: InvalidUseOfCommand: WHERE cannot be used together with 'FULLTEXT INDEX'`` |
 | Filter predicates | Equality, `IN` a list, a half-bounded range or a bounded range per property, joined by `AND`; `IN` cannot be combined with another predicate on the same property | — | `syntax error: SyntaxError: InvalidSearchFilterPredicate: invalid predicate for vector search filtering. …` (for `OR`, `<>`, or `IN` with a second predicate on its property) |
 | `SKIP` or `OFFSET` | Not allowed | Allowed | `syntax error: InvalidUseOfCommand: SKIP cannot be used together with VECTOR INDEX` |
-| `WITH ANALYZER` | Not allowed | Accepted; tokenization is the same for every analyzer | `syntax error: InvalidUseOfCommand: WITH ANALYZER cannot be used together with VECTOR INDEX` |
+| `WITH ANALYZER` | Not allowed | Accepted: names the analyzer of the query string ([Full-text matching](#full-text-matching)) | `syntax error: InvalidUseOfCommand: WITH ANALYZER cannot be used together with VECTOR INDEX` |
 | Query value | A list or vector of `vector.dimensions` numbers | A string | `type error: VectorIndexDimensionalityMismatch` |
 | Search variable | The variable after `SEARCH`, declared by the `MATCH` pattern; the query cannot refer to it | Same | `syntax error: SelfReferencingSearch: the search query cannot reference the binding variable '<var>'` |
 | Index kind | A vector index | A full-text index | `WrongIndexType: <name>` |
@@ -92,11 +92,16 @@ An unknown key fails with `semantic error: InvalidInputValue`. A property whose 
 
 | Behavior | Value |
 | --- | --- |
-| Terms | Lowercase alphanumeric words; matching ignores case |
-| Stemming | None: `graphs` does not match `graph` |
-| Several words in the query | Each word is a term; a match on any term returns the entity |
-| Score | The number of query-term occurrences in the indexed properties, as a float |
+| Terms | Lowercase alphanumeric words; matching ignores case. Accented letters are not folded: `cafe` does not match `café` |
+| Stemming and stop words | None by default: `graphs` does not match `graph`, and `the` is a term |
+| Several words in the query | Each word is a term, and a match on any term returns the entity |
+| Operators | `AND`, `OR` and `NOT` in capitals, and `&&` and `\|\|`, combine terms; parentheses group them. A lowercase `and` is a term. A query of `NOT` clauses alone matches nothing |
+| One property | `<property>:<term>` matches the term in that indexed property only |
+| Phrases, wildcards, fuzzy terms, boosts | Not read: the words of a quoted phrase match as separate terms, `tor*` and `tset~` match nothing, and `+`, `-`, `!` and `^<n>` change no result |
+| Score | BM25, summed over each matching property and term: a term that few entities hold counts for more, and a match in a short text counts for more than one in a long text. Calibrated against Neo4j's full-text scores; not normalized, so it ranks results within one search only |
 | Order of equal scores | No documented order; the examples on this page sort on a second key |
+| `WITH ANALYZER <name>` | The analyzer of the query string. `english` drops English stop words and stems the query's words, so `graphs` searches for `graph`; every other analyzer name splits the query like the default. `null` keeps the default. An unknown name fails with `semantic error: Invalid input '<name>' for analyzer name. Expected to be arabic, armenian, …` |
+| The index's `fulltext.analyzer` option | Accepted and listed by `SHOW INDEXES`; the indexed text is always split by the default analyzer, so the stored words keep their written form |
 
 ## Procedures
 
@@ -106,8 +111,8 @@ Each procedure is deprecated: `EXPLAIN` reports notification `01N01`, ``The proc
 | --- | --- | --- |
 | `db.index.vector.queryNodes(<index>, <k>, <vector>)` | `node`, `score` | The top `k` nodes; no filter |
 | `db.index.vector.queryRelationships(<index>, <k>, <vector>)` | `relationship`, `score` | The top `k` relationships; no filter |
-| `db.index.fulltext.queryNodes(<index>, <query>)` | `node`, `score` | The query string is one term: `'graph database'` matches nothing where `SEARCH` matches both words |
-| `db.index.fulltext.queryRelationships(<index>, <query>)` | `relationship`, `score` | The query string is one term |
+| `db.index.fulltext.queryNodes(<index>, <query>)` | `node`, `score` | The query syntax and the scores of a full-text `SEARCH` |
+| `db.index.fulltext.queryRelationships(<index>, <query>)` | `relationship`, `score` | The query syntax and the scores of a full-text `SEARCH` |
 
 ## Functions
 

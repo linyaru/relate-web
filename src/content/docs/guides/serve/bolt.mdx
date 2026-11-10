@@ -47,9 +47,9 @@ On stderr, relate prints that the store is open read-only, then `auth: generated
 
 ## Set the server identity
 
-Some Neo4j drivers check the server's agent string when they connect and refuse one that does not start with `Neo4j/`. relate's own is `Relate/<version>`, so without `--bolt-identity` the Python driver 5.28.2 stops with `neo4j.exceptions.UnsupportedServerProduct: Relate/0.16.1`. The Python driver 6.x does not check: 6.0.3 through 6.4.0 connected without the flag and reported `Relate/0.16.1` as the agent. `--bolt-identity Neo4j/5.26.0` (or `RELATE_IDENTITY`) makes the server send that string instead. It is sent as written and claims no Neo4j feature parity; the Cypher relate runs is its own ([differences from Neo4j](/docs/reference/cypher/differences-from-neo4j)).
+Some Neo4j drivers check the server's agent string when they connect and refuse one that does not start with `Neo4j/`. relate's own is `Relate/<version>`, so without `--bolt-identity` the Python driver 5.28.2 stops with `neo4j.exceptions.UnsupportedServerProduct: Relate/0.1.2`. The Python driver 6.x does not check: 6.0.3 through 6.4.0 connected without the flag and reported `Relate/0.1.2` as the agent. `--bolt-identity Neo4j/5.26.0` (or `RELATE_IDENTITY`) makes the server send that string instead. It is sent as written and claims no Neo4j feature parity; the Cypher relate runs is its own ([differences from Neo4j](/docs/reference/cypher/differences-from-neo4j)).
 
-Per driver, from relate's compatibility notes as of relate 0.16.1 and the runs for this page:
+Per driver, from relate's compatibility notes as of relate 0.1.2 and the runs for this page:
 
 | Driver | Versions named | Needs `--bolt-identity` |
 | --- | --- | --- |
@@ -188,7 +188,7 @@ wait $server
 ```
 
 ```text
-{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8843"}
+{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.1.2","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8843"}
 Bolt 5.4 agreed
 ```
 
@@ -196,7 +196,7 @@ Bolt 5.4 agreed
 
 ## If it goes wrong
 
-**A Neo4j Python driver 5.x or a Java driver raises `UnsupportedServerProduct: Relate/0.16.1` or `UntrustedServerException`.** The driver checks the agent string. Start the server with `--bolt-identity Neo4j/5.26.0`.
+**A Neo4j Python driver 5.x or a Java driver raises `UnsupportedServerProduct: Relate/0.1.2` or `UntrustedServerException`.** The driver checks the agent string. Start the server with `--bolt-identity Neo4j/5.26.0`.
 
 **The driver raises `AuthError` with `Neo.ClientError.Security.Unauthorized` and `The client is unauthorized due to authentication failure.`** The user or password does not match the server's credential. Read both from `<store>.auth-token`, or use the `user:password` from `--auth` or `RELATE_AUTH`.
 

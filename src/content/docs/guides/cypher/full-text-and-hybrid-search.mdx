@@ -7,7 +7,7 @@ prerequisites: [get-started/first-graph]
 related: [reference/cypher/search, guides/cypher/vector-search, cookbook/hybrid-recall, concepts/problems-relate-solves#hybrid-retrieval-for-rag, reference/cypher/differences-from-neo4j]
 ---
 
-This guide shows you how to find nodes by the words in their text with a :term[full-text index]{id=full-text-index} and the :term[SEARCH clause]{id=search}, how the index splits text into terms and scores a match, and how to fuse a full-text search with a vector search into one ranking. The cells run in page order on one in-memory :term[store]{id=store}, in your browser and in the docs build.
+This guide shows you how to find nodes by the words in their text with a :term[full-text index]{id=full-text-index} and the :term[SEARCH clause]{id=search}, how the index splits text into terms and ranks a match, and how to fuse a full-text search with a vector search into one ranking. The cells run in page order on one in-memory :term[store]{id=store}, in your browser and in the docs build.
 
 ## Prerequisites
 
@@ -59,11 +59,11 @@ Each word of the query is a term, and a note holding any of the terms matches. `
 
 ## Read the score
 
-The score is the number of times the query's terms occur in the indexed properties, as a float: `n6` scores `2.0` for one `wal` and one `tests`. It is not normalized, so it ranks results within one search and means nothing next to a vector score. Equal scores have no documented order, so sort on a second key, as the cell does with `id`.
+The score is BM25, the relevance score Neo4j's full-text index gives: each matching term adds more when few notes hold it, and a short note scores higher than a long one. `n6` holds both `wal` and `tests` and scores about `1.14`; `n1` holds only `wal` and scores about `0.41`. The score is not normalized, so it ranks results within one search and means nothing next to a vector score. Equal scores have no documented order, so sort on a second key, as the cell does with `id`.
 
 ## Know how text becomes terms
 
-The index lowercases text and splits it into words of letters and digits. A query goes through the same split, and nothing else happens to either. This cell runs one search per query string and lists the notes each one finds:
+The index lowercases text and splits it into words of letters and digits. A query goes through the same split, and its operators are read ([Combine words with operators](#combine-words-with-operators)); nothing else happens to either. This cell runs one search per query string and lists the notes each one finds:
 
 ```cypher run name=terms
 UNWIND ['wal', 'replay', 'replays', 'test', 'the', 'pull-request', '"torn tail"', 'tor*'] AS q
@@ -84,7 +84,11 @@ RETURN q AS query, ids
 | `"torn tail"` | No phrase search: quotes are dropped, and the two words match separately |
 | `tor*` | No wildcards: the query is the term `tor`, which no note holds |
 
-Accented letters are letters, and nothing folds them: `cafe` does not match `café`. A word like `AND` in a query is one more term, not an operator. To match word variants, store a normalized copy of the text in a second indexed property and search that.
+Accented letters are letters, and nothing folds them: `cafe` does not match `café`. To match word variants, store a normalized copy of the text in a second indexed property and search that. `WITH ANALYZER 'english'` after the query stems the query's words and drops English stop words, but the indexed text keeps its written form: with it, `replays` searches for `replay` and `tests` for `test`, which no note holds.
+
+## Combine words with operators
+
+The words of a query are alternatives: any note holding one of them matches. `AND`, `OR` and `NOT`, written in capitals, are operators, and parentheses group them. `wal AND tests` matches only `n6`, and `wal NOT tests` only `n1`. A lowercase `and` is one more term. `&&` and `||` work as `AND` and `OR`; `+`, `-` and `!` before a word change nothing. `text:wal` matches `wal` in the `text` property only, which matters for an index over several properties. The [search reference](/docs/reference/cypher/search#full-text-matching) lists every rule.
 
 ## Page through and narrow the results
 
@@ -193,8 +197,8 @@ Two `ONLINE` indexes and three fused rows mean both searches serve the statement
 | ``syntax error: parse error: expected LIMIT, got ")" (RightParen)`` | The search has no `LIMIT`. | Add `LIMIT <k>` inside the parentheses. |
 | `syntax error: UndefinedVariable: variable 'score' not defined` | The query reads `score` without `SCORE AS`. | Add `SCORE AS score` after the closing parenthesis. |
 | `IndexDoesNotExist: <name>` or `WrongIndexType: <name>` | The index name is misspelled, or names a vector index after `FULLTEXT INDEX`. | Check the name and type in `SHOW INDEXES`. |
-| No rows for a word the text holds in another form | The index has no stemming and no accent folding. | Search for the form the text holds, or index a normalized copy. |
-| `db.index.fulltext.queryNodes` finds nothing for two words | The procedure takes its query as one term, and is deprecated (notification `01N01`). | Use the `SEARCH` clause. |
+| No rows for a word the text holds in another form | The index has no stemming and no accent folding; `WITH ANALYZER 'english'` stems the query's words only. | Search for the form the text holds, or index a normalized copy. |
+| A query with `and` or `not` returns more notes, not fewer | Lowercase `and` and `not` are terms, and a query's terms are alternatives. | Write the operators in capitals: `wal AND tests`. |
 
 ## Related
 

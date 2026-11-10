@@ -7,7 +7,7 @@ surfaces: [go]
 related: [guides/embed/go, get-started/go, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Go :term[client]{id=client} is the module `github.com/relatedb/relate/clients/go`, package `relate`, for Go 1.22 or later. It is cgo code over the relate C library, `librelate_ffi`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous. This page lists the package's exported identifiers as `go doc` reports them for source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+The Go :term[client]{id=client} is the module `github.com/relatedb/relate/clients/go`, package `relate`, for Go 1.22 or later. It is cgo code over the relate C library, `librelate_ffi`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous. This page lists the package's exported identifiers as `go doc` reports them for relate 0.1.2.
 
 ## Synopsis
 
@@ -129,7 +129,7 @@ Each result cell decodes to one Go type per Cypher kind:
 | `VECTOR` | `Vector{DType string, Ints []int64, Floats []float64}`; the slice of the other family is nil |
 | byte array | `[]any` of `int64` |
 
-A zoned value reports its local wall clock. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`, and is `""` in the `system` namespace. The `ID` fields are the deprecated numeric ids `id()` returns. A value kind the client does not know is an error, never `nil`.
+A zoned value reports its local wall clock. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`, and is `""` in the `system` namespace. The `ID` fields are the deprecated numeric ids `id()` returns. A value kind the client does not know is an error, never `nil`.
 
 ## Parameters
 
@@ -191,7 +191,7 @@ The package's cgo directives include `relate.h` and link `-lrelate_ffi`, searchi
 | `CGO_LDFLAGS` | `-L<directory holding librelate_ffi> -lrelate_ffi`; for a static link on macOS, add `-framework CoreFoundation` | `ld: library 'relate_ffi' not found` |
 | `DYLD_LIBRARY_PATH` (macOS), `LD_LIBRARY_PATH` (Linux) | The shared library's directory, at run time. On Linux an rpath at link time does the same; on macOS the library's install name is the absolute path it was built at, so an rpath does not help | The binary does not start: on macOS, `dyld[<pid>]: Library not loaded: <absolute build path>/librelate_ffi.dylib` |
 
-Each release attaches `relate-ffi-<target>.tar.gz` (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`), holding the shared library, the static library, and the header. On Windows, cgo links with MinGW, which needs an import library generated from `relate_ffi.dll` with `gendef` and `dlltool`.
+Each release attaches `relate-ffi-<target>.tar.gz`, holding the shared library, the static library, and the header. On Windows, cgo links with MinGW, which needs an import library generated from `relate_ffi.dll` with `gendef` and `dlltool`.
 
 ## Limits
 

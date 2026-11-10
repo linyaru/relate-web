@@ -7,7 +7,7 @@ surfaces: [c]
 related: [get-started/c, guides/embed/c, reference/api/rust, reference/errors, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app, reference/api/java, reference/api/go, reference/api/swift]
 ---
 
-The C application binary interface (ABI) is the header `relate.h` and the library `librelate_ffi`: opaque handles for a database, a connection, a result, a value and a parameter builder, and 81 functions over them. The ABI version is 2, and `relate_abi_version()` returns it. The Node.js, Java, Go and Swift :term[clients]{id=client} wrap this library, and the library wraps the Rust crate's `Database`. The header is the contract; this page groups its declarations as of the source build the docs are verified against. The guide [Use the C ABI](/docs/guides/embed/c) covers the same calls with runnable programs.
+The C application binary interface (ABI) is the header `relate.h` and the library `librelate_ffi`: opaque handles for a database, a connection, a result, a value and a parameter builder, and 81 functions over them. The ABI version is 2, and `relate_abi_version()` returns it. The Node.js, Java, Go and Swift :term[clients]{id=client} wrap this library, and the library wraps the Rust crate's `Database`. The header is the contract; this page groups its declarations as of relate 0.1.2. The guide [Use the C ABI](/docs/guides/embed/c) covers the same calls with runnable programs.
 
 ## Synopsis
 
@@ -24,7 +24,7 @@ relate_disconnect(conn)
 relate_database_close(db)
 ```
 
-Each release attaches a `relate-ffi-<target>.tar.gz` archive (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`) per platform (`aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`) holding `include/relate.h` and the static and shared libraries. A program links with `-lrelate_ffi`. After the first public release the ABI changes only by addition; a version bump means symbols were removed or signatures changed.
+Each release attaches a `relate-ffi-<target>.tar.gz` archive per platform (`aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`) holding `include/relate.h` and the static and shared libraries. A program links with `-lrelate_ffi`. After the first public release the ABI changes only by addition; a version bump means symbols were removed or signatures changed.
 
 ## Types
 
@@ -150,7 +150,7 @@ An accessor called on another kind, on a `NULL` handle, or with a `NULL` out-par
 | `relate_value_float(v, double *out)` | `FLOAT` | The double, `NaN` and infinities included |
 | `relate_value_is_nan(v, uint8_t *out)`, `relate_value_is_inf(v, uint8_t *out)` | `FLOAT` | `1` when `NaN`, or infinite of either sign |
 | `relate_value_string(v, size_t *len)` | `STRING`, `RELATIONSHIP` | NUL-terminated UTF-8 (a relationship's type); `*len`, when not `NULL`, is the byte length, so a string with an interior NUL crosses whole |
-| `relate_value_element_id(v)` | `NODE`, `RELATIONSHIP` | The :term[element id]{id=element-id} as `elementId()` spells it, such as `4:relate:n0`; `NULL` in the `system` namespace |
+| `relate_value_element_id(v)` | `NODE`, `RELATIONSHIP` | The :term[element id]{id=element-id} as `elementId()` spells it, such as `4:relate-neo4j:n0`; `NULL` in the `system` namespace |
 | `relate_value_start_element_id(v)`, `relate_value_end_element_id(v)` | `RELATIONSHIP` | The end nodes' element ids |
 | `relate_value_id(v, int64_t *out)` | `NODE`, `RELATIONSHIP` | The numeric id `id()` returns |
 | `relate_value_start_id(v, int64_t *out)`, `relate_value_end_id(v, int64_t *out)` | `RELATIONSHIP` | The end nodes' numeric ids |
@@ -182,7 +182,7 @@ An accessor called on another kind, on a `NULL` handle, or with a `NULL` out-par
 | `relate_params_put_bool(p, name, uint8_t v, &err)` | A boolean; `0` is false, any other value true |
 | `relate_params_put_int(p, name, int64_t v, &err)` | An integer, the whole `int64_t` range |
 | `relate_params_put_float(p, name, double v, &err)` | A float, `NaN` and infinities included |
-| `relate_params_put_string(p, name, const char *v, size_t len, &err)` | `len` bytes of UTF-8; invalid UTF-8 refuses |
+| `relate_params_put_string(p, name, const char *v, size_t len, &err)` | `len` bytes of UTF-8; invalid UTF-8 refuses. A `NULL` `v` with `len` 0 binds the empty string; a `NULL` `v` with a nonzero `len` refuses with `null string value` |
 | `relate_params_put_date(p, name, year, month, day, &err)` | A date that exists in the calendar |
 | `relate_params_put_local_time(p, name, hour, minute, second, nanosecond, &err)` | A local time |
 | `relate_params_put_time(p, name, hour, minute, second, nanosecond, offset_seconds, zone, &err)` | A zoned time; a non-`NULL` zone supplies the offset at the current instant, and the time keeps no zone id |

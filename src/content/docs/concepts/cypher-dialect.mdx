@@ -97,7 +97,7 @@ RELATE_PREVIEW=chronological-comparisons relate --mode envelope "RETURN datetime
 ```
 
 ```text
-{"columnTypes":["BOOLEAN"],"columns":["same"],"notifications":[],"rows":[{"same":true}],"truncated":false}
+{"columnTypes":["BOOLEAN"],"columns":["same"],"notifications":[],"planCache":"miss","rows":[{"same":true}],"timings":{"elapsed_ms":0.934375,"execute_ms":0.371625,"lex_parse_ms":0.028167,"lower_ms":0.428167,"parse_ms":0.49474999999999997,"plan_ms":0.057540999999999995,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.008042},"truncated":false}
 ```
 
 `RELATE_PREVIEW` takes a comma-separated list and is read once, when the store opens. An unknown name stops the open with an error that lists every known name, so a typo never passes silently. The names in this build are `hybrid-search`, `local-callables`, `graph-type-opt-props`, `graph-type-default-values`, `graph-type-implied-labels`, `ontology`, `obfuscated-literals`, `mixed-label-syntax`, `float16-coordinate-types`, `chronological-comparisons`, `complex-search-patterns`, `coll-zip`, `coll-has` and `gql-stddev-aliases`. Three of them, `coll-zip`, `coll-has` and `gql-stddev-aliases`, gate function names, and `ontology` gates the `db.ontology.*` procedures; the rest gate syntax. While one of the three function gates is off, a call fails as an unknown function.

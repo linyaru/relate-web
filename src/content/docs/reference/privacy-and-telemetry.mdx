@@ -57,8 +57,8 @@ Every event also carries these properties:
 | --- | --- |
 | Never collected | Query text, store paths, and parameter values. The event types have no fields for them, so adding one would be a compile error, not a policy change. |
 | Install ID | A random UUID, generated once and kept in `state.json` in the config directory. No hardware or operating-system identifier is read. |
-| Files | `state.json` (the install ID and the notice flag) and `config.json` (the setting `relate telemetry` writes), both mode `0600` on Unix, in `$XDG_CONFIG_HOME/relate/` when that is set to an absolute path, else `~/.config/relate/` |
-| Delivery | `POST https://api.mixpanel.com/track`, from a background thread with a 2-second HTTP timeout. At exit the CLI waits at most 250 ms by default (`RELATE_TELEMETRY_FLUSH_MS` changes it; `0` waits for nothing) for delivery, then drops what is left. |
+| Files | `state.json` (the install ID and the notice flag), `config.json` (the setting `relate telemetry` writes) and the spool, one `telemetry-spool-<uuid>.jsonl` file per run that recorded events, all mode `0600` on Unix, in `$XDG_CONFIG_HOME/relate/` when that is set to an absolute path, else `~/.config/relate/`; on Windows, `%APPDATA%\relate`, else `%USERPROFILE%\.config\relate` |
+| Delivery | A run sends nothing while it works. At exit it appends its events to its own spool file, a local write with no network wait. The next run with usage metrics on sends the spooled files in the background, as `POST https://api.mixpanel.com/track` with a 2-second HTTP timeout, and deletes each file once delivered; a file that fails stays for a later run. The spool is bounded: past its limits, events and files are dropped. |
 | Failure | Every :term[telemetry]{id=telemetry} error is ignored: nothing is printed, and exit codes do not change. |
 | Recipient | A Mixpanel project shared with another command-line tool; its operator is to be named here at launch. The `RELATE-CLI_` prefix keeps relate's events apart. The CLI does not set Mixpanel's `ip` parameter, so Mixpanel's own handling of the request's IP address applies. |
 
@@ -73,7 +73,7 @@ Usage metrics are on unless a layer turns them off. The first layer that matches
 | 3 | `"telemetry"` in `config.json`, written by `relate telemetry off` and `on` | `false` | `true` |
 | 4 | Default | — | On |
 
-`relate telemetry status` prints the effective state and the layer that decided it: `default`, `config file`, `RELATE_TELEMETRY`, or `DO_NOT_TRACK`. `relate telemetry off` and `on` write the setting and print the file they wrote. The commands exit 0 on success, 1 when no config directory resolves or the write fails, and 2 for a missing action, an unknown action, or an extra argument.
+`relate telemetry status` prints the effective state and the layer that decided it: `default`, `config file`, `RELATE_TELEMETRY`, or `DO_NOT_TRACK`. `relate telemetry off` and `on` write the setting and print the file they wrote; `off` also deletes the spool, so events recorded before it are never sent. The commands exit 0 on success, 1 when no config directory resolves or the write fails, and 2 for a missing action, an unknown action, or an extra argument.
 
 The commands on this page run with `DO_NOT_TRACK=1` set, so `status` names that layer. `off` writes the config file, and `DO_NOT_TRACK` still decides:
 

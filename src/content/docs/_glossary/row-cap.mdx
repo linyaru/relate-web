@@ -10,7 +10,7 @@ related: ["agent-mode", "envelope"]
 
 The row cap bounds how many rows the CLI prints for one statement, so a broad read cannot flood an agent's context. `--max-rows N` sets it and `0` means unlimited; `RELATE_MAX_ROWS` sets it for an environment. Without either, it is 100 under a detected agent harness with stdout not a terminal, and unlimited otherwise. The statement itself runs to completion: the cap limits printing, not reading.
 
-A cut is never silent. stderr gets a warning line, and the machine modes carry it in-band: in the :term[envelope]{id=envelope}, `"truncated":true` and a `rowCap` object with the rows kept and the total.
+A cut is never silent. stderr gets a warning line, and the machine modes carry it in-band: in the :term[envelope]{id=envelope}, `"truncated":true` and a `rowCap` object with the rows kept and the total. In this example, only the envelope's `timings` numbers change from run to run.
 
 ```bash
 relate --mode envelope --max-rows 2 "UNWIND range(1, 5) AS x RETURN x"
@@ -18,5 +18,5 @@ relate --mode envelope --max-rows 2 "UNWIND range(1, 5) AS x RETURN x"
 
 ```text
 warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows
-{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"truncated":true}
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"planCache":"miss","rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"timings":{"elapsed_ms":0.40037500000000004,"execute_ms":0.23075,"lex_parse_ms":0.023875,"lower_ms":0.0445,"parse_ms":0.111542,"plan_ms":0.04975,"result_generation_ms":0.0022919999999999998,"rewrite_ms":0.010083},"truncated":true}
 ```

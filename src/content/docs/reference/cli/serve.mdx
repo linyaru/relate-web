@@ -11,14 +11,14 @@ related: [reference/cli/flags#relate-serve, reference/server/http, reference/ser
 ## Synopsis
 
 ```text
-relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]
 ```
 
 The usage line is the one `relate serve --help` prints. The HTTP limits (`--tx-idle-timeout-secs`, `--max-open-transactions`, `--header-deadline-secs`, `--body-deadline-secs`) and `--max-connections` are left out of it and listed under [Options](#options).
 
 ## Options
 
-`--database` (short form `-d`) is required: a directory, a path ending in `.rl`, or `:memory:`. Each flag beats its environment variable, which beats the default. Besides its own flags, `relate serve` takes the query-run flags named in the table's last row, with the same resolution as in a query session. Any other query-run flag, such as `--timeout`, `--mode` or `--wal-dir`, exits 2 with `Error: unexpected argument to serve: <flag>`. `RELATE_CHECKPOINT_INTERVAL_SECS` sets the checkpoint period, since `--checkpoint-interval-secs` is not accepted.
+`--database` (short form `-d`) is required: a directory, a path ending in `.rl`, or `:memory:`. Each flag beats its environment variable, which beats the default. Besides its own flags, `relate serve` takes `--snapshot-format` and the query-run flags named in the table's last row, with the same resolution as in a query session. `--snapshot-format parquet-wide` opts the served store into wide-column `parquet` parts ([Storage formats](/docs/reference/storage/formats#wide-column-parquet)). Any other query-run flag, such as `--timeout`, `--mode` or `--wal-dir`, exits 2 with `Error: unexpected argument to serve: <flag>`. `RELATE_CHECKPOINT_INTERVAL_SECS` sets the checkpoint period, since `--checkpoint-interval-secs` is not accepted.
 
 <Flags command="serve" />
 

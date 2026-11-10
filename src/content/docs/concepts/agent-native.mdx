@@ -44,10 +44,10 @@ The first line is the warning on stderr; the envelope on stdout names both count
 
 ```text
 warning: result truncated to 2 rows (the statement returned 3); pass --max-rows 0 for all rows
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rowCap":{"kept":2,"total":3},"rows":[{"name":"Ada"},{"name":"Grace"}],"truncated":true}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rowCap":{"kept":2,"total":3},"rows":[{"name":"Ada"},{"name":"Grace"}],"timings":{"elapsed_ms":0.678416,"execute_ms":0.5296660000000001,"lex_parse_ms":0.023083,"lower_ms":0.032458,"parse_ms":0.098,"plan_ms":0.041625,"result_generation_ms":0.00041600000000000003,"rewrite_ms":0.007083},"truncated":true}
 ```
 
-**Harness detection.** relate turns on :term[agent mode]{id=agent-mode} when it sees an agent harness's environment variable, such as `CLAUDECODE` or `CURSOR_AGENT`, and stdout is not a terminal. Agent mode sets two defaults: the 100-row cap, and TOON as the piped output: one header line, then one line per row. The same statement, run plainly and then as Claude Code would run it:
+**Harness detection.** relate turns on :term[agent mode]{id=agent-mode} when it sees an agent harness's environment variable, such as `CLAUDECODE` or `CURSOR_AGENT`, and stdout is not a terminal. Agent mode sets two defaults: the 100-row cap, and TOON as the piped output: one header line, then one line per row, then the statement's timings and plan-cache outcome. The same statement, run plainly and then as Claude Code would run it; both modes close with the [timing record](/docs/reference/cli/output-modes#timings-and-the-plan-cache):
 
 ```bash verify
 relate "UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name"
@@ -58,10 +58,15 @@ CLAUDECODE=1 relate "UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name"
 {"name":"Ada"}
 {"name":"Grace"}
 {"name":"Noor"}
+{"planCache":"miss","timings":{"elapsed_ms":0.404375,"execute_ms":0.249166,"lex_parse_ms":0.023,"lower_ms":0.031917,"parse_ms":0.102042,"plan_ms":0.043542,"result_generation_ms":0.000625,"rewrite_ms":0.007459}}
 rows[3]{name}:
   Ada
   Grace
   Noor
+timings:
+  {"elapsed_ms":0.38104099999999996,"execute_ms":0.222542,"lex_parse_ms":0.024708,"lower_ms":0.034208999999999996,"parse_ms":0.10475,"plan_ms":0.043292,"result_generation_ms":0.0005,"rewrite_ms":0.007500000000000001}
+planCache:
+  miss
 ```
 
 Detection changes output only. It never gates writes and never turns on `--safe`; those stay explicit choices, because a heuristic that changed what a statement may do would make the same command mean different things in different terminals.
@@ -98,7 +103,7 @@ It prints the statement as relate does in four output modes, `table`, `envelope`
 | Choice | What it buys | What it costs |
 | --- | --- | --- |
 | Row cap under a harness | A runaway result cannot flood the context | The engine still computes the whole result; the cap bounds printing, not work. A Cypher `LIMIT` bounds the work |
-| TOON as the piped default under agent mode | Fewer bytes per row than JSON | TOON is not JSON. A tool that expects one JSON object per row gets it with `--mode jsonl` (or `--no-agent-mode`); `--mode envelope` gives one JSON object per result set |
+| TOON as the piped default under agent mode | Fewer bytes per row than JSON | TOON is not JSON. A tool that expects one JSON object per row gets it with `--mode jsonl` (or `--no-agent-mode`), followed by one timing line per statement; `--mode envelope` gives one JSON object per result set |
 | Detection from environment variables | No flag to remember inside a harness | A variable set for another reason turns agent mode on; `--no-agent-mode` or `RELATE_AGENT_MODE=0` turns it off. Detection is silent, so the same command prints differently inside and outside a harness unless `--mode` pins the output |
 | The skill as a copy in each agent's folder | The agent reads relate's rules before its first command | A copy can fall behind the binary after an upgrade; `relate skill check` exits 1 when an installed copy differs |
 | MCP classification before execution | A read tool, annotated `readOnlyHint`, that cannot change the graph or its indexes | One extra planning pass per call |

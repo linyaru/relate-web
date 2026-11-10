@@ -39,7 +39,7 @@ relate --mode envelope "RETURN 1 AS ok"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":0.356541,"execute_ms":0.20325000000000001,"lex_parse_ms":0.020542,"lower_ms":0.02775,"parse_ms":0.09895799999999999,"plan_ms":0.042292,"result_generation_ms":0.000209,"rewrite_ms":0.007292},"truncated":false}
 ```
 
 Use it for tests, scratch statements and anything you rebuild from a script.
@@ -70,7 +70,7 @@ relate query --database ./team.rl --mode envelope < team.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":2.00025,"execute_ms":1.69775,"lex_parse_ms":0.01425,"lower_ms":0.02775,"parse_ms":0.283083,"plan_ms":0.013583,"result_generation_ms":0.000167,"rewrite_ms":0.000583},"truncated":false}
 ```
 
 `relate info` reads a store's metadata without opening it:
@@ -105,7 +105,7 @@ relate --load ./team.rl --mode envelope "MATCH (p:Person) RETURN count(p) AS peo
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":3}],"timings":{"elapsed_ms":0.363917,"execute_ms":0.18412499999999998,"lex_parse_ms":0.03225,"lower_ms":0.043709,"parse_ms":0.11108299999999999,"plan_ms":0.060209,"result_generation_ms":0.00025,"rewrite_ms":0.00825},"truncated":false}
 ```
 
 ## Create a directory store
@@ -117,7 +117,7 @@ relate query --database ./team --mode envelope < team.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.223083,"execute_ms":0.926084,"lex_parse_ms":0.015042,"lower_ms":0.021459,"parse_ms":0.28016599999999997,"plan_ms":0.010917000000000001,"result_generation_ms":0.000209,"rewrite_ms":0.0005},"truncated":false}
 ```
 
 The folder holds the snapshot (`manifest.json` and the Parquet files under `nodes/` and `relationships/`) and the WAL:
@@ -144,7 +144,7 @@ relate query --database ./team-json --snapshot-format json --mode envelope < tea
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.260125,"execute_ms":0.930708,"lex_parse_ms":0.013375,"lower_ms":0.061,"parse_ms":0.313042,"plan_ms":0.010166000000000001,"result_generation_ms":0.000042,"rewrite_ms":0.001084},"truncated":false}
 ```
 
 ```bash verify
@@ -164,7 +164,7 @@ relate --database ./team-json --read-only --mode envelope "MATCH (p:Person) RETU
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"timings":{"elapsed_ms":0.536292,"execute_ms":0.376833,"lex_parse_ms":0.029833000000000002,"lower_ms":0.038042,"parse_ms":0.10087499999999999,"plan_ms":0.050334000000000004,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.008},"truncated":false}
 ```
 
 `RELATE_SNAPSHOT_FORMAT=json` makes the same choice for a new store, including from the clients. A third codec, `markdown`, writes one note per node for a folder people edit by hand; the [formats reference](/docs/reference/storage/formats) describes it.

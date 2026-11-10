@@ -77,6 +77,10 @@ CLAUDECODE=1 relate "UNWIND [1, 2] AS x RETURN x"
 rows[2]{x}:
   1
   2
+timings:
+  {"elapsed_ms":0.378,"execute_ms":0.220834,"lex_parse_ms":0.031875,"lower_ms":0.031792,"parse_ms":0.1065,"plan_ms":0.041665999999999995,"result_generation_ms":0.000167,"rewrite_ms":0.0067079999999999996}
+planCache:
+  miss
 ```
 
 `--no-agent-mode` beats detection, so the piped default is `jsonl` again:
@@ -88,6 +92,7 @@ CLAUDECODE=1 relate --no-agent-mode "UNWIND [1, 2] AS x RETURN x"
 ```text
 {"x":1}
 {"x":2}
+{"planCache":"miss","timings":{"elapsed_ms":0.354916,"execute_ms":0.202834,"lex_parse_ms":0.022667000000000003,"lower_ms":0.030125,"parse_ms":0.095875,"plan_ms":0.043792,"result_generation_ms":0.00025,"rewrite_ms":0.006792}}
 ```
 
 An explicit `--mode` beats agent mode's default without turning agent mode off:
@@ -99,6 +104,7 @@ CLAUDECODE=1 relate --mode jsonl "UNWIND [1, 2] AS x RETURN x"
 ```text
 {"x":1}
 {"x":2}
+{"planCache":"miss","timings":{"elapsed_ms":0.456708,"execute_ms":0.310916,"lex_parse_ms":0.022,"lower_ms":0.030458,"parse_ms":0.095333,"plan_ms":0.040917,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.006667}}
 ```
 
 `RELATE_AGENT_MODE=1` turns it on without a harness, and says so on stderr:
@@ -112,6 +118,10 @@ relate agent mode on: RELATE_AGENT_MODE=1 (--no-agent-mode to turn off)
 rows[2]{x}:
   1
   2
+timings:
+  {"elapsed_ms":0.47974999999999995,"execute_ms":0.335833,"lex_parse_ms":0.023125,"lower_ms":0.032541,"parse_ms":0.095875,"plan_ms":0.038583,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.005667}
+planCache:
+  miss
 ```
 
 A value other than `1` or `0` is a usage error, before any statement runs:
@@ -141,17 +151,17 @@ The machine modes also carry the cut in-band, after the rows or inside the envel
 | Mode | The in-band record |
 | --- | --- |
 | `envelope` | `"truncated":true` and `"rowCap":{"kept":100,"total":250}` |
-| `jsonl` | A last line `{"rowCap":{"kept":100,"total":250}}` |
-| `json` | The rows wrapped: `{"data":[…],"rowCap":{"kept":100,"total":250}}`; an uncut result stays a bare array |
-| `toon` | A last `rowCap:` entry, the counts as inline JSON |
+| `jsonl` | A `{"rowCap":{"kept":100,"total":250}}` line after the rows, before the statement's timing line |
+| `json` | A `rowCap` key beside `data`: `{"data":[…],"planCache":…,"rowCap":{"kept":100,"total":250},"timings":{…}}` |
+| `toon` | A `rowCap:` entry after the rows, the counts as inline JSON, before the `timings:` and `planCache:` entries |
 | `markdown` | A footer line `> truncated: 100 of 250 rows shown` |
 | `table`, `csv`, `cypher` | None; the stderr line is the only report |
 
-Each statement of a multi-statement run is capped and reported on its own. Under a detected harness, the `toon` header names the rows kept, and the last entry names both counts:
+Each statement of a multi-statement run is capped and reported on its own. Under a detected harness, the `toon` header names the rows kept, and the `rowCap:` entry after the last row names both counts. The `timings:` and `planCache:` entries close the block; the [output modes page](/docs/reference/cli/output-modes#timings-and-the-plan-cache) describes them, and their digits change from run to run:
 
 ```bash verify
 CLAUDECODE=1 relate "UNWIND range(1, 250) AS x RETURN x" 2>/dev/null | head -2
-CLAUDECODE=1 relate "UNWIND range(1, 250) AS x RETURN x" 2>/dev/null | tail -3
+CLAUDECODE=1 relate "UNWIND range(1, 250) AS x RETURN x" 2>/dev/null | tail -7
 ```
 
 ```text
@@ -160,6 +170,10 @@ rows[100]{x}:
   100
 rowCap:
   {"kept":100,"total":250}
+timings:
+  {"elapsed_ms":0.44983399999999996,"execute_ms":0.30124999999999996,"lex_parse_ms":0.024457999999999997,"lower_ms":0.033833,"parse_ms":0.093125,"plan_ms":0.047667,"result_generation_ms":0.001209,"rewrite_ms":0.007833}
+planCache:
+  miss
 ```
 
 ## The envelope
@@ -171,7 +185,7 @@ relate --mode envelope "RETURN 1 AS a, [1, 2] AS l, {k: 'v'} AS m, null AS z"
 ```
 
 ```text
-{"columnTypes":["INTEGER","LIST","MAP","ANY"],"columns":["a","l","m","z"],"notifications":[],"rows":[{"a":1,"l":[1,2],"m":{"k":"v"},"z":null}],"truncated":false}
+{"columnTypes":["INTEGER","LIST","MAP","ANY"],"columns":["a","l","m","z"],"notifications":[],"planCache":"miss","rows":[{"a":1,"l":[1,2],"m":{"k":"v"},"z":null}],"timings":{"elapsed_ms":0.3515,"execute_ms":0.198667,"lex_parse_ms":0.02425,"lower_ms":0.030792,"parse_ms":0.1025,"plan_ms":0.040958,"result_generation_ms":0.000334,"rewrite_ms":0.007084},"truncated":false}
 ```
 
 | Field | Type | Present | Meaning |
@@ -180,9 +194,13 @@ relate --mode envelope "RETURN 1 AS a, [1, 2] AS l, {k: 'v'} AS m, null AS z"
 | `columns` | array of strings | always | The result columns in order, even when there are no rows |
 | `notifications` | array of objects | always | The statement's notifications; `[]` on a plain run |
 | `plan` | object | `EXPLAIN` and `PROFILE` only | The plan tree |
+| `planCache` | string | always | The plan-cache outcome: `miss`, `hit-raw-fastpath`, `hit-template`, `replan-generation-mismatch` or `bypassed` |
 | `rowCap` | object | when the row cap cut the rows | `{"kept":N,"total":M}`: the rows printed and the rows the statement returned |
 | `rows` | array of objects | always | One object per row, values as `--json` prints them |
+| `timings` | object | always | The statement's phase timings in milliseconds: `elapsed_ms`, `execute_ms`, `lex_parse_ms`, `lower_ms`, `parse_ms`, `plan_ms`, `result_generation_ms` and `rewrite_ms`; the values change from run to run |
 | `truncated` | boolean | always | `true` when the row cap cut the rows |
+
+The [output modes page](/docs/reference/cli/output-modes#timings-and-the-plan-cache) defines each timing key and each `planCache` value.
 
 An empty result keeps its columns, so no rows is told apart from no output:
 
@@ -191,7 +209,7 @@ relate --mode envelope "MATCH (p:Person) RETURN p"
 ```
 
 ```text
-{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.382083,"execute_ms":0.227458,"lex_parse_ms":0.027834,"lower_ms":0.04075,"parse_ms":0.098458,"plan_ms":0.048708,"result_generation_ms":0.000292,"rewrite_ms":0.007500000000000001},"truncated":false}
 ```
 
 A cut result has `rowCap` and `"truncated":true`. In this run `--max-rows 2` sets the cap; agent mode's default cut looks the same with `"kept":100`:
@@ -202,7 +220,7 @@ relate --mode envelope --max-rows 2 "UNWIND range(1, 5) AS x RETURN x"
 
 ```text
 warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows
-{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"truncated":true}
+{"columnTypes":["INTEGER"],"columns":["x"],"notifications":[],"planCache":"miss","rowCap":{"kept":2,"total":5},"rows":[{"x":1},{"x":2}],"timings":{"elapsed_ms":0.34175,"execute_ms":0.20358400000000001,"lex_parse_ms":0.021709,"lower_ms":0.032666,"parse_ms":0.08629200000000001,"plan_ms":0.044333,"result_generation_ms":0.0011250000000000001,"rewrite_ms":0.007042},"truncated":true}
 ```
 
 A failed statement in `envelope`, `json`, `jsonl` or `speedscope` prints the error object instead, with the same keys in each; its fields are on the [exit codes page](/docs/reference/cli/exit-codes-and-errors#the-error-object). New envelope fields may be added; existing ones are never renamed.
@@ -223,10 +241,10 @@ With `--mode envelope` or `--mode jsonl`, the same run prints the error object o
 
 ## Notifications
 
-A plain run produces no notifications. `EXPLAIN` and `PROFILE` derive them beside the plan: an unknown label or property key, a missing index, a pattern with no join anchor. Agent mode does not change them; the output mode decides where they go. Under agent mode's piped `toon` default, they print as a `notifications:` entry after `plan:`, one inline JSON array:
+A plain run produces no notifications. `EXPLAIN` and `PROFILE` derive them beside the plan: an unknown label or property key, a missing index, a pattern with no join anchor. Agent mode does not change them; the output mode decides where they go. Under agent mode's piped `toon` default, they print as a `notifications:` entry after `plan:`, one inline JSON array, before the `timings:` and `planCache:` entries:
 
 ```bash verify
-CLAUDECODE=1 relate "EXPLAIN MATCH (p:Persn) RETURN p.name AS name" | tail -2
+CLAUDECODE=1 relate "EXPLAIN MATCH (p:Persn) RETURN p.name AS name" | tail -6 | head -2
 ```
 
 ```text
@@ -234,7 +252,7 @@ notifications:
   [{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownLabelWarning","description":"The label `Persn` does not exist in this database.","gql_status":"01N50","remedy":"Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.","severity":"WARNING","title":"Unknown label"},{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownPropertyKeyWarning","description":"The property key `name` does not exist in this database.","gql_status":"01N52","remedy":"Check the spelling; the key exists after the first write that sets it.","severity":"WARNING","title":"Unknown property key"}]
 ```
 
-Each entry has `category`, `code`, `description`, `gql_status`, `remedy`, `severity` and `title`, plus `operator_id` when it concerns one plan operator. The `envelope` mode carries the same list in `notifications`; `json` and `jsonl` print one `{"notifications":[…],"plan":{…}}` object; `table` and `markdown` print a `Notifications:` block; `csv` and `cypher` print none. The [errors reference](/docs/reference/errors#notifications) lists every notification.
+Each entry has `category`, `code`, `description`, `gql_status`, `remedy`, `severity` and `title`, plus `operator_id` when it concerns one plan operator. The `envelope` mode carries the same list in `notifications`; `json` prints one `{"notifications":[…],"plan":{…},"planCache":…,"timings":{…}}` object; `jsonl` prints one `{"notifications":[…],"plan":{…}}` line, then the timing line; `table` and `markdown` print a `Notifications:` block; `csv` and `cypher` print none. The [errors reference](/docs/reference/errors#notifications) lists every notification.
 
 ## The agent-context briefing
 

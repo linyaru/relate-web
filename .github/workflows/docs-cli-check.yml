@@ -7,13 +7,17 @@
 # diff.
 #
 # Weekly, by hand, and on a push to main that touches the engine build the
-# site ships (public/wasm) or the data files. It is not a required check: it
-# depends on a published release, not on the pull request.
+# site ships (public/wasm), the docs pages or data files, or the check itself.
+# It is not a required check: it depends on a published release, not on the
+# pull request.
 #
-# The whole job is continue-on-error until the first relate-named release is
-# published: install.sh resolves the latest release of relatedb/relate, and
-# until that exists (pre-launch, LAUNCH.md) the install step fails. Remove
-# `continue-on-error` once a release is out, so drift turns the run red.
+# install.sh resolves the latest release of relatedb/relate through the
+# GitHub API. The repository is private before launch, so the install step
+# reads it with RELATE_UPSTREAM_TOKEN (the token docs-samples.yml and
+# engine-release.yml use); without that secret it falls back to the job's
+# token, which can read the release only once the repository is public. A
+# failure turns the run red: since relate 0.1.0 a release exists, so a red run
+# is drift or a broken install, never "no release yet".
 #
 # A drift after a release: if the CLI changed on purpose, re-record the data
 # files with `RELATE_BIN=<binary> npm run docs:cli-check -- --record`, fix the
@@ -29,7 +33,9 @@ on:
     branches: [main]
     paths:
       - 'public/wasm/**'
-      - 'src/content/docs/_data/**'
+      - 'src/content/docs/**'
+      - 'scripts/docs-cli-check.ts'
+      - 'src/lib/docs/checks/cli.ts'
 
 permissions:
   contents: read
@@ -42,8 +48,6 @@ jobs:
   cli-check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Pre-launch: install.sh fails until the first relate-named release exists.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +64,7 @@ jobs:
       # into ~/.local/bin. The token only raises the GitHub API rate limit.
       - name: Install the latest relate release
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
         run: |
           bash public/install.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"

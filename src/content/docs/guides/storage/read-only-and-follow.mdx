@@ -51,7 +51,7 @@ relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN p.
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"timings":{"elapsed_ms":0.412167,"execute_ms":0.24537499999999998,"lex_parse_ms":0.030042000000000003,"lower_ms":0.039417,"parse_ms":0.104584,"plan_ms":0.053167,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00925},"truncated":false}
 ```
 
 A write on a read-only open fails before it changes anything. The first line is stderr, the second the error object on stdout:
@@ -84,8 +84,8 @@ wait
 The first line is the writer's empty result, the second the reader's count:
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.9636660000000001,"execute_ms":1.814541,"lex_parse_ms":0.002667,"lower_ms":0.003375,"parse_ms":0.142209,"plan_ms":0.0015,"result_generation_ms":0.000166,"rewrite_ms":0.00020800000000000001},"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":3}],"timings":{"elapsed_ms":0.702875,"execute_ms":0.509875,"lex_parse_ms":0.038458,"lower_ms":0.047875,"parse_ms":0.12504099999999999,"plan_ms":0.059458,"result_generation_ms":0.00025,"rewrite_ms":0.009125},"truncated":false}
 ```
 
 The reader counts 3 people although the store now holds 4: Ines committed after the reader opened. A one-shot run opens, reads and exits, so it sees the latest commit each time. A long-running reader opened with `--read-only` sees it only after it opens the store again.
@@ -103,8 +103,8 @@ wait
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":5}],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":4.0413749999999995,"execute_ms":3.8890000000000002,"lex_parse_ms":0.003625,"lower_ms":0.007333,"parse_ms":0.14558400000000002,"plan_ms":0.001583,"result_generation_ms":0.000167,"rewrite_ms":0.000167},"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":5}],"timings":{"elapsed_ms":0.474458,"execute_ms":0.292416,"lex_parse_ms":0.032208,"lower_ms":0.047625,"parse_ms":0.115041,"plan_ms":0.058,"result_generation_ms":0.000458,"rewrite_ms":0.008667},"truncated":false}
 ```
 
 The follower counts 5: Ines from the step before and Jun, who committed after it opened. A :term[live read-only]{id=live-read-only} open has these rules:
@@ -185,7 +185,7 @@ relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN co
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":5}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":5}],"timings":{"elapsed_ms":0.33925,"execute_ms":0.171167,"lex_parse_ms":0.031292,"lower_ms":0.041958,"parse_ms":0.107458,"plan_ms":0.051708,"result_generation_ms":0.000292,"rewrite_ms":0.007875},"truncated":false}
 ```
 
 ## If it goes wrong

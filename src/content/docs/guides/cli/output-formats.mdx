@@ -48,7 +48,7 @@ relate query --database ./team.rl < seed.cypher
 
 ## Pipe rows to jq
 
-Use `--jsonl` for a stream of rows: one JSON object per line, which `jq` reads one at a time. This keeps the engineers' names:
+Use `--jsonl` for a stream of rows: one JSON object per row, each on its own line, which `jq` reads one at a time. Each statement ends with one more line, its [timings and plan-cache outcome](/docs/reference/cli/output-modes#timings-and-the-plan-cache); a filter on a row's key, such as `.role`, passes over it. This keeps the engineers' names:
 
 ```bash verify
 relate --database ./team.rl --read-only --jsonl "MATCH (p:Person) RETURN p.name AS name, p.role AS role ORDER BY name" | jq -r 'select(.role == "engineer") | .name'
@@ -73,7 +73,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:WORK
 {"columns":["project","people"],"columnTypes":["STRING","INTEGER"],"truncated":false,"rows":2}
 ```
 
-A read with no rows still prints an envelope with its `columns`, where `jsonl` prints nothing at all. A failed statement prints an :term[error object]{id=error-object} on stdout in place of the envelope, so a program can tell no rows, no output, and a failure apart.
+A read with no rows still prints an envelope with its `columns`, where `jsonl` prints only its timing line. A failed statement prints an :term[error object]{id=error-object} on stdout in place of the envelope, so a program can tell no rows, no output, and a failure apart.
 
 ## Export CSV for a spreadsheet
 
@@ -112,7 +112,7 @@ Strings keep their quotes, and a `|` inside a value is escaped, so a value can't
 
 ## Give an agent TOON
 
-Use `--toon` for rows an agent reads. The header names the row count and the columns once, then each row is one line of values:
+Use `--toon` for rows an agent reads. The header names the row count and the columns once, then each row is one line of values, and the `timings:` and `planCache:` entries close the block:
 
 ```bash verify
 relate --database ./team.rl --read-only --toon "MATCH (p:Person)-[w:WORKS_ON]->(proj:Project) RETURN p.name AS person, proj.name AS project, w.since AS since ORDER BY since"
@@ -123,6 +123,10 @@ rows[3]{person,project,since}:
   Grace,opencypher-tck,2022
   Grace,relate,2023
   Ada,relate,2024
+timings:
+  {"elapsed_ms":0.428167,"execute_ms":0.247,"lex_parse_ms":0.031291,"lower_ms":0.0425,"parse_ms":0.111333,"plan_ms":0.061,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.008291999999999999}
+planCache:
+  miss
 ```
 
 Under :term[agent mode]{id=agent-mode}, `toon` is already the default when stdout is piped. It prints no error object: a failure shows only as the stderr message and the exit code. If the agent branches on failures in its output, pass `--mode envelope` instead.
@@ -164,7 +168,7 @@ nanoseconds
 | --- | --- | --- |
 | `jq` reports a parse error on piped output | Agent mode is on (a detected agent harness, `--agent-mode` or `RELATE_AGENT_MODE=1`), so the piped default is `toon` | Pass `--jsonl` or `--mode envelope` explicitly |
 | `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)`, exit code 1 | The statement has no `PROFILE` prefix. The statement still ran: its writes are committed | Start the statement with `PROFILE` |
-| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)`, exit code 1 | The plan's top operator recorded no metrics; as of 0.16.1, a `count()` over an `Expand`, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`, does this. The statement still ran: its writes are committed | Profile the statement without its aggregation, or read the plan with `--mode table` |
+| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)`, exit code 1 | The plan's top operator recorded no metrics; as of 0.1.2, a `count()` over an `Expand`, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`, does this. The statement still ran: its writes are committed | Profile the statement without its aggregation, or read the plan with `--mode table` |
 | A spreadsheet column shows `'-5` | The CSV formula guard prefixes a field that starts with `-` | Strip the leading `'` on import, or export with `--jsonl` |
 | `Error: invalid mode '<name>' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)`, exit code 2 | A mode name relate doesn't have | Use one of the nine names the message lists |
 

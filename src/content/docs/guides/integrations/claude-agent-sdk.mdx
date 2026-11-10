@@ -58,7 +58,7 @@ relate query --database ./team --mode envelope < team.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.769083,"execute_ms":1.4763330000000001,"lex_parse_ms":0.015375000000000002,"lower_ms":0.018000000000000002,"parse_ms":0.277375,"plan_ms":0.009708,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00045900000000000004},"truncated":false}
 ```
 
 The `CREATE` returns no rows; the store now holds three people and two projects.
@@ -75,7 +75,7 @@ printf '%s\n' \
 ```
 
 ```text
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"0.16.1"}}}
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"0.1.2"}}}
 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Read Cypher"},"description":"Execute one read-only Cypher statement. Returns the result's rows. Write and schema (DDL) statements are rejected.","inputSchema":{"properties":{"parameters":{"default":{},"description":"The statement's parameters; a `rows` array feeds `$rows`.","type":"object"},"statement":{"description":"The Cypher statement.","type":"string"}},"required":["statement"],"type":"object"},"name":"read_cypher"},{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Get Schema"},"description":"Get the schema of the graph store: node labels with their property keys and inferred types, and the relationship types between them. `sample_size` bounds how many nodes and relationships are examined per label (larger is slower but more accurate; -1 examines all).","inputSchema":{"properties":{"sample_size":{"description":"The sample size used to infer the graph schema. Larger samples are slower, but more accurate. Smaller samples are faster, but might miss information. -1 samples the whole graph.","type":"integer"}},"type":"object"},"name":"get_schema"}]}}
 ```
 
@@ -257,7 +257,7 @@ relate --database ./team --read-only --mode envelope "MATCH (p:Person) RETURN co
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":3}],"timings":{"elapsed_ms":0.31437499999999996,"execute_ms":0.14966600000000002,"lex_parse_ms":0.028709,"lower_ms":0.0425,"parse_ms":0.105292,"plan_ms":0.051417,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00825},"truncated":false}
 ```
 
 ## If it goes wrong

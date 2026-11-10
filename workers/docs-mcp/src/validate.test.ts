@@ -137,7 +137,7 @@ test('each call gets its own instance; a trap discards only that one', async () 
     glue.initSync({ module: w.module });
     return new glue.RelateDb();
   };
-  // 300 chained WITH clauses (about 2.1 KB) trap the WASM's plan serializer in 0.16.1.
+  // 300 chained WITH clauses (about 2.1 KB) trap the WASM's plan serializer in 0.1.2.
   const trap = `MATCH (n) ${'WITH n '.repeat(300)}RETURN n`;
   assert.ok(Buffer.byteLength(trap) < MAX_STATEMENT_BYTES);
   assert.throws(

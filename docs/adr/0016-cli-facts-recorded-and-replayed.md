@@ -93,3 +93,10 @@ published v0.16.1, which shipped under the old name.
 - Facts the binary cannot show stay sourced from upstream and marked
   `verify`, as do the HTTP, Bolt and MCP errors until a replay of
   `relate serve` exists.
+
+## Later references
+
+- Amended by ADR-0054: a replay compares outputs with timing values
+  masked, since relate 0.1.0 prints per-phase timings in every machine
+  mode. From the first relate release (0.1.0) a release exists, so
+  `docs-cli-check.yml` no longer continues on error.

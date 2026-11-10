@@ -90,15 +90,21 @@ function pagesOf(site: CellsSite): CellPage[] {
 
 // ---------------------------------------------------------------- running
 
-/** Envelope keys that change from run to run, left out of a recording. */
-const TIMINGS = new Set(['elapsed_ms', 'execute_ms', 'parse_ms', 'plan_ms']);
+/**
+ * Envelope keys that change from run to run, left out of a recording: every
+ * `*_ms` timing key (the canonical envelope's flat family, which relate 0.1.0
+ * extended with `lex_parse_ms`, `rewrite_ms`, `lower_ms` and
+ * `result_generation_ms`; upstream ADR-0540). `plan_cache` is the same on
+ * every replay of a page, so it is kept.
+ */
+const isTiming = (key: string) => key.endsWith('_ms');
 
 /** A wire envelope as recorded: its keys sorted, timings left out. */
 export function recordedEnvelope(envelope: unknown): unknown {
   if (envelope === null || typeof envelope !== 'object') return envelope ?? null;
   return Object.fromEntries(
     Object.entries(envelope as Record<string, unknown>)
-      .filter(([k]) => !TIMINGS.has(k))
+      .filter(([k]) => !isTiming(k))
       .sort(([a], [b]) => (a < b ? -1 : 1)),
   );
 }

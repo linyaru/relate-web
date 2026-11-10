@@ -23,7 +23,7 @@ A decision about hosting or deploy, build tooling other work depends on, content
 
 ### Upstream
 
-The engine lives in the upstream relate repository. The WASM copy under `public/wasm/`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`) and the skill bundle `public/skills/relate/` are synced from it, never hand-edited (refresh steps in §4). The docs and the cookbook are authored here and are not synced (ADR-0002). The docs' facts, samples and CLI recordings are pinned to one upstream commit (today `ac441ec`, relate 0.16.1); re-pin to a release, never to a moving checkout.
+The engine lives in the upstream relate repository. The WASM copy under `public/wasm/`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`) and the skill bundle `public/skills/relate/` are synced from it, never hand-edited (refresh steps in §4). The docs and the cookbook are authored here and are not synced (ADR-0002). The docs' facts, samples and CLI recordings are pinned to one published relate release (today v0.1.2, upstream `f0c09d2`; `_data/engine.json`); re-pin to the next release with `scripts/release-refresh.sh` (§4), never to a moving checkout or a source build. relate restarted its version numbers at 0.1.0 after cypherlite's 0.16.1, so compare releases by publication date, not by number (`releaseNames` in `src/components/docs/install.ts`, the changelog's order).
 
 ### Conventions
 
@@ -99,6 +99,7 @@ npm run check             # astro check
 npm run check:playground  # tsc for playground/
 npm run mcp:test          # the Worker's unit tests (no build needed) and its tsc (needs generated/, so after mcp:bundle)
 npm run adr:check         # docs/adr/: unique sequential numbers, header and section order, line ceiling, public-record patterns, README index
+npm run ci                # the required check (cookbook.yml) locally, step by step in CI's order (-- --no-browser skips headless Chrome; -- --cli adds docs:cli-check; -- --agent-endpoints adds docs-mcp.yml's checks; -- --from <step> resumes)
 
 # cookbook
 npm run cookbook:check    # every recipe runs on public/wasm and matches its recorded results (COOKBOOK_ONLY=<slug>[,…] limits it)
@@ -109,7 +110,7 @@ npm run cookbook:browser  # after a build, in headless Chrome: every recipe runs
 
 # docs
 npm run docs:check        # source checks: frontmatter, links, words, twins, trust, diagrams, glossary, docs graph, embeddings, capability catalog, task skills, element static forms (-- --built after a build adds the dist/ checks and the script budget); see src/content/docs/README.md "Checks"
-npm run docs:lint         # Vale on the docs prose (needs `vale`; CI pins 3.25.1)
+npm run docs:lint         # Vale on the docs prose; fails without Vale and warns on a version other than 3.25.1, which `npm run vale:install` (scripts/vale/install.sh, SHA-256 checked) installs into ~/.local/bin, as CI does
 npm run docs:test         # unit tests for src/lib/docs (UPDATE=1 re-pins _example/example.twin.md)
 npm run docs:record       # rewrite docs pages' cell results sidecars, static graph SVGs and element static forms from a run on public/wasm (DOCS_ONLY=<id>[,…] limits it); review the diff
 npm run docs:diagrams     # the shared renderer for src/content/docs pages
@@ -133,15 +134,21 @@ npm run skills:record     # after reviewing a task skill or a recipe it cites: r
 
 ## 4. Refreshing from upstream
 
-The WASM build comes from the upstream relate checkout (toolchain pinned to 1.88.0; needs the `wasm32-unknown-unknown` target):
+The site tracks published releases. `engine-release.yml` runs `scripts/release-refresh.sh` on upstream's `relate-release` dispatch and opens a draft pull request; the same script runs on a laptop with `gh` signed in, against a clone of upstream at the tag (never the working checkout):
 
 ```bash
-cd <upstream relate checkout> && bash scripts/build-wasm.sh --mode release
-# copy surfaces/relate-wasm/pkg/{relate.js,relate.d.ts,relate_bg.wasm,relate_bg.wasm.d.ts,opfs.js,trap.js,snippets} into public/wasm/
-npm run skill:sync        # then review the diff of public/skills/relate/
+git clone --branch vX.Y.Z --depth 1 <upstream relate repository> <scratch>/relate-vX.Y.Z
+bash scripts/release-refresh.sh --version X.Y.Z --upstream <scratch>/relate-vX.Y.Z --report <scratch>/report.md
 ```
 
-The WASM serves the cookbook, the docs and the playground, so run `npm run cookbook:check` and `npm run docs:check` afterwards. If a recording differs, decide whether the engine changed on purpose; if so, `npm run cookbook:record` and `npm run docs:record`, and review the diffs. `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) are signed or generated upstream: the deploys fetch them from upstream's release assets (`scripts/fetch-discovery.sh`, no review; the checked-in copies are seed files); never hand-edit them. See `runbooks/release-discovery.md`. The samples environment and the CLI recordings follow the same pin (§1 "Upstream"); after a full samples replay, rewrite `_data/samples.json` with the commits and toolchain it ran on.
+It syncs `install.sh`, `releases.json` and `extensions.json` (+ `.sig`) (signed or generated upstream; the deploys also fetch them with `scripts/fetch-discovery.sh`; never hand-edit them; `runbooks/release-discovery.md`), installs the release binary through `install.sh`, copies `public/wasm/` from the release's `@relate/relate-wasm` asset, bumps `_data/engine.json`, runs `skill:sync`, `docs:cli-check -- --record`, `cookbook:record` and `docs:check -- --record`, and reports each step. What it leaves to a person, in order:
+
+- Every page step the CLI replay flags: the page's text fence is authored, so fix the command or the prose and replay (`RELATE_BIN=<the installed binary> npm run docs:cli-check -- --record`). Timing values never drift (ADR-0054); a changed shape, message or count does.
+- `node src/lib/docs/elements/_terminal-facts.ts --write` and `RELATE_BIN=<binary> node src/lib/docs/elements/_terminal-record.ts`, then `docs:check -- --record` again for the element static forms.
+- The language samples: `bash scripts/samples/setup.sh --upstream <the clone> --out <scratch dir>`, `source <out>/env.sh`, `npm run docs:samples -- --record --require`, then rewrite `_data/samples.json` by hand with the commit and toolchains the replay ran on.
+- The changelog entry in `_data/changelog.json` (newest first by publication date), version strings in prose and in transcripts that are not replayed (server replies, the shell, `relate upgrade`), the task skills' `version` and the claims they make, then `npm run skills:record` after a build.
+- `npm ci --prefix scripts/embeddings && npm run docs:embeddings` for the sections whose text changed, `COOKBOOK_ONLY=query-the-relate-docs npm run cookbook:record`, and `node src/lib/docs/capabilities.ts --write`.
+- `npm run ci` for the whole required check.
 
 ## 5. CI and deploys
 
@@ -149,5 +156,5 @@ Operating and debugging: `runbooks/` (start at `runbooks/README.md`: the site is
 
 - `cookbook.yml` runs on every pull request and push to `main` (no paths filter, so it can be a required check): cookbook, docs and Worker unit tests, `adr:check`, `docs:check`, `docs:lint`, `cookbook:check`, `astro check`, `check:playground`, build, `docs:check -- --built`, the Worker's bundle step and then its tsc (it imports the generated bundle), `cookbook:browser`. CI runs Node 24; regenerate a lockfile with the npm that ships with it when `npm ci` refuses one.
 - Not required because of its paths filter (`workers/docs-mcp`, `functions`, the two check scripts, the docs and cookbook sources and pages, `src/layouts`, `public/wasm`, the skill, `releases.json`, the root package files), and needing no secret: `docs-mcp.yml` (build, `docs:mcp-check`, `docs:negotiation-check`).
-- Not required, and needing a binary, clients or a token: `docs-cli-check.yml` and `docs-samples.yml` (weekly and by hand) and `engine-release.yml` (on a `cli` `relate-release` dispatch; opens a reviewed docs refresh pull request that does not gate the discovery files). Not required, spending the operator's model account: `docs-evals.yml` (by hand, or on a `relate-release` dispatch once the repository variables `DOCS_EVALS_AGENT_PACKAGE` and `DOCS_EVALS_HARNESS` are set; the agent job has read-only permission and no stored credential, and a second job opens the scores pull request).
+- Not required, and needing a binary, clients or a token: `docs-cli-check.yml` (weekly, by hand, and on pushes to main that touch the docs, `public/wasm` or the check; it installs the latest release with `RELATE_UPSTREAM_TOKEN` and fails on any drift, timing values masked per ADR-0054) and `docs-samples.yml` (weekly and by hand, from the tag `_data/engine.json` names) and `engine-release.yml` (on a `cli` `relate-release` dispatch; opens a reviewed docs refresh pull request that does not gate the discovery files). Not required, spending the operator's model account: `docs-evals.yml` (by hand, or on a `relate-release` dispatch once the repository variables `DOCS_EVALS_AGENT_PACKAGE` and `DOCS_EVALS_HARNESS` are set; the agent job has read-only permission and no stored credential, and a second job opens the scores pull request).
 - Deploys: `deploy-pages.yml` (GitHub Pages, the interim host) and `deploy-cf.yml` (Cloudflare Pages, needs secrets) both run `npm ci`, `npm ci --prefix playground`, `npm run cookbook:check` and `npm run build`, and publish `dist/` (on Cloudflare, with the Pages Function in `functions/`). `deploy-cf.yml` also runs `docs:negotiation-check` before `pages deploy` (wrangler pinned to 4.158.0) and, on pushes to `main` only, bundles, checks and deploys the Worker after the site (a Worker route has no preview).

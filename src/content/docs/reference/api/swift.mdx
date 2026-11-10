@@ -7,7 +7,7 @@ surfaces: [swift]
 related: [guides/embed/swift, get-started/swift, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Swift :term[client]{id=client} is the package `Relate`, from the repository `github.com/relatedb/relate`, for iOS 16 or later and macOS 13 or later in the Swift 6 language mode. It is a Swift layer over the relate C library, linked in as the static XCFramework `RelateFFI`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous and throws `RelateError`. This page describes the package as built from source build `6a0c391` of relate 0.16.1, the build the client samples on these pages ran on. The CLI pages describe source build `ac441ec`, a sibling of it rather than an ancestor: `6a0c391` also emits the `01N30` and `01N31` planner-hint notifications and carries an aggregate fix in the engine.
+The Swift :term[client]{id=client} is the package `Relate`, from the repository `github.com/relatedb/relate`, for iOS 16 or later and macOS 13 or later in the Swift 6 language mode. It is a Swift layer over the relate C library, linked in as the static XCFramework `RelateFFI`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous and throws `RelateError`. This page describes the package of relate 0.1.2.
 
 ## Synopsis
 
@@ -45,6 +45,7 @@ public final class Connection {
 | `Connection` | final class, not `Sendable` | One session on a store |
 | `QueryResult` | struct, `Sendable` | One statement's columns, rows, and metadata |
 | `QueryType` | enum, `String` raw values | `.read` `"r"`, `.write` `"w"`, `.readWrite` `"rw"`, `.schema` `"s"` |
+| `Namespace` | enum, `String` raw values | `.neo4j` `"neo4j"`, `.system` `"system"`, `.systemOntologies` `"system_ontologies"` |
 | `QueryStats` | struct | The 11 mutation counters |
 | `CypherValue` | enum, `Sendable`, `Hashable` | One Cypher value, at any depth |
 | `CypherValueKind` | enum, `UInt32` raw values | The kind of a `CypherValue` |
@@ -97,7 +98,7 @@ A `QueryResult` is a plain value, copied out of the engine before `query` return
 | `records` | `[[String: CypherValue]]` | The rows keyed by column name; for a repeated name, the last column's value |
 | `scalar()` | `CypherValue` | The one value of a one-row, one-column result; otherwise throws `.decoding` |
 | `queryType` | `QueryType` | The plan-time classification; `EXPLAIN` and `PROFILE` report the wrapped statement's type |
-| `namespace` | `String` | The statement's `USE` target, else the session namespace |
+| `namespace` | `Namespace` | The statement's `USE` target, else the session namespace |
 | `bookmark` | `String?` | An auto-commit write's bookmark, `relate:<n>`; `nil` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
 | `stats` | `QueryStats` | The mutation counters; all zero for a read or an `EXPLAIN` |
 | `notifications` | `[Notification]` | Filled by `EXPLAIN` and `PROFILE`; empty on a plain run |
@@ -132,7 +133,7 @@ Every cell, and every element of a list or map, is a `CypherValue` that keeps it
 | `.duration` | `DURATION` | `Duration`: `months`, `days`, `seconds`, `nanoseconds` |
 | `.vector` | `VECTOR` | `Vector`: `.floats(dtype:values:)` or `.ints(dtype:values:)` |
 
-`Vector.DType` has the cases `.integer8`, `.integer16`, `.integer32`, `.integer`, `.float16`, `.bfloat16`, `.float32` and `.float`, whose raw values are the engine's names (`INTEGER8` … `FLOAT`). UUIDs arrive as `.string`, byte arrays as a `.list` of `.int`. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate:n0`; the `Int64` ids are the deprecated numeric ids `id()` returns. A value kind the package does not know throws `.decoding`.
+`Vector.DType` has the cases `.integer8`, `.integer16`, `.integer32`, `.integer`, `.float16`, `.bfloat16`, `.float32` and `.float`, whose raw values are the engine's names (`INTEGER8` … `FLOAT`). UUIDs arrive as `.string`, byte arrays as a `.list` of `.int`. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`; the `Int64` ids are the deprecated numeric ids `id()` returns. A value kind the package does not know throws `.decoding`.
 
 | Accessor | Returns |
 | --- | --- |
@@ -162,7 +163,7 @@ Every cell, and every element of a list or map, is a `CypherValue` that keeps it
 | --- | --- | --- |
 | `.engine(EngineError)` | The engine or the C boundary refused the call | `Relate: [<code>] <message>` |
 | `.invalidParameter(String)` | A parameter cannot cross the C boundary | `Relate invalid parameter: <message>` |
-| `.decoding(String)` | A result broke the C contract, or `scalar()` met other than one row and one column | `Relate decoding error: <message>` |
+| `.decoding(String)` | A result broke the C contract, such as a query type or namespace outside its enum (`ABI contract violated: query type '<value>'`), or `scalar()` met other than one row and one column | `Relate decoding error: <message>` |
 
 `error.message` is the message of any case and `error.engineError` the `EngineError` of the `.engine` case, else `nil`.
 

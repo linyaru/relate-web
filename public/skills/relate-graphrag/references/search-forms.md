@@ -5,7 +5,7 @@ are nearest to this vector" with an exact nearest-neighbor search (every
 indexed vector is scored; ties go to the lower element id); a full-text index
 answers "which entities contain these words". The `SEARCH` clause restricts
 a `MATCH` to an index's top results and names their score. The statements
-below run in order on one in-memory store, on relate 0.16.1.
+below run in order on one in-memory store, on relate 0.1.2.
 
 Sources: <https://relatedb.ai/docs/reference/cypher/search.md> (every rule,
 option, default and error message) and
@@ -110,8 +110,7 @@ RELATE_PREVIEW=hybrid-search relate --database ./chunks.rl --read-only --mode ta
 `db.index.fulltext.queryNodes` and `db.index.fulltext.queryRelationships`
 exist and are deprecated. `EXPLAIN` reports notification `01N01` with the
 remedy ``Use the `SEARCH` clause instead.``; the vector procedures take no
-filter, and the full-text procedures treat the whole query string as one
-term:
+filter:
 
 ```cypher
 EXPLAIN CALL db.index.vector.queryNodes('note_e', 2, [0.85, 0.2, 0.15]) YIELD node, score

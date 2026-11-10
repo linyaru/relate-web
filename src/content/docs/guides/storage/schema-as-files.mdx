@@ -61,8 +61,8 @@ relate --database ./team --mode envelope "CREATE INDEX person_role IF NOT EXISTS
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.233292,"execute_ms":1.121125,"lex_parse_ms":0.004583,"lower_ms":0.001,"parse_ms":0.106709,"plan_ms":0.001042,"result_generation_ms":0.000125,"rewrite_ms":0.000167},"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.2614589999999999,"execute_ms":1.154958,"lex_parse_ms":0.003708,"lower_ms":0.000959,"parse_ms":0.101458,"plan_ms":0.001083,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.000167},"truncated":false}
 ```
 
 One file read now answers what the schema is, with no store opened and no `SHOW` statement run:
@@ -89,7 +89,7 @@ diff schema-before.cypher team/.cypherlite/schema/schema.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.9976670000000001,"execute_ms":0.89025,"lex_parse_ms":0.0041659999999999996,"lower_ms":0.001042,"parse_ms":0.10291600000000001,"plan_ms":0.000917,"result_generation_ms":0.000375,"rewrite_ms":0.000167},"truncated":false}
 1a2
 > CREATE FULLTEXT INDEX `project_search` FOR (n:`Project`) ON EACH [n.`name`, n.`language`] OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words',`fulltext.eventually_consistent`: false}};
 ```
@@ -106,9 +106,9 @@ cmp team/.cypherlite/schema/schema.cypher team-staging/.cypherlite/schema/schema
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.1729170000000002,"execute_ms":1.0586659999999999,"lex_parse_ms":0.002959,"lower_ms":0.000833,"parse_ms":0.109833,"plan_ms":0.001,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.000166},"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.855208,"execute_ms":0.804625,"lex_parse_ms":0.003167,"lower_ms":0.000833,"parse_ms":0.049459,"plan_ms":0.00075,"result_generation_ms":0.000041,"rewrite_ms":0.000167},"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.8208329999999999,"execute_ms":0.79225,"lex_parse_ms":0.002208,"lower_ms":0.0007080000000000001,"parse_ms":0.027375,"plan_ms":0.0007080000000000001,"result_generation_ms":0.000041,"rewrite_ms":0.000084},"truncated":false}
 same schema
 ```
 
@@ -140,7 +140,7 @@ cat team-edited/.cypherlite/schema/schema.cypher
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":0.463208,"execute_ms":0.34041699999999997,"lex_parse_ms":0.019625,"lower_ms":0.027542,"parse_ms":0.080667,"plan_ms":0.033541999999999995,"result_generation_ms":0.000084,"rewrite_ms":0.0067079999999999996},"truncated":false}
 CREATE RANGE INDEX `person_role` FOR (n:`Person`) ON (n.`role`);
 CREATE FULLTEXT INDEX `project_search` FOR (n:`Project`) ON EACH [n.`name`, n.`language`] OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words',`fulltext.eventually_consistent`: false}};
 CREATE CONSTRAINT `person_name` FOR (n:`Person`) REQUIRE (n.`name`) IS UNIQUE;
@@ -181,7 +181,7 @@ relate --database ./team --read-only --mode envelope "SHOW INDEXES YIELD name, t
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["name","type"],"notifications":[],"rows":[{"name":"person_name","type":"RANGE"},{"name":"person_role","type":"RANGE"},{"name":"project_search","type":"FULLTEXT"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["name","type"],"notifications":[],"planCache":"miss","rows":[{"name":"person_name","type":"RANGE"},{"name":"person_role","type":"RANGE"},{"name":"project_search","type":"FULLTEXT"}],"timings":{"elapsed_ms":0.574083,"execute_ms":0.419833,"lex_parse_ms":0.027875,"lower_ms":0.044042000000000005,"parse_ms":0.106791,"plan_ms":0.037167,"result_generation_ms":0.000375,"rewrite_ms":0.007625},"truncated":false}
 ```
 
 ## If it goes wrong

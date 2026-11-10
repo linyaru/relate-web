@@ -218,11 +218,13 @@ notes here, but it has no filter.
 
 ## The full-text list
 
-Full-text `SEARCH` splits the question into lowercase terms and ORs them. The
-score counts the term occurrences it finds: there is no stemming, and short
-words such as `do` or `the` count too. Three notes match one term each
-(`oauth` or `tokens`), so each scores 1.0. Equal scores come back in
-insertion order, so `n.id` is the second sort key.
+Full-text `SEARCH` splits the question into lowercase terms and ORs them.
+The score is BM25: a term that few notes contain counts for more, and a
+match in a short note counts for more than one in a long note. There is no
+stemming, and short words such as `do` or `the` count as terms too. Three
+notes match one term each: `n03` holds `oauth`, which no other note
+contains, and `n25` and `n02` hold `tokens`, the shorter note scoring
+higher. `n.id` is the second sort key, for notes whose scores tie.
 
 A full-text search takes no `WHERE`. So this list fetches three times as
 many notes as it needs, filters them by time, and then keeps `k`.
@@ -236,19 +238,16 @@ ORDER BY fs DESC, id LIMIT $k
 ```
 
 ```table
-| id    | fulltext | text                                                                            |
-|-------|----------|---------------------------------------------------------------------------------|
-| "n02" | 1.0      | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."   |
-| "n03" | 1.0      | "OAuth callbacks are published to Kafka so the audit service sees every login." |
-| "n25" | 1.0      | "Refresh tokens rotate on every use once Okta is live."                         |
+| id    | fulltext           | text                                                                            |
+|-------|--------------------|---------------------------------------------------------------------------------|
+| "n03" | 1.4178942683735956 | "OAuth callbacks are published to Kafka so the audit service sees every login." |
+| "n25" | 1.335407782356475  | "Refresh tokens rotate on every use once Okta is live."                         |
+| "n02" | 1.2865960449569087 | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."   |
 3 rows
 ```
 
-> **Note**
-> Use the `SEARCH` clause for questions with more than one word.
-> `CALL db.index.fulltext.queryNodes('note_t', 'oauth kafka')` currently
-> treats the whole string as a single term and returns no rows, while
-> `SEARCH` ranks the note that has both words first.
+The procedure form, `CALL db.index.fulltext.queryNodes('note_t', $q)`,
+returns the same notes with the same scores.
 
 ## Filter inside the search, not after it
 
@@ -312,8 +311,8 @@ RETURN 'full-text: LIMIT $k * 3, WHERE, LIMIT $k' AS filter, ids
 ```
 
 Only the first and last forms return `k` notes. The three best full-text
-matches for `kafka` are all session-1 notes, so filtering them afterwards
-leaves nothing.
+matches for `kafka` are notes from sessions 1 and 3, so filtering them
+afterwards leaves nothing.
 
 ## Fuse the two lists by reciprocal rank
 
@@ -377,8 +376,8 @@ RETURN n.id AS id, vector_rank, fulltext_rank, round(rrf, 4) AS rrf, n.text AS t
 ```table
 | id    | vector_rank | fulltext_rank | rrf    | text                                                                                    |
 |-------|-------------|---------------|--------|-----------------------------------------------------------------------------------------|
-| "n02" | 2           | 1             | 0.0325 | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."           |
-| "n25" | 3           | 2             | 0.032  | "Refresh tokens rotate on every use once Okta is live."                                 |
+| "n25" | 3           | 1             | 0.0323 | "Refresh tokens rotate on every use once Okta is live."                                 |
+| "n02" | 2           | 2             | 0.0323 | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."           |
 | "n16" | 1           | null          | 0.0164 | "Token revocation now propagates in under a second via the Redis session store."        |
 | "n01" | 4           | null          | 0.0156 | "Relay kickoff: ticket intake, the agent console and billing all live in one monorepo." |
 | "n32" | 5           | null          | 0.0154 | "Kafka status: consumer lag is back under one second after the rebalance fix."          |
@@ -388,7 +387,7 @@ RETURN n.id AS id, vector_rank, fulltext_rank, round(rrf, 4) AS rrf, n.text AS t
 `n16` is first in the vector list and absent from the full-text list, and it
 survives the fusion in third place. The next question needs the full-text
 list. The long incident note holds three of its terms (`kafka`, `142`, and
-`alert`), so full-text ranks it first, but it is not among the five nearest
+`alert`), more than any other note, so full-text ranks it first, but it is not among the five nearest
 vectors.
 
 ```json data=q3
@@ -428,8 +427,8 @@ RETURN n.id AS id, vector_rank, fulltext_rank, round(rrf, 4) AS rrf, n.text AS t
 ```table
 | id    | vector_rank | fulltext_rank | rrf    | text                                                                                                                                                                           |
 |-------|-------------|---------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| "n04" | 2           | 2             | 0.0323 | "Each tenant gets its own Kafka topic for ticket events."                                                                                                                      |
-| "n23" | 1           | 4             | 0.032  | "Kafka lag dashboard added to Grafana with a five minute alert."                                                                                                               |
+| "n23" | 1           | 2             | 0.0325 | "Kafka lag dashboard added to Grafana with a five minute alert."                                                                                                               |
+| "n04" | 2           | 4             | 0.0318 | "Each tenant gets its own Kafka topic for ticket events."                                                                                                                      |
 | "n07" | 3           | 3             | 0.0317 | "Kafka consumer lag on the ticket-events group is the first alert to build."                                                                                                   |
 | "n26" | null        | 1             | 0.0164 | "Incident KAFKA-142: a broker disk filled overnight because retention on the audit stream was unbounded; retention is now capped and a disk alert pages the on-call engineer." |
 | "n18" | 4           | null          | 0.0156 | "Consolidate ticket events into shared Kafka topics keyed by tenant id."                                                                                                       |
@@ -475,10 +474,10 @@ ORDER BY rrf DESC, id, topic
 ```table
 | id    | text                                                                            | topic   | decided                                      | rrf    |
 |-------|---------------------------------------------------------------------------------|---------|----------------------------------------------|--------|
-| "n02" | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."   | "auth"  | "migrate customer login to Okta"             | 0.0328 |
-| "n03" | "OAuth callbacks are published to Kafka so the audit service sees every login." | "auth"  | "migrate customer login to Okta"             | 0.032  |
-| "n03" | "OAuth callbacks are published to Kafka so the audit service sees every login." | "kafka" | "three-day retention on shared Kafka topics" | 0.032  |
-| "n25" | "Refresh tokens rotate on every use once Okta is live."                         | "auth"  | "migrate customer login to Okta"             | 0.032  |
+| "n02" | "Customer login goes through Auth0; refresh tokens live in HttpOnly cookies."   | "auth"  | "migrate customer login to Okta"             | 0.0323 |
+| "n03" | "OAuth callbacks are published to Kafka so the audit service sees every login." | "auth"  | "migrate customer login to Okta"             | 0.0323 |
+| "n03" | "OAuth callbacks are published to Kafka so the audit service sees every login." | "kafka" | "three-day retention on shared Kafka topics" | 0.0323 |
+| "n25" | "Refresh tokens rotate on every use once Okta is live."                         | "auth"  | "migrate customer login to Okta"             | 0.0323 |
 | "n15" | "Migrate customer login from Auth0 to Okta before the April renewal."           | "auth"  | "migrate customer login to Okta"             | 0.0156 |
 | "n04" | "Each tenant gets its own Kafka topic for ticket events."                       | "kafka" | "three-day retention on shared Kafka topics" | 0.0154 |
 6 rows
@@ -564,12 +563,12 @@ ORDER BY score DESC, decided_on, note
 ```
 
 ```table
-| note  | topic     | decision                                     | decided_on   | score |
-|-------|-----------|----------------------------------------------|--------------|-------|
-| "n04" | "kafka"   | "one Kafka topic per tenant"                 | "2026-03-02" | 2.0   |
-| "n18" | "kafka"   | "shared Kafka topics keyed by tenant id"     | "2026-03-09" | 2.0   |
-| "n27" | "kafka"   | "three-day retention on shared Kafka topics" | "2026-03-16" | 1.0   |
-| "n30" | "billing" | "nightly invoices from Kafka usage events"   | "2026-03-16" | 1.0   |
+| note  | topic     | decision                                     | decided_on   | score              |
+|-------|-----------|----------------------------------------------|--------------|--------------------|
+| "n04" | "kafka"   | "one Kafka topic per tenant"                 | "2026-03-02" | 1.0354512120083705 |
+| "n18" | "kafka"   | "shared Kafka topics keyed by tenant id"     | "2026-03-09" | 0.8976179364575441 |
+| "n30" | "billing" | "nightly invoices from Kafka usage events"   | "2026-03-16" | 0.3514558522085262 |
+| "n27" | "kafka"   | "three-day retention on shared Kafka topics" | "2026-03-16" | 0.3280639672217632 |
 4 rows
 ```
 
@@ -586,8 +585,8 @@ topics keyed by tenant a week later.
 > A few rules cover most `SEARCH` mistakes, whether a person or a
 > text-to-Cypher prompt writes the query:
 >
-> - `LIMIT` is required inside the search. `SKIP` works for full-text only,
->   and goes before `LIMIT`.
+> - `LIMIT` is required inside the search. `SKIP` (or `OFFSET`) works for
+>   full-text only, and goes before `LIMIT`.
 > - The `MATCH` before `SEARCH` holds only the searched variable: `(n:Note)`,
 >   or `()-[r:DECIDED]->()` with bare endpoints. Traverse after a `WITH`.
 > - There is no implicit score variable. Name it with `SCORE AS`.

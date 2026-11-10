@@ -6,7 +6,7 @@ surfaces: [bolt]
 related: [guides/serve/bolt, reference/cli/serve, reference/errors#bolt-errors, reference/server/http, reference/cypher/differences-from-neo4j, reference/security#served-surfaces, reference/limitations#server]
 ---
 
-`relate serve --bolt PORT` speaks :term[Bolt]{id=bolt}, Neo4j's binary client protocol, at versions 4.4 and 5.4, so Neo4j's drivers, `cypher-shell`, and Neo4j Browser can run statements against a relate :term[store]{id=store}. Neo4j's Java and Python drivers and `cypher-shell` refuse the default server agent and connect only when the server runs with `--bolt-identity Neo4j/5.26.0` ([Compatibility with Neo4j](#compatibility-with-neo4j)). The same port also serves Bolt over WebSocket for browser clients. Bolt is the transport only: the statements are relate's Cypher, with the differences listed in [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j). Every reply quoted on this page was captured from relate 0.16.1 with a raw Bolt client, PackStream values shown as JSON.
+`relate serve --bolt PORT` speaks :term[Bolt]{id=bolt}, Neo4j's binary client protocol, at versions 4.4 and 5.4, so Neo4j's drivers, `cypher-shell`, and Neo4j Browser can run statements against a relate :term[store]{id=store}. Neo4j's Java and Python drivers and `cypher-shell` refuse the default server agent and connect only when the server runs with `--bolt-identity Neo4j/5.26.0` ([Compatibility with Neo4j](#compatibility-with-neo4j)). The same port also serves Bolt over WebSocket for browser clients. Bolt is the transport only: the statements are relate's Cypher, with the differences listed in [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j). Every reply quoted on this page was captured from relate 0.1.2 with a raw Bolt client, PackStream values shown as JSON.
 
 ## Synopsis
 
@@ -20,7 +20,7 @@ relate serve --database PATH --bolt PORT [--host HOST] [--auth USER:PASSWORD] [-
 | Bind | `127.0.0.1:PORT`; `--host` changes the address, with no TLS on any address |
 | URL schemes | `bolt://` and `neo4j://` (a `ROUTE` request gets a routing table naming this one server) |
 | WebSocket | Bolt over WebSocket (`ws://`) on the same port, for browser clients |
-| Server agent | `Relate/0.16.1`, or the value of `--bolt-identity` (`RELATE_IDENTITY`) |
+| Server agent | `Relate/0.1.2`, or the value of `--bolt-identity` (`RELATE_IDENTITY`) |
 | Authentication | The `basic` scheme against one user and password, shared with the other `relate serve` surfaces |
 | Namespaces | `neo4j` (the home namespace), `system` and `system_ontologies`, chosen per request with `db` |
 | Flags | On [relate serve](/docs/reference/cli/serve) and in [CLI flags](/docs/reference/cli/flags#serve-bolt) |
@@ -60,8 +60,8 @@ A refused handshake writes one line to the server's stderr, such as `bolt: no ve
 The `SUCCESS` of a Bolt 4.4 `HELLO` that asked for the UTC patch, and of a Bolt 5.4 `HELLO`:
 
 ```text
-SUCCESS {"server": "Relate/0.16.1", "connection_id": "conn-5", "hints": {"connection.recv_timeout_seconds": 120}, "patch_bolt": ["utc"]}
-SUCCESS {"server": "Relate/0.16.1", "connection_id": "conn-2", "hints": {"connection.recv_timeout_seconds": 120, "telemetry.enabled": false}}
+SUCCESS {"server": "Relate/0.1.2", "connection_id": "conn-1", "hints": {"connection.recv_timeout_seconds": 120}, "patch_bolt": ["utc"]}
+SUCCESS {"server": "Relate/0.1.2", "connection_id": "conn-2", "hints": {"connection.recv_timeout_seconds": 120, "telemetry.enabled": false}}
 ```
 
 `connection.recv_timeout_seconds: 120` tells the driver that a connection silent for 120 seconds is dead; while a statement or a commit runs longer than 60 seconds, the server sends a NOOP chunk (`00 00`) every 60 seconds to keep it alive.
@@ -128,7 +128,7 @@ FAILURE {"code": "Neo.ClientError.Request.Invalid", "message": "Message of type 
 | --- | --- |
 | `RUN` `SUCCESS` | `fields` (the column names); `columnTypes` (one type name per column, from the first row, `ANY` for a null or no rows); `t_first` (whole milliseconds until the result was ready); `qid` inside a transaction |
 | `PULL` or `DISCARD` that leaves records | Exactly `{has_more: true}` |
-| The `SUCCESS` that ends a result | `type`, `t_first`, `t_last` (whole milliseconds spent streaming), `parsing_time`, `planning_time` and `plan_execution_time` (floats, in seconds), `db`; plus `stats` when a counter is not zero, `bookmark` after an auto-commit statement that wrote, `notifications` when the statement has any, `plan` after `EXPLAIN` and `profile` after `PROFILE` |
+| The `SUCCESS` that ends a result | `type`, `t_first`, `t_last` (whole milliseconds spent streaming), `parsing_time`, `planning_time`, `plan_execution_time`, `lex_parse_time`, `rewrite_time`, `lower_time` and `result_generation_time` (floats, in seconds), `plan_cache` (the plan cache's outcome, such as `miss`, or `hit-raw-fastpath` for a statement the server planned before), `db`; plus `stats` when a counter is not zero, `bookmark` after an auto-commit statement that wrote, `notifications` when the statement has any, `plan` after `EXPLAIN` and `profile` after `PROFILE` |
 
 `columnTypes` is relate's own key; drivers ignore keys they do not know. Its names are `STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NODE`, `RELATIONSHIP`, `PATH`, `LIST`, `MAP`, `POINT`, `DATETIME`, `DATE`, `TIME`, `DURATION`, `VECTOR`, `UUID`, `BINARY` and `ANY`.
 
@@ -148,7 +148,7 @@ RUN "CREATE (n:Temp {k: $k}) RETURN n.k AS k" {"k": 1} {}
 SUCCESS {"fields": ["k"], "columnTypes": ["INTEGER"], "t_first": 2}
 PULL {"n": -1}
 RECORD [1]
-SUCCESS {"bookmark": "relate:2", "stats": {"nodes-created": 1, "properties-set": 1, "labels-added": 1, "contains-updates": true}, "type": "rw", "t_first": 2, "t_last": 0, "parsing_time": 5.0583e-05, "planning_time": 2.583e-06, "plan_execution_time": 0.00207875, "db": "neo4j"}
+SUCCESS {"bookmark": "relate:2", "stats": {"nodes-created": 1, "properties-set": 1, "labels-added": 1, "contains-updates": true}, "type": "rw", "t_first": 2, "t_last": 0, "parsing_time": 0.000183666, "planning_time": 3.75e-06, "plan_execution_time": 0.002377084, "lex_parse_time": 6.542e-06, "rewrite_time": 3.33e-07, "lower_time": 5.583e-06, "result_generation_time": 3.34e-07, "plan_cache": "miss", "db": "neo4j"}
 ```
 
 ### Plans and notifications
@@ -188,10 +188,10 @@ Results encode as PackStream values and structures, at any depth inside a list o
 | Byte array | PackStream bytes (`CC`, `CD`, `CE`) | |
 | Vector, UUID | A string | |
 
-The 5.4 :term[element ids]{id=element-id} are the strings `elementId()` returns, such as `4:relate:n0` for a node and `5:relate:r0` for a relationship. Graph values from the `system` namespace have no element id, so a 5.4 result that holds one fails with `elements of this namespace have no element ids`. A Bolt 5.4 read of a node and a relationship:
+The 5.4 :term[element ids]{id=element-id} are the strings `elementId()` returns, such as `4:relate-neo4j:n0` for a node and `5:relate-neo4j:r0` for a relationship. Graph values from the `system` namespace have no element id, so a 5.4 result that holds one fails with `elements of this namespace have no element ids`. A Bolt 5.4 read of a node and a relationship:
 
 ```text
-RECORD [{"struct": "0x4E", "fields": [0, ["Person"], {"name": "Ada", "role": "engineer"}, "4:relate:n0"]}, {"struct": "0x52", "fields": [0, 0, 3, "WORKS_ON", {"since": 2024}, "5:relate:r0", "4:relate:n0", "4:relate:n3"]}]
+RECORD [{"struct": "0x4E", "fields": [0, ["Person"], {"name": "Ada", "role": "engineer"}, "4:relate-neo4j:n0"]}, {"struct": "0x52", "fields": [0, 0, 3, "WORKS_ON", {"since": 2024}, "5:relate-neo4j:r0", "4:relate-neo4j:n0", "4:relate-neo4j:n3"]}]
 ```
 
 Parameters decode by the same table in reverse, temporal, duration, and point structures included. A byte array parameter lives only inside the statement: storing it as a property fails with `Neo.ClientError.Statement.TypeError`. A parameter the engine cannot represent fails the `RUN` with `Neo.ClientError.Request.Invalid` and a message naming its path, such as `unsupported parameter value for $p: Struct(0x46)`; this happens to the legacy DateTime structures `0x46` and `0x66` on a 5.4 connection. A point's SRID must be 4326, 4979, 7203, or 9157.
@@ -256,11 +256,11 @@ echo "exit=$?"
 
 ```text
 Error: serve --ws-allow-origin expects an origin URL (http(s)://…) or *, got "example.com"
-Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]
 Run 'relate serve --help' for more information.
 exit=2
 Error: serve --bolt-identity configures the --bolt surface, which this run does not serve: pass --bolt PORT or drop --bolt-identity
-Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]
 Run 'relate serve --help' for more information.
 exit=2
 ```
@@ -320,7 +320,7 @@ What still differs from a Neo4j server:
 | Versions offered | 4.4 and 5.4 only | 2026.09.0 also answers proposals relate refuses, such as 4.3 and 5.0 |
 | Manifest handshake (`00 00 01 FF`) | Never answered; a later 4.4 proposal is | Answered by 2026.09.0 |
 | `RUN` `SUCCESS` | Adds `columnTypes` (the deferred finding) | No `columnTypes` |
-| Server agent | `Relate/0.16.1` by default | `Neo4j/<version>` |
+| Server agent | `Relate/0.1.2` by default | `Neo4j/<version>` |
 | Concurrent writers | The losing `COMMIT` fails with `Neo.TransientError.Transaction.Outdated`; the caller retries | 5.26: the second writer waits for the lock |
 | `SHOW SERVER` | Answers | 5.26: fails outside the system database |
 

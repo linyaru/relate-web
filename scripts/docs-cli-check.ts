@@ -25,11 +25,13 @@
 //     `relate --help` and `relate <command> --help` pages, `relate
 //     agent-context` and `relate agent-context <command>`, the version line,
 //     the envelope check, and every recorded message and exit code; stdout,
-//     stderr and the exit code must match exactly
+//     stderr and the exit code must match exactly, except that timing values
+//     (the number after a JSON key ending `_ms`) are masked on both sides
+//     (maskTimings, ADR-0054)
 //   - every ```bash verify fence on a docs page, in page order, one directory
 //     per page; when the next fence is ```text its content must equal the
-//     combined output (stderr and stdout as one stream), otherwise the step
-//     must exit 0
+//     combined output (stderr and stdout as one stream), timing values masked
+//     the same way, otherwise the step must exit 0
 //
 // Exits 1 on any drift, printing a unified diff per difference. In --record,
 // a page fence's expected output is authored text, so a page whose steps do
@@ -53,6 +55,7 @@ import {
   DATA_FILES,
   normalizeOutput,
   pageStepsKey,
+  maskTimings,
   pageVerifySteps,
   readData,
   RECORDED_WITH_FILES,
@@ -61,6 +64,7 @@ import {
   recordedWithLine,
   recordingsOf,
   replayEnv,
+  sameOutput,
   unifiedDiff,
   type Recorded,
   type RecordedStep,
@@ -195,8 +199,8 @@ function fail(where: string, detail: string) {
 }
 
 function compareStream(label: string, expected: string, actual: string): string | null {
-  if (expected === actual) return null;
-  return `${label}:\n${unifiedDiff(expected, actual, [`${label} (recorded)`, `${label} (binary)`])}`;
+  if (sameOutput(expected, actual)) return null;
+  return `${label}:\n${unifiedDiff(maskTimings(expected), maskTimings(actual), [`${label} (recorded)`, `${label} (binary)`])}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +227,14 @@ async function checkData(binary: string): Promise<number> {
         continue;
       }
       if (args.record) {
-        if (rec.recorded.stdout !== out.stdout || rec.recorded.stderr !== out.stderr || rec.recorded.exit !== out.exit) {
+        // Timing values alone (ADR-0054) are not a change worth a rewrite.
+        const unchanged =
+          typeof rec.recorded.stdout === 'string' &&
+          typeof rec.recorded.stderr === 'string' &&
+          sameOutput(rec.recorded.stdout, out.stdout) &&
+          sameOutput(rec.recorded.stderr, out.stderr) &&
+          rec.recorded.exit === out.exit;
+        if (!unchanged) {
           rec.recorded.stdout = out.stdout;
           rec.recorded.stderr = out.stderr;
           rec.recorded.exit = out.exit;
@@ -279,7 +290,7 @@ function checkPages(binary: string): { count: number; passed: Record<string, Rec
           continue;
         }
         const actual = out.stdout.replace(/\n$/, '');
-        if (actual !== step.expected) fail(`${where} (expected output at line ${step.expectedLine})`, unifiedDiff(step.expected, actual, ['page', 'binary']));
+        if (!sameOutput(step.expected, actual)) fail(`${where} (expected output at line ${step.expectedLine})`, unifiedDiff(maskTimings(step.expected), maskTimings(actual), ['page', 'binary']));
       }
     } finally {
       rmSync(s.base, { recursive: true, force: true });

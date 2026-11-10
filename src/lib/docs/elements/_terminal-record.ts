@@ -100,23 +100,7 @@ export const CASES: FixtureCase[] = [
   { name: 'an unknown function', statement: 'RETURN nosuch(1) AS x' },
   { name: 'an undefined variable', statement: 'MATCH (n) RETURN m' },
   { name: 'a procedure that does not exist', statement: 'CALL db.nosuch()' },
-  {
-    name: 'a latitude out of range',
-    statement: 'RETURN point({latitude: 100, longitude: 0}) AS p',
-    // An engine difference, not a renderer one: both exit 6.
-    gaps: [
-      ...(['table', 'envelope', 'jsonl', 'toon'] as const).map((mode) => ({
-        mode,
-        stream: 'stderr' as const,
-        why: 'the WASM build reports this refusal as `type error: InvalidArgumentValue: …`, the binary as `semantic error: InvalidArgumentValue: …`',
-      })),
-      ...(['envelope', 'jsonl'] as const).map((mode) => ({
-        mode,
-        stream: 'stdout' as const,
-        why: 'the same difference reaches the error object: kind `type` from the WASM build, `argument` from the binary',
-      })),
-    ],
-  },
+  { name: 'a latitude out of range', statement: 'RETURN point({latitude: 100, longitude: 0}) AS p' },
   { name: 'several statements, one fails', statement: 'RETURN 1 AS a; RETRN 2; RETURN 3 AS c' },
   { name: 'a failure after a capped statement', statement: 'UNWIND range(1, 120) AS x RETURN x; RETURN $missing AS m' },
 ];

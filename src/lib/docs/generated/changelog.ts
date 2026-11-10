@@ -76,12 +76,26 @@ const cmp = (a: string, b: string) => {
   return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
 };
 
+/**
+ * Whether release `a` came out after `b`. By publication, not by number:
+ * relate restarted its version line at 0.1.0 after cypherlite's 0.16.1, so
+ * 0.1.0 is the newer of the two. The date decides, then `published_at` when
+ * both have one, then the version number within one line of releases.
+ */
+const newerThan = (a: Release, b: Release) => {
+  if (a.version === b.version) return false;
+  if (a.date !== b.date) return a.date > b.date;
+  if (a.published_at && b.published_at && a.published_at !== b.published_at) return Date.parse(a.published_at) > Date.parse(b.published_at);
+  return cmp(a.version, b.version) > 0;
+};
+
 /** What is wrong with changelog data `raw` (empty when it is well formed). */
 export function changelogProblems(raw: Partial<Changelog>): string[] {
   const problems: string[] = [];
   if (!Array.isArray(raw.policy) || !raw.policy.length) problems.push('"policy" is a non-empty list of paragraphs');
   if (!Array.isArray(raw.releases) || !raw.releases.length) problems.push('"releases" is a non-empty list');
   const releases = Array.isArray(raw.releases) ? raw.releases : [];
+  const seen = new Set<string>();
   releases.forEach((r, i) => {
     const at = `releases[${i}] (${r.version ?? '?'})`;
     for (const k of Object.keys(r)) if (!KEYS.has(k)) problems.push(`${at}: unknown key "${k}"`);
@@ -91,9 +105,11 @@ export function changelogProblems(raw: Partial<Changelog>): string[] {
     if (r.published_at !== undefined && !(String(r.published_at).startsWith(r.date) && !Number.isNaN(Date.parse(r.published_at)))) {
       problems.push(`${at}: "published_at" is an RFC 3339 time on "date"`);
     }
-    if (i > 0 && VERSION.test(r.version ?? '') && VERSION.test(releases[i - 1].version ?? '') && cmp(releases[i - 1].version, r.version) <= 0) {
+    if (i > 0 && VERSION.test(r.version ?? '') && VERSION.test(releases[i - 1].version ?? '') && !newerThan(releases[i - 1], r)) {
       problems.push(`${at}: releases are newest first, each version once`);
     }
+    if (seen.has(r.version)) problems.push(`${at}: releases are newest first, each version once`);
+    seen.add(r.version);
     if (!SECTIONS.some(([k]) => r[k]?.length)) problems.push(`${at}: lists no change`);
     for (const [k] of SECTIONS) {
       if (r[k] !== undefined && !Array.isArray(r[k])) {

@@ -17,9 +17,10 @@ By the end of this page, you'll have a C program that keeps a small graph of peo
 
 ## Get the header and library
 
-Each release attaches a `relate-ffi-<target>.tar.gz` archive (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`) per platform, holding `include/relate.h` and the static and shared libraries. Unpack it into a directory, `<dir>` in the command, then compile each program on this page against the header and link the shared library. On macOS and Linux, the rpath lets the program find the library when it runs:
+Each release attaches a `relate-ffi-<target>.tar.gz` archive (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) per platform, holding `include/relate.h` and the static and shared libraries. Unpack it into a directory, `<dir>` in the command, then compile each program on this page against the header and link the shared library. The rpath lets the program find the library when it runs. On macOS, the release library's install name is the absolute path it was built at, so an rpath finds it only after `install_name_tool` gives it an rpath-relative name, once per unpacked archive:
 
 ```bash
+install_name_tool -id @rpath/librelate_ffi.dylib <dir>/librelate_ffi.dylib   # macOS only
 cc -I<dir>/include version.c -L<dir> -lrelate_ffi -Wl,-rpath,<dir> -o version
 ./version
 ```

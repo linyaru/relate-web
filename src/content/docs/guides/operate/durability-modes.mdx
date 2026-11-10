@@ -66,7 +66,7 @@ relate --database ./team.rl --durability-mode everysecond --mode envelope "MATCH
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Noor","project":"opencypher-tck"}],"timings":{"elapsed_ms":0.657292,"execute_ms":0.431542,"lex_parse_ms":0.006583,"lower_ms":0.011,"parse_ms":0.212583,"plan_ms":0.008417,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.000375},"truncated":false}
 ```
 
 A one-shot run checkpoints when it exits cleanly, so this write is on disk by the time the command returns. The window matters for processes that stay open, such as `relate serve`, an app that uses a client, or a long script.
@@ -82,7 +82,7 @@ RELATE_DURABILITY_MODE=snapshot relate --database ./team.rl --mode envelope "MAT
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Grace","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Grace","project":"relate"}],"timings":{"elapsed_ms":0.6042909999999999,"execute_ms":0.364666,"lex_parse_ms":0.008749999999999999,"lower_ms":0.011375,"parse_ms":0.224375,"plan_ms":0.009792,"result_generation_ms":0.00041600000000000003,"rewrite_ms":0.000458},"truncated":false}
 ```
 
 ## Set it for a server
@@ -112,7 +112,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:MAIN
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"},{"person":"Noor","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"},{"person":"Noor","project":"relate"}],"timings":{"elapsed_ms":0.40049999999999997,"execute_ms":0.22204200000000002,"lex_parse_ms":0.033457999999999995,"lower_ms":0.040958,"parse_ms":0.109625,"plan_ms":0.059834,"result_generation_ms":0.000209,"rewrite_ms":0.008208},"truncated":false}
 ```
 
 ## If it goes wrong

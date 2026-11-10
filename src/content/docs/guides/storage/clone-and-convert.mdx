@@ -105,16 +105,16 @@ The `markdown` codec names each note after a key property of its label, `name` h
 
 ## Check that the copy holds the same graph
 
-Compare what a statement returns from the source and from the copy. This check writes every node's labels and properties and every relationship to a file, sorted, once for the source and once for a store that went from `.rl` to `markdown` and back to `.rl`:
+Compare what a statement returns from the source and from the copy. This check writes every node's labels and properties and every relationship to a file, sorted, once for the source and once for a store that went from `.rl` to `markdown` and back to a `parquet` `.rl` file. The `jsonl` mode ends each statement with a line of its timings, which change on every run, so `grep -v '"timings"'` drops those lines before the comparison:
 
 ```bash verify
 cat > graph-check.cypher <<'EOF'
 MATCH (n) RETURN labels(n) AS labels, properties(n) AS props ORDER BY n.name;
 MATCH (a)-[r]->(b) RETURN a.name AS from, type(r) AS type, properties(r) AS props, b.name AS to ORDER BY from, type, to;
 EOF
-relate clone ./team-md ./team-roundtrip.rl
-relate query --database ./team.rl --read-only --mode jsonl < graph-check.cypher > before.jsonl
-relate query --database ./team-roundtrip.rl --read-only --mode jsonl < graph-check.cypher > after.jsonl
+relate clone --to-snapshot-format parquet ./team-md ./team-roundtrip.rl
+relate query --database ./team.rl --read-only --mode jsonl < graph-check.cypher | grep -v '"timings"' > before.jsonl
+relate query --database ./team-roundtrip.rl --read-only --mode jsonl < graph-check.cypher | grep -v '"timings"' > after.jsonl
 cmp before.jsonl after.jsonl && echo "same graph: $(wc -l < after.jsonl | tr -d ' ') rows"
 ```
 
@@ -122,7 +122,7 @@ cmp before.jsonl after.jsonl && echo "same graph: $(wc -l < after.jsonl | tr -d 
 same graph: 10 rows
 ```
 
-Five nodes and five relationships come back identical. Order the rows by a property your graph has on every node. Values without a YAML form keep their type in a `markdown` note: a date or a point is written as a small map tagged `__type` and reads back as a date or a point. One difference to expect from a `markdown` round trip: a node with two or more labels can return them from `labels(n)` in another order, so sort them before comparing such a graph.
+Five nodes and five relationships come back identical. The way back names its codec: in relate 0.1.2, a `.rl` destination refuses the body-property configuration a `markdown` store records, so `relate clone ./team-md ./team-roundtrip.rl` without `--to-snapshot-format`, or with `--to-snapshot-format markdown`, exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`. A `markdown` store clones into a `.rl` file with `--to-snapshot-format parquet` or `json`, and into a directory store with any codec. Order the rows by a property your graph has on every node. Values without a YAML form keep their type in a `markdown` note: a date or a point is written as a small map tagged `__type` and reads back as a date or a point. One difference to expect from a `markdown` round trip: a node with two or more labels can return them from `labels(n)` in another order, so sort them before comparing such a graph.
 
 ## Measure the sizes
 
@@ -137,8 +137,8 @@ relate clone ./team.rl ./team-compact.rl
 
 ```text
 total bytes: 36864
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":66.759917,"execute_ms":66.566792,"lex_parse_ms":0.006292,"lower_ms":0.007292,"parse_ms":0.182708,"plan_ms":0.005332999999999999,"result_generation_ms":0.000125,"rewrite_ms":0.000375},"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":21.065709,"execute_ms":20.903374999999997,"lex_parse_ms":0.002333,"lower_ms":0.0029579999999999997,"parse_ms":0.154167,"plan_ms":0.003583,"result_generation_ms":0.000417,"rewrite_ms":0.00020800000000000001},"truncated":false}
 ```
 
 The method: `relate info` prints each store's size on disk as `total bytes`, read without opening the store. The loop prints it for the bloated file, its clone, and the three copies made in [Change the codec](#change-the-codec) and [Change the layout](#change-the-layout):
@@ -150,8 +150,8 @@ for store in team.rl team-compact.rl team team-json team-md; do printf '%s: ' "$
 ```text
 team.rl: total bytes: 3203072
 team-compact.rl: total bytes: 32768
-team: total bytes: 3498
-team-json: total bytes: 1327
+team: total bytes: 3556
+team-json: total bytes: 1385
 team-md: total bytes: 2926
 ```
 
@@ -160,8 +160,8 @@ team-md: total bytes: 2926
 | `team.rl` before the drafts | 36,864 bytes | A new `.rl` file for 5 nodes and 5 relationships |
 | `team.rl` after the drafts were deleted | 3,203,072 bytes | The file kept the space the 20,000 drafts needed |
 | `team-compact.rl` | 32,768 bytes | The clone holds only the current state |
-| `team` (`parquet` directory) | 3,498 bytes | Columnar files plus a manifest |
-| `team-json` | 1,327 bytes | One JSON file plus a manifest; on this graph the smallest |
+| `team` (`parquet` directory) | 3,556 bytes | Columnar files plus a manifest |
+| `team-json` | 1,385 bytes | One JSON file plus a manifest; on this graph the smallest |
 | `team-md` | 2,926 bytes | One note per node, an index per label, and the `log.md` and `index.md` notes |
 
 These numbers are for this 5-node graph. At 100,000 nodes the `json` codec is about 3.4 times the size of `parquet` ([measured in the formats reference](/docs/reference/storage/formats#size-on-disk)), so the sizes on a small graph don't predict the order on a large one.
@@ -175,7 +175,7 @@ relate --database ./team-md --read-only --mode envelope "MATCH (p:Person)-[:WORK
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["name","project"],"notifications":[],"rows":[{"name":"Ada","project":"relate"},{"name":"Grace","project":"opencypher-tck"},{"name":"Grace","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["name","project"],"notifications":[],"planCache":"miss","rows":[{"name":"Ada","project":"relate"},{"name":"Grace","project":"opencypher-tck"},{"name":"Grace","project":"relate"}],"timings":{"elapsed_ms":0.55875,"execute_ms":0.382,"lex_parse_ms":0.033417,"lower_ms":0.039709,"parse_ms":0.1085,"plan_ms":0.058542000000000004,"result_generation_ms":0.000375,"rewrite_ms":0.008291999999999999},"truncated":false}
 ```
 
 ## If it goes wrong
@@ -195,10 +195,11 @@ relate --database ./team-md --read-only --mode envelope "MATCH (p:Person)-[:WORK
 
   A `--snapshot-format` placed before the verb, as in `relate --snapshot-format json clone …`, does not change the destination's codec: the copy keeps the source's. Put `--to-snapshot-format` after `clone`.
 
+- **`Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`** (exit code 1). The destination is a `.rl` path and the source is a `markdown` store, or the command passes `--markdown-body-properties`. In relate 0.1.2 a `.rl` destination refuses that configuration, even with `--to-snapshot-format markdown`. Pass `--to-snapshot-format parquet` or `json` for a `.rl` copy of a vault, or clone it into a directory store.
 - **`Failed to clone database: storage error: clone destination already exists`** (exit code 1). `relate clone` never overwrites. Pick a new destination path.
 - **`Failed to clone database: storage error: markdown vault: node <id> of label <Label> has no '<property>' property; the markdown vault requires a non-null unique '<property>' on :<Label>`** (exit code 1). A `markdown` destination names each note after a key property, and a node of that label lacks it. Set the property on every node of the label first. A failed clone removes the destination it created.
 - **`Failed to clone database: storage error: markdown vault: two nodes of label <Label> share the key value '<value>'; the vault filename would collide`** (exit code 1). Two nodes of one label have the same key value. Make the values unique, or keep the store in `parquet` or `json`.
-- **`Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`** (exit code 2). The codec name is misspelled.
+- **`Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json, markdown or rkyv)`** (exit code 2). The codec name is misspelled.
 - **`Failed to clone database: storage locked: <path>`** (exit code 1). The source is a `.rl` file that a process holds open for writing. Clone it when that process exits ([storage locked](/docs/reference/errors#cli-clone-locked)).
 
 ## Related

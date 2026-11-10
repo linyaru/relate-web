@@ -58,7 +58,7 @@ curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
 ```
 
 ```text
-{"data":{"fields":["p"],"values":[[{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}]]},"bookmarks":[]}
+{"data":{"fields":["p"],"values":[[{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}]]},"bookmarks":[],"timings":{"elapsed_ms":0.410167,"execute_ms":0.235459,"lex_parse_ms":0.030125,"lower_ms":0.039292,"parse_ms":0.111916,"plan_ms":0.052542,"result_generation_ms":0.000209,"rewrite_ms":0.006541},"planCache":"miss"}
 ```
 
 `data.fields` names the columns and `data.values` holds one array per row, in column order. A :term[node]{id=node} is an object with its `elementId`, `labels` and `properties`; a :term[relationship]{id=relationship} adds `startNodeElementId`, `endNodeElementId` and `type`; a :term[path]{id=path} is an array that alternates nodes and relationships. Temporal values are ISO 8601 strings.
@@ -76,8 +76,10 @@ curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
 | `bookmarks` | Always, and always `[]`: there is no bookmark manager, because every commit is visible to the next request |
 | `notifications` | Only for an `EXPLAIN` or `PROFILE` statement that raised one |
 | `queryPlan`, `profiledQueryPlan` | Only for an `EXPLAIN` or a `PROFILE` statement |
+| `timings` | Whenever a statement ran: its phase timings in milliseconds, such as `parse_ms`, `plan_ms` and `execute_ms` |
+| `planCache` | Whenever a statement ran: the plan cache's outcome, such as `miss` |
 
-Unlike the CLI's envelope, the answer carries no column types and no timings: the Query API v2 shape has no place for them.
+`timings` and `planCache` come after the members of Neo4j's Query API v2 shape, and their values differ on every request. Unlike the CLI's envelope, the answer carries no column types.
 
 ## Pass parameters
 
@@ -90,7 +92,7 @@ curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
 ```
 
 ```text
-{"data":{"fields":["name","role"],"values":[["Ada","engineer"],["Grace","engineer"]]},"bookmarks":[]}
+{"data":{"fields":["name","role"],"values":[["Ada","engineer"],["Grace","engineer"]]},"bookmarks":[],"timings":{"elapsed_ms":0.37425,"execute_ms":0.25945900000000005,"lex_parse_ms":0.019792,"lower_ms":0.02575,"parse_ms":0.064625,"plan_ms":0.042792,"result_generation_ms":0.000334,"rewrite_ms":0.002167},"planCache":"miss"}
 ```
 
 Under `application/json`, a parameter is plain JSON: a string, a number, a boolean, a list, or a map. A date arrives as its string, so build the typed value in Cypher: `RETURN date($day) AS day` with `{"day": "2026-11-07"}`. The other request type, `application/vnd.neo4j.query.v1.2`, also takes the typed form Neo4j's official clients send, such as `{"$type": "Integer", "_value": "41"}`. A statement that names a parameter the request leaves out fails with `400` and code `42N02`; it is never bound as `null`.
@@ -115,10 +117,10 @@ curl -s -u "$(cat graph.rl.auth-token)" -H 'Content-Type: application/json' \
 ```
 
 ```text
-{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:43:15.374Z","id":"tx-0"}}
+{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"timings":{"elapsed_ms":0.4075,"execute_ms":0.23766600000000002,"lex_parse_ms":0.004958,"lower_ms":0.004916,"parse_ms":0.162292,"plan_ms":0.002125,"result_generation_ms":0.000166,"rewrite_ms":0.00033299999999999996},"planCache":"miss","transaction":{"expires":"2026-11-10T01:58:10.021Z","id":"tx-0"}}
 ```
 
-The `id` and the `expires` time differ on every run. Use the `id` in the routes that follow:
+The `id`, the `expires` time and the `timings` differ on every run. Use the `id` in the routes that follow:
 
 | Method and path | Does | Answers |
 | --- | --- | --- |
@@ -127,7 +129,7 @@ The `id` and the `expires` time differ on every run. Use the `id` in the routes 
 | `POST /db/<namespace>/query/v2/tx/<id>/commit` | Runs the body's statement if it has one, then commits | `200`, with no `transaction` block |
 | `DELETE /db/<namespace>/query/v2/tx/<id>` | Rolls back | `202` |
 
-Inside the transaction, its own writes are visible; to other requests they are not, until the commit. A transaction idle for 60 seconds expires and rolls back (`--tx-idle-timeout-secs`), and at most 128 can be open at once (`--max-open-transactions`). With `"accessMode": "READ"` in the body of a transaction request, a write fails with `writing is not allowed in a READ transaction` and the transaction stays open.
+Inside the transaction, its own writes are visible; to other requests they are not, until the commit. A transaction idle for 60 seconds expires and rolls back (`--tx-idle-timeout-secs`), and at most 128 can be open at once (`--max-open-transactions`). With `"accessMode": "READ"` in the body of the request that begins a transaction, a write in it fails with `writing is not allowed in a READ transaction` and the transaction stays open.
 
 ## Read the status codes
 
@@ -178,8 +180,8 @@ wait $server
 ```
 
 ```text
-{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]}}
-{"data":{"fields":["name"],"values":[["Ada"],["Grace"]]},"bookmarks":[]}
+{"query":"http://127.0.0.1:8842/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8842/db/{databaseName}/query/v2/tx","neo4j_version":"0.1.2","neo4j_edition":"community","auth_config":{"oidc_providers":[]}}
+{"data":{"fields":["name"],"values":[["Ada"],["Grace"]]},"bookmarks":[],"timings":{"elapsed_ms":0.658791,"execute_ms":0.472333,"lex_parse_ms":0.034958,"lower_ms":0.043625000000000004,"parse_ms":0.117958,"plan_ms":0.059125000000000004,"result_generation_ms":0.00025,"rewrite_ms":0.006792},"planCache":"miss"}
 200
 {"errors":[{"code":"42N18","message":"semantic error: WriteOnReadOnlyAccessDatabase: No write operations are allowed on this database. The database is in read-only mode on this Neo4j instance."}]}
 400

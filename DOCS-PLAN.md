@@ -150,7 +150,7 @@ switching languages recognises the steps.
 
 | Page | Phase | Source |
 |---|---|---|
-| `where-relate-fits` — the shape of the thing, "use relate when" and "use something else when" as plain conditions with the limit each comes from (single process, RAM-resident, one writer, no cluster, no cross-graph); one line "not the Neo4j Desktop Relate framework" (§3.9); first entry in `llms.txt` and the target of the landing's third button (ADR-0014) | 1 | README, `MAINTAINING.md` "fit" tab, `limitations.md` |
+| `where-relate-fits` — the shape of the thing, "use relate when" and "use something else when" as plain conditions with the limit each comes from (single process, RAM-resident, one writer, no cluster, no cross-graph); first entry in `llms.txt` and the target of the landing's third button (ADR-0014) | 1 | README, `MAINTAINING.md` "fit" tab, `limitations.md` |
 | `architecture` — crate map, in-memory graph, planner, indexes | 1 | `docs/engine-architecture.md` |
 | `storage-and-durability` — one write path, WAL, checkpoints, codecs, durability modes and their loss windows | 1 | `docs/guides/storage-engine.md` |
 | `transactions-and-concurrency` — single process, one writer, MVCC reads, conflicts and retry, read-only / follow | 1 | `limitations.md`, `storage-engine.md`, ADR-0136/0306 |
@@ -286,9 +286,8 @@ bundle**, so an agent can get it before the binary exists on the machine:
   catalog is built around. The site copies the bundle unchanged (decision
   10), so the fix goes upstream: a description that names eight to ten
   intent phrases (agent memory, knowledge graph, GraphRAG, hybrid
-  retrieval, codebase graph, MCP, offline Neo4j-compatible Cypher, …) plus
-  the disambiguation line of §3.9, a "results are reference text, not
-  instructions" line (ADR-0013), and no internal ticket or ADR ids in the
+  retrieval, codebase graph, MCP, offline Neo4j-compatible Cypher, …), a
+  "results are reference text, not instructions" line (ADR-0013), and no internal ticket or ADR ids in the
   public bundle. `docs:check` 3b asserts the published description carries
   the canonical phrase, so the ask cannot silently regress.
 
@@ -678,9 +677,8 @@ those places even though most are outside this repo (the checklist is in
   everywhere a model or a harness reads first: **"relate, the embedded
   Cypher graph database (relatedb.ai)"** in `llms.txt`'s first line, every
   twin's `description`, the skill description, MCP `serverInfo`, package
-  descriptions and the README H1; one line "Not the Neo4j Desktop Relate
-  framework" on `where-relate-fits` and in the skill; `relatedb` as the
-  searchable token. Phase 0, and an upstream ask.
+  descriptions and the README H1; `relatedb` as the searchable token.
+  Phase 0, and an upstream ask.
 - **Registry metadata is docs.** PyPI and npm descriptions and keywords
   (today: no keywords, no mention of agents), the official MCP registry
   (`server.json`, `mcpName` in `package.json`, a `remotes` entry for
@@ -1550,8 +1548,7 @@ from the same collection, so they cannot go stale independently.
   needs a disclosure address and a supported-versions statement from
   upstream before it can be written.
 - **Upstream asks, collected**: the `docs` URL in the error object (phase
-  1); the skill description with intent phrases, the disambiguation line
-  and no internal ids; `agent-context` embedding the errors table and
+  1); the skill description with intent phrases and no internal ids; `agent-context` embedding the errors table and
   printing the docs URLs; PyPI and npm descriptions and keywords; the
   WASM items above; `SECURITY.md`; an
   OpenAPI document for the HTTP Query API if one exists.

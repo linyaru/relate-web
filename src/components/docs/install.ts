@@ -300,7 +300,7 @@ export function pinnedBlocks(v: string): Block[] {
 export function agentsMd(v: string): string {
   return `## relate
 
-relate, the embedded Cypher graph database (relatedb.ai). This repository uses version ${v}. Not the Neo4j Desktop Relate framework.
+relate, the embedded Cypher graph database (relatedb.ai). This repository uses version ${v}.
 
 - Install, pinned and verified: https://relatedb.ai/docs/get-started/install.md (the "Pinned binary" steps)
 - Check: \`relate --version\` prints \`${VERSION_LINE}\`

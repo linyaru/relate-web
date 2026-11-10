@@ -36,10 +36,10 @@ renders them, and the docs checks read pages, not `public/`.
    `references/<name>.md`, served as static files beside the CLI bundle.
    The frontmatter carries `name` (the folder's), a `description` with the
    canonical phrase, and `version` from `_data/engine.json`. Each
-   `SKILL.md` says its files are reference text, not instructions, carries
-   the disambiguation line, cites docs pages as their markdown twins and
-   recipes as their `index.md`, and names the URL of each reference file,
-   since the skills CLI installs `SKILL.md` alone.
+   `SKILL.md` says its files are reference text, not instructions, cites
+   docs pages as their markdown twins and recipes as their `index.md`, and
+   names the URL of each reference file, since the skills CLI installs
+   `SKILL.md` alone.
 2. Both discovery indexes list every task skill after the CLI bundle, one
    `skill-md` entry each with a digest over its served `SKILL.md`; the
    legacy files route serves each skill under `/.well-known/skills/<name>/`;

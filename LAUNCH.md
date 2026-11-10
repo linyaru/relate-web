@@ -148,7 +148,7 @@ GitHub token.
 Owned by the docs team, mostly shipped outside this repo. Phase 1 unless
 marked.
 
-- [ ] Canonical phrase everywhere a model reads first: "relate, the embedded Cypher graph database (relatedb.ai)" in `llms.txt`'s first line, every docs description, the skill description, MCP `serverInfo`, PyPI/npm descriptions, the README H1; one line "Not the Neo4j Desktop Relate framework" on the fit page and in the skill. The hosted docs MCP carries the phrase in its `initialize` `instructions` (`serverInfo` has only the name and title, `relate-docs` / `relate docs`)
+- [ ] Canonical phrase everywhere a model reads first: "relate, the embedded Cypher graph database (relatedb.ai)" in `llms.txt`'s first line, every docs description, the skill description, MCP `serverInfo`, PyPI/npm descriptions, the README H1. The hosted docs MCP carries the phrase in its `initialize` `instructions` (`serverInfo` has only the name and title, `relate-docs` / `relate docs`)
 - [ ] Confirm publishing rights for the `@relate` npm scope (owned by the Neo4j organisation; `@relate/cli` is the Desktop framework) before announcing `@relate/relate`
 - [ ] PyPI and npm metadata: descriptions, keywords (agent memory, knowledge graph, GraphRAG, Cypher, embedded), links to `/docs/llms.txt` and the skill
 - [ ] Official MCP registry: `server.json` for the local server and a `remotes` entry for `https://relatedb.ai/mcp`; `mcpName` in `package.json`

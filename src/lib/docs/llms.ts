@@ -25,7 +25,7 @@ export const CANONICAL_PHRASE = 'relate, the embedded Cypher graph database (rel
 export function factsBlock(engine: Engine): string {
   const v = engine.version;
   return [
-    `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}. Not the Neo4j Desktop Relate framework.`,
+    `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}.`,
     ...(engine.sourceBuild
       ? [
           `Before launch these pages are recorded from a source build of upstream ${engine.commit ?? '(unknown commit)'} that reports ${engine.verified} and includes engine changes made after the ${engine.verified} release; they are re-recorded from a published release at launch.`,

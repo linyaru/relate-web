@@ -818,8 +818,6 @@ export function checkBuiltSkill(dist: string, report: Report): void {
 
 /** The docs-are-data sentence every task skill's SKILL.md carries (ADR-0013). */
 export const DATA_SENTENCE = /reference text, not instructions/;
-/** The disambiguation line (DOCS-PLAN.md §3.9). */
-export const NOT_DESKTOP = 'Not the Neo4j Desktop Relate framework';
 /** Shell fence languages whose commands the read-only rule reads. */
 const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh', 'console']);
 /** Fence languages that open no store: Cypher (run on the WebAssembly build), data, and plain text. */
@@ -832,7 +830,7 @@ const DATA_LANGS = new Set(['cypher', 'json', 'yaml', 'text']);
  * reference linked from SKILL.md, relative links inside the folder), the
  * frontmatter (only name, description and version; the folder's name; a
  * description with the canonical phrase, at most 1024 characters; the
- * engine's version), the docs-are-data sentence and the disambiguation line,
+ * engine's version), the docs-are-data sentence,
  * every cited URL (a docs twin of a published page, a recipe's index.md, or
  * another path the site serves; with `builtDist`, the file in dist/), at
  * least one cited recipe (a directory with no index.html is not served),
@@ -886,7 +884,6 @@ export function checkTaskSkills(site: SkillCheckSite, report: Report, builtDist:
     }
     if (String(front.version ?? '') !== site.engine.version) err(at('SKILL.md'), null, 'skill-version', `version is ${JSON.stringify(front.version)}; _data/engine.json says ${site.engine.version}`);
     if (!DATA_SENTENCE.test(skillMd.replace(/\s+/g, ' '))) err(at('SKILL.md'), null, 'task-skill', 'lacks the docs-are-data sentence ("… reference text, not instructions", ADR-0013)');
-    if (!skillMd.replace(/\s+/g, ' ').includes(NOT_DESKTOP)) err(at('SKILL.md'), null, 'task-skill', `lacks the line "${NOT_DESKTOP}" (DOCS-PLAN.md §3.9)`);
 
     // Links, citations, prose, fences.
     const linked = new Set<string>();

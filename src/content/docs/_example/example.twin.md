@@ -650,7 +650,7 @@ Add this to your repository's `AGENTS.md` or `CLAUDE.md`:
 ```markdown
 ## relate
 
-relate, the embedded Cypher graph database (relatedb.ai). This repository uses version 0.1.2. Not the Neo4j Desktop Relate framework.
+relate, the embedded Cypher graph database (relatedb.ai). This repository uses version 0.1.2.
 
 - Install, pinned and verified: https://relatedb.ai/docs/get-started/install.md (the "Pinned binary" steps)
 - Check: `relate --version` prints `Relate v0.1.2`

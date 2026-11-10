@@ -54,6 +54,15 @@ cypherlite-era redo) and should not be extended.
 - [x] The docs samples environment and the CLI recordings are pinned to the v0.1.2 release, not a source build: re-pin at each release with `scripts/release-refresh.sh` (AGENTS.md §4)
 - [ ] After the first release with published clients: switch `docs-samples.yml` and `scripts/samples/setup.sh` from building the clients out of the upstream checkout to installing the published `relate-db` and `@relate/relate` packages
 
+## Feedback (giscus)
+
+Page feedback for corrections lives in GitHub Discussions on `relatedb/relate-web`, shown by `src/components/Feedback.astro` on the site footer on every page. Until the ids are set it shows a plain "Open an issue" link.
+
+- [x] Discussions enabled on `relatedb/relate-web`, with an open `Website` category: anyone signed in to GitHub can comment and start a page's thread.
+- [ ] Install the giscus app (https://github.com/apps/giscus) on `relatedb/relate-web`.
+- [x] Repo and category ids are in `src/lib/giscus.ts` (from the GitHub API).
+- [ ] Check a docs page: the button loads the thread, the theme follows the Day/Night switch, and the discussion is titled with the page path.
+
 ## Switch hosts: github.io → relatedb.ai
 
 Interim: GitHub Pages at `https://relatedb.github.io/relate-web/` via

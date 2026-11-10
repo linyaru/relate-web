@@ -22,7 +22,11 @@ const cols = [
     { href: '#top', label: 'Back to top' },
   ] },
 ];
-interface Props { /** The home page's play area: pixel stickers that fall onto the relate arch. */ play?: boolean }
+import Feedback from './Feedback.astro';
+interface Props {
+  /** The home page's play area: pixel stickers that fall onto the relate arch. */
+  play?: boolean;
+}
 const { play = false } = Astro.props;
 ---
 <footer class={play ? 'foot has-play' : 'foot'}>
@@ -37,6 +41,7 @@ const { play = false } = Astro.props;
     ))}
   </div>
   {play && <div class="play" id="play"><canvas id="pc" aria-hidden="true"></canvas></div>}
+  <div class="fb-wrap"><Feedback /></div>
   <div class="legal">
     <span class="legal-copy">&copy; 2026 The Relate Authors · <a href="https://github.com/relatedb/relate-web/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0<span class="sr-only"> (opens in new tab)</span></a></span>
     <div class="social">

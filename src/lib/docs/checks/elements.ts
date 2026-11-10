@@ -71,7 +71,8 @@ export interface ElementsSite {
 const EXAMPLE = join(DOCS_DIR, '_example/example.mdx');
 const EXAMPLE_ID = '_example/example';
 
-interface ElementPage {
+/** A page's elements as the check and the record see them: a docs page, or a cookbook recipe (src/lib/cookbook/elements.ts). */
+export interface ElementPage {
   id: string;
   file: string;
   uses: ElementUse[];
@@ -82,6 +83,16 @@ interface ElementPage {
   /** Lines the frontmatter takes, so body lines map to file lines. */
   offset: number;
 }
+
+/** How a page's forms are recorded and checked: what to run to record them, and whether its unknown containers are reported here. */
+export interface PageRules {
+  /** The command that records the page's forms, as a remedy (`run …`). */
+  again: string;
+  /** Report the page's unknown containers (the example page, and recipes; a published docs page's are the constructs check's). */
+  unknown: boolean;
+}
+
+const DOCS_RULES = (published: boolean): PageRules => ({ again: 'run node scripts/docs.ts --record', unknown: !published });
 
 /** Container directives in `tree` that name neither an element nor a construct. */
 function unknownContainers(tree: Root, names: Set<string>): { name: string; line: number | null }[] {
@@ -183,50 +194,56 @@ export async function checkElements(site: ElementsSite, report: Report): Promise
       report(file, null, 'error', 'element', `\`:::${name}\` has no cookbook:browser case file (scripts/browser-cases/${name}.ts)`);
     }
   }
-  const known = names.join(', ') || 'none';
-  for (const page of pagesOf(site)) {
-    const at = (l: number | null) => (l === null ? null : l + page.offset);
-    for (const p of page.problems) report(page.file, null, 'error', 'element', p);
-    // A published page's unknown containers are the constructs check's to report.
-    if (!site.published.has(page.id)) {
-      for (const u of page.unknown) report(page.file, at(u.line), 'error', 'element', `unknown container \`:::${u.name}\` (elements: ${known})`);
-    }
-    for (const cell of page.cells.cells) {
-      for (const word of Object.keys(cell.words ?? {})) {
-        const module = CELL_WORDS[word].module;
-        if (!existsSync(join(BROWSER_ELEMENTS_DIR, `${module}.ts`))) {
-          report(page.file, at(cell.line), 'error', 'element', `cell \`${cell.id}\` carries \`${word}\`, whose browser module src/scripts/docs/elements/${module}.ts does not exist yet`);
-        }
+  for (const page of pagesOf(site)) await checkPageElements(page, contextOf(page), report, DOCS_RULES(site.published.has(page.id)));
+}
+
+/**
+ * The checks on one page's elements: its directives (validated, each with a
+ * current, non-empty recorded form), its unknown containers when `rules`
+ * says so, its cells' element words, and recorded forms left without their
+ * directive. A recipe passes its run's recordings in `ctx` (ADR-0046).
+ */
+export async function checkPageElements(page: ElementPage, ctx: FormContext, report: Report, rules: PageRules): Promise<void> {
+  const known = elementNames().join(', ') || 'none';
+  const at = (l: number | null) => (l === null ? null : l + page.offset);
+  for (const p of page.problems) report(page.file, null, 'error', 'element', p);
+  if (rules.unknown) {
+    for (const u of page.unknown) report(page.file, at(u.line), 'error', 'element', `unknown container \`:::${u.name}\` (elements: ${known})`);
+  }
+  for (const cell of page.cells.cells) {
+    for (const word of Object.keys(cell.words ?? {})) {
+      const module = CELL_WORDS[word].module;
+      if (!existsSync(join(BROWSER_ELEMENTS_DIR, `${module}.ts`))) {
+        report(page.file, at(cell.line), 'error', 'element', `cell \`${cell.id}\` carries \`${word}\`, whose browser module src/scripts/docs/elements/${module}.ts does not exist yet`);
       }
     }
-    const ctx = contextOf(page);
-    for (const use of page.uses) {
-      let sp: ElementSpec;
-      try {
-        sp = await spec(use.name);
-      } catch {
-        continue; // reported with the element's file
-      }
-      for (const p of validated(sp, inputOf(page, use, ctx))) report(page.file, at(use.line), 'error', 'element', `\`:::${use.name}\` (${use.id}): ${p}`);
-      try {
-        const form = readForm(page.file, use, ctx);
-        if (!use.children && !form.text.trim() && !form.svg) report(page.file, at(use.line), 'error', 'element', `\`:::${use.name}\` (${use.id}) has an empty static form`);
-      } catch (e) {
-        report(page.file, at(use.line), 'error', 'element', (e as Error).message);
-      }
+  }
+  for (const use of page.uses) {
+    let sp: ElementSpec;
+    try {
+      sp = await spec(use.name);
+    } catch {
+      continue; // reported with the element's file
     }
-    const { dir, stem } = pageDiagrams(page.file);
-    if (!existsSync(dir)) continue;
-    const ids = new Set(page.uses.map((u) => u.id));
-    for (const name of readdirSync(dir)) {
-      const id = elementFileId(stem, name);
-      if (id === null || ids.has(id)) continue;
-      if (page.unknown.length) {
-        const list = page.unknown.map((u) => `\`:::${u.name}\` (line ${at(u.line) ?? '?'})`).join(', ');
-        report(join(dir, name), null, 'error', 'element', `a static form of element \`${id}\`, which the page does not have while it has the unknown container(s) ${list}; fix the directive (elements: ${known}) before recording`);
-      } else {
-        report(join(dir, name), null, 'error', 'element', `a static form of element \`${id}\`, which the page does not have; run node scripts/docs.ts --record`);
-      }
+    for (const p of validated(sp, inputOf(page, use, ctx))) report(page.file, at(use.line), 'error', 'element', `\`:::${use.name}\` (${use.id}): ${p}`);
+    try {
+      const form = readForm(page.file, use, ctx, rules.again);
+      if (!use.children && !form.text.trim() && !form.svg) report(page.file, at(use.line), 'error', 'element', `\`:::${use.name}\` (${use.id}) has an empty static form`);
+    } catch (e) {
+      report(page.file, at(use.line), 'error', 'element', (e as Error).message);
+    }
+  }
+  const { dir, stem } = pageDiagrams(page.file);
+  if (!existsSync(dir)) return;
+  const ids = new Set(page.uses.map((u) => u.id));
+  for (const name of readdirSync(dir)) {
+    const id = elementFileId(stem, name);
+    if (id === null || ids.has(id)) continue;
+    if (page.unknown.length) {
+      const list = page.unknown.map((u) => `\`:::${u.name}\` (line ${at(u.line) ?? '?'})`).join(', ');
+      report(join(dir, name), null, 'error', 'element', `a static form of element \`${id}\`, which the page does not have while it has the unknown container(s) ${list}; fix the directive (elements: ${known}) before recording`);
+    } else {
+      report(join(dir, name), null, 'error', 'element', `a static form of element \`${id}\`, which the page does not have; ${rules.again}`);
     }
   }
 }
@@ -242,6 +259,26 @@ export async function checkElements(site: ElementsSite, report: Report): Promise
  */
 export async function recordElements(site: ElementsSite, report: Report, log: (line: string) => void): Promise<number> {
   let changed = 0;
+  let recorded = 0;
+  for (const page of pagesOf(site)) {
+    const r = await recordPageElements(page, contextOf(page), report, log, DOCS_RULES(site.published.has(page.id)));
+    changed += r.changed;
+    recorded += r.recorded;
+  }
+  if (recorded) log(`recorded ${recorded} element static form(s)`);
+  return changed;
+}
+
+/**
+ * One page's element static forms, each made by its element's `staticForm`
+ * from `ctx` (the page's recordings and data blocks), written to the page's
+ * diagrams/ directory; forms of directives the page no longer has are
+ * removed. A directive whose validation or form fails is reported and keeps
+ * what it had. Returns how many files changed and how many forms were
+ * recorded.
+ */
+export async function recordPageElements(page: ElementPage, ctx: FormContext, report: Report, log: (line: string) => void, rules: PageRules): Promise<{ changed: number; recorded: number }> {
+  let changed = 0;
   const write = (path: string, text: string) => {
     if (existsSync(path) && readFileSync(path, 'utf8') === text) return;
     writeFileSync(path, text);
@@ -255,104 +292,100 @@ export async function recordElements(site: ElementsSite, report: Report, log: (l
     log(`removed ${relative(ROOT, path)}`);
   };
   let recorded = 0;
-  for (const page of pagesOf(site)) {
-    for (const p of page.problems) report(page.file, null, 'error', 'element', `not recorded: ${p}`);
-    for (const u of page.unknown) {
-      if (!site.published.has(page.id)) report(page.file, u.line === null ? null : u.line + page.offset, 'error', 'element', `not recorded: unknown container \`:::${u.name}\` (elements: ${elementNames().join(', ') || 'none'})`);
+  for (const p of page.problems) report(page.file, null, 'error', 'element', `not recorded: ${p}`);
+  for (const u of page.unknown) {
+    if (rules.unknown) report(page.file, u.line === null ? null : u.line + page.offset, 'error', 'element', `not recorded: unknown container \`:::${u.name}\` (elements: ${elementNames().join(', ') || 'none'})`);
+  }
+  const { dir, stem } = pageDiagrams(page.file);
+  const keep = new Set<string>();
+  for (const use of page.uses) {
+    // A directive left unrecorded keeps whatever it had.
+    const hold = () => {
+      keep.add(elementFormFile(stem, use.id));
+      for (const theme of THEMES) keep.add(elementSvgFile(stem, use.id, theme));
+    };
+    const fail = (m: string) => {
+      report(page.file, use.line === null ? null : use.line + page.offset, 'error', 'element', `not recorded: \`:::${use.name}\` (${use.id}): ${m}`);
+      hold();
+    };
+    let sp: ElementSpec;
+    try {
+      sp = await spec(use.name);
+    } catch (e) {
+      fail((e as Error).message);
+      continue;
     }
-    const ctx = contextOf(page);
-    const { dir, stem } = pageDiagrams(page.file);
-    const keep = new Set<string>();
-    for (const use of page.uses) {
-      // A directive left unrecorded keeps whatever it had.
-      const hold = () => {
-        keep.add(elementFormFile(stem, use.id));
-        for (const theme of THEMES) keep.add(elementSvgFile(stem, use.id, theme));
-      };
-      const fail = (m: string) => {
-        report(page.file, use.line === null ? null : use.line + page.offset, 'error', 'element', `not recorded: \`:::${use.name}\` (${use.id}): ${m}`);
-        hold();
-      };
-      let sp: ElementSpec;
-      try {
-        sp = await spec(use.name);
-      } catch (e) {
-        fail((e as Error).message);
-        continue;
-      }
-      const input = inputOf(page, use, ctx);
-      const invalid = validated(sp, input);
-      if (invalid.length) {
-        for (const m of invalid) fail(m);
-        continue;
-      }
-      let form;
-      try {
-        form = await sp.staticForm(input);
-      } catch (e) {
-        fail(`its staticForm threw: ${(e as Error).message}`);
-        continue;
-      }
-      const problems = formProblems(form, use.children);
-      try {
-        if (form.svgLight !== undefined) inertSvg(form.svgLight, `${use.id} (light)`);
-        if (form.svgDark !== undefined) inertSvg(form.svgDark, `${use.id} (dark)`);
-      } catch (e) {
-        problems.push((e as Error).message);
-      }
-      if (problems.length) {
-        for (const m of problems) fail(m);
-        continue;
-      }
-      const svg = typeof form.svgLight === 'string' && typeof form.svgDark === 'string';
-      let hash: string;
-      try {
-        hash = formHash(use, ctx, sp.inputs ?? [], svg);
-      } catch (e) {
-        fail((e as Error).message);
-        continue;
-      }
-      const pictures = svg
-        ? { light: `${elementHashComment(hash)}\n${form.svgLight!.trim()}\n`, dark: `${elementHashComment(hash)}\n${form.svgDark!.trim()}\n` }
-        : null;
-      const rec: RecordedForm = {
-        format: ELEMENT_FORM_VERSION,
-        element: use.name,
-        hash,
-        inputs: sp.inputs ?? [],
-        live: sp.live.trim(),
-        engine: sp.engine ?? true,
-        text: form.text.trim(),
-        caption: svg ? form.caption!.trim() : null,
-        svg,
-        svgSha256: pictures ? { light: sha256(pictures.light), dark: sha256(pictures.dark) } : null,
-        textSha256: '',
-      };
-      rec.textSha256 = formWordsSha256(rec);
-      mkdirSync(dir, { recursive: true });
-      const json = elementFormFile(stem, use.id);
-      keep.add(json);
-      write(join(dir, json), `${JSON.stringify(rec, null, 2)}\n`);
-      if (pictures) {
-        for (const theme of THEMES) {
-          const name = elementSvgFile(stem, use.id, theme);
-          keep.add(name);
-          write(join(dir, name), pictures[theme]);
-        }
-      }
-      recorded++;
-      // A form recorded now must read back as current.
-      try {
-        readForm(page.file, use, ctx);
-      } catch (e) {
-        report(page.file, null, 'error', 'element', `recorded, but it does not read back: ${(e as Error).message}`);
+    const input = inputOf(page, use, ctx);
+    const invalid = validated(sp, input);
+    if (invalid.length) {
+      for (const m of invalid) fail(m);
+      continue;
+    }
+    let form;
+    try {
+      form = await sp.staticForm(input);
+    } catch (e) {
+      fail(`its staticForm threw: ${(e as Error).message}`);
+      continue;
+    }
+    const problems = formProblems(form, use.children);
+    try {
+      if (form.svgLight !== undefined) inertSvg(form.svgLight, `${use.id} (light)`);
+      if (form.svgDark !== undefined) inertSvg(form.svgDark, `${use.id} (dark)`);
+    } catch (e) {
+      problems.push((e as Error).message);
+    }
+    if (problems.length) {
+      for (const m of problems) fail(m);
+      continue;
+    }
+    const svg = typeof form.svgLight === 'string' && typeof form.svgDark === 'string';
+    let hash: string;
+    try {
+      hash = formHash(use, ctx, sp.inputs ?? [], svg);
+    } catch (e) {
+      fail((e as Error).message);
+      continue;
+    }
+    const pictures = svg
+      ? { light: `${elementHashComment(hash)}\n${form.svgLight!.trim()}\n`, dark: `${elementHashComment(hash)}\n${form.svgDark!.trim()}\n` }
+      : null;
+    const rec: RecordedForm = {
+      format: ELEMENT_FORM_VERSION,
+      element: use.name,
+      hash,
+      inputs: sp.inputs ?? [],
+      live: sp.live.trim(),
+      engine: sp.engine ?? true,
+      text: form.text.trim(),
+      caption: svg ? form.caption!.trim() : null,
+      svg,
+      svgSha256: pictures ? { light: sha256(pictures.light), dark: sha256(pictures.dark) } : null,
+      textSha256: '',
+    };
+    rec.textSha256 = formWordsSha256(rec);
+    mkdirSync(dir, { recursive: true });
+    const json = elementFormFile(stem, use.id);
+    keep.add(json);
+    write(join(dir, json), `${JSON.stringify(rec, null, 2)}\n`);
+    if (pictures) {
+      for (const theme of THEMES) {
+        const name = elementSvgFile(stem, use.id, theme);
+        keep.add(name);
+        write(join(dir, name), pictures[theme]);
       }
     }
-    // A page with an unknown container may hold a mistyped element: its forms stay until the directive is fixed.
-    if (existsSync(dir) && !page.unknown.length) {
-      for (const name of readdirSync(dir)) if (elementFileId(stem, name) !== null && !keep.has(name)) remove(join(dir, name));
+    recorded++;
+    // A form recorded now must read back as current.
+    try {
+      readForm(page.file, use, ctx, rules.again);
+    } catch (e) {
+      report(page.file, null, 'error', 'element', `recorded, but it does not read back: ${(e as Error).message}`);
     }
   }
-  if (recorded) log(`recorded ${recorded} element static form(s)`);
-  return changed;
+  // A page with an unknown container may hold a mistyped element: its forms stay until the directive is fixed.
+  if (existsSync(dir) && !page.unknown.length) {
+    for (const name of readdirSync(dir)) if (elementFileId(stem, name) !== null && !keep.has(name)) remove(join(dir, name));
+  }
+  return { changed, recorded };
 }

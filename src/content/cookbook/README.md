@@ -29,7 +29,7 @@ ships (`public/wasm/`) and fails if a result drifts from what the file records
 |---|---|---|---|
 | [Context graph for a codebase](codebase-context-graph.md) | Answer multi-hop questions about a codebase: IDF-weighted full-text search finds where to start, and bounded graph hops follow supersessions, dependencies, and citations. | Advanced | Fully |
 | [Hybrid recall: vector + full-text + RRF](hybrid-recall.md) | Fuse vector and full-text SEARCH by reciprocal rank in one Cypher statement, then hop from each recalled note to its topic's latest decision. | Advanced | Fully |
-| [Query the relate docs](query-the-relate-docs.md) | Search a slice of the relate docs graph with full-text SEARCH, vector SEARCH and both fused by reciprocal rank, then hop from the best sections to their pages. | Intermediate | Fully |
+| [Query the relate docs](query-the-relate-docs.md) | Find entry points in the relate docs graph with vector SEARCH, then let the graph expand them into context, scope the search by a traversal, and reach the capability and its worked example. | Intermediate | Fully |
 
 ### Data quality
 
@@ -94,6 +94,7 @@ A recipe is one file, `src/content/cookbook/<slug>.md`. The file stem is its URL
 | Data | ```` ```json data=<name> ```` | A JSON object whose keys are a step's parameters |
 | Results | ```` ```table ```` or ```` ```gram ```` | The recorded result of the step just above; generated |
 | Diagrams | ```` ```mermaid ```` | The data model, and any pipeline worth a picture; rendered for the website |
+| Elements | `:::<name>{…}` … `:::` | An interactive element of the docs, over the recipe's own steps; its static form is generated |
 
 ### Front matter
 
@@ -144,8 +145,8 @@ counters summed over the step. Put a query whose rows matter in its own step.
 ### Data
 
 A data block is a JSON object; its keys are the parameters of every step that
-names it with `params=<name>`. Every block must be used, and none may exceed
-512 KB. Parameters arrive exactly as the block spells them, so `1.0` stays a
+names it with `params=<name>`. Every block must be used, by a step or by an
+[element](#interactive-elements) that names it, and none may exceed 512 KB. Parameters arrive exactly as the block spells them, so `1.0` stays a
 float and `1` an integer. Keep vectors as float literals (`[1.0, 0.0]`).
 
 - A small block (up to 2 KB) holds a step's knobs. Put it just above the
@@ -268,6 +269,59 @@ flowchart LR
   a long flow reads better as two rows (two `direction LR` subgraphs linked
   to each other) or as `flowchart TB`.
 
+### Interactive elements
+
+A recipe can carry the docs' interactive elements (ADR-0046): the
+geospatial explorer, the vector search explorer, the agent trace, the
+timeline, and every other element in `src/lib/docs/elements/`, with the directive a docs page
+uses. The element works on the recipe's own steps, data blocks and
+recordings, so what it runs is what the recipe teaches. The docs README
+("Interactive elements") lists each element, its attributes, and what it
+needs of the cells it names; in a recipe, a step is a cell and its
+`cell=<id>` is the id the attributes name.
+
+````markdown
+:::geo-explorer{points=bookstores radius=near}
+:::
+````
+
+- The opening line starts at column 0 with `:::` and the element's name,
+  then its attributes in braces (`key=value`, `key="a,b"`, `#id`); a line
+  holding only `:::` closes it. Elements do not nest.
+- What goes between the two lines is plain markdown (no fences), shown
+  above the generated part of the static form. Most elements need none.
+- A data block the element names (an agent trace's `steps=<name>`) counts as
+  used. A small one sits beside the element; a dataset goes in `## Data`.
+- A step the element runs again with its own parameters (an explorer's
+  search, with the shape or `k` set in them) takes a small block, which the
+  page holds as the step's editable parameters; a dataset's parameters load
+  from `data/<name>.json` only when the step runs, by its Run button or by
+  an element that reruns it (the graph diff reruns every step up to its
+  `after` step).
+- Elements go in the narrative, never in `## Data`.
+- An element's id is `id=`, else `<name>-<n>`, the n-th of that name.
+
+`npm run cookbook:record` writes each element's static form after the
+result blocks, from the same run: `diagrams/<slug>-element-<id>.json`, and
+for an element with a picture `-light.svg` and `-dark.svg`. Commit them with
+the recipe. Review the diff like the result blocks: the form is what the
+page shows without JavaScript, and what the markdown at
+`/cookbook/<slug>/index.md` carries in place of the directive (the text,
+the line "Live: …" saying what the element does in a browser, and a link to
+the light picture). `cookbook:check` and the site build fail when a form is
+missing, stale (the directive, a recording, a data block or the element's
+code changed), edited by hand, or left without its directive.
+
+On the website the element shows its static form until its code loads,
+which happens when it comes near the screen or the reader reaches for it;
+it runs on the same in-browser database as the steps, after the steps it
+needs. A page runs under 60 KB of its own JavaScript before those lazy
+chunks.
+
+Placing an element is the directive and nothing else: no cookbook code
+names an element. Adding a new element is the docs' four files (the docs
+README, "Adding an element") and an ADR.
+
 After changing a diagram, render it:
 
 ```sh
@@ -312,9 +366,10 @@ changed.
 
 | Command | What it checks |
 | --- | --- |
-| `npm run cookbook:check` | Every recipe parses and validates (the front matter, data blocks, and raw HTML are valid; step code fits in 88 columns; small blocks sit beside their steps and datasets in `## Data`; the recipe runs at most 800 lines before `## Data`; it has a diagram), runs every step in order, reproduces each recorded `table` / `gram` block, and returns at most 200 rows per statement; the index is current |
+| `npm run cookbook:check` | Every recipe parses and validates (the front matter, data blocks, and raw HTML are valid; step code fits in 88 columns; small blocks sit beside their steps and datasets in `## Data`; the recipe runs at most 800 lines before `## Data`; it has a diagram), runs every step in order, reproduces each recorded `table` / `gram` block, and returns at most 200 rows per statement; every element directive names an element, passes its validation, and has a current recorded static form, and no form is left without its directive; the index is current |
+| `npm run cookbook:record` | Rewrites every result block, then every element's static form, from a run, and the index; review the diff |
 | `npm run cookbook:test` | The cookbook tooling's unit tests (`src/lib/cookbook/*.test.ts`) |
-| `npm run cookbook:browser` | After `npm run build`, in headless Chrome: every recipe page's "Run all" runs every step, and each must match its recording; every graph result draws; the page controls (Run, parameters, JSON view, Edit and Revert, Reset, Stop) are exercised on one recipe; the playground loads its sample data; every recipe opens whole in the playground (`#recipe=<slug>`) and replays all its steps, and one step link replays the steps before it and loads the step with its parameters. Before that, the built `recipe.json` files and step links are checked. Needs Chrome (`CHROME_PATH`) |
+| `npm run cookbook:browser` | After `npm run build`, in headless Chrome: every recipe page's "Run all" runs every step, and each must match its recording; every graph result draws; the page controls (Run, parameters, JSON view, Edit and Revert, Reset, Stop) are exercised on one recipe; the playground loads its sample data; every recipe opens whole in the playground (`#recipe=<slug>`) and replays all its steps, and one step link replays the steps before it and loads the step with its parameters; each interactive element's cases run on the first recipe that carries it (static form without JavaScript at 1400 and 390 px, nothing loaded while it is out of reach, its own cases, at phone width and under reduced motion); every recipe page loads under 60 KB of JavaScript before any interaction. Before that, the built `recipe.json` files and step links are checked. Needs Chrome (`CHROME_PATH`) |
 
 A run stops at the first step that goes other than the recipe says (an error
 where none is expected, or success where the step is `expect=error`), in the

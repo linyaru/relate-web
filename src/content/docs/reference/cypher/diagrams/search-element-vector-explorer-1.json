@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "element": "vector-explorer",
+  "hash": "73e5d2bd236875cc3eaa211122e386aabcd08135382b27bea826ed0d0758bda5",
+  "inputs": [],
+  "live": "a k slider runs the page's search statements on its database in your browser with that k, and the view marks the ids the engine returns.",
+  "engine": true,
+  "text": "The 2 ranked lists for \"docs tests\", as recorded with k = 3:\n\n| Rank | `vector-list` | `fulltext-list` |\n| --- | --- | --- |\n| 1 | `Grace` | `Noor` |\n| 2 | `Noor` | `Grace` |\n| 3 | `Ada` |  |\n\nFused by reciprocal rank: each list gives an id its weight / (60 + its rank there), and the shares add up. 3 ids, best first:\n\n| id | Rank in `vector-list` | Rank in `fulltext-list` | Arithmetic | Fused score |\n| --- | --- | --- | --- | --- |\n| `Grace` | 1 | 2 | 0.7/(60+1) + 0.3/(60+2) | 0.0163 |\n| `Noor` | 2 | 1 | 0.7/(60+2) + 0.3/(60+1) | 0.0162 |\n| `Ada` | 3 |  | 0.7/(60+3) | 0.0111 |",
+  "caption": null,
+  "svg": false,
+  "svgSha256": null,
+  "textSha256": "71c2e9e439bd158032ea35ffc73a1d327f9b519b605349c886a549028636a2a9"
+}

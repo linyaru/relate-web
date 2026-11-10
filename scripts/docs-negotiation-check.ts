@@ -22,7 +22,8 @@
 // plus an unknown anchor (404, text/plain, the anchors listed), URLs that
 // are not pages (a missing page, files at a twin's path that are not that
 // page's twin, percent-encoded traversal) never answered with markdown, the
-// skill and llms.txt files served untouched through the agent-path log
+// skill and llms.txt files and the largest data block a twin links
+// (/docs/<page>/data/<name>.json, application/json) served untouched through the agent-path log
 // (functions/_middleware.ts), and a path outside /docs. Without the server
 // it also checks that every heading and glossary entry id on every built
 // docs page resolves as a ?section= anchor (the layout's "Related" list and
@@ -38,7 +39,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { estimateTokens, sectionAnchors, sliceSection, TERMS_HEADING } from '../src/lib/docs/negotiation.ts';
@@ -273,6 +274,25 @@ async function serverCases(base: string): Promise<void> {
     }
   }
   {
+    // A data block a twin links (ADR-0049): the static JSON file, byte for byte, whatever the Accept.
+    const blocks = walkFiles(join(DIST, 'docs')).filter((f) => /\/data\/[A-Za-z0-9_-]+\.json$/.test(f));
+    const file = blocks.sort((a, b) => statSync(b).size - statSync(a).size)[0];
+    if (!file) expect('a docs data block is built', ['no file at /docs/<page>/data/<name>.json in dist/']);
+    else {
+      const path = `/${relative(DIST, file).split(sep).join('/')}`;
+      for (const accept of [MARKDOWN, '*/*']) {
+        const { res, bytes } = await get(base, path, accept);
+        const p: string[] = [];
+        if (res.status !== 200) p.push(`status ${res.status}`);
+        if (!res.headers.get('content-type')?.startsWith('application/json')) p.push(`content-type ${res.headers.get('content-type')}`);
+        if (res.headers.has('x-markdown-tokens')) p.push('the Function answered it');
+        const diff = sameBytes(bytes, new Uint8Array(readFileSync(file)));
+        if (diff) p.push(`body ${diff}`);
+        expect(`GET ${path} with Accept: ${accept} is the static JSON file, untouched`, p);
+      }
+    }
+  }
+  {
     const { res, bytes } = await get(base, '/cookbook/', MARKDOWN);
     const p: string[] = [];
     if (res.status !== 200) p.push(`status ${res.status}`);
@@ -283,14 +303,16 @@ async function serverCases(base: string): Promise<void> {
   }
 }
 
-function walkPages(dir: string, out: string[] = []): string[] {
+function walkFiles(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
-    if (statSync(p).isDirectory()) walkPages(p, out);
-    else if (e === 'index.html') out.push(p);
+    if (statSync(p).isDirectory()) walkFiles(p, out);
+    else out.push(p);
   }
   return out;
 }
+
+const walkPages = (dir: string): string[] => walkFiles(dir).filter((p) => p.endsWith(`${sep}index.html`));
 
 /**
  * Every heading id on every built docs page resolves as a ?section= anchor:

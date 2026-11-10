@@ -1,0 +1,388 @@
+---
+title: Migrate from SQLite
+label: From SQLite
+description: Move tables, foreign keys and join tables from a SQLite database into a relate store, keep its keys as constraints, and rewrite joins as patterns.
+order: 25
+surfaces: [cli, cypher]
+prerequisites: [get-started/install]
+related: [guides/migrate/from-json-files, guides/cypher/load-json-from-a-url, reference/cli/flags#fetch-params, guides/cypher/indexes-and-constraints, reference/cypher/schema-clauses, guides/cypher/import-csv, cookbook/migration-rehearsal]
+---
+
+This guide shows you how to move a relational schema and its rows from a SQLite database into a relate :term[store]{id=store}. Each table of records becomes a :term[label]{id=label}, each foreign key and each join table a :term[relationship]{id=relationship}, and each key and index a :term[constraint]{id=constraint} or an :term[index]{id=index}. The `sqlite3` command-line shell exports every table as JSON, and one script loads the files with `--fetch-params` and keyed `MERGE` statements, so running it twice leaves the same graph. The steps write to `./team.db` and `./team.rl`, and each says so.
+
+## Prerequisites
+
+- relate on your `PATH` ([Install relate](/docs/get-started/install)).
+- The `sqlite3` shell, version 3.33.0 or later, the first with the `-json` output mode.
+- Each table's JSON export at most 64 MiB, the `--fetch-params` limit per file. A larger table exports in ranges of its primary key, one file and one load run per range.
+- The whole graph, its indexes included, fits in memory ([size a store and its memory](/docs/guides/operate/sizing-and-memory)).
+
+## Create the example database
+
+The steps move an issue tracker for the team graph the Get started pages use: people, projects, who works on which project since when, who knows whom, and issues filed against projects. This command writes the SQLite database `./team.db`. With your own database, skip it and use your file in the steps that follow:
+
+```bash verify
+sqlite3 team.db <<'SQL'
+CREATE TABLE people (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL
+);
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  language TEXT,
+  maintainer_id INTEGER REFERENCES people(id)
+);
+CREATE TABLE works_on (
+  person_id INTEGER NOT NULL REFERENCES people(id),
+  project_id INTEGER NOT NULL REFERENCES projects(id),
+  since INTEGER NOT NULL,
+  PRIMARY KEY (person_id, project_id)
+);
+CREATE TABLE knows (
+  person_id INTEGER NOT NULL REFERENCES people(id),
+  other_id INTEGER NOT NULL REFERENCES people(id),
+  PRIMARY KEY (person_id, other_id)
+);
+CREATE TABLE issues (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id),
+  title TEXT NOT NULL,
+  opened TEXT NOT NULL,
+  assignee_id INTEGER REFERENCES people(id)
+);
+CREATE INDEX issues_opened ON issues(opened);
+INSERT INTO people VALUES (1, 'Ada', 'engineer'), (2, 'Grace', 'engineer'), (3, 'Noor', 'maintainer');
+INSERT INTO projects VALUES (1, 'relate', 'Rust', 3), (2, 'opencypher-tck', 'Gherkin', NULL);
+INSERT INTO works_on VALUES (1, 1, 2024), (2, 1, 2023), (2, 2, 2022);
+INSERT INTO knows VALUES (1, 2);
+INSERT INTO issues VALUES
+  (1, 1, 'Plan cache misses on quoted labels', '2026-10-02', 1),
+  (2, 1, 'Add a SQLite migration guide', '2026-10-20', NULL),
+  (3, 2, 'Scenario for OPTIONAL MATCH ordering', '2026-09-14', 2);
+SQL
+```
+
+## Read the schema
+
+`sqlite3 team.db .schema` prints every `CREATE` statement. Two queries list what the mapping needs. The foreign keys, each of which becomes a relationship:
+
+```bash verify
+sqlite3 -header -list team.db "SELECT m.name AS table_name, f.\"from\" AS column_name, f.\"table\" AS refers_to
+FROM sqlite_master AS m JOIN pragma_foreign_key_list(m.name) AS f
+WHERE m.type = 'table' ORDER BY 1, 2"
+```
+
+```text
+table_name|column_name|refers_to
+issues|assignee_id|people
+issues|project_id|projects
+knows|other_id|people
+knows|person_id|people
+projects|maintainer_id|people
+works_on|person_id|people
+works_on|project_id|projects
+```
+
+The indexes, each of which becomes a constraint or a relate index. `origin` says where an index came from: `pk` a composite primary key, `u` a `UNIQUE` column, `c` a `CREATE INDEX`:
+
+```bash verify
+sqlite3 -header -list team.db "SELECT m.name AS table_name, i.name AS index_name, i.origin,
+  (SELECT group_concat(name) FROM pragma_index_info(i.name)) AS columns
+FROM sqlite_master AS m JOIN pragma_index_list(m.name) AS i
+WHERE m.type = 'table' ORDER BY 1, 2"
+```
+
+```text
+table_name|index_name|origin|columns
+issues|issues_opened|c|opened
+knows|sqlite_autoindex_knows_1|pk|person_id,other_id
+people|sqlite_autoindex_people_1|u|name
+projects|sqlite_autoindex_projects_1|u|name
+works_on|sqlite_autoindex_works_on_1|pk|person_id,project_id
+```
+
+An `INTEGER PRIMARY KEY` is the table's row id and has no index of its own, so `people.id`, `projects.id` and `issues.id` don't appear.
+
+## Plan the mapping
+
+| In SQLite | In relate |
+| --- | --- |
+| A table of records | A label, such as `:Person`, with one node per row |
+| An `INTEGER PRIMARY KEY` | A property under a node key constraint: the `MERGE` key, and what the foreign keys refer to |
+| A foreign key column | A relationship to the node of the row it names. The column itself isn't stored |
+| A join table whose primary key is two foreign keys | A relationship between the two nodes. Its other columns become relationship properties |
+| A `UNIQUE` column | A uniqueness constraint |
+| A `NOT NULL` column | An existence constraint |
+| A `CREATE INDEX` | A range index of the same name |
+| `INTEGER`, `REAL`, `TEXT` values | `INTEGER`, `FLOAT`, `STRING` properties |
+| A date kept as ISO 8601 `TEXT` | A `DATE` property, converted with `date()` |
+| `NULL` | No property: `SET p.x = null` leaves `x` off the node |
+
+A foreign key points from the row that holds it to the row it names; the relationship can point either way. Pick the direction that reads as a sentence: Noor `MAINTAINS` relate, an issue is `FILED_IN` a project. For the example:
+
+| Table or column | Becomes |
+| --- | --- |
+| `people` | `(:Person {id, name, role})` |
+| `projects` | `(:Project {id, name, language})` |
+| `projects.maintainer_id` | `(:Person)-[:MAINTAINS]->(:Project)` |
+| `issues` | `(:Issue {id, title, opened})` |
+| `issues.project_id` | `(:Issue)-[:FILED_IN]->(:Project)` |
+| `issues.assignee_id` | `(:Issue)-[:ASSIGNED_TO]->(:Person)` |
+| `works_on` | `(:Person)-[:WORKS_ON {since}]->(:Project)` |
+| `knows` | `(:Person)-[:KNOWS]->(:Person)` |
+
+## Export each table as JSON
+
+`-json` writes a table as one JSON array of objects keyed by column name. Integers and reals stay numbers and `NULL` stays `null`, so the values keep their types on the way in. A table with no rows writes an empty file, which is not JSON, so the loop writes `[]` in its place. This step writes the directory `./export`:
+
+```bash verify
+mkdir export
+for table in people projects works_on knows issues; do
+  sqlite3 -json team.db "SELECT * FROM $table" > "export/$table.json"
+  [ -s "export/$table.json" ] || echo '[]' > "export/$table.json"
+done
+```
+
+## Create the constraints and indexes
+
+Create them before the first row arrives, so every write is checked. One statement per key, `UNIQUE` column, `NOT NULL` column you want enforced, and index. The `DATE` type constraint on `opened` refuses a date that arrives as a string. This step writes the script and runs it on `./team.rl`, a single-file store it creates:
+
+```bash verify
+cat > schema.cypher <<'CYPHER'
+CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS NODE KEY;
+CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE;
+CREATE CONSTRAINT person_role IF NOT EXISTS FOR (p:Person) REQUIRE p.role IS NOT NULL;
+CREATE CONSTRAINT project_id IF NOT EXISTS FOR (p:Project) REQUIRE p.id IS NODE KEY;
+CREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE;
+CREATE CONSTRAINT issue_id IF NOT EXISTS FOR (i:Issue) REQUIRE i.id IS NODE KEY;
+CREATE CONSTRAINT issue_opened_type IF NOT EXISTS FOR (i:Issue) REQUIRE i.opened IS :: DATE;
+CREATE CONSTRAINT works_on_since IF NOT EXISTS FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS NOT NULL;
+CREATE INDEX issues_opened IF NOT EXISTS FOR (i:Issue) ON (i.opened);
+CYPHER
+relate query --database ./team.rl < schema.cypher
+```
+
+The statements print nothing. A node key is a uniqueness and an existence constraint in one, the rule a primary key enforces. A composite primary key on a join table needs no constraint: `MERGE` on the relationship writes each pair once.
+
+## Write the load script
+
+The script writes the nodes first, then one statement per foreign key and per join table, so every `MATCH` on an id finds a node that already exists. Each file arrives whole as a list, and `UNWIND` turns it into one row per record:
+
+```bash verify
+cat > load.cypher <<'CYPHER'
+UNWIND $people AS row
+MERGE (p:Person {id: row.id})
+SET p.name = row.name, p.role = row.role;
+
+UNWIND $projects AS row
+MERGE (p:Project {id: row.id})
+SET p.name = row.name, p.language = row.language;
+
+UNWIND $issues AS row
+MERGE (i:Issue {id: row.id})
+SET i.title = row.title, i.opened = date(row.opened);
+
+UNWIND $projects AS row
+MATCH (proj:Project {id: row.id}), (p:Person {id: row.maintainer_id})
+MERGE (p)-[:MAINTAINS]->(proj);
+
+UNWIND $issues AS row
+MATCH (i:Issue {id: row.id}), (proj:Project {id: row.project_id})
+MERGE (i)-[:FILED_IN]->(proj);
+
+UNWIND $issues AS row
+MATCH (i:Issue {id: row.id}), (p:Person {id: row.assignee_id})
+MERGE (i)-[:ASSIGNED_TO]->(p);
+
+UNWIND $works_on AS row
+MATCH (p:Person {id: row.person_id}), (proj:Project {id: row.project_id})
+MERGE (p)-[w:WORKS_ON]->(proj)
+SET w.since = row.since;
+
+UNWIND $knows AS row
+MATCH (a:Person {id: row.person_id}), (b:Person {id: row.other_id})
+MERGE (a)-[:KNOWS]->(b);
+CYPHER
+```
+
+Three choices make the script safe to rerun and true to the source:
+
+- `MERGE` on the key alone, then `SET` for the other columns. A `MERGE` on every column would create a second node when one value changes.
+- A `NULL` foreign key matches nothing. The `opencypher-tck` project has no maintainer, so its `MATCH` returns no row and the statement writes no `MAINTAINS` for it.
+- `date(row.opened)` turns the ISO 8601 text into a `DATE`, so `ORDER BY` and range comparisons work on dates.
+
+## Run the load
+
+This command writes to `./team.rl`. `relate query` reads the script from stdin, and each `--fetch-params <name>=<file>` binds one export file as a parameter:
+
+```bash verify
+relate query --database ./team.rl \
+  --fetch-params people=export/people.json \
+  --fetch-params projects=export/projects.json \
+  --fetch-params issues=export/issues.json \
+  --fetch-params works_on=export/works_on.json \
+  --fetch-params knows=export/knows.json \
+  < load.cypher
+```
+
+The load prints nothing: no statement returns rows, and the exit code is 0. A second run with the same files matches every key instead of creating anything, and says so on stderr for each statement that wrote nothing:
+
+```bash verify
+relate query --database ./team.rl \
+  --fetch-params people=export/people.json \
+  --fetch-params projects=export/projects.json \
+  --fetch-params issues=export/issues.json \
+  --fetch-params works_on=export/works_on.json \
+  --fetch-params knows=export/knows.json \
+  < load.cypher
+```
+
+```text
+note: write statement 4 of 8 changed nothing; the graph is unchanged
+note: write statement 5 of 8 changed nothing; the graph is unchanged
+note: write statement 6 of 8 changed nothing; the graph is unchanged
+note: write statement 8 of 8 changed nothing; the graph is unchanged
+```
+
+Statements 1, 2, 3 and 7 have no note because their `SET` writes the same values again. When the database changes, export again and run the same load: it updates those properties in place and adds the new rows and references. It does not delete what the database deleted.
+
+## Rewrite the queries
+
+A join along a foreign key becomes a step along a relationship, and a join table becomes one hop. Who works on a project with Ada, in SQL, joins `works_on` to itself and to both tables around it:
+
+```bash verify
+sqlite3 -header -list team.db "SELECT other.name AS teammate, pr.name AS project
+FROM people AS ada
+JOIN works_on AS mine ON mine.person_id = ada.id
+JOIN works_on AS theirs ON theirs.project_id = mine.project_id AND theirs.person_id <> ada.id
+JOIN people AS other ON other.id = theirs.person_id
+JOIN projects AS pr ON pr.id = mine.project_id
+WHERE ada.name = 'Ada'
+ORDER BY teammate"
+```
+
+```text
+teammate|project
+Grace|relate
+```
+
+In Cypher, the same question is one pattern. The store opens read-only:
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)<-[:WORKS_ON]-(other:Person)
+RETURN other.name AS teammate, proj.name AS project
+ORDER BY teammate"
+```
+
+```text
++----------+----------+
+| teammate | project  |
++----------+----------+
+| "Grace"  | "relate" |
++----------+----------+
+```
+
+A `LEFT JOIN`, which keeps a row when the joined row is missing, becomes `OPTIONAL MATCH`. Every issue with its project, and its assignee when it has one:
+
+```bash verify
+sqlite3 -header -list team.db "SELECT i.title, pr.name AS project, p.name AS assignee
+FROM issues AS i
+JOIN projects AS pr ON pr.id = i.project_id
+LEFT JOIN people AS p ON p.id = i.assignee_id
+ORDER BY i.opened"
+```
+
+```text
+title|project|assignee
+Scenario for OPTIONAL MATCH ordering|opencypher-tck|Grace
+Plan cache misses on quoted labels|relate|Ada
+Add a SQLite migration guide|relate|
+```
+
+```bash verify
+relate --database ./team.rl --read-only --mode table "MATCH (i:Issue)-[:FILED_IN]->(proj:Project)
+OPTIONAL MATCH (i)-[:ASSIGNED_TO]->(p:Person)
+RETURN i.title AS title, proj.name AS project, p.name AS assignee
+ORDER BY i.opened"
+```
+
+```text
++----------------------------------------+------------------+----------+
+| title                                  | project          | assignee |
++----------------------------------------+------------------+----------+
+| "Scenario for OPTIONAL MATCH ordering" | "opencypher-tck" | "Grace"  |
+| "Plan cache misses on quoted labels"   | "relate"         | "Ada"    |
+| "Add a SQLite migration guide"         | "relate"         | <null>   |
++----------------------------------------+------------------+----------+
+```
+
+The rest of a SQL query carries over clause by clause:
+
+| SQL | Cypher |
+| --- | --- |
+| `JOIN` on a foreign key | A relationship step, `(a)-[:TYPE]->(b)` |
+| A join table between two tables | One relationship hop, with its columns as relationship properties |
+| `LEFT JOIN` | `OPTIONAL MATCH` |
+| `WHERE EXISTS (SELECT …)` | `WHERE EXISTS { <pattern> }` |
+| `GROUP BY` | The non-aggregated expressions in `RETURN` or `WITH` group the rows |
+| A recursive common table expression | A variable-length pattern, `-[:TYPE*1..5]->`, or `SHORTEST` |
+
+## Verify
+
+Count the rows in the SQLite database and the nodes and relationships in the store, then compare. The first command writes the counts SQLite reports to `./expected.json`; a nullable foreign key counts only its non-`NULL` values, the rows that become relationships. The second opens the store read-only:
+
+```bash verify
+sqlite3 -json team.db "SELECT
+  (SELECT count(*) FROM people) AS Person,
+  (SELECT count(*) FROM projects) AS Project,
+  (SELECT count(*) FROM issues) AS Issue,
+  (SELECT count(maintainer_id) FROM projects) AS MAINTAINS,
+  (SELECT count(*) FROM issues) AS FILED_IN,
+  (SELECT count(assignee_id) FROM issues) AS ASSIGNED_TO,
+  (SELECT count(*) FROM works_on) AS WORKS_ON,
+  (SELECT count(*) FROM knows) AS KNOWS" > expected.json
+relate --database ./team.rl --read-only --mode table --fetch-params expected=expected.json 'WITH $expected[0] AS counts
+UNWIND keys(counts) AS name
+RETURN name, counts[name] AS in_sqlite,
+       COUNT { MATCH (n) WHERE name IN labels(n) } + COUNT { MATCH ()-[r]->() WHERE type(r) = name } AS in_relate
+ORDER BY name'
+```
+
+```text
++---------------+-----------+-----------+
+| name          | in_sqlite | in_relate |
++---------------+-----------+-----------+
+| "ASSIGNED_TO" | 2         | 2         |
+| "FILED_IN"    | 3         | 3         |
+| "Issue"       | 3         | 3         |
+| "KNOWS"       | 1         | 1         |
+| "MAINTAINS"   | 1         | 1         |
+| "Person"      | 3         | 3         |
+| "Project"     | 2         | 2         |
+| "WORKS_ON"    | 3         | 3         |
++---------------+-----------+-----------+
+```
+
+Equal columns mean every row arrived, and every foreign key found the row it names. A relationship count lower than its row count is a foreign key whose `MATCH` found no node, which drops the row without an error.
+
+## If it goes wrong
+
+| Message | Exit code | Cause | Remedy |
+| --- | --- | --- | --- |
+| `Error: --fetch-params <name>: invalid JSON: EOF while parsing a value at line 1 column 0` | 1 | The table has no rows, and `sqlite3 -json` wrote an empty file | Write `[]` to the file, as the export loop does. |
+| `type error: cannot parse date '<value>'` | 6 | A date column holds text that is not ISO 8601, such as `10/02/2026` | Convert the column to `YYYY-MM-DD` in the export's `SELECT`, or store it as a string and drop the `DATE` type constraint. |
+| ``semantic error: ConstraintValidationFailed: `issue_opened_type` property type`` | 6 | A load writes the date as a string, without `date()` | Wrap the value in `date()`. |
+| ``semantic error: ConstraintValidationFailed: `person_id` uniqueness`` | 6 | A `CREATE` wrote a node with an id the store already holds | Write the row with `MERGE` on its key. |
+| A relationship count lower than its row count in [Verify](#verify), and no error | 0 | A foreign key names a row that does not exist, which SQLite allows unless `PRAGMA foreign_keys` was on when the row was written | Find the rows with a `LEFT JOIN … WHERE <parent>.id IS NULL` in SQLite, fix or drop them, export again, and run the load again. |
+
+## Related
+
+- [Migrate from JSON files](/docs/guides/migrate/from-json-files): the same keyed load from files an application writes itself.
+- [Load JSON from a URL or a file](/docs/guides/cypher/load-json-from-a-url): `--fetch-params` on its own, with its limits.
+- [Flags](/docs/reference/cli/flags#fetch-params): `--fetch-params` and `--param`, with their recorded runs.
+- [Indexes and constraints](/docs/guides/cypher/indexes-and-constraints): every constraint and index kind, listed and dropped.
+- [Schema clauses](/docs/reference/cypher/schema-clauses): the exact grammar, and graph types, which declare every label's properties at once.
+- [Import a CSV](/docs/guides/cypher/import-csv): `LOAD CSV` and its directory rule, for a CSV export instead of JSON.
+- [Migration rehearsal](/cookbook/migration-rehearsal/): fingerprints before and after a change, for the first change to the migrated graph.

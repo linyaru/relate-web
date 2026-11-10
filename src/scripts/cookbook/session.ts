@@ -29,7 +29,7 @@ import { failed, surprise, type LastEnvelope } from '../../lib/cookbook/cells.ts
 import { expandNode, type Graph } from '../../lib/cookbook/graph-model.ts';
 import { canDraw, lastEnvelope, tableHtml, type TableCells } from '../../lib/cookbook/result-view.ts';
 import type { GraphView, Outcome } from './graph.ts';
-import type { CellHandle, CellResult, ElementRun, EngineInfo, Envelope, PageApi } from '../docs/element-api.ts';
+import type { CellHandle, CellResult, ElementRun, EngineInfo, Envelope, PageApi, ScratchDb } from '../docs/element-api.ts';
 
 /** How a page starts its cells. */
 export interface CellsOptions {
@@ -80,6 +80,15 @@ class Engine extends EventTarget {
   starting: Promise<void> | null = null;
   pending = new Map<number, Pending>();
   seq = 0;
+  /** The worker's name in the browser's tools: the page's engine is `relate`, an element's own database another. */
+  name: string;
+  /** The engine's relate version once it is ready, or null. */
+  version: string | null = null;
+
+  constructor(name = 'relate') {
+    super();
+    this.name = name;
+  }
 
   setStatus(status: Status, detail: Record<string, unknown> = {}) {
     this.dispatchEvent(new CustomEvent('status', { detail: { status, ...detail } }));
@@ -88,7 +97,7 @@ class Engine extends EventTarget {
   /** Start the worker unless it runs; resolves once the engine is ready. */
   start(): Promise<void> {
     if (this.starting) return this.starting;
-    this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'relate' });
+    this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: this.name });
     this.worker.onmessage = (e: MessageEvent) => {
       const { id, ...rest } = e.data;
       const p = this.pending.get(id);
@@ -103,7 +112,10 @@ class Engine extends EventTarget {
     };
     this.setStatus('loading');
     this.starting = this.call({ type: 'init' }).then(
-      (r) => this.setStatus('ready', { loadMs: r.loadMs, version: r.version ?? null }),
+      (r) => {
+        this.version = (r.version as string | null) ?? null;
+        this.setStatus('ready', { loadMs: r.loadMs, version: this.version });
+      },
       (err) => {
         if (!(err instanceof StoppedError)) this.discard('failed', err);
         throw err;
@@ -155,6 +167,11 @@ class Engine extends EventTarget {
    */
   runReadOnly(code: string, params: string | null) {
     return this.call({ type: 'run-read-only', code, params }) as unknown as Promise<RunReply>;
+  }
+
+  /** Run without rendering a recording (an element's own database: its results can be large); the reply adds the engine's memory. */
+  runBare(code: string, params: string | null) {
+    return this.call({ type: 'run', code, params, bare: true }) as unknown as Promise<{ envelopes: string[]; ms: number; memory: number | null }>;
   }
 
   async reset() {
@@ -834,6 +851,38 @@ function elementRun(reply: RunReply): ElementRun {
   return { envelopes, text: reply.envelopes, recording: reply.recording, ms: reply.ms, error: envelopes.at(-1)?.error ?? null };
 }
 
+/**
+ * A database of an element's own (PageApi.scratch): a second engine worker
+ * with a fresh writable in-memory database, apart from the page's database
+ * and its lock. Closing it terminates the worker, which hands back every
+ * byte of its WebAssembly memory (a freed database leaves the memory grown).
+ */
+async function scratchDb(): Promise<ScratchDb> {
+  const engine = new Engine('relate-scratch');
+  let closed = false;
+  engine.addEventListener('discarded', () => (closed = true));
+  try {
+    await engine.start();
+  } catch (err) {
+    engine.discard('failed', err as Error);
+    throw err;
+  }
+  return {
+    version: engine.version,
+    run: async (code, params = null) => {
+      if (closed) throw new Error('this database was closed');
+      const reply = await engine.runBare(code, params);
+      const envelopes = reply.envelopes.map((t) => JSON.parse(t) as Envelope);
+      return { envelopes, ms: reply.ms, memory: reply.memory ?? null, error: envelopes.at(-1)?.error ?? null };
+    },
+    closed: () => closed,
+    close: () => {
+      closed = true;
+      engine.discard('stopped', new StoppedError('Closed.'));
+    },
+  };
+}
+
 /** The element API over a session (src/scripts/docs/element-api.ts documents each member). */
 function pageApi(s: Session): PageApi {
   const handles = new WeakMap<CypherCell, CellHandle>();
@@ -854,6 +903,7 @@ function pageApi(s: Session): PageApi {
         code: () => c.currentCode(),
         authoredCode: () => c.authoredCode(),
         params: () => c.paramsEditor?.value ?? null,
+        runParams: async () => (c.paramsEditor ? c.paramsEditor.value : ((await c.paramsFile()) ?? null)),
         recordedText: c.recorded.text,
         recordedKind: c.recorded.kind,
         recorded: async () => {
@@ -924,5 +974,6 @@ function pageApi(s: Session): PageApi {
       return () => motion.removeEventListener('change', l);
     },
     graph: () => import('./graph.ts'),
+    scratch: scratchDb,
   };
 }

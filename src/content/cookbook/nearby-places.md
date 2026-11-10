@@ -167,6 +167,67 @@ ORDER BY city
 2 rows
 ```
 
+## The radius on a plane
+
+The explorer below draws the Portland bookstores on a plane around Hotel
+Lucia and searches them with the radius tool. It takes the search in two
+steps: one returns each bookstore's coordinates as numbers, and one is the
+radius query with the position as `$lat` and `$lon` instead of the `$here`
+map.
+
+```cypher cell=bookstores
+MATCH (p:Place {kind: 'bookstore'})-[:IN]->(:City {name: 'Portland'})
+RETURN p.name AS name, p.kind AS kind,
+       p.loc.latitude AS latitude, p.loc.longitude AS longitude
+ORDER BY name
+```
+
+```table
+| name                 | kind        | latitude | longitude  |
+|----------------------|-------------|----------|------------|
+| "Belmont Bookstore"  | "bookstore" | 45.52876 | -122.73347 |
+| "Division Bookstore" | "bookstore" | 45.48139 | -122.67622 |
+| "Marshall Bookstore" | "bookstore" | 45.51802 | -122.66999 |
+| "Overton Bookstore"  | "bookstore" | 45.55439 | -122.72204 |
+| "Powell's"           | "bookstore" | 45.5231  | -122.6813  |
+| "Salmon Bookstore"   | "bookstore" | 45.53677 | -122.66596 |
+| "Yamhill Bookstore"  | "bookstore" | 45.47985 | -122.73765 |
+7 rows
+```
+
+```json data=near
+{
+  "lat": 45.5225,
+  "lon": -122.68,
+  "radius": 2000
+}
+```
+
+```cypher cell=near params=near
+MATCH (p:Place {kind: 'bookstore'})
+WITH p, point.distance(p.loc, point({latitude: $lat, longitude: $lon})) AS d
+WHERE d < $radius
+RETURN p.name AS name, round(d) AS metres
+ORDER BY metres, name
+```
+
+```table
+| name                 | metres |
+|----------------------|--------|
+| "Powell's"           | 121.0  |
+| "Marshall Bookstore" | 926.0  |
+| "Salmon Bookstore"   | 1929.0 |
+3 rows
+```
+
+Dragging the circle runs the `near` step again with the circle's centre and
+radius as its parameters; the arrow keys move the circle, and plus and minus
+resize it. Each search runs under `PROFILE`, so the explorer also shows its
+parse, plan and execute times and the database hits of its scan.
+
+:::geo-explorer{points=bookstores radius=near}
+:::
+
 ## The nearest k cafes
 
 With no radius, order by distance and cut. `$k` is a parameter, so the tool

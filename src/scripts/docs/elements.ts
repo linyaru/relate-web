@@ -1,5 +1,6 @@
 // The element loader (DOCS-PLAN.md §7, the docs README "Interactive
-// elements"): finds the page's interactive elements and imports each one's
+// elements"), on docs pages and on cookbook recipe pages (ADR-0046,
+// src/scripts/cookbook/runtime.ts): finds the page's interactive elements and imports each one's
 // module, src/scripts/docs/elements/<name>.ts, as a lazy chunk when its host
 // comes within 600 px of the viewport or the reader points at, touches or
 // focuses it; never with the page. The modules are found by directory

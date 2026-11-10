@@ -1,8 +1,9 @@
 // Cloudflare Pages Function: the agent-path log for the static files agents
 // read (DOCS-PLAN.md §5 "Measurement from day one"; ADR-0025). One line per
 // GET or HEAD of the skill (/skill.md, /skills/…, the /.well-known/ skill
-// indexes), an llms.txt (/llms.txt, /docs/llms.txt, /docs/llms-full.txt) or
-// a docs twin (/docs/<id>.md): kind, path, status, user agent; never a query
+// indexes), an llms.txt (/llms.txt, /docs/llms.txt, /docs/llms-full.txt), a
+// docs twin (/docs/<id>.md) or a data block a twin links
+// (/docs/<id>/data/<name>.json): kind, path, status, user agent; never a query
 // string. The answer is the static file, unchanged.
 //
 // public/_routes.json limits the paths that invoke a function at all to

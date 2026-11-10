@@ -1,5 +1,5 @@
 // cookbook:browser cases for `:::geo-explorer` (src/lib/docs/elements/geo-explorer.ts),
-// on guides/cypher/geospatial: the plane draws the page's places; dragging
+// on guides/cypher/geospatial and on the nearby-places recipe (ADR-0046): the plane draws the page's places; dragging
 // the circle (pointer events) runs the radius cell on the engine and changes
 // the places it returns, and the search after the shape stops is the one
 // shown (its parameters are where the shape ended, its lit places what a
@@ -10,7 +10,8 @@
 // starting the engine, and a tap on the circle runs nothing; the point index
 // button keeps keyboard focus, shows its CREATE and DROP statements, searches
 // again, and the scan's database hits fall with the index on; Reset puts the
-// recorded result back.
+// recorded result back. The box and the index cases pass with a note on a
+// placement without `box=` or `index=`.
 
 import { scenario, type BrowserCases, type BrowserTab, type Outcome } from './_kit.ts';
 
@@ -58,15 +59,15 @@ const HELPERS = `
   };
   const sameShape = (a, b) => !!a && !!b && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => a[k] === b[k]);
   /** The points cell's recorded places. */
-  const recordedPlaces = (h) => JSON.parse(document.querySelector('cypher-cell[data-cell="' + JSON.parse(h.dataset.attrs).points + '"]').dataset.recorded).envelope.rows;
+  const recordedPlaces = async (h) => (await recordedOf(JSON.parse(h.dataset.attrs).points)).envelope.rows;
   /**
    * Which recorded places lie inside a circle, by haversine with the engine's
    * Earth radius (6,378,140 m): 'in' within 1 m inside, 'out' beyond 1 m
    * outside; a place on the edge itself is left to the engine.
    */
-  const insideCircle = (h, c) => {
+  const insideCircle = async (h, c) => {
     const R = 6378140, rad = Math.PI / 180, out = { in: [], out: [] };
-    for (const p of recordedPlaces(h)) {
+    for (const p of await recordedPlaces(h)) {
       const dLat = (p.latitude - c.lat) * rad, dLon = (p.longitude - c.lon) * rad;
       const a = Math.sin(dLat / 2) ** 2 + Math.cos(c.lat * rad) * Math.cos(p.latitude * rad) * Math.sin(dLon / 2) ** 2;
       const d = 2 * R * Math.asin(Math.sqrt(a));
@@ -106,6 +107,7 @@ const FIRST = scenario(`
   expect(log, failures, 'the recorded matches are lit and tabled', before > 0 && before === p.rows().length, before + ' lit');
   const pr = p.plot.getBoundingClientRect();
   const status0 = p.status.textContent;
+  const params0 = p.params();
   await drag(p.area, p.plot, pr.left + pr.width * 0.06, pr.top + pr.height * 0.08);
   await final(p, status0);
   const after = p.lit().length;
@@ -113,18 +115,18 @@ const FIRST = scenario(`
   expect(log, failures, 'the matched count changes', after !== before, before + ' -> ' + after);
   expect(log, failures, 'the table lists what is lit', p.rows().length === after && /this tab/.test(p.caption()), p.rows().length + ' rows, ' + after + ' lit');
   // A whole FLOAT keeps its .0, as in the cell's own table and relate --mode table (393.0, not 393).
-  const radiusEnv = JSON.parse(document.querySelector('cypher-cell[data-cell="' + JSON.parse(h.dataset.attrs).radius + '"]').dataset.recorded).envelope;
+  const radiusEnv = (await recordedOf(JSON.parse(h.dataset.attrs).radius)).envelope;
   const floats = (radiusEnv.columnTypes || []).flatMap((t, i) => (t === 'FLOAT' ? [i] : []));
   const badFloat = p.rows().flatMap((tr) => floats.map((i) => tr.cells[i].textContent)).filter((t) => t !== 'null' && !/[.eE]/.test(t));
   expect(log, failures, 'the live table prints FLOAT columns with their decimal point', floats.length > 0 && badFloat.length === 0, floats.length + ' FLOAT column(s); ' + badFloat.join(','));
   expect(log, failures, 'the live status opens with the shared wording', /^From this tab's run on relate \\d+\\.\\d+\\.\\d+, (?:<0\\.1|\\d+(?:\\.\\d)?) ms in the engine\\./.test(p.status.textContent), p.status.textContent.slice(0, 90));
-  expect(log, failures, 'the parameters are the shape\\'s', JSON.parse(p.params()).radius > 0 && p.params() !== '{"lat":45.5231,"lon":-122.6765,"radius":2000}', p.params());
+  expect(log, failures, 'the parameters are the shape\\'s', JSON.parse(p.params()).radius > 0 && p.params() !== params0, params0 + ' -> ' + p.params());
   expect(log, failures, 'the timing row has the engine\\'s numbers', /parse .* ms, plan .* ms, execute .* ms; .* ms elapsed/.test(p.timing('off').textContent), p.timing('off').textContent.slice(0, 80));
   // The search shown is the one after the shape stopped: its parameters are where the shape ended,
   // and what is lit is what lies inside the circle there.
   const shape = shapeOf(h), sent = JSON.parse(p.params());
   expect(log, failures, 'the last search ran where the shape stopped', sameShape(shape, sent), JSON.stringify(shape) + ' vs ' + p.params());
-  const want = insideCircle(h, sent), lit = p.lit();
+  const want = await insideCircle(h, sent), lit = p.lit();
   expect(log, failures, 'the lit places are the ones inside the circle there', want.in.every((n) => lit.includes(n)) && want.out.every((n) => !lit.includes(n)) && lit.every((n) => tabled(p).includes(n)), 'lit ' + lit.join(', ') + '; inside ' + want.in.join(', '));
   expect(log, failures, 'the status describes that search', p.status.textContent.includes('of latitude ' + sent.lat + ', longitude ' + sent.lon) && p.status.textContent.includes(after === 1 ? '1 place ' : after + ' places '), p.status.textContent.slice(0, 160));
   return { log: [before + ' lit -> ' + after + ' after the drag; ' + p.params()], failures };
@@ -173,10 +175,12 @@ export default {
         const log = [], failures = [];
         const h = await live('geo-explorer');
         if (!h) return { log, failures: ['the explorer did not go live'] };
+        if (!JSON.parse(h.dataset.attrs).box) return { log: ['this placement has no box (no box= on its directive); the box is checked where one is set'], failures: [] };
         await settle(h);
         const box = h.querySelector('.geo-modes [data-mode=box]');
         box.click();
         let p = parts(h);
+        const box0 = shapeOf(h);
         expect(log, failures, 'Box shows the box cell\\'s recorded result', /withinBBox/.test(p.code()) && /^Recorded/.test(p.status.textContent) && p.rows().length > 0, p.rows().length + ' rows');
         const before = p.lit().length;
         p = parts(h);
@@ -185,7 +189,7 @@ export default {
         await drag(p.handle, p.plot, pr.left + pr.width * 0.97, pr.top + pr.height * 0.03);
         await final(p, status0);
         const q = JSON.parse(p.params());
-        expect(log, failures, 'the handle grows the box and the box cell runs', q.north > 45.53 && q.east > -122.65 && /^PROFILE /.test(p.code()) && /withinBBox/.test(p.code()) && /in the engine/.test(p.status.textContent), p.params());
+        expect(log, failures, 'the handle grows the box and the box cell runs', q.north > box0.north && q.east > box0.east && /^PROFILE /.test(p.code()) && /withinBBox/.test(p.code()) && /in the engine/.test(p.status.textContent), p.params());
         expect(log, failures, 'a bigger box returns more places', p.lit().length > before && p.rows().length === p.lit().length, before + ' -> ' + p.lit().length);
         expect(log, failures, 'the last search ran where the box stopped', sameShape(shapeOf(h), q), JSON.stringify(shapeOf(h)) + ' vs ' + p.params());
         return { log: [before + ' -> ' + p.lit().length + ' in ' + p.params()], failures };
@@ -203,6 +207,9 @@ export default {
           if (!h) return { log: [], failures: ['the explorer did not go live'] };
           await settle(h);
           const p = parts(h);
+          // The plane itself in the middle of the screen: a page's sticky bar may cover the top of a tall host.
+          p.plot.scrollIntoView({ block: 'center', behavior: 'instant' });
+          await settle(h);
           const [x, y] = centre(p.area);
           const hit = document.elementFromPoint(x, y);
           if (!hit || !hit.closest('.geo-area')) return { log: [], failures: ['the circle is not under its own center (' + (hit ? hit.className.baseVal || hit.tagName : 'nothing') + ')'] };
@@ -277,6 +284,9 @@ export default {
           if (!h) return { log: [], failures: ['the explorer did not go live'] };
           await settle(h);
           const p = parts(h);
+          // The plane itself in the middle of the screen: a page's sticky bar may cover the top of a tall host.
+          p.plot.scrollIntoView({ block: 'center', behavior: 'instant' });
+          await settle(h);
           const [x, y] = centre(p.area);
           const hit = document.elementFromPoint(x, y);
           if (!hit || !hit.closest('.geo-area')) return { log: [], failures: ['the circle is not under its own center'] };
@@ -300,11 +310,12 @@ export default {
     {
       name: 'the point index button keeps focus, creates and drops the index, and the search runs again',
       scenario: async (tab: BrowserTab): Promise<Outcome> => {
-        const start = await tab.evaluate<Outcome & { offHits?: number; status?: string }>(scenario(`
+        const start = await tab.evaluate<Outcome & { offHits?: number; status?: string; skip?: boolean }>(scenario(`
           ${HELPERS}
           const log = [], failures = [];
           const h = await live('geo-explorer');
           if (!h) return { log, failures: ['the explorer did not go live'] };
+          if (!JSON.parse(h.dataset.attrs).index) return { log: ['this placement has no point index button (no index= on its directive); the button is checked where one is set'], failures: [], skip: true };
           const p = parts(h);
           const statement = () => h.querySelectorAll('.geo-code')[1];
           expect(log, failures, 'the button starts off and no index statement shows', p.index.getAttribute('aria-pressed') === 'false' && statement().hidden);
@@ -315,7 +326,7 @@ export default {
           p.index.focus();
           return { log, failures, offHits: Number(p.timing('off').cells[2].textContent), status: p.status.textContent };
         `));
-        if (start.failures.length) return start;
+        if (start.failures.length || start.skip) return start;
         // A real Space on the focused button: the keyboard user's press.
         await tab.press(' ', 'Space', 32);
         return tab.evaluate<Outcome>(scenario(`
@@ -331,13 +342,13 @@ export default {
           expect(log, failures, 'Space on the button keeps keyboard focus on it', lost === null && document.activeElement === p.index, lost ? 'focus went to ' + lost : '');
           const created = statement().textContent;
           const onHits = Number(p.timing('on').cells[2].textContent);
-          expect(log, failures, 'the CREATE statement shows', !statement().hidden && /CREATE POINT INDEX place_loc/.test(created), created.slice(0, 80));
+          expect(log, failures, 'the CREATE statement shows', !statement().hidden && /CREATE POINT INDEX \\w+/.test(created), created.slice(0, 80));
           expect(log, failures, 'the search ran again with the index on', /parse .* ms elapsed/.test(p.timing('on').textContent));
           expect(log, failures, 'the scan reads fewer places with the index', onHits < offHits, offHits + ' -> ' + onHits);
           const s0 = p.status.textContent;
           p.index.click();
           await until(() => p.index.getAttribute('aria-pressed') === 'false' && p.status.textContent !== s0 && /point index off/.test(p.status.textContent), 60000);
-          expect(log, failures, 'the DROP statement shows and the search runs again', /DROP INDEX place_loc IF EXISTS/.test(statement().textContent) && Number(p.timing('off').cells[2].textContent) === offHits, statement().textContent);
+          expect(log, failures, 'the DROP statement shows and the search runs again', /DROP INDEX \\w+ IF EXISTS/.test(statement().textContent) && Number(p.timing('off').cells[2].textContent) === offHits, statement().textContent);
           // Reset empties the store: the explorer goes back to the recording.
           document.getElementById('engineBar').querySelector('[data-action=reset]').click();
           await until(() => /^Recorded/.test(p.status.textContent), 10000);

@@ -124,6 +124,20 @@ export interface ExampleRecipe {
   cells: ExampleCell[];
 }
 
+/** One verified language sample's manifest (src/lib/docs/sample-manifests.ts), as served at its URL. */
+export interface SampleEntry {
+  /** relate-docs://sample/<page id>/<sample id> */
+  uri: string;
+  page: string;
+  page_title: string;
+  id: string;
+  language: string;
+  /** https://relatedb.ai/docs/<page>/samples/<id>.json */
+  url: string;
+  /** The manifest's bytes as the site serves them. */
+  text: string;
+}
+
 /** One row of the Differences table of reference/cypher/differences-from-neo4j. */
 export interface DialectRow {
   feature: string;
@@ -156,6 +170,8 @@ export interface Bundle {
   /** /docs/capabilities.json byte for byte, its URL and the page it is generated from. */
   capabilities: { text: string; source: string; page: string };
   examples: Record<string, ExampleRecipe>;
+  /** /docs/samples.json byte for byte and its URL, and every sample manifest (ADR-0053). */
+  samples: { index: { text: string; source: string }; manifests: SampleEntry[] };
   dialect: { page: string; url: string; md_url: string; rows: DialectRow[] };
   /** The fixed parts of the text-to-cypher prompt: the Differences table, verbatim, and its page. */
   textToCypher: { source: string; md_url: string; table: string };

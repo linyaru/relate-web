@@ -29,7 +29,7 @@ export const STATUSES = ['stable', 'preview', 'planned'] as const;
 export type Status = (typeof STATUSES)[number];
 
 /** Frontmatter fields the build generates; a page may not set them. */
-export const GENERATED_FIELDS = ['verified', 'verified_by', 'canonical_url', 'last_updated'] as const;
+export const GENERATED_FIELDS = ['verified', 'verified_by', 'samples', 'canonical_url', 'last_updated'] as const;
 
 /**
  * The checks a page's examples can have passed at the docs' engine version,

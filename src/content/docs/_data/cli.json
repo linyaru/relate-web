@@ -3000,6 +3000,14 @@
         "expected_sha256": "82f092b56f3d4f29583c757e4002ef56874b6ef56a2491c1d7860583ad4770c8"
       },
       {
+        "command": "relate --database ./team.rl --read-only --mode table 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
+        "expected_sha256": "a83f3ad30028166688edccf709b643702e6067b479a8a69b7d99658ff9ea4112"
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'",
+        "expected_sha256": "e157ffe4aef0510f9bc8daf60df633a8d8a53669b1aa80f85a3e6d4907c8cf52"
+      },
+      {
         "command": "relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
         "expected_sha256": "4270b82f01d08c325ba12ff4166c445dc702c3a0a08717fc794f82d2f964988f"
       },
@@ -3052,8 +3060,12 @@
         "expected_sha256": "f4e921a5875e373517d59ea132b78374a87619978bea7a3c75b3de19a4f9cc77"
       },
       {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "8c44206e1ba1ce745f814ff625cb956483ff47b6aae88d0cd9fd4826d85c9e49"
+        "command": "relate --mode table \"RETURN 1 AS ok\"",
+        "expected_sha256": "30469e7c745c9804ceec92251435d8b5aff0f97f6d9666cd9ceeaa49e81c712f"
+      },
+      {
+        "command": "relate --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
+        "expected_sha256": "a518081b42e2923d1096273e71869b97fd673e1c9b97673c7fe5752bbc9d93ce"
       }
     ],
     "guides/agents/agent-safety.mdx": [
@@ -3668,7 +3680,7 @@
         "expected_sha256": "63b1f1eeac6cdad5579363f8b0adb49213fbad0a329b3fbbc567276f197dd322"
       },
       {
-        "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner benchmarks before the release.\\n' > notes/retro.md",
+        "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner examples before the release.\\n' > notes/retro.md",
         "expected_sha256": null
       },
       {
@@ -3742,6 +3754,86 @@
       {
         "command": "relate --mode table --param 'row={\"name\": \"Ada\", \"address\": {\"city\": \"Lyon\"}}' 'CREATE (p:Person {name: $row.name}) SET p.address = $row.address'",
         "expected_sha256": "daef01805b88dad97d078d12181d46645fcd4b96c1c77f91cee420e9d19b5be9"
+      }
+    ],
+    "guides/migrate/from-kuzu.mdx": [
+      {
+        "command": "mkdir export\ncat > export/Person.json <<'JSON'\n[\n{\"name\":\"Ada\",\"role\":\"engineer\"},\n{\"name\":\"Grace\",\"role\":\"engineer\"},\n{\"name\":\"Noor\",\"role\":\"maintainer\"}\n]\nJSON\ncat > export/Project.json <<'JSON'\n[\n{\"name\":\"relate\",\"language\":\"Rust\"},\n{\"name\":\"opencypher-tck\",\"language\":\"Gherkin\"}\n]\nJSON\ncat > export/Issue.json <<'JSON'\n[\n{\"id\":0,\"title\":\"Plan cache misses on quoted labels\",\"opened\":\"2026-10-02\",\"labels\":[\"bug\",\"planner\"]},\n{\"id\":1,\"title\":\"Scenario for OPTIONAL MATCH ordering\",\"opened\":\"2026-09-14\",\"labels\":[]},\n{\"id\":2,\"title\":\"Add a Kuzu migration guide\",\"opened\":\"2026-10-20\",\"labels\":[\"docs\"]}\n]\nJSON\ncat > export/WORKS_ON_Person_Project.json <<'JSON'\n[\n{\"source\":\"Ada\",\"target\":\"relate\",\"since\":2024},\n{\"source\":\"Grace\",\"target\":\"opencypher-tck\",\"since\":2022},\n{\"source\":\"Grace\",\"target\":\"relate\",\"since\":2023}\n]\nJSON\ncat > export/MAINTAINS_Person_Project.json <<'JSON'\n[\n{\"source\":\"Noor\",\"target\":\"relate\"}\n]\nJSON\ncat > export/KNOWS_Person_Person.json <<'JSON'\n[\n{\"source\":\"Ada\",\"target\":\"Grace\"}\n]\nJSON\ncat > export/FILED_IN_Issue_Project.json <<'JSON'\n[\n{\"source\":0,\"target\":\"relate\"},\n{\"source\":1,\"target\":\"opencypher-tck\"},\n{\"source\":2,\"target\":\"relate\"}\n]\nJSON",
+        "expected_sha256": null
+      },
+      {
+        "command": "cat > schema.cypher <<'CYPHER'\nCREATE GRAPH TYPE team {\n  (person:Person => {name :: STRING NOT NULL IS KEY, role :: STRING}),\n  (project:Project => {name :: STRING NOT NULL IS KEY, language :: STRING}),\n  (issue:Issue => {id :: INTEGER NOT NULL IS KEY, title :: STRING, opened :: DATE, labels :: LIST<STRING NOT NULL>}),\n  (person)-[:WORKS_ON => {since :: INTEGER}]->(project),\n  (person)-[:MAINTAINS =>]->(project),\n  (person)-[:KNOWS =>]->(person),\n  (issue)-[:FILED_IN =>]->(project)\n};\nALTER CURRENT GRAPH TYPE SET GRAPH TYPE team;\nCYPHER\nrelate query --database ./team.rl < schema.cypher",
+        "expected_sha256": null
+      },
+      {
+        "command": "cat > load.cypher <<'CYPHER'\nUNWIND $person AS row\nMERGE (p:Person {name: row.name})\nSET p.role = row.role;\n\nUNWIND $project AS row\nMERGE (p:Project {name: row.name})\nSET p.language = row.language;\n\nUNWIND $issue AS row\nMERGE (i:Issue {id: row.id})\nSET i.title = row.title, i.opened = date(row.opened), i.labels = row.labels;\n\nUNWIND $works_on AS row\nMATCH (a:Person {name: row.source}), (b:Project {name: row.target})\nMERGE (a)-[r:WORKS_ON]->(b)\nSET r.since = row.since;\n\nUNWIND $maintains AS row\nMATCH (a:Person {name: row.source}), (b:Project {name: row.target})\nMERGE (a)-[:MAINTAINS]->(b);\n\nUNWIND $knows AS row\nMATCH (a:Person {name: row.source}), (b:Person {name: row.target})\nMERGE (a)-[:KNOWS]->(b);\n\nUNWIND $filed_in AS row\nMATCH (a:Issue {id: row.source}), (b:Project {name: row.target})\nMERGE (a)-[:FILED_IN]->(b);\nCYPHER",
+        "expected_sha256": null
+      },
+      {
+        "command": "relate query --database ./team.rl \\\n  --fetch-params person=export/Person.json \\\n  --fetch-params project=export/Project.json \\\n  --fetch-params issue=export/Issue.json \\\n  --fetch-params works_on=export/WORKS_ON_Person_Project.json \\\n  --fetch-params maintains=export/MAINTAINS_Person_Project.json \\\n  --fetch-params knows=export/KNOWS_Person_Person.json \\\n  --fetch-params filed_in=export/FILED_IN_Issue_Project.json \\\n  < load.cypher",
+        "expected_sha256": null
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table \"MATCH (i:Issue)-[:FILED_IN]->(p:Project)\nRETURN i.id AS id, i.opened AS opened, valueType(i.opened) AS type, i.labels AS labels, p.name AS project\nORDER BY id\"",
+        "expected_sha256": "417af54ebae6b0b31140526483eefef14f7c3246dbf49e9fa7871cd3bf542b3c"
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table \\\n  --fetch-params person=export/Person.json \\\n  --fetch-params project=export/Project.json \\\n  --fetch-params issue=export/Issue.json \\\n  --fetch-params works_on=export/WORKS_ON_Person_Project.json \\\n  --fetch-params maintains=export/MAINTAINS_Person_Project.json \\\n  --fetch-params knows=export/KNOWS_Person_Person.json \\\n  --fetch-params filed_in=export/FILED_IN_Issue_Project.json \\\n  'UNWIND [[\"Person\", size($person)], [\"Project\", size($project)], [\"Issue\", size($issue)],\n         [\"WORKS_ON\", size($works_on)], [\"MAINTAINS\", size($maintains)],\n         [\"KNOWS\", size($knows)], [\"FILED_IN\", size($filed_in)]] AS t\nWITH t[0] AS name, t[1] AS in_export\nRETURN name, in_export,\n       COUNT { MATCH (n) WHERE name IN labels(n) } + COUNT { MATCH ()-[r]->() WHERE type(r) = name } AS in_relate\nORDER BY name'",
+        "expected_sha256": "21e29e5b47669427ca6b5cb83d4fb66e7e9bc800089bbe0de07fed355485f671"
+      }
+    ],
+    "guides/migrate/from-sqlite.mdx": [
+      {
+        "command": "sqlite3 team.db <<'SQL'\nCREATE TABLE people (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL UNIQUE,\n  role TEXT NOT NULL\n);\nCREATE TABLE projects (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL UNIQUE,\n  language TEXT,\n  maintainer_id INTEGER REFERENCES people(id)\n);\nCREATE TABLE works_on (\n  person_id INTEGER NOT NULL REFERENCES people(id),\n  project_id INTEGER NOT NULL REFERENCES projects(id),\n  since INTEGER NOT NULL,\n  PRIMARY KEY (person_id, project_id)\n);\nCREATE TABLE knows (\n  person_id INTEGER NOT NULL REFERENCES people(id),\n  other_id INTEGER NOT NULL REFERENCES people(id),\n  PRIMARY KEY (person_id, other_id)\n);\nCREATE TABLE issues (\n  id INTEGER PRIMARY KEY,\n  project_id INTEGER NOT NULL REFERENCES projects(id),\n  title TEXT NOT NULL,\n  opened TEXT NOT NULL,\n  assignee_id INTEGER REFERENCES people(id)\n);\nCREATE INDEX issues_opened ON issues(opened);\nINSERT INTO people VALUES (1, 'Ada', 'engineer'), (2, 'Grace', 'engineer'), (3, 'Noor', 'maintainer');\nINSERT INTO projects VALUES (1, 'relate', 'Rust', 3), (2, 'opencypher-tck', 'Gherkin', NULL);\nINSERT INTO works_on VALUES (1, 1, 2024), (2, 1, 2023), (2, 2, 2022);\nINSERT INTO knows VALUES (1, 2);\nINSERT INTO issues VALUES\n  (1, 1, 'Plan cache misses on quoted labels', '2026-10-02', 1),\n  (2, 1, 'Add a SQLite migration guide', '2026-10-20', NULL),\n  (3, 2, 'Scenario for OPTIONAL MATCH ordering', '2026-09-14', 2);\nSQL",
+        "expected_sha256": null
+      },
+      {
+        "command": "sqlite3 -header -list team.db \"SELECT m.name AS table_name, f.\\\"from\\\" AS column_name, f.\\\"table\\\" AS refers_to\nFROM sqlite_master AS m JOIN pragma_foreign_key_list(m.name) AS f\nWHERE m.type = 'table' ORDER BY 1, 2\"",
+        "expected_sha256": "aeb514a4fd32777b92ee29eda6ed2a4ea1f42812f04df3fbc108d06df0260097"
+      },
+      {
+        "command": "sqlite3 -header -list team.db \"SELECT m.name AS table_name, i.name AS index_name, i.origin,\n  (SELECT group_concat(name) FROM pragma_index_info(i.name)) AS columns\nFROM sqlite_master AS m JOIN pragma_index_list(m.name) AS i\nWHERE m.type = 'table' ORDER BY 1, 2\"",
+        "expected_sha256": "65b423dd1b1535564b386e1d4ec80ac6c181e9195f34b8678274e2935e3c333c"
+      },
+      {
+        "command": "mkdir export\nfor table in people projects works_on knows issues; do\n  sqlite3 -json team.db \"SELECT * FROM $table\" > \"export/$table.json\"\n  [ -s \"export/$table.json\" ] || echo '[]' > \"export/$table.json\"\ndone",
+        "expected_sha256": null
+      },
+      {
+        "command": "cat > schema.cypher <<'CYPHER'\nCREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS NODE KEY;\nCREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE;\nCREATE CONSTRAINT person_role IF NOT EXISTS FOR (p:Person) REQUIRE p.role IS NOT NULL;\nCREATE CONSTRAINT project_id IF NOT EXISTS FOR (p:Project) REQUIRE p.id IS NODE KEY;\nCREATE CONSTRAINT project_name IF NOT EXISTS FOR (p:Project) REQUIRE p.name IS UNIQUE;\nCREATE CONSTRAINT issue_id IF NOT EXISTS FOR (i:Issue) REQUIRE i.id IS NODE KEY;\nCREATE CONSTRAINT issue_opened_type IF NOT EXISTS FOR (i:Issue) REQUIRE i.opened IS :: DATE;\nCREATE CONSTRAINT works_on_since IF NOT EXISTS FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS NOT NULL;\nCREATE INDEX issues_opened IF NOT EXISTS FOR (i:Issue) ON (i.opened);\nCYPHER\nrelate query --database ./team.rl < schema.cypher",
+        "expected_sha256": null
+      },
+      {
+        "command": "cat > load.cypher <<'CYPHER'\nUNWIND $people AS row\nMERGE (p:Person {id: row.id})\nSET p.name = row.name, p.role = row.role;\n\nUNWIND $projects AS row\nMERGE (p:Project {id: row.id})\nSET p.name = row.name, p.language = row.language;\n\nUNWIND $issues AS row\nMERGE (i:Issue {id: row.id})\nSET i.title = row.title, i.opened = date(row.opened);\n\nUNWIND $projects AS row\nMATCH (proj:Project {id: row.id}), (p:Person {id: row.maintainer_id})\nMERGE (p)-[:MAINTAINS]->(proj);\n\nUNWIND $issues AS row\nMATCH (i:Issue {id: row.id}), (proj:Project {id: row.project_id})\nMERGE (i)-[:FILED_IN]->(proj);\n\nUNWIND $issues AS row\nMATCH (i:Issue {id: row.id}), (p:Person {id: row.assignee_id})\nMERGE (i)-[:ASSIGNED_TO]->(p);\n\nUNWIND $works_on AS row\nMATCH (p:Person {id: row.person_id}), (proj:Project {id: row.project_id})\nMERGE (p)-[w:WORKS_ON]->(proj)\nSET w.since = row.since;\n\nUNWIND $knows AS row\nMATCH (a:Person {id: row.person_id}), (b:Person {id: row.other_id})\nMERGE (a)-[:KNOWS]->(b);\nCYPHER",
+        "expected_sha256": null
+      },
+      {
+        "command": "relate query --database ./team.rl \\\n  --fetch-params people=export/people.json \\\n  --fetch-params projects=export/projects.json \\\n  --fetch-params issues=export/issues.json \\\n  --fetch-params works_on=export/works_on.json \\\n  --fetch-params knows=export/knows.json \\\n  < load.cypher",
+        "expected_sha256": null
+      },
+      {
+        "command": "relate query --database ./team.rl \\\n  --fetch-params people=export/people.json \\\n  --fetch-params projects=export/projects.json \\\n  --fetch-params issues=export/issues.json \\\n  --fetch-params works_on=export/works_on.json \\\n  --fetch-params knows=export/knows.json \\\n  < load.cypher",
+        "expected_sha256": "950995875a2f44f8faec1e42b07e6450c12cda2c7f613937d7276e0f57291286"
+      },
+      {
+        "command": "sqlite3 -header -list team.db \"SELECT other.name AS teammate, pr.name AS project\nFROM people AS ada\nJOIN works_on AS mine ON mine.person_id = ada.id\nJOIN works_on AS theirs ON theirs.project_id = mine.project_id AND theirs.person_id <> ada.id\nJOIN people AS other ON other.id = theirs.person_id\nJOIN projects AS pr ON pr.id = mine.project_id\nWHERE ada.name = 'Ada'\nORDER BY teammate\"",
+        "expected_sha256": "6192a3041a5f6e0d9669ed0a6bd1481ce6425cab25ffcc1f176c6c262ac0f123"
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table \"MATCH (:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)<-[:WORKS_ON]-(other:Person)\nRETURN other.name AS teammate, proj.name AS project\nORDER BY teammate\"",
+        "expected_sha256": "a5fc3989246495d5343a04ea5016854fee90f27fc5551ba886f4ac8d5eb7124d"
+      },
+      {
+        "command": "sqlite3 -header -list team.db \"SELECT i.title, pr.name AS project, p.name AS assignee\nFROM issues AS i\nJOIN projects AS pr ON pr.id = i.project_id\nLEFT JOIN people AS p ON p.id = i.assignee_id\nORDER BY i.opened\"",
+        "expected_sha256": "528b55635f53bf9316c93fbe1bdd3a713993b3fb9889739935827c07ec6b7527"
+      },
+      {
+        "command": "relate --database ./team.rl --read-only --mode table \"MATCH (i:Issue)-[:FILED_IN]->(proj:Project)\nOPTIONAL MATCH (i)-[:ASSIGNED_TO]->(p:Person)\nRETURN i.title AS title, proj.name AS project, p.name AS assignee\nORDER BY i.opened\"",
+        "expected_sha256": "e43cb1179b62178ba19dfcf3f04e6d43c6f308befeac418a1b268b73a518df51"
+      },
+      {
+        "command": "sqlite3 -json team.db \"SELECT\n  (SELECT count(*) FROM people) AS Person,\n  (SELECT count(*) FROM projects) AS Project,\n  (SELECT count(*) FROM issues) AS Issue,\n  (SELECT count(maintainer_id) FROM projects) AS MAINTAINS,\n  (SELECT count(*) FROM issues) AS FILED_IN,\n  (SELECT count(assignee_id) FROM issues) AS ASSIGNED_TO,\n  (SELECT count(*) FROM works_on) AS WORKS_ON,\n  (SELECT count(*) FROM knows) AS KNOWS\" > expected.json\nrelate --database ./team.rl --read-only --mode table --fetch-params expected=expected.json 'WITH $expected[0] AS counts\nUNWIND keys(counts) AS name\nRETURN name, counts[name] AS in_sqlite,\n       COUNT { MATCH (n) WHERE name IN labels(n) } + COUNT { MATCH ()-[r]->() WHERE type(r) = name } AS in_relate\nORDER BY name'",
+        "expected_sha256": "2147cfcfca0eb0c6abf7b871b2c11882bffad33279c774d5094fd98d4da5553c"
       }
     ],
     "guides/neo4j/pull-from-neo4j.mdx": [
@@ -4936,20 +5028,6 @@
       {
         "command": "relate --mode envelope 'RETURN $x AS x'",
         "expected_sha256": "7a531d596f869a9b5763523015a31f0fd31ac2f1f62183ae3f1dcadd6274a66a"
-      }
-    ],
-    "reference/performance.mdx": [
-      {
-        "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\" > /dev/null",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode jsonl \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since\"\nrelate --database ./team.rl --read-only --mode toon \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project, w.since AS since ORDER BY since\"",
-        "expected_sha256": "889521c03c85fed060df0dfcba0d9b98b343d87ead1131f864424bc13ec70808"
-      },
-      {
-        "command": "relate --mode toon \"UNWIND range(1, 100) AS i RETURN i AS id, 'person-' + toString(i) AS name, i * 1.5 AS score\" | wc -c | tr -d ' '",
-        "expected_sha256": "b20a51d1d0cd4d4e2f5c6f6b9939e8a4d4db0fb202efc513a8e1cddf9021bf4e"
       }
     ],
     "reference/privacy-and-telemetry.mdx": [

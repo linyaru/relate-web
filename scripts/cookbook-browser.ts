@@ -38,7 +38,8 @@
 //   case file in scripts/browser-cases/ (`<name>.ts`, default export
 //   {element, cases}; scripts/browser-cases/_kit.ts documents the scenario
 //   language) runs on the first built docs page that carries its element
-//   (`data-element="<name>"`, or a cell whose `data-elements` names it).
+//   (`data-element="<name>"`, or a cell whose `data-elements` names it), and
+//   again on the first built recipe page that carries it (ADR-0046).
 //   Before its cases, each element's static form must show with scripts
 //   disabled (at 1400 px, and at 390 px without sideways scrolling), and its
 //   module and the engine must not load with the page while it is out of
@@ -47,8 +48,8 @@
 //   (no CSS animation or transition runs inside a host). An element on a
 //   built page without a case file fails.
 // - The script budget, measured (src/lib/docs/checks/budget.ts counts it
-//   statically): every built docs page with the page runtime, and one
-//   without, loads no more JavaScript before any interaction than the static
+//   statically): every built docs page with the page runtime, one without,
+//   and every recipe page, loads no more JavaScript before any interaction than the static
 //   count says, and stays under 60 KB. Element modules and the graph view,
 //   which load when they come near the viewport, are left out.
 // - Before any browser runs, the built files are checked: the playground is
@@ -156,6 +157,10 @@ async function launchChrome() {
   const args = [
     '--headless=new',
     '--disable-gpu',
+    // WebGL in software (SwiftShader), which headless Chrome no longer turns
+    // on by itself: the graph views run NVL's layout on WebGL as they do in a
+    // reader's browser.
+    '--enable-unsafe-swiftshader',
     '--remote-debugging-port=0',
     // A desktop-sized window: at Chrome's headless default (800x600) the
     // playground switches to its mobile layout, with the editor behind a tab.
@@ -1132,46 +1137,67 @@ const elementLazy = (name: string) => `(async () => {
   return { log: [far ? 'out of reach on load, module not loaded' : 'within reach on load (the module may load at once)'], failures };
 })()`;
 
-/** Each element case file on the first built page with its element; an element with no case file fails. */
-async function checkElements(builtDocs: string[]) {
+/** A built page that may carry elements: its file in dist/ and its site path. */
+interface BuiltPage {
+  file: string;
+  path: string;
+}
+
+/**
+ * Each element case file on the first built docs page with its element and
+ * on the first built recipe page with it (ADR-0046): the same checks and the
+ * same cases at both placements, so an element placed on a recipe is held to
+ * what it does on a docs page. An element with no case file fails.
+ */
+async function checkElements(builtDocs: string[], builtRecipes: BuiltPage[]) {
   const files = await caseFiles();
   const byElement = new Map(files.map((f) => [f.element, f]));
-  const carried = new Map<string, string>();
+  const docsPlacement = new Map<string, string>();
+  const recipePlacement = new Map<string, string>();
   for (const file of builtDocs) {
     for (const name of elementsIn(readFileSync(file, 'utf8'))) {
-      if (!carried.has(name)) carried.set(name, `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`);
+      if (!docsPlacement.has(name)) docsPlacement.set(name, `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`);
     }
   }
-  for (const name of carried.keys()) {
-    if (!byElement.has(name) && !ELEMENT_ONLY) problems.push(`[elements] ${carried.get(name)} carries \`${name}\`, which has no case file (scripts/browser-cases/${name}.ts)`);
+  for (const page of builtRecipes) {
+    for (const name of elementsIn(readFileSync(page.file, 'utf8'))) if (!recipePlacement.has(name)) recipePlacement.set(name, page.path);
+  }
+  for (const name of new Set([...docsPlacement.keys(), ...recipePlacement.keys()])) {
+    const where = docsPlacement.get(name) ?? recipePlacement.get(name);
+    if (!byElement.has(name) && !ELEMENT_ONLY) problems.push(`[elements] ${where} carries \`${name}\`, which has no case file (scripts/browser-cases/${name}.ts)`);
   }
   for (const file of files) {
-    const path = carried.get(file.element);
-    if (!path) {
-      console.log(`- docs: no built docs page carries \`${file.element}\`; its cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)`);
+    const paths = [docsPlacement.get(file.element), recipePlacement.get(file.element)].filter((p): p is string => !!p);
+    if (!paths.length) {
+      console.log(`- docs: no built docs page or recipe carries \`${file.element}\`; its cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)`);
       continue;
     }
-    const label = path.slice(1, -1);
-    elementsRun++;
-    for (const [width, open] of [[1400, { scripts: false }], [390, { scripts: false, viewport: PHONE }]] as const) {
-      const off = await openPage(chrome.http, `${site.url}${path}`, open);
-      try {
-        const shown = await off.evaluate<Outcome>(elementStatic(file.element));
-        const fits = width === 390 ? await off.evaluate<Outcome>(elementFits(file.element)) : { log: [], failures: [] };
-        const failures = [...shown.failures, ...fits.failures];
-        console.log(`${failures.length ? '✖' : '✔'} ${label} · ${file.element}: static form without JavaScript at ${width} px: ${shown.log[0] ?? ''}`);
-        problems.push(...failures.map((f) => `[${label}] ${file.element} static form at ${width} px: ${f}`));
-      } finally {
-        await off.close();
-      }
+    for (const path of paths) await runElementCases(file, path);
+  }
+}
+
+/** One case file at one placement: the static form without scripts, laziness, the cases, then the first case at 390 px and under reduced motion. */
+async function runElementCases(file: BrowserCases, path: string) {
+  const label = path.slice(1, -1);
+  elementsRun++;
+  for (const [width, open] of [[1400, { scripts: false }], [390, { scripts: false, viewport: PHONE }]] as const) {
+    const off = await openPage(chrome.http, `${site.url}${path}`, open);
+    try {
+      const shown = await off.evaluate<Outcome>(elementStatic(file.element));
+      const fits = width === 390 ? await off.evaluate<Outcome>(elementFits(file.element)) : { log: [], failures: [] };
+      const failures = [...shown.failures, ...fits.failures];
+      console.log(`${failures.length ? '✖' : '✔'} ${label} · ${file.element}: static form without JavaScript at ${width} px: ${shown.log[0] ?? ''}`);
+      problems.push(...failures.map((f) => `[${label}] ${file.element} static form at ${width} px: ${f}`));
+    } finally {
+      await off.close();
     }
-    await check(`${file.element}: lazy`, label, path, elementLazy(file.element));
-    for (const c of file.cases) await runCase(`${file.element}: ${c.name}`, label, path, c.scenario);
-    const first = file.cases[0];
-    if (first) {
-      await runCase(`${file.element}: ${first.name} (390 px)`, label, path, first.scenario, { viewport: PHONE }, elementFits(file.element));
-      await runCase(`${file.element}: ${first.name} (reduced motion)`, label, path, first.scenario, { reducedMotion: true }, elementStill(file.element));
-    }
+  }
+  await check(`${file.element}: lazy`, label, path, elementLazy(file.element));
+  for (const c of file.cases) await runCase(`${file.element}: ${c.name}`, label, path, c.scenario);
+  const first = file.cases[0];
+  if (first) {
+    await runCase(`${file.element}: ${first.name} (390 px)`, label, path, first.scenario, { viewport: PHONE }, elementFits(file.element));
+    await runCase(`${file.element}: ${first.name} (reduced motion)`, label, path, first.scenario, { reducedMotion: true }, elementStill(file.element));
   }
 }
 
@@ -1195,15 +1221,16 @@ async function runCase(name: string, label: string, path: string, scenario: stri
 // ---------------------------------------------------------------- the script budget, measured
 
 /**
- * What each docs page with the page runtime (and one page without) loads
+ * What each docs page with the page runtime (and one page without), and
+ * each recipe page (ADR-0046: recipes run the same element loader), loads
  * before any interaction, against the static count of budget.ts: a page
  * that loads a script the count does not see (an `import()` run as the page
  * loads), or more than the budget, fails. What loads when it comes near the
  * viewport (element modules, the graph view, and what they import) is left
  * out, as the budget leaves out lazy chunks.
  */
-async function checkLoadedScripts(builtDocs: string[]) {
-  if (!builtDocs.length) return;
+async function checkLoadedScripts(builtDocs: string[], builtRecipes: BuiltPage[]) {
+  if (!builtDocs.length && !builtRecipes.length) return;
   const read = distReader(DIST);
   const astro = join(DIST, '_astro');
   const elementDir = join(projectRoot(), 'src/scripts/docs/elements');
@@ -1213,12 +1240,13 @@ async function checkLoadedScripts(builtDocs: string[]) {
     if (!f.endsWith('.js') || !nearChunks.has(f.replace(/\.[\w-]+\.js$/, ''))) continue;
     for (const x of eagerScripts(`<script type="module" src="/_astro/${f}"></script>`, '/', read).files) lazy.add(x.path);
   }
-  const withRuntime = builtDocs.filter((f) => /id="engineBar"/.test(readFileSync(f, 'utf8')));
-  const without = builtDocs.find((f) => !withRuntime.includes(f));
+  const docs = builtDocs.map((file) => ({ file, path: `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}` }));
+  const withRuntime = docs.filter((p) => /id="engineBar"/.test(readFileSync(p.file, 'utf8')));
+  const without = docs.find((p) => !withRuntime.includes(p));
+  const measured = [...withRuntime, ...(without ? [without] : []), ...builtRecipes];
   let largest = { page: '', bytes: 0 };
   const before = problems.length;
-  for (const file of without ? [...withRuntime, without] : withRuntime) {
-    const path = `/docs/${file.slice(docsDir.length + 1, -'index.html'.length)}`;
+  for (const { file, path } of measured) {
     const label = path.slice(1, -1);
     const counted = eagerScripts(readFileSync(file, 'utf8'), path, read);
     const eager = new Set(counted.files.map((f) => f.path));
@@ -1240,7 +1268,7 @@ async function checkLoadedScripts(builtDocs: string[]) {
       await tab.close();
     }
   }
-  console.log(`${problems.length > before ? '✖' : '✔'} docs · script budget, measured on ${withRuntime.length + (without ? 1 : 0)} page(s): the largest loads ${kb(largest.bytes)} before any interaction (${largest.page})`);
+  console.log(`${problems.length > before ? '✖' : '✔'} docs and cookbook · script budget, measured on ${measured.length} page(s): the largest loads ${kb(largest.bytes)} before any interaction (${largest.page})`);
 }
 
 const recipePage = (slug: string) => `/cookbook/${slug}/`;
@@ -1305,8 +1333,11 @@ try {
     }
     for (const [i, scenario] of scenarios.entries()) await check(i ? `${name} (a new tab)` : name, path.slice(1, -1), path, scenario);
   }
-  await checkElements(builtDocs);
-  await checkLoadedScripts(builtDocs);
+  const builtRecipes = slugs
+    .map((slug) => ({ file: join(DIST, 'cookbook', slug, 'index.html'), path: recipePage(slug) }))
+    .filter((p) => existsSync(p.file));
+  await checkElements(builtDocs, builtRecipes);
+  await checkLoadedScripts(builtDocs, builtRecipes);
   const graphPage = docsPages.find((p) => /data-graph-nodes="1"/.test(p.html));
   if (graphPage) await checkDocsGraph(graphPage);
   else if (docsPages.length) console.log('- docs: no docs page has a one-node graph result; the expansion case is skipped');

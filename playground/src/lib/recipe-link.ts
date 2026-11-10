@@ -13,9 +13,12 @@
 // reads the page's markdown twin, `../docs/<page>.md`, whose ```cypher run
 // fences are the cells and whose ```json data=<name> blocks their parameters
 // (src/lib/cookbook/cells.ts, shared with the docs build), so the hand-off is
-// the same text an agent reads.
+// the same text an agent reads. A block over 2 KiB is a stub in the twin
+// (```json data=<name> src=<url>, ADR-0049): the playground fetches its file,
+// `../docs/<page>/data/<name>.json` on this site, and checks its size and
+// SHA-256 against the stub before the engine sees it.
 
-import { twinCells } from '../../../src/lib/cookbook/cells.ts';
+import { twinCells, type TwinDataRef } from '../../../src/lib/cookbook/cells.ts';
 
 /** The recipe.json format this reads. */
 export const RECIPE_FORMAT = 1;
@@ -41,6 +44,8 @@ export interface Recipe {
   cells: RecipeCell[];
   /** A docs page's parameters blocks by name (JSON text); a recipe fetches its files instead. */
   params?: Record<string, string>;
+  /** A docs page's parameters blocks its twin links instead of carrying, by name. */
+  paramRefs?: Record<string, TwinDataRef>;
 }
 
 export interface RecipeLink {
@@ -123,7 +128,7 @@ export function toRecipe(json: unknown): Recipe {
 
 /** A docs page's twin as a Recipe: its cells in page order, with their parameters blocks. */
 export function docsRecipe(page: string, markdown: string): Recipe {
-  const { title, cells, data } = twinCells(markdown);
+  const { title, cells, data, refs } = twinCells(markdown);
   if (cells.length === 0) throw new Error(`/docs/${page}.md has no runnable cells`);
   return {
     source: 'docs',
@@ -138,6 +143,7 @@ export function docsRecipe(page: string, markdown: string): Recipe {
       expectError: c.expectError,
     })),
     params: data,
+    paramRefs: refs,
   };
 }
 
@@ -182,12 +188,38 @@ export async function fetchParams(slug: string, path: string): Promise<string> {
   return res.text();
 }
 
-/** A step's parameters as text: a docs page's block, or a recipe's file, fetched. */
+/** The SHA-256 of `bytes`, hex. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * A linked block's file, fetched from this site (the stub's URL names the
+ * canonical host; its path is the same here), as text, after checking its
+ * size and SHA-256 against the stub's.
+ */
+export async function fetchLinkedParams(ref: TwinDataRef): Promise<string> {
+  const path = new URL(ref.src).pathname;
+  const res = await fetchOk(new URL(path.replace(/^\//, ''), new URL('../', document.baseURI)));
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (ref.bytes !== null && bytes.length !== ref.bytes) {
+    throw new Error(`${path} is ${bytes.length} bytes; the page's twin says ${ref.bytes}`);
+  }
+  if (ref.sha256 !== null && (await sha256Hex(bytes)) !== ref.sha256) {
+    throw new Error(`${path} does not have the SHA-256 the page's twin names`);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** A step's parameters as text: a docs page's block (inline, or its linked file fetched), or a recipe's file, fetched. */
 export async function recipeParams(recipe: Recipe, path: string): Promise<string> {
   if (recipe.source === 'docs') {
     const text = recipe.params?.[path];
-    if (text === undefined) throw new Error(`the page has no \`json data=${path}\` block`);
-    return text;
+    if (text !== undefined) return text;
+    const ref = recipe.paramRefs?.[path];
+    if (ref === undefined) throw new Error(`the page has no \`json data=${path}\` block`);
+    return fetchLinkedParams(ref);
   }
   return fetchParams(recipe.slug, path);
 }

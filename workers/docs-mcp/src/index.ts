@@ -74,7 +74,7 @@ const DESCRIPTION = [
   `Endpoint: ${ORIGIN}/mcp, MCP streamable HTTP (POST, JSON-RPC), stateless: no session, no accounts, read-only.`,
   '',
   'Tools: search_docs, get_page, explain_error, validate_cypher, discover_capabilities.',
-  'Resources: relate-docs://page/<id> (and #<anchor> for one section), relate-docs://llms.txt, relate-docs://skill/<name> (relate and the task skills), relate-docs://releases, relate-docs://capabilities, relate-docs://example/<recipe>/<cell>.',
+  'Resources: relate-docs://page/<id> (and #<anchor> for one section), relate-docs://llms.txt, relate-docs://skill/<name> (relate and the task skills), relate-docs://releases, relate-docs://capabilities, relate-docs://example/<recipe>/<cell>, relate-docs://samples, relate-docs://sample/<page>/<id>.',
   'Prompts: onboard, text-to-cypher.',
   'search_docs: hybrid (full-text and vector, fused by reciprocal rank) when the embedding model answers, full-text otherwise; each result says which in version.retrieval.',
   'validate_cypher: EXPLAIN on a fresh, empty engine instance per call; the statement is planned, never run.',

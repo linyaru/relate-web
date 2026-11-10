@@ -31,7 +31,8 @@ export interface Engine {
 
 /** Load and instantiate the bundle in `wasmDir`. */
 export async function loadEngine(wasmDir = WASM_DIR): Promise<Engine> {
-  const mod = await import(pathToFileURL(join(wasmDir, 'relate.js')).href);
+  // The engine is loaded from public/wasm at run time and never bundled.
+  const mod = await import(/* @vite-ignore */ pathToFileURL(join(wasmDir, 'relate.js')).href);
   mod.initSync({ module: readFileSync(join(wasmDir, 'relate_bg.wasm')) });
   if (typeof mod.renderResult !== 'function' || typeof mod.RelateDb?.prototype?.executeScript !== 'function') {
     throw new Error(`${wasmDir}: the bundle has no executeScript / renderResult; rebuild it`);

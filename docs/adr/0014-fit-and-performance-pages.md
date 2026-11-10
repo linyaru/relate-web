@@ -57,3 +57,8 @@ adjective-driven competitive marketing stands everywhere.
   the numbers.
 - `reference/limitations` stays the exhaustive list; the fit page is the
   decision aid that links into it.
+
+## Later references
+
+- Superseded in part by ADR-0045: `reference/performance` is removed and
+  the docs cite no benchmarks; the fit page stands.

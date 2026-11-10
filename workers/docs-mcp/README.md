@@ -28,7 +28,8 @@ npm run deploy         # wrangler deploy (launch; needs CLOUDFLARE_API_TOKEN and
 files and fails when an input is missing or a twin and the docs graph disagree
 about where a section starts, or `?section=`'s slicer cannot find a section
 where the bundle put it, or a built `recipe.json` differs from its recipe's
-source, or the seed's vector statements or the WASM glue are not the shape
+source, or a sample manifest's bytes do not hash to the sha256
+`/docs/samples.json` gives it, or the seed's vector statements or the WASM glue are not the shape
 `scripts/seed.ts` expects.
 
 `npm run dev` and every check run `wrangler dev --local`. Workers AI has no
@@ -169,7 +170,11 @@ the term as a word), capped at five, then `Full page: <url> (markdown: <md
 url>)`: the bytes `?section=<anchor>` returns, cut by the same function
 (`sliceSection` in `src/lib/docs/negotiation.ts`).
 With `expand: true`, the whole twin, byte for byte as `/docs/<id>.md`.
-Search hits' `anchor` is what `heading` takes.
+Search hits' `anchor` is what `heading` takes. A cell's parameters block
+over 2 KiB is a stub in the twin, so in every `get_page` answer: a
+```` ```json data=<name> src=<url> ```` fence naming the block's
+`https://relatedb.ai/docs/<id>/data/<name>.json` file, its size, SHA-256
+and shape (ADR-0049); the Worker serves no copy of the file.
 
 `search_docs` searches the `Section` nodes of the docs graph, which holds
 every authored page; the generated glossary, changelog and docs MCP usage
@@ -201,10 +206,9 @@ finite values and normalized), asks `VECTOR_STATEMENT` for the 200 nearest
 sections (same filters), takes each lane's 10 best (`HYBRID_DEPTH`, or
 `limit` when larger: the vector lane by similarity, the full-text lane in the
 re-rank order) and fuses them by reciprocal rank, k = 60, the constant of the
-hybrid-recall and query-the-relate-docs recipes. The depth was measured on the
-two questions with committed vectors: at 10 the section each is about ranks
-first; at 20, 50 and 200, sections that are middling in both lanes crowd it
-out. `src/hybrid.test.ts` asserts both, and that the fusion of the two lanes'
+hybrid-recall recipe. The depth was measured on the two questions with
+committed vectors: at 10 the section each is about ranks first; at 20, 50
+and 200, sections that are middling in both lanes crowd it out. `src/hybrid.test.ts` asserts both, and that the fusion of the two lanes'
 raw orders equals `HYBRID_STATEMENT` of `src/lib/docs/graph.ts` on the whole
 docs graph. Any failure of the model or the vector read falls back to
 full-text with `retrieval: "full-text"` and a `retrieval_note`; without the
@@ -266,8 +270,14 @@ its notes, from `/releases.json`), `relate-docs://capabilities`
 (`/docs/capabilities.json` byte for byte), and
 `relate-docs://example/{recipe}/{cell}` (listed once per cell, 151: the
 cell's statement, title, URL, playground link, parameters inline up to 2 KiB
-or their URL, and recorded result, with the recipe's `verifies` summary). A
-missing resource is JSON-RPC `-32602` with `data.uri`.
+or their URL, and recorded result, with the recipe's `verifies` summary),
+`relate-docs://samples` (`/docs/samples.json` byte for byte: every verified
+language sample's manifest URL and SHA-256, and each client's build) and
+`relate-docs://sample/{+path}` (listed once per verified sample as
+`relate-docs://sample/<page id>/<sample id>`: the manifest at
+`/docs/<page>/samples/<id>.json` byte for byte, ADR-0053: the program, its
+recorded output, the client build it last ran on and how the docs' runner
+runs it). A missing resource is JSON-RPC `-32602` with `data.uri`.
 
 **Prompts**: `onboard`, no arguments: one user message, a framing paragraph
 (pinned install with every check before the binary runs, then `relate
@@ -322,8 +332,10 @@ on a 429; `Cache-Control: no-store`.
   `explain_error` at most 10.
 - `validate_cypher`: statement and parameters each under 8 KiB (bytes);
   one statement; no `EXPLAIN` or `PROFILE` prefix.
-- Size: 96 KiB of text per tool result or resource (the largest twin today,
-  `guides/operate/troubleshooting`, is 57 KiB); longer text is cut at a line and says where the whole page is.
+- Size: 96 KiB of text per tool result or resource (the largest twin on
+  2026-11-09, `guides/operate/troubleshooting`, is 91,970 bytes; a data
+  block over 2 KiB is a stub in its twin, ADR-0049, which took
+  `guides/cypher/vector-search` from 99,818 bytes to 24,290); longer text is cut at a line and says where the whole page is.
   Requests over 64 KiB (bytes) are refused: a larger `Content-Length` before
   anything is read, a chunked body as soon as the counting reader passes the
   cap.

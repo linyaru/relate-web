@@ -1,0 +1,25 @@
+/* :::scale-demo, the scale demo (src/scripts/docs/elements/scale-demo.ts). Tokens only. */
+.scale-demo { display: grid; gap: 10px; font-size: 14px; }
+.scale-demo .sd-note { margin: 0; color: var(--fg-muted); }
+.scale-demo .sd-bar, .scale-demo .sd-again { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.scale-demo .sd-size, .scale-demo .sd-start { display: inline-flex; align-items: center; gap: 8px; }
+.scale-demo .sd-size span, .scale-demo .sd-start span { color: var(--fg-muted); font-weight: 600; }
+.scale-demo select, .scale-demo input {
+  padding: 5px 8px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.scale-demo input { width: 9ch; }
+.scale-demo .sd-said, .scale-demo .sd-memory { margin: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
+.scale-demo .sd-memory:empty { display: none; }
+.scale-demo .sd-table { width: 100%; border-collapse: collapse; }
+.scale-demo .sd-table caption { text-align: left; color: var(--fg-muted); font-size: 13px; padding-bottom: 6px; }
+.scale-demo .sd-table th, .scale-demo .sd-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.scale-demo .sd-table td { font-variant-numeric: tabular-nums; }
+/* A cell's name breaks only at its hyphens. */
+.scale-demo .sd-table tbody th { overflow-wrap: normal; }
+.scale-demo .sd-table code { font-size: 12px; }
+.scale-demo .sd-table .sd-time { white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .scale-demo .sd-table th, .scale-demo .sd-table td { padding: 4px 4px; font-size: 13px; }
+}

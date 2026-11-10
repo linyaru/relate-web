@@ -2,8 +2,8 @@
 // embedded on Workers AI with the model the sections were embedded with, a
 // vector search and the full-text search over the seeded docs graph, fused
 // by reciprocal rank with k = 60, the constant of the cookbook's
-// hybrid-recall and query-the-relate-docs recipes. Pure apart from the AI
-// binding it is handed, so the unit tests run it in Node.
+// hybrid-recall recipe. Pure apart from the AI binding it is handed, so the
+// unit tests run it in Node.
 
 /** The Workers AI model and pooling (src/lib/docs/graph.ts EMBEDDING_MODEL: BAAI/bge-small-en-v1.5, cls, normalized). */
 export const EMBEDDING_MODEL = '@cf/baai/bge-small-en-v1.5';

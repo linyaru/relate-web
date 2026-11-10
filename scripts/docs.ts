@@ -43,7 +43,9 @@
 //   - the twin round-trip (3a), rendered from the source exactly as the build
 //     renders it (src/lib/docs/twin.ts): it parses, carries the frontmatter
 //     fields with `verified` equal to _data/engine.json, holds every fenced
-//     block the page has, each diagram's fence is followed by its description,
+//     block the page has (a `json data=<name>` block over 2 KiB as one stub
+//     whose size and SHA-256 are the block's, src/lib/docs/checks/data.ts),
+//     each diagram's fence is followed by its description,
 //     and the Terms section lists exactly the linked terms, in order of first
 //     use, with their short definitions (the glossary's Twin check)
 //   - trust (3d, ADR-0013): every bash/sh/json/toml/yaml block that mentions
@@ -97,8 +99,9 @@
 //     replays on public/wasm; no orphan page; every cli.json command and flag
 //     named on a reference page (a warning until the CLI reference exists);
 //     no published page with a planned prerequisite; every :term id exists;
-//     no page that is its own prerequisite; the search indexes exist and the
-//     seed sets as many section vectors as the artifact has current ones.
+//     no page that is its own prerequisite; the search indexes exist (the
+//     vector one filterable on `page`) and the seed sets as many section
+//     vectors as the artifact has current ones.
 //     Severities per rule: DOCS_GRAPH_SEVERITY=<rule>=<error|warning|off>,…
 //   - the embeddings (3e, src/lib/docs/checks/embeddings.ts): every section has a
 //     vector in _data/embeddings.json whose SHA-256 matches its text now, no
@@ -122,7 +125,10 @@
 //   - every published page has its HTML page and its `.md` twin; each built
 //     twin parses, carries the frontmatter fields, and its `verified` equals
 //     _data/engine.json; every code block the built HTML page offers to copy
-//     appears as a fence in its twin (components included)
+//     appears as a fence in its twin (components included; a cell's
+//     parameters over 2 KiB as a stub with their SHA-256); every data block
+//     is built at /docs/<page>/data/<name>.json with exactly its bytes, and
+//     every stub in a built twin names that file's size and SHA-256
 //   - anchors on links into docs and cookbook pages resolve against the ids
 //     in the built HTML; the playground is built
 //   - every link in /docs/llms.txt resolves to a built file; the landing twin
@@ -212,17 +218,20 @@ import {
 } from '../src/lib/docs/model.ts';
 import { aliasRules, readGlossary as readGlossaryEntries } from '../src/lib/docs/glossary.ts';
 import { parsePage } from '../src/lib/docs/parse.ts';
-import { parseRunInfo, readResults } from '../src/lib/docs/results.ts';
+import { collectCells, parseDataInfo, parseRunInfo, readResults } from '../src/lib/docs/results.ts';
 import { renderTwin, type PageData } from '../src/lib/docs/twin.ts';
 import { checkCells, recordCells } from '../src/lib/docs/checks/cells.ts';
 import { checkElements, recordElements } from '../src/lib/docs/checks/elements.ts';
-import { kb, measureDocs, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
+import { kb, measurePages, PAGE_JS_BUDGET } from '../src/lib/docs/checks/budget.ts';
 import { elementFileId } from '../src/lib/docs/elements.ts';
 import { cliCheck } from '../src/lib/docs/checks/cli.ts';
 import { checkEmbeddings } from '../src/lib/docs/checks/embeddings.ts';
 import { checkGenerated } from '../src/lib/docs/checks/generated.ts';
 import { blankFrontmatter, bodyFences, checkFirstUse, checkGlossaryFiles, checkGlossaryLinks, checkUnusedTerms, linkedTerms, twinTermsProblems } from '../src/lib/docs/checks/glossary.ts';
 import { checkGraph } from '../src/lib/docs/checks/graph.ts';
+import { checkSampleManifests } from '../src/lib/docs/checks/sample-manifests.ts';
+import { builtDataProblems, twinDataProblems, twinStubs } from '../src/lib/docs/checks/data.ts';
+import { sha256Hex } from '../src/lib/docs/data-blocks.ts';
 import { checkSamples } from '../src/lib/docs/checks/samples.ts';
 import { checkSkill, checkTaskSkillCypher } from '../src/lib/docs/checks/skill.ts';
 import { IMPERATIVE_VERBS, INJECTION } from '../src/lib/docs/skill.ts';
@@ -915,7 +924,11 @@ function checkTwin(page: PageFile, text: string, site: Site, links: { pages: Set
     if (n.type === 'code') twinFences.add(fenceKey(n.lang, n.value));
   });
   const offset = frontmatterLines(text);
+  // A data block over 2 KiB is a stub linking its file (ADR-0049), checked against the block's bytes.
+  const data = twinDataProblems(id, collectCells(source).data, twinTree);
+  for (const problem of data.problems) report(file, null, 'error', 'twin-data', problem);
   visitAll(source, (n) => {
+    if (n.type === 'code' && data.linked.has(parseDataInfo(n.lang, n.meta) ?? '')) return;
     if (n.type === 'code' && !twinFences.has(fenceKey(n.lang, n.value))) {
       report(file, (n.position?.start.line ?? 0) + offset, 'error', 'twin', `the twin lacks this \`${n.lang ?? ''}\` block`);
     }
@@ -1219,9 +1232,9 @@ function loadBuiltIds(site: Site): Map<string, Set<string>> {
   return out;
 }
 
-/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs page's eager JavaScript, and the three largest printed. */
+/** The script budget (DOCS-PLAN.md §7.1, checks/budget.ts): every built docs and cookbook page's eager JavaScript, and the three largest printed. */
 function checkBudget() {
-  const rows = measureDocs(DIST);
+  const rows = measurePages(DIST);
   for (const { page, scripts } of rows) {
     const file = join(DIST, page, 'index.html');
     if (scripts.bytes > PAGE_JS_BUDGET) {
@@ -1231,7 +1244,7 @@ function checkBudget() {
     for (const m of scripts.missing) report(file, null, 'error', 'js-budget', `${page} loads ${m}, which is not in the build`);
   }
   if (rows.length) {
-    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs page(s):`);
+    console.log(`docs: script budget ${kb(PAGE_JS_BUDGET)} per page before lazy chunks; the largest of ${rows.length} built docs and cookbook page(s):`);
     for (const { page, scripts } of rows.slice(0, 3)) console.log(`  ${kb(scripts.bytes).padStart(9)}  ${page}  (${scripts.files.length} file(s), inline ${kb(scripts.inline)})`);
   }
 }
@@ -1253,16 +1266,32 @@ function checkBuilt(site: Site) {
     }
     const twin = readFileSync(twinFile, 'utf8');
     twinStructure(twin, p.id, twinFile, site);
+    const twinTree = parseMarkdown(splitFrontmatter(twin, rel(twinFile)).body);
+    // Every data block built at /docs/<page>/data/<name>.json, and every stub naming its file's bytes (ADR-0049).
+    try {
+      const blocks = collectCells(parsePage(splitFrontmatter(readFileSync(p.file, 'utf8'), rel(p.file)).body)).data;
+      for (const problem of builtDataProblems(DIST, p.id, blocks, twinTree)) report(twinFile, null, 'error', 'twin-data', problem);
+    } catch {
+      // An unparsable page is reported by the source checks.
+    }
     if (!existsSync(htmlFile)) continue;
-    // Every block the page offers to copy (code blocks, cells, component blocks) is a fence in the twin.
+    // Every block the page offers to copy (code blocks, cells, component blocks) is a fence in the twin;
+    // a cell's parameters over 2 KiB are a stub whose SHA-256 is theirs.
     const fences = new Set<string>();
-    visitAll(parseMarkdown(splitFrontmatter(twin, rel(twinFile)).body), (n) => {
+    visitAll(twinTree, (n) => {
       if (n.type === 'code') fences.add(n.value.replace(/\s+$/, ''));
     });
+    const linked = new Set(twinStubs(twinTree).map((s) => {
+      try {
+        return String((JSON.parse(s.value) as { sha256?: unknown }).sha256);
+      } catch {
+        return '';
+      }
+    }));
     const html = readFileSync(htmlFile, 'utf8');
     for (const m of html.matchAll(/<textarea\b[^>]*>([\s\S]*?)<\/textarea>/g)) {
       const value = decodeEntities(m[1]).replace(/^\n/, '').replace(/\s+$/, '');
-      if (value && !fences.has(value)) {
+      if (value && !fences.has(value) && !linked.has(sha256Hex(value))) {
         report(htmlFile, null, 'error', 'twin', `the page shows a code block its twin lacks: "${value.split('\n')[0].slice(0, 60)}"`);
       }
     }
@@ -1436,6 +1465,7 @@ async function main(): Promise<number> {
   await checkCells(site, report);
   await checkElements(site, report);
   checkSamples(site, report, clientEnv());
+  checkSampleManifests(site, report, args.built ? site.dist : null);
   checkGlossary(site);
   checkGenerated(site, report, DIST);
   for (const g of GENERATED) {

@@ -7,6 +7,12 @@
 // result. The markup carries what the page runtime needs to make steps
 // runnable (`<cypher-cell>` and its data attributes, the hidden Run/Edit
 // buttons, editors and output tabs), so it can upgrade them in place.
+//
+// An element directive (ADR-0046) renders as the docs pages render one:
+// `<docs-element>` holding its recorded static form (the children, the
+// generated text, the light and dark picture, the "Live:" line) and an
+// empty live pane, which the element's module fills once the page runtime
+// loads it (src/scripts/docs/elements.ts).
 
 import { createMarkdown, type MarkdownEnv } from './markdown.ts';
 import { prepareSvg, type Theme } from './diagrams.ts';
@@ -16,6 +22,7 @@ import { byteLength, cellTitles, dataBlock, INLINE_DATA_BYTES, narrative, verifi
 import { rewriteHref } from './links.ts';
 import { canDraw, esc, tableHtml } from './result-view.ts';
 import type { Cookbook, Page, RenderedDiagram } from './site.ts';
+import type MarkdownIt from 'markdown-it';
 
 export { canDraw, esc, tableHtml };
 
@@ -52,6 +59,19 @@ export function byCategory(recipes: Recipe[], categories: readonly Category[] = 
 interface Env extends MarkdownEnv {
   step: number;
   codeSeq: number;
+  /** How many element directives rendered, which must be every one the parser found. */
+  elementsRendered: number;
+}
+
+/** A static code block, highlighted, with its text in a hidden textarea for Copy (an element module reads it there too). */
+function codeBlock(cookbook: Cookbook, env: Env, content: string, info: string): string {
+  const id = `code-${++env.codeSeq}`;
+  const lang = info.trim().split(/\s+/)[0] || 'text';
+  return (
+    `<div class="code-block">${cookbook.highlight(content.replace(/\n$/, ''), lang)}` +
+    `<textarea id="${id}" hidden>${esc(content)}</textarea>` +
+    `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>\n`
+  );
 }
 
 function renderParams(recipe: Recipe, cell: Cell, step: number): string {
@@ -122,13 +142,37 @@ function renderDiagram(index: number, d: RenderedDiagram): string {
   return `<figure class="diagram">${art('light')}${art('dark')}<figcaption>${title}</figcaption></figure>\n`;
 }
 
+/**
+ * An element directive's host, as a docs page renders it (src/lib/docs/
+ * constructs.ts): its recorded static form, then the empty live pane. The
+ * markdown parts render with the recipe's markdown, in their own env (their
+ * fences as code blocks; no contents entries).
+ */
+function renderElement(cookbook: Cookbook, page: Page, md: MarkdownIt, env: Env, line: number): string {
+  const found = page.elements.get(line);
+  if (!found) throw new Error(`[${page.recipe.slug}] the element directive at line ${line} has no recorded static form`);
+  env.elementsRendered++;
+  const { use, form } = found;
+  const formEnv: MarkdownEnv = { fence: (token) => codeBlock(cookbook, env, token.content, token.info) };
+  const markdown = (text: string) => (text.trim() ? md.render(text, formEnv) : '');
+  const art = (theme: Theme) => `<div class="diagram-art diagram-${theme}">${prepareSvg(form.svg![theme])}</div>`;
+  const figure = form.svg ? `<figure class="diagram element-figure">${art('light')}${art('dark')}<figcaption>${esc(form.caption ?? '')}</figcaption></figure>` : '';
+  const live = `<p class="element-note">${md.renderInline(`Live: ${form.live}`, formEnv)}</p>`;
+  return (
+    `<docs-element id="element-${esc(use.id)}" data-element="${esc(use.name)}" data-element-id="${esc(use.id)}" data-attrs="${esc(JSON.stringify(use.attributes))}">` +
+    `<div class="element-static">${markdown(use.children)}${markdown(form.text)}${figure}${live}</div>` +
+    `<div class="element-live" hidden></div></docs-element>\n`
+  );
+}
+
 /** The recipe page's body, and what rendering it found: the lede and the contents. */
 export function renderRecipe(cookbook: Cookbook, page: Page) {
   const { recipe } = page;
   const slugs = new Set(cookbook.pages.map((p) => p.recipe.slug));
   const md = createMarkdown({ rewriteHref: (href) => rewriteHref(href, slugs) });
   const fences = new Map(recipe.fences.map((f) => [f.line, f]));
-  const env: Env = { step: 0, codeSeq: 0, lede: null, toc: [] };
+  const env: Env = { step: 0, codeSeq: 0, elementsRendered: 0, lede: null, toc: [] };
+  env.element = (_token, line) => renderElement(cookbook, page, md, env, recipe.bodyLine + line);
   env.fence = (token, line) => {
     const fence = fences.get(recipe.bodyLine + line);
     if (!fence) {
@@ -146,18 +190,17 @@ export function renderRecipe(cookbook: Cookbook, page: Page) {
       case 'data':
       case 'result':
         return '';
-      case 'code': {
-        const id = `code-${++env.codeSeq}`;
-        const lang = token.info.trim().split(/\s+/)[0] || 'text';
-        return (
-          `<div class="code-block">${cookbook.highlight(token.content.replace(/\n$/, ''), lang)}` +
-          `<textarea id="${id}" hidden>${esc(token.content)}</textarea>` +
-          `<button class="copy-btn" type="button" data-copy-target="${id}" hidden>Copy</button></div>\n`
-        );
-      }
+      case 'code':
+        return codeBlock(cookbook, env, token.content, token.info);
     }
   };
   const html = md.render(narrative(recipe), env);
+  if (env.elementsRendered !== recipe.elements.length) {
+    throw new Error(
+      `[${recipe.slug}] ${recipe.elements.length - env.elementsRendered} element directive(s) did not render; ` +
+        'start `:::<name>` and its closing `:::` at the beginning of a line, outside lists',
+    );
+  }
   const inline = (text: string) => md.renderInline(text, env);
   return {
     html,

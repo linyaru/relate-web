@@ -1,0 +1,42 @@
+/* :::timeline (src/scripts/docs/elements/timeline.ts). Colours from the site's tokens; the drawing's classes are _timeline-model.ts drawTimeline's. */
+.tl { display: grid; gap: 10px; min-width: 0; }
+.tl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; }
+.tl-slider-label { color: var(--fg-muted); }
+.tl-slider { flex: 1 1 200px; min-width: 0; accent-color: var(--accent); }
+.tl-time { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+/* The drawing keeps a legible size: a narrow column scrolls it sideways inside the frame, never the page. */
+.tl-frame { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.tl-svg { display: block; font-family: var(--font-sans); }
+.tl-band { fill: var(--bg-alt); fill-opacity: 0.7; }
+.tl-lane { text-anchor: end; font-size: 12px; fill: var(--fg); }
+.tl-tick { text-anchor: middle; font-size: 11px; fill: var(--fg-muted); }
+.tl-note { font-size: 11px; fill: var(--fg-muted); }
+.tl-grid { stroke: var(--border); stroke-width: 1; }
+.tl-axis { stroke: var(--fg-faint); stroke-width: 1; }
+.tl-point { fill: var(--accent); stroke: var(--fg); stroke-width: 1; }
+.tl-valid { fill: color-mix(in srgb, var(--accent) 22%, var(--bg)); stroke: var(--accent); stroke-width: 1.5; }
+.tl-record { fill: color-mix(in srgb, var(--discovery) 22%, var(--bg)); stroke: var(--discovery); stroke-width: 1.5; }
+.tl-open { stroke: none; }
+.tl-valid.tl-open { fill: var(--accent); }
+.tl-record.tl-open { fill: var(--discovery); }
+.tl-empty { fill: var(--bg); stroke-width: 2; }
+.tl-now { stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.tl-now-label { font-family: var(--font-mono); font-size: 11px; fill: var(--fg); }
+/* What the as-of step returned for the time: lit rows stand out, the rest fade. */
+.tl-mark.is-on .tl-point { stroke-width: 2.5; r: 6px; }
+.tl-mark.is-on .tl-valid:not(.tl-open), .tl-mark.is-ron .tl-record:not(.tl-open) { stroke-width: 3; }
+.tl-mark.is-off .tl-point, .tl-mark.is-off .tl-valid, .tl-mark.is-roff .tl-record { opacity: 0.28; }
+.tl[data-pending] .tl-mark.is-on, .tl[data-pending] .tl-mark.is-ron { opacity: 0.6; }
+.tl-mark { cursor: default; }
+.tl-mark:focus { outline: none; }
+.tl-mark:focus-visible > :not(.tl-open) { stroke: var(--focus); stroke-width: 3.5; }
+.tl-detail, .tl-status { margin: 0; font-size: 14px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.tl-detail:empty { display: none; }
+.tl-rows summary { cursor: pointer; font-size: 14px; color: var(--fg-muted); }
+.tl-table { max-width: 100%; overflow-x: auto; }
+.tl-table table { border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.tl-table th, .tl-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.tl-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .tl-mark > * { transition: opacity 0.15s ease; }
+}

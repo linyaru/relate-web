@@ -10,21 +10,9 @@ What happens to a write between the statement and the disk, and what can a crash
 
 ## One write path
 
-```mermaid
-flowchart TB
-  accTitle: One write path
-  accDescr {
-    A statement's changes become one commit record, which is appended to the write-ahead log and then applied to the in-memory graph that every query reads.
-    A checkpoint later writes the committed graph to a snapshot in the store's codec and recycles the log segments the snapshot covers.
-    Opening a store loads the latest snapshot and replays the log records written after it.
-  }
-  S("Statement") --> R["Commit record"] --> W["Write-ahead log"] --> G[("In-memory graph")]
-  G --> Q("Queries")
-  G --> C["Checkpoint"] --> P["Snapshot files"]
-  C -. recycles .-> W
-  P -. "open: load" .-> G
-  W -. "open: replay" .-> G
-```
+:::storage-animator{id=write-path}
+The write path step by step, what each durability mode can lose in a crash, and the parts of one `.rl` file.
+:::
 
 A statement collects its changes privately while it runs. At commit they become one record of physical changes: a node or relationship created or deleted, a property set or removed, or a label added or removed. The record is not Cypher text, so replaying it never re-runs a query. relate appends the record to the WAL first and applies it to the in-memory graph second; the graph in memory is never the source of a commit.
 

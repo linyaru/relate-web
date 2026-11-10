@@ -107,13 +107,16 @@ export function isOwnTwin(pathname: string, canonicalUrl: string | null): boolea
 /**
  * What a static path an agent reads is, for the log line, or null: the
  * skill (`/skill.md`, `/skills/…`, the `/.well-known/` skill indexes), an
- * `llms.txt` (the root's or the docs'), or a docs twin (`/docs/….md`).
+ * `llms.txt` (the root's or the docs'), a docs twin (`/docs/….md`), or a
+ * data block a twin links (`/docs/<page>/data/<name>.json`).
  * Negotiated markdown answers are logged by functions/docs/_middleware.ts.
  */
-export function agentPathKind(pathname: string): 'skill' | 'llms' | 'twin' | null {
+export function agentPathKind(pathname: string): 'skill' | 'llms' | 'twin' | 'data' | null {
   if (/^\/(skill\.md|skills\/.+|\.well-known\/(agent-skills|skills)\/.+)$/.test(pathname)) return 'skill';
   if (/^\/(docs\/)?llms(-full)?\.txt$/.test(pathname)) return 'llms';
   if (/^\/docs\/.+\.md$/.test(pathname)) return 'twin';
+  // A data block a twin links instead of carrying (src/lib/docs/data-blocks.ts, ADR-0049).
+  if (/^\/docs\/.+\/data\/[A-Za-z0-9_-]+\.json$/.test(pathname)) return 'data';
   return null;
 }
 

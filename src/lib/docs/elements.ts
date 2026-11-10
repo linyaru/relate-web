@@ -27,6 +27,11 @@
 // `live`, `caption`), so a picture or a text-only form edited by hand fails
 // too. That keeps the page build synchronous and the same in Node and in
 // Vite.
+//
+// Cookbook recipes take the same directives (ADR-0046): src/lib/cookbook/
+// elements.ts gives a recipe to this code as a page (its steps as cells, the
+// cookbook's run as recordings), and `npm run cookbook:record` records its
+// forms with the per-page record of checks/elements.ts.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -168,7 +173,8 @@ export function elementNeeds(file: string, body: string): { elements: boolean; e
 /** An element's build file, loaded (Node only: docs:check and --record). Throws when it does not export an ElementSpec. */
 export async function loadSpec(name: string): Promise<ElementSpec> {
   const file = join(ELEMENTS_DIR, `${name}.ts`);
-  const mod = (await import(pathToFileURL(file).href)) as { default?: Partial<ElementSpec> };
+  // Element build files are found by listing a directory (ADR-0035), so the path is computed.
+  const mod = (await import(/* @vite-ignore */ pathToFileURL(file).href)) as { default?: Partial<ElementSpec> };
   const spec = mod.default;
   if (!spec || typeof spec.live !== 'string' || !spec.live.trim() || typeof spec.staticForm !== 'function') {
     throw new Error(`src/lib/docs/elements/${name}.ts must \`export default { live, staticForm, validate?, inputs? } satisfies ElementSpec\``);
@@ -363,12 +369,12 @@ export interface Form {
 /**
  * The recorded static form of `use` on the page at `file`. Throws when it is
  * missing, was made from other inputs than the page has now, or an SVG holds
- * anything active.
+ * anything active; `again` says how to record it (a recipe's forms come from
+ * `npm run cookbook:record`, ADR-0046).
  */
-export function readForm(file: string, use: ElementUse, ctx: FormContext): Form {
+export function readForm(file: string, use: ElementUse, ctx: FormContext, again = `run ${RECORD_COMMAND}`): Form {
   const { dir, stem } = pageDiagrams(file);
   const path = join(dir, elementFormFile(stem, use.id));
-  const again = `run ${RECORD_COMMAND}`;
   if (!existsSync(path)) throw new Error(`element \`${use.id}\` (\`:::${use.name}\`) has no recorded static form (${path}); ${again}`);
   let rec: RecordedForm;
   try {

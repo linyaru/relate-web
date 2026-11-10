@@ -16,6 +16,15 @@ verified_by:
   - go
   - swift
   - c
+samples:
+  - https://relatedb.ai/docs/_example/example/samples/python-1.json
+  - https://relatedb.ai/docs/_example/example/samples/js-1.json
+  - https://relatedb.ai/docs/_example/example/samples/python-2.json
+  - https://relatedb.ai/docs/_example/example/samples/rust-1.json
+  - https://relatedb.ai/docs/_example/example/samples/java-1.json
+  - https://relatedb.ai/docs/_example/example/samples/go-1.json
+  - https://relatedb.ai/docs/_example/example/samples/swift-1.json
+  - https://relatedb.ai/docs/_example/example/samples/c-1.json
 canonical_url: https://relatedb.ai/docs/_example/example/
 prerequisites:
   - get-started/install

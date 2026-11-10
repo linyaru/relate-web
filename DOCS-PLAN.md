@@ -1,9 +1,8 @@
 # DOCS-PLAN — relatedb.ai/docs
 
-Plan for the documentation section of the site. Status: **decided, nothing
-built yet** (decisions in §11, recorded as ADR-0002 to ADR-0015 in
-`docs/adr/`). `/docs` is a placeholder page today
-(`src/pages/docs/index.astro`).
+Plan for the documentation section of the site. Status: **phases 0 to 2
+built** (141 published pages, none planned); phase 3 and the backlog are in
+§10. Decisions are in §11 and recorded as ADRs in `docs/adr/`.
 
 Reviewed for this plan: the upstream checkout at `../relate` (README,
 `docs/` — `api/`, `guides/`, `reference/`, `cookbook/`, `limitations.md`,
@@ -142,7 +141,6 @@ switching languages recognises the steps.
 | `reference/errors` | every error an agent can meet, generated from one data file: one anchor per `(code, kind)` and per GQL status (`42N00`, `42N17`, …), each row the exact message pattern, cause, remedy, `retryable`, exit code, the Python exception class and the MCP refusal text; the `.md` twin is a flat table an agent can grep; a CI check that every quoted string exists in upstream's error catalog | 1 | `docs/api/*/spec.md`, `docs/api/rust/errors.md` |
 | `reference/limitations` | the honest list; the fit page (concepts) is the decision aid that links into it | 1 | `docs/limitations.md` |
 | `reference/changelog` | release notes authored here (ADR-0002): one entry per release with `since:` back-links from pages, `/docs/changelog.md`, a JSON feed, a deprecation policy section; upstream's `CHANGELOG.md` is reading material | 1 | `CHANGELOG.md`, `RELEASING.md` |
-| `reference/performance` | ADR-0014: bytes per node and relationship, `.rl` load time by size, the LDBC queries at a stated scale factor with machine class and methodology, agent-mode bytes per output mode; regenerated per release from upstream's frozen loadtests, stamped with the version | 1 | upstream `baselines/`, ADR-0046/0070/0071/0479/0512, `relate-agentbench` |
 | `reference/project` | license (Apache 2.0), governance, versioning and stability policy (what `preview` and pre-1.0 promise), release cadence, platform matrix, where to ask, how to report a bug | 1 | `LICENSE`, `LAUNCH.md`, `RELEASING.md` |
 | `reference/security` | ADR-0013: signing key fingerprint and its stable URL, manual verification (`sha256sum -c`, `ssh-keygen -Y verify`), notarization, supported versions and security-fix policy, disclosure address, whether SLSA provenance and an SBOM exist, link to the docs-MCP threat model | 1 | `distribution/install.sh`, `RELEASING.md` |
 | `reference/privacy-and-telemetry` | ADR-0013: CLI events verbatim from the spec, `DO_NOT_TRACK=1`, what never phones home (library, WASM, Bolt), NVL telemetry aliased out, no third-party scripts, what the Worker and Cloudflare log and for how long, any model fetch the browser makes | 1 | `docs/api/cli/spec.md` § usage metrics |
@@ -160,7 +158,7 @@ switching languages recognises the steps.
 | `cypher-dialect` — openCypher TCK as the floor, GQL alignment, Cypher 25 features, preview features and how to opt in | 1 | `docs/tck/compliance.md`, `cypher-syntax.md` § extensions |
 | `agent-native` — why the CLI prints envelopes, typed errors, caps rows, detects harnesses; the skill; MCP | 1 | `website-update-brief.md`, `docs/api/cli/spec.md` § agent mode |
 | `security-and-trust` — the model behind the two reference pages: generated tokens, loopback default, extension trust tiers, `LOAD CSV` directory policy, safe mode | 2 | `docs/api/cli/spec.md` § usage metrics, `limitations.md` § safe mode, extensions spec |
-| `design-decisions` — how to read the ADR log (link only once the repo is public) | 3 | `docs/adr/` |
+| `design-decisions` — how to read the ADR log (link only once the repo is public) | backlog (§10) | `docs/adr/` |
 
 Roughly 140 pages at full build-out; **phase 1 is about 30**, listed in
 §10 (ADR-0015).
@@ -243,7 +241,7 @@ tool an agent would use to read docs.
   phrase of §3.9, current version and date, install line, verify line,
   store forms, `--mode envelope`, the exit codes, the `.md` and
   `?section=` conventions, the local MCP line) so the common case is one
-  fetch, then the groups: Evaluate (fit, performance, limitations,
+  fetch, then the groups: Evaluate (fit, problems, limitations,
   project), Get started, Agents, Guides, Reference, Concepts.
 - Root `public/llms.txt` keeps its role as the product overview and gains a
   "Documentation" block pointing at the docs indexes, the skill, and the
@@ -1320,7 +1318,7 @@ hand-off). A status bar names the engine version, which matches the page's
 | **MCP tryout** | the three MCP tools as buttons against the page's database: `get_schema`, `read_cypher`, `write_cypher`, each showing the JSON-RPC request and the envelope reply; a write under read-only refused | `connect-over-mcp`, MCP reference, agent-native concept | the engine (the tools are thin over `execute`) | 2 |
 | **Agent trace playback** | a transcript of an agent solving a task: each step a tool call with its live result, step-through and run-all; the trace from a cookbook recipe (tool-call provenance, agent memory) | agent-memory tutorial, `guides/integrations/`, cookbook | MCP tryout + cell runtime | 2 |
 | **The docs graph, live** | `reference/docs-graph` draws the docs graph (ADR-0007) with NVL: pages by section, links, terms; click a node to open the page; search highlights nodes. Not a landing hero: it fails §7.1's bar there | `reference/docs-graph` | NVL, the seed script | 2 |
-| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph, the WebGL renderer draws it, count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept, `reference/performance` | NVL `webgl` renderer | 3 |
+| **Scale demo** | "a hundred thousand nodes in your tab": `UNWIND range(...)` builds the graph (as built, nothing is drawn; ADR-0048), count and traversal timings update live; gated behind a button with a memory note, desktop first | architecture concept | NVL `webgl` renderer | 3 |
 | Graph diff | before and after a migration: added, removed and changed elements coloured | migration-rehearsal recipe, `clone-and-convert` | graph view | 3 |
 | Timeline view | temporal and bi-temporal results on a time axis | agent-trajectory and bitemporal recipes | SVG | 3 |
 | Language tabs, Install block with the Agent, Pinned-binary and `AGENTS.md` blocks, callouts, Since/Status badges, generated tables (`<ExitCodes>`, `<Flags>`, `<EnvVars>`), pre-rendered mermaid diagrams with their "In words" line (§7.6), `<Agentic>` dual view (a directive: ADR-0015's five phase 1 JSX components are taken by `<Install>`, `<Errors>`, `<ExitCodes>`, `<Flags>`, `<EnvVars>`; not built yet, LAUNCH.md) | as in §3 and §4 (directives where prose, JSX where generated; ADR-0015) | everywhere | the legacy page's tabs and toggle, the data file | 1 |
@@ -1340,14 +1338,14 @@ hand-off). A status bar names the engine version, which matches the page's
 | `concepts/storage-and-durability` | storage animator |
 | `concepts/agent-native` | agent-mode terminal + MCP tryout, side by side |
 | `concepts/architecture` | crate map (static) + the plan viewer showing the pipeline |
-| `reference/cypher/*` | "Try it" on every example (phase 3) |
+| `reference/cypher/*` | every example a runnable cell (built in phase 2) |
 
 ### 7.5 Engineering rules
 
 - **One graph module.** All NVL use goes through one module extended from
   the cookbook's `graph.ts` (shared palette, label colours, theme watcher,
-  inspector, expand). Canvas renderer by default; WebGL only in the scale
-  demo. Telemetry stays aliased out (`astro.config.mjs`). Instances are
+  inspector, expand). Canvas renderer (the scale demo, which would have
+  used WebGL, draws nothing; ADR-0048). Telemetry stays aliased out (`astro.config.mjs`). Instances are
   destroyed on navigation.
 - **Static forms are built, not drawn by hand.** For each graph element
   the build lays the recorded result out with d3-force (already a
@@ -1554,9 +1552,8 @@ from the same collection, so they cannot go stale independently.
 - **Upstream asks, collected**: the `docs` URL in the error object (phase
   1); the skill description with intent phrases, the disambiguation line
   and no internal ids; `agent-context` embedding the errors table and
-  printing the docs URLs; PyPI and npm descriptions and keywords; a
-  repeatable export of the loadtest and LDBC numbers for
-  `reference/performance`; the WASM items above; `SECURITY.md`; an
+  printing the docs URLs; PyPI and npm descriptions and keywords; the
+  WASM items above; `SECURITY.md`; an
   OpenAPI document for the HTTP Query API if one exists.
 - **The `agent` build bundle is not a release artifact** (release binaries
   are `full` only). The sandbox guide documents the `full` binary and
@@ -1607,7 +1604,7 @@ to prove the layout, the twin format and the safe-default contract
 - Reference: `cli/index`, `flags`, `exit-codes-and-errors`, `agent-mode`
   (generated from `cli.json`), `errors`, `cypher/overview`,
   `differences-from-neo4j`, `search`, `storage/formats`,
-  `wal-and-checkpoints`, `limits-and-sizing`, `limitations`, `changelog`, `performance`,
+  `wal-and-checkpoints`, `limits-and-sizing`, `limitations`, `changelog`,
   `project`, `security`, `privacy-and-telemetry`, `server/docs-mcp`,
   `glossary` (short).
 - Concepts: `where-relate-fits`, `agent-native`,
@@ -1740,12 +1737,73 @@ replay; a twin that links a large data block instead of inlining it
 needs a per-page data endpoint; and a seeded read-only database for elements (ADR-0035 declines writing
 to the reader's browser storage).
 
-**Phase 3 — the long tail.** `query_docs_graph` once the engine has a
-deadline; the storage animator, the scale demo,
-in-browser embeddings, graph diff and timeline views; "Try it" on
-reference examples; manifests for language samples; design-decision
-links; `guides/migrate/from-sqlite`, `from-kuzu`; the analytics review
-that decides what phase 4 is.
+**Phase 3 — the long tail** (rescoped 2026-11-09, built 2026-11-09; the
+items deferred from phase 2 above are either here or in the backlog below).
+
+*As built (phase 3):*
+
+- Elements on cookbook recipe pages (ADR-0046): a recipe takes the same
+  directives; `cookbook:record` writes their static forms, the recipe twin
+  carries them, and the budget and browser cases cover recipe pages. Placed:
+  the geospatial explorer on nearby-places, the hybrid view on
+  hybrid-recall, and an agent trace of session 2 on the agent-memory recipe.
+- The storage animator (ADR-0047), `engine: false`, on
+  `concepts/storage-and-durability` (replacing its mermaid diagram),
+  `guides/operate/durability-modes` and `guides/storage/choose-a-store-layout`.
+- The scale demo (ADR-0048) on `concepts/architecture`, on a database of
+  its own (`page.scratch()`, a second engine worker); times only from the
+  reader's run. It draws nothing: a WebGL drawing was built and removed,
+  since NVL 1.2.2 places at most 65,536 nodes in WebGL.
+- In-browser embeddings (ADR-0050), `:::embed-question`, on the
+  query-the-relate-docs recipe, not the vector-search guide: that recipe
+  holds the site's only model-made vectors (bge-small-en-v1.5), while the
+  guide's are hand-written or hashed word vectors. The weights come from the
+  Hugging Face hub at a pinned revision after a button press (no ONNX file
+  fits Cloudflare Pages' per-file limit); `reference/privacy-and-telemetry`
+  states the request. The guide points at the recipe.
+- Graph diff (ADR-0051) on the migration-rehearsal recipe, on a
+  `page.scratch()` database; not on `clone-and-convert`, whose two states
+  are stores on disk compared by the CLI. `CellHandle.runParams()` fetches a
+  step's dataset parameters.
+- The timeline view (ADR-0052) on the agent-trajectory-timeline and
+  bitemporal-decisions recipes (replacing the hand-drawn gantt) and on
+  `guides/agents/model-agent-memory`.
+- The weighted hybrid explorer on `reference/cypher/search`, whose fusion now
+  runs as the page's own cells and equals the CLI's `COMBINE` output.
+- Agent traces on `guides/integrations/claude-agent-sdk`, `langgraph` and
+  `vercel-ai-sdk`, each replaying the page's own statements as `tools/call`
+  requests on the database its cells build, framed as a replay, never as a
+  model's run. Only the Claude Agent SDK page registers relate's MCP server;
+  the other two say they reach relate in-process. The six other
+  integrations have no trace: one would repeat the LangGraph and Vercel ones.
+- `::::agentic` on `get-started/install`, `get-started/agent-quickstart`
+  (two sets) and `guides/agents/connect-over-mcp`.
+- Twin data blocks (ADR-0049): every data block is served at
+  `/docs/<page>/data/<name>.json`, and a twin replaces a block over 2 KiB
+  with a stub naming its URL, size, SHA-256 and shape (the vector-search
+  twin went from 99,818 to 24,290 bytes).
+- Sample manifests (ADR-0053): every verified sample at
+  `/docs/<page>/samples/<id>.json`, with the index `/docs/samples.json`, the
+  build each sample ran on from `_data/samples.json`, and docs MCP resources.
+- `guides/migrate/from-sqlite` and `guides/migrate/from-kuzu` (Kuzu 0.11.3,
+  its archived repository cited; the export committed so CI replays the
+  relate side).
+
+Done before phase 3: "Try it" on reference examples. Every example on the
+`reference/cypher/*` pages is a runnable cell (phase 2 part B).
+
+**Backlog.** Not scheduled; each item names what brings it back.
+
+- `query_docs_graph` on the hosted docs MCP: when the WASM build has a
+  statement deadline (an upstream ask; ADR-0023).
+- A seeded read-only database for elements: when the WASM build can open a
+  snapshot read-only (the same upstream ask), since ADR-0035 declines
+  writing to the reader's browser storage.
+- `concepts/design-decisions` and links from pages to upstream ADRs: when
+  the upstream repository is public.
+- The analytics review that decides what follows phase 3: after launch,
+  once the Web Analytics, the agent-path hit log and the docs MCP usage
+  data have run long enough to read.
 
 ## 11. Decisions
 

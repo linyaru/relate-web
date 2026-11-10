@@ -323,6 +323,17 @@ across the two lists. Each list ranks its notes 1, 2, 3, …; a note earns
 constant 60 is the usual choice: it keeps one list's first place from
 swamping the other list.
 
+The explorer fuses the two lists above, the `vector` and `fulltext` steps
+for "what did we decide about oauth tokens", by that arithmetic. Its k
+slider runs both steps again with the chosen `k`, and the fused list is
+recomputed from the ids the engine returns. At `k = 5` the fused scores are
+the `rrf` column of the `recall` step further down. The full-text list never holds
+more than three notes for this question: only three notes contain `oauth` or
+`tokens`.
+
+:::vector-explorer{lists="vector,fulltext"}
+:::
+
 `CALL () { … UNION ALL … }` runs both searches in one statement. Each branch
 collects its notes in score order and unwinds them with their position. This
 question needs the vector list: the note that answers it says `Token

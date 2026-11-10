@@ -59,7 +59,8 @@
 // `short`), so the check can name it; the build fails on it before it ships.
 //
 // Indexes: the full-text index `docs` on (:Section) heading and text, the
-// vector index `docs_vector` on (:Section) embedding (384 dimensions, cosine),
+// vector index `docs_vector` on (:Section) embedding (384 dimensions, cosine,
+// filterable on `page`),
 // and the full-text index `problems` on (:Problem) text.
 //
 // Extension points (DOCS-PLAN.md §3.5, §3.8): a label joins LABELS and a
@@ -757,6 +758,13 @@ export const EMBEDDING_DIMENSION = 384;
 export const EMBEDDING_PROPERTY = 'embedding';
 export const VECTOR_INDEX = 'docs_vector';
 /**
+ * The Section properties `docs_vector` declares with `WITH [...]`: a vector
+ * search may filter on them inside the search, before it ranks (ADR-0028).
+ * `page` lets a statement search only the sections of pages a traversal
+ * chose (`WHERE s.page IN $pages`), as the cookbook recipe does.
+ */
+export const VECTOR_FILTER_PROPERTIES = ['page'] as const;
+/**
  * The model, as the artifact records it. The transformers.js weights
  * (`onnx` at `revision`, fp32) and the Workers AI model are both
  * BAAI/bge-small-en-v1.5, so a query embedded on the docs MCP Worker with
@@ -1056,7 +1064,7 @@ export function seedScript(g: DocsGraph, { vectors = true }: { vectors?: boolean
     ...schemaLines(g),
     `//   (:Section).${EMBEDDING_PROPERTY}: VECTOR<FLOAT32>(${EMBEDDING_DIMENSION}), ${EMBEDDING_MODEL.id} (Workers AI ${EMBEDDING_MODEL.workers_ai}, ${EMBEDDING_MODEL.pooling} pooling, normalized), on ${g.vectors.size} of ${g.nodes.filter((n) => n.label === 'Section').length} sections`,
     `//   FULLTEXT INDEX ${FULLTEXT_INDEX} on (:Section) heading and text`,
-    `//   VECTOR INDEX ${VECTOR_INDEX} on (:Section) ${EMBEDDING_PROPERTY}, ${EMBEDDING_DIMENSION} dimensions, cosine`,
+    `//   VECTOR INDEX ${VECTOR_INDEX} on (:Section) ${EMBEDDING_PROPERTY}, ${EMBEDDING_DIMENSION} dimensions, cosine, filterable on ${VECTOR_FILTER_PROPERTIES.join(', ')}`,
     `//   FULLTEXT INDEX ${PROBLEMS_INDEX} on (:Problem) text`,
     '',
   ];
@@ -1101,7 +1109,7 @@ export function seedScript(g: DocsGraph, { vectors = true }: { vectors?: boolean
     '',
     `CREATE FULLTEXT INDEX ${FULLTEXT_INDEX} IF NOT EXISTS FOR (s:Section) ON EACH [s.heading, s.text];`,
     `CREATE FULLTEXT INDEX ${PROBLEMS_INDEX} IF NOT EXISTS FOR (n:Problem) ON EACH [n.text];`,
-    `CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR (s:Section) ON (s.${EMBEDDING_PROPERTY}) OPTIONS {indexConfig: {\`vector.dimensions\`: ${EMBEDDING_DIMENSION}, \`vector.similarity_function\`: 'cosine'}};`,
+    `CREATE VECTOR INDEX ${VECTOR_INDEX} IF NOT EXISTS FOR (s:Section) ON (s.${EMBEDDING_PROPERTY}) WITH [${VECTOR_FILTER_PROPERTIES.map((p) => `s.${p}`).join(', ')}] OPTIONS {indexConfig: {\`vector.dimensions\`: ${EMBEDDING_DIMENSION}, \`vector.similarity_function\`: 'cosine'}};`,
     '',
   );
   return lines.join('\n');
@@ -1179,17 +1187,30 @@ RETURN s.id AS id, s.page AS page, s.anchor AS anchor, s.heading AS heading, s.u
  * The cookbook recipe "Query the relate docs" loads a subset of this graph
  * from its `docs` data block, written by scripts/docs-recipe-data.ts and
  * compared with the graph by docs:check (checks/embeddings.ts). The subset
- * rule: every section of RECIPE_PAGES, its text cut to RECIPE_TEXT_CHARS with
- * whitespace collapsed, its vector rounded to four decimals; the pages, their
- * LINKS_TO and PREREQUISITE_OF among themselves; and RECIPE_QUESTIONS with
- * their vectors from the artifact's `queries`.
+ * rule: the whole graph's structure without vectors, as far as the recipe's
+ * steps read it (every published page with its LINKS_TO and PREREQUISITE_OF
+ * to pages, its USES_TERM and APPLIES_TO; every term with its short
+ * definition; every capability with its CITES, SOLVES and VERIFIED_BY, and
+ * every problem; every recipe with its DEMONSTRATES); every section of
+ * RECIPE_PAGES only, its text cut to RECIPE_TEXT_CHARS with whitespace
+ * collapsed, its vector rounded to four decimals; and RECIPE_QUESTIONS with
+ * their vectors from the artifact's `queries`. Left out: the other
+ * sections, examples, CLI commands and flags, the Index nodes, RELATED_TO
+ * and links to recipes, which no step reads.
  */
 export const RECIPE_SLUG = 'query-the-relate-docs';
 export const RECIPE_DATA_BLOCK = 'docs';
+/**
+ * The pages whose sections (with vectors) the recipe carries. The Python API
+ * reference is there for its `Cursor` class: on the whole graph, the
+ * recipe's Cursor question ranks that database cursor first, and the
+ * recipe's graph steps show how the graph sets it aside.
+ */
 export const RECIPE_PAGES = [
   'guides/agents/agent-safety',
   'guides/agents/connect-over-mcp',
   'guides/cypher/vector-search',
+  'reference/api/python',
   'reference/cypher/search',
 ] as const;
 export const RECIPE_TEXT_CHARS = 480;
@@ -1221,11 +1242,10 @@ export const RECIPE_NOTE = 'A subset of the relate docs graph (https://relatedb.
  */
 export function recipeData(g: DocsGraph, a: EmbeddingsArtifact | null): string {
   const byKey = new Map(g.nodes.map((n) => [nodeKey(n), n]));
-  const pages = RECIPE_PAGES.map((id) => {
+  for (const id of RECIPE_PAGES) {
     const p = byKey.get(`Page:${id}`);
     if (!p || p.props.status === 'planned') throw new Error(`the recipe's page \`${id}\` (RECIPE_PAGES in src/lib/docs/graph.ts) is not a published page of the docs graph`);
-    return p;
-  });
+  }
   const pageSet = new Set<string>(RECIPE_PAGES);
   const sections = g.nodes.filter((n) => n.label === 'Section' && pageSet.has(String(n.props.page)));
   const missing = sections.filter((s) => !g.vectors.has(s.id)).map((s) => s.id);
@@ -1237,19 +1257,69 @@ export function recipeData(g: DocsGraph, a: EmbeddingsArtifact | null): string {
     if (!e || e.sha256 !== sha256Hex(q)) throw new Error(`no fresh vector for the recipe question "${q}"; run \`${EMBEDDINGS_COMMAND}\``);
     return `{"q":${JSON.stringify(q)},"e":${vec(decodeVector(e.vector))}}`;
   });
-  const links = g.rels
-    .filter((r) => (r.type === 'LINKS_TO' || r.type === 'PREREQUISITE_OF') && r.from.label === 'Page' && r.to.label === 'Page' && pageSet.has(r.from.id) && pageSet.has(r.to.id))
-    .map((r) => JSON.stringify({ type: r.type, from: r.from.id, to: r.to.id }));
+  // The structure: every published page, term, capability, problem and recipe, and the relationships the steps read.
+  const published = new Set(g.nodes.filter((n) => n.label === 'Page' && n.props.status !== 'planned').map((n) => n.id));
+  const out = new Map<string, Map<string, Set<string>>>();
+  const verified = new Map<string, { label: string; id: string; cell: string }[]>();
+  for (const r of g.rels) {
+    const key = `${r.type}|${r.from.label}|${r.to.label}`;
+    const wanted =
+      key === 'LINKS_TO|Page|Page' || key === 'PREREQUISITE_OF|Page|Page'
+        ? published.has(r.from.id) && published.has(r.to.id)
+        : key === 'USES_TERM|Page|Term' || key === 'APPLIES_TO|Page|Surface'
+          ? published.has(r.from.id)
+          : key === 'CITES|Capability|Page'
+            ? published.has(r.to.id)
+            : key === 'SOLVES|Capability|Problem' || key === 'DEMONSTRATES|CookbookRecipe|Capability';
+    if (r.type === 'VERIFIED_BY' && r.from.label === 'Capability' && (r.to.label === 'CookbookRecipe' || published.has(r.to.id))) {
+      verified.set(r.from.id, [...(verified.get(r.from.id) ?? []), { label: r.to.label, id: r.to.id, cell: String(r.props.cell ?? '') }]);
+    }
+    if (!wanted) continue;
+    const byType = out.get(nodeKey(r.from)) ?? new Map<string, Set<string>>();
+    out.set(nodeKey(r.from), byType.set(r.type, (byType.get(r.type) ?? new Set()).add(r.to.id)));
+  }
+  const targets = (n: GraphNode, type: RelType) => [...(out.get(nodeKey(n))?.get(type) ?? [])].sort(cmp);
+  const ofLabel = (label: Label) => g.nodes.filter((n) => n.label === label && (label !== 'Page' || published.has(n.id)));
+  const problems = new Map(ofLabel('Problem').map((n) => [n.id, n]));
   const rows = (xs: string[]) => xs.map((x, i) => `    ${x}${i < xs.length - 1 ? ',' : ''}`).join('\n');
   return [
     '{',
     `  "kind": "documentation",`,
     `  "note": ${JSON.stringify(RECIPE_NOTE)},`,
     `  "pages": [`,
-    rows(pages.map((p) => JSON.stringify({ id: p.id, title: p.props.title, url: p.props.url }))),
+    rows(
+      ofLabel('Page').map((p) =>
+        JSON.stringify({
+          id: p.id,
+          title: p.props.title,
+          url: p.props.url,
+          links_to: targets(p, 'LINKS_TO'),
+          prerequisite_of: targets(p, 'PREREQUISITE_OF'),
+          uses_term: targets(p, 'USES_TERM'),
+          applies_to: targets(p, 'APPLIES_TO'),
+        }),
+      ),
+    ),
     `  ],`,
-    `  "links": [`,
-    rows([...new Set(links)]),
+    `  "terms": [`,
+    rows(ofLabel('Term').map((t) => JSON.stringify({ id: t.id, term: t.props.term, short: t.props.short }))),
+    `  ],`,
+    `  "capabilities": [`,
+    rows(
+      ofLabel('Capability').map((c) =>
+        JSON.stringify({
+          id: c.id,
+          title: c.props.title,
+          url: c.props.url,
+          cites: targets(c, 'CITES'),
+          solves: targets(c, 'SOLVES').map((id) => ({ id, kind: problems.get(id)?.props.kind, text: problems.get(id)?.props.text })),
+          verified_by: (verified.get(c.id) ?? []).sort((x, y) => cmp(`${x.label}:${x.id}`, `${y.label}:${y.id}`)),
+        }),
+      ),
+    ),
+    `  ],`,
+    `  "recipes": [`,
+    rows(ofLabel('CookbookRecipe').map((r) => JSON.stringify({ id: r.id, title: r.props.title, url: r.props.url, demonstrates: targets(r, 'DEMONSTRATES') }))),
     `  ],`,
     `  "sections": [`,
     rows(
@@ -1300,6 +1370,7 @@ export function graphJson(g: DocsGraph) {
       label: 'Section',
       property: EMBEDDING_PROPERTY,
       index: VECTOR_INDEX,
+      filters: [...VECTOR_FILTER_PROPERTIES],
       dimension: EMBEDDING_DIMENSION,
       similarity: 'cosine',
       model: EMBEDDING_MODEL.id,

@@ -622,7 +622,12 @@ const rustManifest = (template: string, file: string) => {
   return out;
 };
 
-const swiftManifest = (pkg: string) => `// swift-tools-version: 6.0
+/** The go.mod a Go sample is built in: module `relatesample`, the client replaced by `client` (RELATE_GO_CLIENT). */
+export const goModule = (client: string) =>
+  `module relatesample\n\ngo 1.22\n\nrequire github.com/relatedb/relate/clients/go v0.0.0\n\nreplace github.com/relatedb/relate/clients/go => ${client}\n`;
+
+/** The Package.swift a Swift sample is built in, depending on the package at `pkg` (RELATE_SWIFT_PACKAGE). */
+export const swiftManifest = (pkg: string) => `// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -699,10 +704,7 @@ function plan(sample: SampleSource, env: ClientEnv, runDir: string, buildDir: st
     case 'go': {
       const g = env.go!;
       writeFileSync(join(buildDir, file), code);
-      writeFileSync(
-        join(buildDir, 'go.mod'),
-        `module relatesample\n\ngo 1.22\n\nrequire github.com/relatedb/relate/clients/go v0.0.0\n\nreplace github.com/relatedb/relate/clients/go => ${g.client}\n`,
-      );
+      writeFileSync(join(buildDir, 'go.mod'), goModule(g.client));
       const libDir = dirname(g.lib);
       const exe = join(buildDir, 'sample');
       return [

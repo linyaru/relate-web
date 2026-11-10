@@ -46,6 +46,7 @@ import { docsGraph, seedScript } from '../graph.ts';
 import { docsIdOf } from '../links.ts';
 import { CANONICAL_PHRASE } from '../llms.ts';
 import { GENERATED_IDS } from '../model.ts';
+import { sampleArtifacts } from '../sample-manifests.ts';
 import {
   builtResults,
   citations,
@@ -329,14 +330,16 @@ export const GRAPH_SEED_PATH = '/docs/graph.cypher';
  * Artifacts the build generates rather than copies from public/, each byte
  * for byte what its endpoint serves: the docs graph's seed script
  * (src/pages/docs/graph.cypher.ts; the seed is deterministic,
- * src/lib/docs/graph.ts), the glossary as data (glossary.json.ts) and the
- * capability catalog (capabilities.json.ts).
+ * src/lib/docs/graph.ts), the glossary as data (glossary.json.ts), the
+ * capability catalog (capabilities.json.ts), and the verified samples' index
+ * and every manifest (samples.json.ts, [...sample].json.ts; ADR-0053).
  */
 export function builtArtifacts(): Served[] {
   return [
     { path: GRAPH_SEED_PATH, bytes: Buffer.from(seedScript(docsGraph())) },
     { path: GLOSSARY_JSON_PATH, bytes: Buffer.from(glossaryJsonText(readEngine().verified)) },
     { path: CAPABILITIES_JSON_URL, bytes: Buffer.from(capabilitiesJsonText()) },
+    ...sampleArtifacts(),
   ];
 }
 

@@ -2,7 +2,7 @@
 // docs:evals (DOCS-PLAN.md §3.8 "Evals and metrics" and "The cold-start
 // eval"; ADR-0029): runs the task suite in
 // scripts/evals/tasks.json through a headless coding agent under each of the
-// four conditions, grades what the agent leaves behind, prints a markdown
+// three conditions, grades what the agent leaves behind, prints a markdown
 // summary and records the scores in src/content/docs/_data/evals.json. A
 // person reviews the scores; no model grades them.
 //
@@ -25,7 +25,7 @@
 //
 // The command also gets, in its environment:
 //   DOCS_EVALS_TASK          the task id
-//   DOCS_EVALS_CONDITION     none, agents-md, skill or docs-mcp
+//   DOCS_EVALS_CONDITION     none, agents-md or skill
 //   DOCS_EVALS_STORE         the absolute path where the store must end up
 //   DOCS_EVALS_TRANSCRIPT    a file for its transcript (JSON Lines; the
 //                            dialects are in scripts/evals/harness.ts). When
@@ -34,8 +34,8 @@
 //   DOCS_EVALS_SYSTEM_PROMPT scripts/evals/system-prompt.md, which forbids
 //                            prior knowledge of relate; the command passes it
 //                            to its agent as a system prompt
-//   DOCS_EVALS_AGENTS_MD, DOCS_EVALS_SKILL_DIR, DOCS_EVALS_MCP_URL,
-//   DOCS_EVALS_MCP_CONFIG    the condition's files, also laid out in the
+//   DOCS_EVALS_AGENTS_MD, DOCS_EVALS_SKILL_DIR
+//                            the condition's files, also laid out in the
 //                            working directory where the agents look
 //                            (harness.ts `prepare`)
 //   DOCS_EVALS_ROOT          this repository's root, for naming its files
@@ -61,7 +61,7 @@
 //     DOCS_EVALS_AGENT="bash scripts/evals/agents/claude-code.sh" \
 //       node scripts/docs-evals.ts
 //     (reads ANTHROPIC_API_KEY. It runs --bare, which loads no CLAUDE.md,
-//     skill or MCP server by itself, under none, agents-md and docs-mcp, and
+//     skill or MCP server by itself, under none and agents-md, and
 //     passes each condition by flag; under skill it runs without --bare, since
 //     bare mode never lists the available skills to the model. Its header has
 //     the details. Its stream-json goes to stdout, which the harness reads as

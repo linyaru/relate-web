@@ -81,8 +81,8 @@ export interface Cookbook {
 
 const LANG_ALIASES: Record<string, string> = { sh: 'shellscript', bash: 'shellscript', shell: 'shellscript', js: 'javascript', py: 'python' };
 const LANGS = ['cypher', 'python', 'shellscript', 'json', 'javascript', 'rust'];
-// Code blocks stay dark in both themes.
-const THEME = 'github-dark-default';
+// Light and dark Shiki themes, emitted as CSS variables; cookbook.css picks one per site theme.
+const THEMES = { light: 'github-light-default', dark: 'github-dark-default' } as const;
 
 let cached: Promise<Cookbook> | null = null;
 
@@ -129,11 +129,11 @@ async function build(): Promise<Cookbook> {
     throw new Error(`the cookbook has ${problems.length} problem(s):\n\n${problems.join('\n\n')}`);
   }
 
-  const highlighter: Highlighter = await createHighlighter({ themes: [THEME], langs: LANGS });
+  const highlighter: Highlighter = await createHighlighter({ themes: [THEMES.light, THEMES.dark], langs: LANGS });
   const highlight = (code: string, lang: string) => {
     const l = LANG_ALIASES[lang] ?? lang;
     const known = highlighter.getLoadedLanguages().includes(l);
-    return highlighter.codeToHtml(code, { lang: known ? l : 'text', theme: THEME });
+    return highlighter.codeToHtml(code, { lang: known ? l : 'text', themes: THEMES, defaultColor: false });
   };
   const wasmGzipBytes = gzipSync(readFileSync(join(WASM_DIR, 'relate_bg.wasm'))).length;
   return { pages, highlight, wasmGzipBytes, verified: engineVersion(engine) };

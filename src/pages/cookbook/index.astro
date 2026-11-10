@@ -1,20 +1,20 @@
 ---
-// The cookbook's index: every recipe, grouped by category.
-import RecipeCard from '../../components/cookbook/RecipeCard.astro';
+// The cookbook's index: every recipe in one grid, filterable by category, level and a search word.
 import Cookbook from '../../layouts/Cookbook.astro';
-import { slugify } from '../../lib/cookbook/markdown.ts';
+import { pixels } from '../../lib/cookbook/pixel-icons.ts';
 import { byCategory } from '../../lib/cookbook/render.ts';
 import { cookbook } from '../../lib/cookbook/site.ts';
 
 const { pages } = await cookbook();
-const groups = byCategory(pages.map((p) => p.recipe));
-const used = new Set<string>();
+const recipes = byCategory(pages.map((p) => p.recipe)).flatMap((g) => g.recipes);
+const categories = [...new Set(recipes.map((r) => r.front.category))];
+const levels = ['Beginner', 'Intermediate', 'Advanced'].filter((l) => recipes.some((r) => r.front.level === l));
 ---
 <Cookbook
   title="Cookbook"
   description="Runnable Relate recipes: entity resolution, geospatial tools, dependency analysis, hybrid search, agent memory, and more, each running in your browser."
 >
-  <header class="page-head">
+  <header class="cb-hero">
     <p class="eyebrow"><a href="/">relate</a> / cookbook</p>
     <h1>Cookbook</h1>
     <p class="lede">
@@ -22,16 +22,84 @@ const used = new Set<string>();
       browser on Relate compiled to WebAssembly, and every recorded result is checked against the engine in CI.
     </p>
   </header>
-  {groups.map((g) => (
-    <section class="category" id={slugify(g.category, used)}>
-      <h2>{g.category}</h2>
-      <ul class="recipe-list">
-        {g.recipes.map((r) => <RecipeCard recipe={r} />)}
-      </ul>
-    </section>
-  ))}
-  <p class="index-foot">
-    The same Cypher runs from the CLI and from Python. Every recipe page publishes its data as JSON files
-    beside it, and its source as markdown.
-  </p>
+
+  <form class="cb-filters" role="search" aria-label="Filter recipes" onsubmit="return false">
+    <label class="cb-sel">
+      <span class="sr-only">Category</span>
+      <select id="cb-category">
+        <option value="">All categories</option>
+        {categories.map((c) => <option>{c}</option>)}
+      </select>
+      <svg class="cb-px" viewBox="0 0 5 3" width="10" height="6" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={pixels('down').d} /></svg>
+    </label>
+    <label class="cb-sel">
+      <span class="sr-only">Level</span>
+      <select id="cb-level">
+        <option value="">All levels</option>
+        {levels.map((l) => <option>{l}</option>)}
+      </select>
+      <svg class="cb-px" viewBox="0 0 5 3" width="10" height="6" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={pixels('down').d} /></svg>
+    </label>
+    <label class="cb-search">
+      <svg class="cb-px" viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={pixels('Search and retrieval').d} /></svg>
+      <span class="sr-only">Search recipes</span>
+      <input id="cb-query" type="search" placeholder="Search" autocomplete="off" />
+      <kbd aria-hidden="true">/</kbd>
+    </label>
+  </form>
+
+  <h2 class="cb-count" id="cb-count" aria-live="polite">All recipes</h2>
+  <ul class="cb-grid" id="cb-grid">
+    {recipes.map((r) => {
+      const icon = pixels(r.front.category);
+      return (
+        <li data-category={r.front.category} data-level={r.front.level} data-text={`${r.front.title} ${r.front.summary} ${r.front.category} ${r.front.level}`.toLowerCase()}>
+          <a class="cb-card" href={`/cookbook/${r.slug}/`}>
+            <svg class="cb-px" viewBox={`0 0 ${icon.w} ${icon.h}`} width={icon.w * 2} height={icon.h * 2} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d={icon.d} /></svg>
+            <span class="cb-title">{r.front.title}</span>
+            <span class="cb-sum">{r.front.summary}</span>
+            <span class="cb-meta">{r.front.category} <i>/</i> {r.front.level}</span>
+          </a>
+        </li>
+      );
+    })}
+  </ul>
+  <p class="cb-empty" id="cb-empty" hidden>No recipes match. Try another word or category.</p>
+
+  
 </Cookbook>
+
+<script>
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const category = $<HTMLSelectElement>('cb-category');
+  const level = $<HTMLSelectElement>('cb-level');
+  const query = $<HTMLInputElement>('cb-query');
+  const count = $('cb-count');
+  const empty = $('cb-empty');
+  const items = [...document.querySelectorAll<HTMLElement>('#cb-grid > li')];
+
+  function apply() {
+    const q = query.value.trim().toLowerCase();
+    let shown = 0;
+    for (const li of items) {
+      const ok =
+        (!category.value || li.dataset.category === category.value) &&
+        (!level.value || li.dataset.level === level.value) &&
+        (!q || (li.dataset.text ?? '').includes(q));
+      li.hidden = !ok;
+      if (ok) shown++;
+    }
+    const filtered = Boolean(q || category.value || level.value);
+    count.textContent = filtered ? `${shown} ${shown === 1 ? 'recipe' : 'recipes'}` : 'All recipes';
+    empty.hidden = shown > 0;
+  }
+  for (const el of [category, level]) el.addEventListener('change', apply);
+  query.addEventListener('input', apply);
+  document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement?.tagName ?? '';
+    if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
+      e.preventDefault();
+      query.focus();
+    }
+  });
+</script>

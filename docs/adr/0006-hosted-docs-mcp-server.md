@@ -70,6 +70,9 @@ URL>`, is documented beside it as the offline twin.
 
 - Amended by ADR-0011: the tool list grows (discovery, diagnostics,
   examples, skills, `run_recipe`), `search_docs` becomes hybrid, and the
-  Durable Object gives way to the Agents SDK's stateless handler.- Amended by ADR-0015: five tools plus resources and prompts; free Cypher
+  Durable Object gives way to the Agents SDK's stateless handler.
+- Amended by ADR-0015: five tools plus resources and prompts; free Cypher
   is `query_docs_graph`, gated on an engine deadline; threat model in
   ADR-0013.
+- Superseded by ADR-0057: the hosted docs MCP server is withdrawn before
+  launch; bringing it back is a new ADR.

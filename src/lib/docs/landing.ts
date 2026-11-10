@@ -18,6 +18,16 @@ export interface TaskGroup {
 export const LLMS_GROUPS = ['Evaluate', 'Get started', 'Agents', 'Guides', 'Reference', 'Concepts'] as const;
 export type LlmsGroup = (typeof LLMS_GROUPS)[number];
 
+/** What each group's card says it is for, on the landing page. */
+export const GROUP_BLURBS: Record<LlmsGroup, string> = {
+  Evaluate: 'Decide whether relate fits the problem, and what it does not do.',
+  'Get started': 'Install it and build a first graph, from the CLI or your language.',
+  Agents: 'Memory, MCP, the skill and the framework integrations.',
+  Guides: 'One task at a time: Cypher, embedding, serving, operating, migrating.',
+  Reference: 'Every command, flag, clause, function, API and error.',
+  Concepts: 'How relate works, and the trade-offs it makes.',
+};
+
 export const TASKS: TaskGroup[] = [
   {
     id: 'Evaluate',
@@ -50,8 +60,6 @@ export const TASKS: TaskGroup[] = [
       { text: 'Give an agent a memory', page: 'get-started/agent-memory' },
       { text: 'Install the agent skill', page: 'guides/agents/install-the-skill' },
       { text: 'Connect over MCP', page: 'guides/agents/connect-over-mcp' },
-      { text: 'Search these docs over MCP', page: 'reference/server/docs-mcp' },
-      { text: 'See how the hosted docs MCP is used', page: 'reference/server/docs-mcp-usage' },
       { text: 'Drive relate from an agent', page: 'guides/agents/drive-relate-from-an-agent' },
       { text: 'Keep an agent safe', page: 'guides/agents/agent-safety' },
       { text: 'Run relate in a sandbox', page: 'guides/agents/run-in-a-sandbox' },
@@ -213,7 +221,7 @@ export function llmsGroupOf(id: string): LlmsGroup {
   if (
     /^get-started\/agent-/.test(id) ||
     /^guides\/(agents|integrations)(\/|$)/.test(id) ||
-    ['concepts/agent-native', 'reference/cli/agent-mode', 'reference/server/docs-mcp', 'reference/server/docs-mcp-usage'].includes(id)
+    ['concepts/agent-native', 'reference/cli/agent-mode'].includes(id)
   ) {
     return 'Agents';
   }

@@ -54,12 +54,12 @@ import { sprite } from '../lib/home/sprites.ts';
 
 <style>
   .dgw { padding: 0 24px 120px; background: var(--surface-0); }
-  .dgt { max-width: 1232px; margin: 0 auto; padding: 0 0 56px; }
+  .dgt { max-width: var(--page-w); margin: 0 auto; padding: 0 0 56px; }
   .mb-t { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 64px; align-items: end; }
   .mb-t h2 { margin: 0; max-width: 16ch; font: 500 clamp(30px, 3.2vw, 48px) / 1.04 var(--font); letter-spacing: -.04em; }
   .mb-t .lede { margin: 0; max-width: 52ch; color: var(--ink-muted); font-size: 17px; line-height: 28px; }
 
-  .dgs { --lc: var(--line); max-width: 1232px; margin: 0 auto; border: 1px solid var(--line); background: var(--surface-0); }
+  .dgs { --lc: var(--line); max-width: var(--page-w); margin: 0 auto; border: 1px solid var(--line); background: var(--surface-0); }
   .dgs, .dgs :global(*) { box-sizing: border-box; }
   .dstage { display: flex; justify-content: center; padding: 96px 32px; background-color: var(--surface-2); border-bottom: 1px solid var(--line); }
   .ddg { display: grid; grid-template-columns: auto auto auto; align-items: start; justify-content: center; }
@@ -149,7 +149,7 @@ import { sprite } from '../lib/home/sprites.ts';
 </style>
 
 <script>
-  // The hub's dither bar: orange pixels in a Bayer pattern, with a soft front sweeping along it.
+  // The hub's dither bar: brand-colour pixels in a Bayer pattern, with a soft front sweeping along it.
   const cv = document.getElementById('dither') as HTMLCanvasElement | null;
   const ctx = cv?.getContext('2d');
   if (cv && ctx) {
@@ -171,7 +171,7 @@ import { sprite } from '../lib/home/sprites.ts';
     };
     const draw = (t: number) => {
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#F96746';
+      ctx.fillStyle = getComputedStyle(cv).getPropertyValue('--brand').trim() || '#0A6190';
       const head = ((t / 1000) * 0.35) % 1.35;
       for (let x = 0; x < cols; x++) {
         const d = head - x / cols;

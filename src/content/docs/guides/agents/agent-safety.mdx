@@ -233,18 +233,16 @@ echo "<sha256>  graph.rl" | sha256sum --strict -c - && relate --load ./graph.rl 
 
 ## Permission matrix
 
-What each control does on each surface. MCP stdio is `relate serve --mcp stdio`, MCP HTTP is `relate serve --mcp <port>`, and the hosted docs MCP server serves this documentation, not a store of yours (a launch-day target). "n/a" means the control does not exist on that surface.
+What each control does on each surface. MCP stdio is `relate serve --mcp stdio`, and MCP HTTP is `relate serve --mcp <port>`. "n/a" means the control does not exist on that surface.
 
-| Control | CLI | MCP stdio | MCP HTTP | Hosted docs MCP |
-| --- | --- | --- | --- | --- |
-| `--read-only` | Off by default. Writes fail with exit code 6; a directory store opens beside its writer | Off by default. With it, `write_cypher` is not listed; `read_cypher` refuses writes and schema changes in every mode | Same as MCP stdio | Always read-only, and rate-limited |
-| `--safe` | Off by default (`RELATE_SAFE_MODE`). Refuses a new named node without a label, an unbounded `MATCH` read, and a remote `--load` | `relate serve --safe`: the same statement refusals on every tool call, and a remote `--load` refused at startup | Same as MCP stdio | n/a |
-| `LOAD CSV` policy | Denied by default. `--load-csv-dir <dir>` or `RELATE_LOAD_CSV_DIR` allows regular files under one directory, 8 MiB each; no URLs | No flag; `RELATE_LOAD_CSV_DIR` in the server's environment only. `read_cypher` refuses `LOAD CSV`; `write_cypher` runs it | Same as MCP stdio | n/a |
-| `--fetch-params` and `--load` egress | `--fetch-params`: `http` or `https` URL or file, 64 MiB, 60 seconds, no allowlist. `--load`: `https` (or loopback `http`) `.rl` URL, 1 GiB, 300 seconds | `--fetch-params` is not a `serve` flag; parameters arrive in the tool call. `relate serve --load` fetches once, at startup, under the CLI's rules | Same as MCP stdio | n/a |
-| Extension tiers | `relate extension install`: first-party (signed channel, checked against the release key), GitHub pin (`--github`: tag, commit and asset SHA-256 recorded; a moved tag is refused), third party (`--url`: `https`, or `http` to a loopback host), local (`--from <dir>`). `relate run` runs installed packages only; an uninstalled name fails without fetching anything | n/a: the server's tools are `read_cypher`, `write_cypher`, and `get_schema` | n/a | n/a |
-| `upgrade` | `relate upgrade` installs the latest release after its signature and checksum pass, on macOS and Linux; `--check` changes nothing. It reinstalls the skill for every detected agent without asking once any of them holds a relate copy; with none, it asks first (`--yes` skips the question) | n/a | n/a | n/a |
-
-The [hosted docs MCP server](/docs/reference/server/docs-mcp) page describes that server's limits.
+| Control | CLI | MCP stdio | MCP HTTP |
+| --- | --- | --- | --- |
+| `--read-only` | Off by default. Writes fail with exit code 6; a directory store opens beside its writer | Off by default. With it, `write_cypher` is not listed; `read_cypher` refuses writes and schema changes in every mode | Same as MCP stdio |
+| `--safe` | Off by default (`RELATE_SAFE_MODE`). Refuses a new named node without a label, an unbounded `MATCH` read, and a remote `--load` | `relate serve --safe`: the same statement refusals on every tool call, and a remote `--load` refused at startup | Same as MCP stdio |
+| `LOAD CSV` policy | Denied by default. `--load-csv-dir <dir>` or `RELATE_LOAD_CSV_DIR` allows regular files under one directory, 8 MiB each; no URLs | No flag; `RELATE_LOAD_CSV_DIR` in the server's environment only. `read_cypher` refuses `LOAD CSV`; `write_cypher` runs it | Same as MCP stdio |
+| `--fetch-params` and `--load` egress | `--fetch-params`: `http` or `https` URL or file, 64 MiB, 60 seconds, no allowlist. `--load`: `https` (or loopback `http`) `.rl` URL, 1 GiB, 300 seconds | `--fetch-params` is not a `serve` flag; parameters arrive in the tool call. `relate serve --load` fetches once, at startup, under the CLI's rules | Same as MCP stdio |
+| Extension tiers | `relate extension install`: first-party (signed channel, checked against the release key), GitHub pin (`--github`: tag, commit and asset SHA-256 recorded; a moved tag is refused), third party (`--url`: `https`, or `http` to a loopback host), local (`--from <dir>`). `relate run` runs installed packages only; an uninstalled name fails without fetching anything | n/a: the server's tools are `read_cypher`, `write_cypher`, and `get_schema` | n/a |
+| `upgrade` | `relate upgrade` installs the latest release after its signature and checksum pass, on macOS and Linux; `--check` changes nothing. It reinstalls the skill for every detected agent without asking once any of them holds a relate copy; with none, it asks first (`--yes` skips the question) | n/a | n/a |
 
 MCP over HTTP also asks for HTTP Basic authentication by default: `relate serve` generates a token, prints it at startup, and keeps it in a `<store>.auth-token` file beside the store. MCP over stdio has no authentication, because the host that starts the server is its only client.
 

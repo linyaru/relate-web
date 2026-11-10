@@ -1,0 +1,48 @@
+---
+// The top bar for the docs and for recipe pages: full width, ruled underneath,
+// the lockup and the section's name on the left, the site links and search on
+// the right. A menu button opens the sidebar on phones (src/scripts/docs/chrome.ts).
+import Search from './Search.astro';
+import ThemeSwitch from '../ThemeSwitch.astro';
+
+interface Props {
+  /** The section this bar belongs to. */
+  section: 'Docs' | 'Cookbook';
+  /** Where the Playground link goes (a recipe page opens its recipe). */
+  playgroundHref?: string;
+  /** Whether a sidebar exists for the menu button to open. */
+  menu?: boolean;
+}
+const { section, playgroundHref = '/playground/', menu = true } = Astro.props;
+const GITHUB = 'https://github.com/relatedb/relate';
+const links = [
+  { href: '/docs/', label: 'Docs', current: section === 'Docs' },
+  { href: '/cookbook/', label: 'Cookbook', current: section === 'Cookbook' },
+  { href: playgroundHref, label: 'Playground', external: true },
+  { href: GITHUB, label: 'GitHub', external: true },
+];
+---
+<a class="skip" href="#main">Skip to content</a>
+<header class={`dh${section === 'Cookbook' ? ' dh--cookbook' : ''}`} id="top">
+  <div class="dh-in">
+    {menu && (
+      <button class="docs-nav-toggle" id="docsNavToggle" type="button" aria-controls="docsNav" aria-expanded="false" aria-label="Menu" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h18M3 16h18"></path></svg>
+      </button>
+    )}
+    <a class="dh-lockup" href="/" aria-label="relate, home" translate="no">
+      <svg class="lockup-mark" viewBox="0 0 49.5 10" aria-hidden="true"><use href="/lockup.svg#lockup" width="49.5" height="10" /></svg>
+    </a>
+    <span class="dh-sep" aria-hidden="true"></span>
+    <a class="dh-section" href={section === 'Docs' ? '/docs/' : '/cookbook/'}>{section}</a>
+    <nav class="dh-links" aria-label="Main">
+      {links.map((l) => (
+        <a href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} aria-current={l.current ? 'page' : undefined}>
+          {l.label}{l.external && <span aria-hidden="true">&nbsp;&#8599;</span>}{l.external && <span class="sr-only"> (opens in new tab)</span>}
+        </a>
+      ))}
+    </nav>
+    <ThemeSwitch />
+    <Search placeholder={section === 'Docs' ? 'Search docs' : 'Search docs and recipes'} />
+  </div>
+</header>

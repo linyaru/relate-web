@@ -2,14 +2,11 @@
    come from base.css; code blocks, cells, result tables, diagrams and buttons
    from cookbook.css (imported first by Docs.astro). Colours are tokens only. */
 
-/* The shell is wider than the site's 1080px container: three columns. */
-main.page:has(> .docs-shell) { max-width: 1400px; }
-
 .docs-shell a { color: var(--accent); text-underline-offset: 2px; }
 .docs-shell a:hover { color: var(--accent-hover); }
 .docs-shell [hidden] { display: none !important; }
-/* Anchors land below the site header (--header-h) and the sticky docs bar (52px). */
-.docs-shell [id] { scroll-margin-top: calc(var(--header-h) + 68px); }
+/* Anchors land below the sticky header (--header-h). */
+.docs-shell [id] { scroll-margin-top: calc(var(--header-h) + 16px); }
 .docs-shell code { font-family: var(--font-mono); font-size: 0.88em; }
 .docs-shell :not(pre) > code {
   background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px;
@@ -22,85 +19,21 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* ---------- Docs bar: menu toggle (phones), title, search ---------- */
-.docs-bar {
-  position: sticky; top: var(--header-h); z-index: 45;
-  display: flex; align-items: center; gap: 12px; height: 52px;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-}
-.docs-shell a.docs-bar-title { font-weight: 600; font-size: 15px; color: var(--fg); text-decoration: none; }
-.docs-nav-toggle {
-  display: none; align-items: center; gap: 6px; padding: 6px 10px;
-  font: 500 14px var(--font-sans); color: var(--fg-muted); cursor: pointer;
-  background: transparent; border: 1px solid var(--border); border-radius: 4px;
-}
-.docs-nav-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
-.docs-nav-toggle svg { width: 16px; height: 16px; }
-
-.docs-search { position: relative; margin-left: auto; width: min(340px, 100%); }
-.docs-search input {
-  width: 100%; padding: 7px 44px 7px 12px; font: 400 14px var(--font-sans);
-  color: var(--fg); background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
-}
-.docs-search input::placeholder { color: var(--fg-faint); }
-.docs-search input:focus { outline: none; border-color: var(--accent); }
-.search-key {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  font: 400 11px var(--font-mono); color: var(--fg-faint);
-  border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; pointer-events: none;
-}
-.search-results {
-  position: absolute; top: calc(100% + 6px); right: 0; width: min(520px, calc(100vw - 32px));
-  max-height: 70vh; overflow-y: auto; padding: 6px;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-overlay);
-}
-.docs-shell a.search-hit { display: block; padding: 8px 10px; border-radius: 6px; color: var(--fg); text-decoration: none; }
-.docs-shell a.search-hit:hover, .docs-shell a.search-hit:focus { background: var(--bg-alt); outline: none; }
-.hit-title { display: block; font-weight: 600; font-size: 14px; }
-.hit-excerpt { display: block; font-size: 13px; color: var(--fg-muted); line-height: 1.45; margin-top: 2px; }
-.hit-excerpt mark { background: var(--highlight); color: var(--on-highlight); border-radius: 2px; }
-.search-note { margin: 0; padding: 8px 10px; font-size: 13px; color: var(--fg-muted); }
-
 /* ---------- Grid: sidebar | content | on this page ---------- */
-.docs-grid { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 48px; }
-.docs-grid.has-toc { grid-template-columns: 236px minmax(0, 1fr); }
+.docs-grid { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); column-gap: 56px; }
 .docs-main { min-width: 0; max-width: 780px; padding-bottom: 32px; container: docs-main / inline-size; }
 .docs-grid > .docs-toc { grid-column: 2; grid-row: 1; }
 .docs-grid > .docs-main { grid-column: 2; grid-row: 2; }
 .docs-grid > .docs-sidebar { grid-column: 1; grid-row: 1 / span 2; }
 .docs-grid:not(.has-toc) > .docs-main { grid-row: 1; }
 @media (min-width: 1180px) {
-  .docs-grid.has-toc { grid-template-columns: 236px minmax(0, 1fr) 220px; }
+  .docs-grid.has-toc { grid-template-columns: var(--side-w) minmax(0, 1fr) 220px; }
   .docs-grid.has-toc > .docs-main { grid-row: 1; }
   .docs-grid > .docs-toc {
     grid-column: 3; grid-row: 1; align-self: start;
-    position: sticky; top: calc(var(--header-h) + 68px); max-height: calc(100vh - var(--header-h) - 84px); overflow-y: auto; padding-top: 32px;
+    position: sticky; top: var(--header-h); max-height: calc(100vh - var(--header-h)); overflow-y: auto; padding-top: 40px;
   }
 }
-
-/* ---------- Sidebar ---------- */
-.docs-sidebar {
-  align-self: start; position: sticky; top: calc(var(--header-h) + 52px);
-  max-height: calc(100vh - 108px); overflow-y: auto; padding: 24px 4px 40px 0; font-size: 14px;
-}
-.nav-section { margin-top: 20px; }
-.nav-section-title {
-  margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--fg-faint);
-}
-.docs-shell .nav-section-title a { color: inherit; text-decoration: none; }
-.nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.nav-list .nav-list { margin-left: 10px; padding-left: 8px; border-left: 1px solid var(--border); }
-.docs-shell .nav-list a {
-  display: block; padding: 4px 8px; border-radius: 4px; line-height: 1.35;
-  color: var(--fg-muted); text-decoration: none;
-}
-.docs-shell .nav-list a:hover { color: var(--fg); background: var(--bg-alt); }
-.docs-shell .nav-list a[aria-current='page'] { color: var(--fg); background: var(--bg-alt); font-weight: 600; }
-.nav-group > summary { cursor: pointer; padding: 4px 8px; color: var(--fg-muted); border-radius: 4px; }
-.nav-group > summary:hover { color: var(--fg); }
 
 /* ---------- On this page ---------- */
 .docs-toc { margin: 20px 0 0; font-size: 14px; }
@@ -124,17 +57,19 @@ main.page:has(> .docs-shell) { max-width: 1400px; }
 }
 
 /* ---------- Page head ---------- */
-.breadcrumb { margin-top: 28px; font: 400 13px var(--font-mono); color: var(--fg-muted); }
+.doc-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 28px; }
+.breadcrumb { font: 400 13px var(--font-mono); color: var(--fg-muted); }
 .breadcrumb ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 .breadcrumb li + li::before { content: '/'; margin-right: 4px; color: var(--fg-faint); }
 .docs-shell .breadcrumb a { color: inherit; text-decoration: none; }
 .docs-shell .breadcrumb a:hover { color: var(--fg); }
 .doc-head { padding: 8px 0 4px; }
-.landing-head { padding-top: 36px; }
+
 .doc-head h1 { font-size: clamp(30px, 5vw, 40px); line-height: 1.15; letter-spacing: -0.02em; margin: 8px 0 10px; }
 .doc-head .lede { font-size: 19px; color: var(--fg-muted); margin: 0; }
 .doc-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
-.page-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.page-actions .btn { padding: 3px 10px; font-size: 12.5px; }
 .doc-prereqs { margin: 20px 0 0; font-size: 15px; color: var(--fg-muted); }
 @media (max-width: 600px) { .doc-head .lede { font-size: 17px; } }
 
@@ -241,8 +176,8 @@ span.term { text-decoration: underline dotted var(--fg-muted); text-underline-of
 .docs-body .out-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .docs-stub { color: var(--fg-muted); font-style: italic; }
 
-/* The engine bar (cookbook.css) sticks under the docs bar, not under the site header. */
-.docs-shell .engine-bar { top: calc(var(--header-h) + 56px); margin: 20px 0 4px; }
+/* The engine bar (cookbook.css) sticks under the header. */
+.docs-shell .engine-bar { margin: 20px 0 4px; }
 .docs-shell a.btn.icon-only { color: var(--fg-muted); }
 .docs-shell a.btn.icon-only:hover { color: var(--fg); }
 /* A graph result's static form: the page's picture of the graph without JavaScript. */
@@ -303,47 +238,21 @@ docs-element > [hidden] { display: none; }
 .docs-shell .doc-foot a { color: var(--fg-muted); text-decoration: none; }
 .docs-shell .doc-foot a:hover { color: var(--fg); }
 
-/* ---------- Landing ---------- */
-.landing-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 0; }
-.landing-buttons .btn { font-size: 15px; padding: 10px 16px; }
+/* ---------- Landing: see the end of this file ---------- */
 .btn.is-pending { opacity: 0.6; cursor: default; }
 .is-pending { color: var(--fg-faint); }
 .docs-main section { margin-top: 44px; }
 /* An element's own <section>s (plan panes, MCP calls, ranked lists) are not page sections: their grid spaces them. */
 .docs-main docs-element section { margin-top: 0; }
 .docs-main section > h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 14px; }
-.task-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px 32px; }
-.task-group h3 {
-  margin: 0 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--fg-faint);
-}
-.task-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
-.doors { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.doors li { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt); }
-.doors li > a, .door-title { font-weight: 600; }
-.door-title { color: var(--fg-muted); }
-.doors li > span:last-child { font-size: 14px; color: var(--fg-muted); line-height: 1.45; }
-.landing-install p, .landing-agents p { color: var(--fg-muted); font-size: 15px; line-height: 1.6; }
 
-/* ---------- Narrow screens: the sidebar becomes the docs bar's menu ---------- */
+/* ---------- Narrow screens: one column; the sidebar is the header's menu (docs-chrome.css) ---------- */
 @media (max-width: 900px) {
   .docs-grid, .docs-grid.has-toc { grid-template-columns: minmax(0, 1fr); }
   .docs-grid > .docs-toc, .docs-grid > .docs-main, .docs-grid > .docs-sidebar { grid-column: 1; }
-  .docs-grid > .docs-sidebar { grid-row: auto; position: static; max-height: none; padding: 8px 0 0; }
   .docs-grid > .docs-toc { grid-row: 2; }
   .docs-grid > .docs-main { grid-row: 3; }
   .docs-grid:not(.has-toc) > .docs-main { grid-row: 2; }
-  .docs-nav-toggle { display: inline-flex; }
-  .docs-bar-title { display: none; }
-  .docs-search { width: auto; flex: 1; }
-  .search-key { display: none; }
-  /* With the script, the sidebar is a panel under the docs bar, like the header's menu. */
-  .docs-shell[data-nav-js] .docs-sidebar {
-    position: fixed; top: calc(var(--header-h) + 56px); left: 16px; right: 16px; z-index: 46; display: none;
-    max-height: calc(100vh - 124px); overflow-y: auto; padding: 4px 12px 16px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-overlay);
-  }
-  .docs-shell[data-nav-js] .docs-sidebar.open { display: block; }
 }
 @media (max-width: 600px) {
   .prev-next { grid-template-columns: 1fr; }
@@ -414,3 +323,124 @@ docs-element > [hidden] { display: none; }
   border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 8px;
 }
 .lang-picker-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Landing (/docs/): on the site shell, no sidebar ---------- */
+.is-landing { padding-bottom: 32px; }
+.is-landing .docs-main { max-width: none; }
+.is-landing .eyebrow { font-family: var(--font-mono); font-size: 13px; color: var(--ink-muted); margin: 0 0 8px; }
+.docs-shell .eyebrow a { color: inherit; text-decoration: none; }
+.landing-search { margin: 28px 0 0; }
+.landing-search .docs-search { width: min(520px, 100%); }
+.landing-search .docs-search input { height: 48px; padding: 0 56px 0 16px; font-size: 15px; border-radius: 8px; }
+.is-landing section { margin-top: 64px; }
+.is-landing section > h2 { font: 500 26px/1.2 var(--font); letter-spacing: -0.02em; margin: 0 0 20px; }
+
+/* "I want to…": one ruled grid of cards, as on the cookbook index. */
+.task-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch;
+  list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+}
+.task-card {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 24px;
+  background: var(--surface-0); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.task-card .cb-px { color: var(--ink-muted); flex: none; }
+.task-card h3 { margin: 0; font: 500 20px/26px var(--font); letter-spacing: -0.02em; }
+.task-blurb { margin: -4px 0 4px; color: var(--ink-muted); font-size: 15px; line-height: 24px; }
+.task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 15px; line-height: 22px; }
+.task-list li { padding: 7px 0; border-top: 1px solid var(--line); }
+.docs-shell .task-list a { color: var(--ink); text-decoration: none; }
+.docs-shell .task-list a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+/* A card's heading links into its section; a footer link repeats it. */
+.docs-shell .task-card h3 a { color: var(--ink); text-decoration: none; }
+.docs-shell .task-card h3 a:hover { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.docs-shell a.task-all {
+  margin-top: auto; padding-top: 4px; font: 500 11px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-muted); text-decoration: none;
+}
+.docs-shell a.task-all:hover { color: var(--ink); }
+.task-list + .task-all { margin-top: auto; }
+
+/* The top of the page: the title on its own row, then "For you" and "For your agent" side by side. */
+.is-landing .landing-title { padding: 72px 0 0; }
+.is-landing .landing-title h1 { font-size: clamp(40px, 5vw, 64px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; margin: 0; }
+.landing-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: start; margin-top: 40px; }
+@media (min-width: 1000px) { .landing-top { grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 64px; } }
+.col-label { margin: 0 0 6px; font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.is-landing .landing-title .lede { margin: 20px 0 0; font-size: 19px; line-height: 1.6; color: var(--ink-muted); max-width: 720px; }
+.you-card, .is-landing .agent-card { margin: 0; padding: 24px; border: 1px solid var(--line); background: var(--surface-0); }
+.you-card { display: flex; flex-direction: column; }
+.you-card h2, .is-landing .agent-card h2 { font: 500 20px/26px var(--font); letter-spacing: -0.02em; margin: 0 0 16px; }
+@media (min-width: 1000px) { .landing-top { align-items: stretch; } }
+/* The search field, square like the cards around it. */
+.you-card .landing-search { margin: 0; }
+.you-card .docs-search { width: 100%; }
+.you-card .docs-search input { height: 48px; padding: 0 56px 0 16px; font-size: 15px; border-radius: 0; background: var(--surface-0); border-color: var(--line-strong, var(--line)); }
+.you-card .docs-search input:focus { border-color: var(--ink); }
+.you-card .search-results { left: 0; right: auto; width: min(520px, 100%); }
+
+/* Quick links: icon, label, arrow; ruled rows under the search. */
+.quick-links { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.quick-links li { border-bottom: 1px solid var(--line); }
+.docs-shell .quick-links a, .quick-links .ql-pending {
+  display: flex; align-items: center; gap: 14px; padding: 15px 4px;
+  color: var(--ink); text-decoration: none; font-size: 16px; font-weight: 500; letter-spacing: -0.01em;
+  transition: background-color .15s, padding .15s;
+}
+.docs-shell .quick-links a:hover { background: var(--surface-2); color: var(--ink); padding-inline: 12px; }
+.quick-links .cb-px { flex: none; width: 20px; color: var(--ink-muted); }
+.quick-links a:hover .cb-px { color: var(--ink); }
+.ql-text { flex: 1; min-width: 0; }
+.ql-arrow { font-family: var(--font-mono); color: var(--ink-muted); transition: transform .15s, color .15s; }
+.quick-links a:hover .ql-arrow { transform: translateX(3px); color: var(--ink); }
+.ql-pending { color: var(--ink-muted); }
+
+.agent-card .tabs { margin: 8px 0 0; }
+.agent-card .tab-panel { min-height: 118px; } /* both install panels hold a box and a note: the card never changes height */
+.agent-card .tab-panel .code-block { margin: 12px 0 0; }
+.agent-card .tab-panel .code-block pre { min-height: 56px; display: flex; align-items: center; margin: 0; }
+.agent-card .agent-note { margin: 10px 0 0; min-height: 44px; color: var(--ink-muted); font-size: 14px; line-height: 1.55; }
+.agent-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 16px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.agent-actions [hidden] { display: none; }
+.docs-shell button.agent-copy {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; cursor: pointer;
+  font: 500 14px var(--font-sans); color: var(--surface-0); background: var(--ink); border: 0; border-radius: 8px;
+  transition: opacity .15s;
+}
+.docs-shell button.agent-copy:hover { opacity: .88; }
+.docs-shell button.agent-copy:focus-visible { outline: 2px solid var(--focus, var(--ink)); outline-offset: 2px; }
+.docs-shell button.agent-copy.is-done { background: var(--success); color: var(--on-accent, var(--surface-0)); }
+.agent-copy .ic-check, .agent-copy.is-done .ic-copy { display: none; }
+.agent-copy.is-done .ic-check { display: inline; }
+.docs-shell a.agent-link { font: 500 14px var(--font-sans); color: var(--ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.docs-shell a.agent-link:hover { color: var(--ink-muted); }
+.agent-card { display: flex; flex-direction: column; }
+.agent-card .agent-actions { margin-top: auto; }
+
+/* "Using the docs with an agent": the same grid, text cells. */
+.landing-use .task-blurb { margin: 0; }
+.landing-use .task-card .code-block { margin: 4px 0 0; }
+.landing-use .task-blurb a { color: var(--ink); text-underline-offset: 3px; }
+.landing-use .task-card a.task-all { margin-top: auto; }
+
+/* Cookbook examples under the index. */
+.section-note { margin: -8px 0 20px; color: var(--ink-muted); font-size: 15px; }
+.section-more { margin: 20px 0 0; font-size: 15px; }
+.docs-shell .section-more a { color: var(--ink); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.landing-cookbook .cb-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .task-grid, .landing-cookbook .cb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .is-landing .landing-title { padding: 48px 0 0; }
+  .is-landing .landing-title .lede { font-size: 17px; }
+  .task-grid, .landing-cookbook .cb-grid { grid-template-columns: 1fr; }
+}
+.landing-search .search-results { left: 0; right: auto; }
+
+/* The section being read (scripts/docs/toc-spy.ts). */
+.docs-shell .docs-toc a[aria-current='location'] { color: var(--fg); font-weight: 500; }
+@media (min-width: 1180px) {
+  .docs-toc ol { border-left: 1px solid var(--border); gap: 8px; }
+  .docs-shell .docs-toc a { padding-left: 12px; margin-left: -1px; border-left: 2px solid transparent; }
+  .docs-shell .docs-toc a[aria-current='location'] { border-left-color: var(--ink); }
+}

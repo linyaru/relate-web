@@ -5,15 +5,20 @@
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import '../styles/base.css';
-interface Props { title: string; description?: string; playgroundHref?: string }
-const { title, description = '', playgroundHref } = Astro.props;
+interface Props {
+  title: string;
+  description?: string;
+  playgroundHref?: string;
+  /** `docs` swaps the top bar for the slotted docs header and lets the page fill the width (docs pages, recipe pages). */
+  chrome?: 'site' | 'docs';
+}
+const { title, description = '', playgroundHref, chrome = 'site' } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
     <title>{title} — relate</title>
     {description && <meta name="description" content={description} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -24,8 +29,8 @@ const { title, description = '', playgroundHref } = Astro.props;
     <slot name="head" />
   </head>
   <body>
-    <Header playgroundHref={playgroundHref} />
-    <main class="page container" id="main">
+    {chrome === 'docs' ? <slot name="header" /> : <Header playgroundHref={playgroundHref} />}
+    <main class={chrome === 'docs' ? 'page' : 'page container'} id="main">
       <slot />
     </main>
     <Footer />

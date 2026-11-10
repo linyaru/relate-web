@@ -25,7 +25,7 @@ export const CANONICAL_PHRASE = 'relate, the embedded Cypher graph database (rel
 export function factsBlock(engine: Engine): string {
   const v = engine.version;
   return [
-    `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}. Not the Neo4j Desktop Relate framework.`,
+    `Current release: ${v}${engine.date ? ` (${engine.date})` : ''}.`,
     ...(engine.sourceBuild
       ? [
           `Before launch these pages are recorded from a source build of upstream ${engine.commit ?? '(unknown commit)'} that reports ${engine.verified} and includes engine changes made after the ${engine.verified} release; they are re-recorded from a published release at launch.`,
@@ -39,7 +39,6 @@ export function factsBlock(engine: Engine): string {
     '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',
     '- Exit codes: 0 success, 1 runtime failure, 2 usage error, 5 conflict or locked store (a query run; `relate serve` exits 1 on a locked store), 6 statement rejected (syntax, type, or a write on a read-only store), 7 timeout.',
     '- MCP for a local agent: `relate serve --mcp stdio --database ./graph.rl --read-only`.',
-    `- The docs over MCP: \`${CANONICAL_ORIGIN}/mcp\` (streamable HTTP, read-only, no account; tools \`search_docs\`, \`get_page\`, \`explain_error\`, \`validate_cypher\`, \`discover_capabilities\`). Claude Code: \`claude mcp add --transport http relate-docs ${CANONICAL_ORIGIN}/mcp\`. Limits and threat model: \`${CANONICAL_ORIGIN}${twinUrl('reference/server/docs-mcp')}\`.`,
     '- `relate agent-context` prints the command index, flags and exit codes of the installed version; `relate skill install` adds the agent skill.',
     `- The agent skill as files: \`${CANONICAL_ORIGIN}/skill.md\`. The docs as a graph: \`${CANONICAL_ORIGIN}/docs/graph.cypher\` (Cypher seed; also \`${CANONICAL_ORIGIN}/docs/graph.json\`).`,
     `- Task skills, one per task family (agent memory, GraphRAG, schema design, query tuning, migrating from vector search): the "Task skills" section of \`${CANONICAL_ORIGIN}/skill.md\`, each at \`${CANONICAL_ORIGIN}/skills/<name>/SKILL.md\`; the skills CLI installs one by name (\`npx skills add ${CANONICAL_ORIGIN} --skill <name>\`).`,

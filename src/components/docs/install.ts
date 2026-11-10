@@ -235,12 +235,6 @@ function agentBlocks(v: string): Block[] {
         'and sets the safe defaults: machine output, stores opened read-only until you ask for writes, and exit codes to branch on.',
     },
     text(agentPrompt(v)),
-    {
-      p:
-        'The relate documentation is also an MCP server that needs no install: `claude mcp add --transport http relate-docs https://relatedb.ai/mcp` ' +
-        'adds it to Claude Code, and [Connect over MCP](/docs/guides/agents/connect-over-mcp#add-the-relate-docs-server) has the entry for each other host. ' +
-        'The URL is a launch-day target.',
-    },
   ];
 }
 
@@ -300,7 +294,7 @@ export function pinnedBlocks(v: string): Block[] {
 export function agentsMd(v: string): string {
   return `## relate
 
-relate, the embedded Cypher graph database (relatedb.ai). This repository uses version ${v}. Not the Neo4j Desktop Relate framework.
+relate, the embedded Cypher graph database (relatedb.ai). This repository uses version ${v}.
 
 - Install, pinned and verified: https://relatedb.ai/docs/get-started/install.md (the "Pinned binary" steps)
 - Check: \`relate --version\` prints \`${VERSION_LINE}\`

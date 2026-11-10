@@ -4,10 +4,10 @@ label: Docs graph
 description: The relate docs as a graph of pages, sections, examples, terms, CLI facts and capabilities, the files it ships as, and what runs on it.
 order: 85
 surfaces: [cypher, mcp, agents]
-related: [reference/server/docs-mcp, cookbook/query-the-relate-docs, guides/agents/connect-over-mcp, concepts/problems-relate-solves]
+related: [cookbook/query-the-relate-docs, guides/agents/connect-over-mcp, concepts/problems-relate-solves]
 ---
 
-The relate documentation is also published as a graph. Every page, heading, code example, glossary term, CLI command and flag, cookbook recipe, capability and problem is a :term[node]{id=node}, and the links between pages, the prerequisites, the terms a page uses and the flags it documents are :term[relationships]{id=relationship}. The build writes the graph from the same files as the pages, so it says what the pages say, at the version in the page header. It ships as a Cypher seed script, as JSON and, from launch, as a relate :term[store]{id=store}; the [hosted docs MCP server](/docs/reference/server/docs-mcp) and the cookbook recipe [Query the relate docs](/cookbook/query-the-relate-docs/) search it. The view on this page draws its pages, grouped by section, below the tables of its labels and relationship types.
+The relate documentation is also published as a graph. Every page, heading, code example, glossary term, CLI command and flag, cookbook recipe, capability and problem is a :term[node]{id=node}, and the links between pages, the prerequisites, the terms a page uses and the flags it documents are :term[relationships]{id=relationship}. The build writes the graph from the same files as the pages, so it says what the pages say, at the version in the page header. It ships as a Cypher seed script, as JSON and, from launch, as a relate :term[store]{id=store}; the cookbook recipe [Query the relate docs](/cookbook/query-the-relate-docs/) searches it. The view on this page draws its pages, grouped by section, below the tables of its labels and relationship types.
 
 ## Synopsis
 
@@ -85,7 +85,6 @@ The view draws each published page as a node, one cluster and one color per sect
 
 | Reader | How it loads the graph | What it offers |
 | --- | --- | --- |
-| [The hosted docs MCP server](/docs/reference/server/docs-mcp) | Replays the seed script without its vectors on the WASM engine, and loads the vectors on the first hybrid search | Five tools; when Workers AI answers, `search_docs` fuses a vector search and a full-text search over the sections by reciprocal rank, and otherwise it is the full-text search alone |
 | relate's own [MCP server](/docs/reference/server/mcp), on the reader's machine | `--load` of `relate-docs.rl` into an in-memory store | `read_cypher` and `get_schema` over the whole graph; `write_cypher` is not listed on a read-only store |
 | The recipe [Query the relate docs](/cookbook/query-the-relate-docs/) | The graph's pages, terms, capabilities and recipes with the sections of five pages and their vectors, in the recipe's data block, run in the browser | Vector search over the sections, then traversals that expand the hits into context, scope the search and reach the capability behind the answer, step by step |
 
@@ -95,16 +94,27 @@ The local form serves the docs graph to an MCP host over stdio. The URL is a lau
 relate serve --mcp stdio --database :memory: --load https://relatedb.ai/docs/relate-docs.rl --read-only
 ```
 
-A store opened read-only lists `read_cypher` and `get_schema`, not `write_cypher` ([read-only policy](/docs/reference/server/mcp#read-only-policy)), and `--load` into `:memory:` opens it read-only. `--safe` refuses a remote `--load` source; [the local equivalent](/docs/reference/server/docs-mcp#the-local-equivalent) downloads the store, checks its SHA-256 and loads the local copy.
+A store opened read-only lists `read_cypher` and `get_schema`, not `write_cypher` ([read-only policy](/docs/reference/server/mcp#read-only-policy)), and `--load` into `:memory:` opens it read-only. `--safe` refuses a remote `--load` source, so the checked path is to download the store, compare its SHA-256 with the published value, and load the local copy. In this block, `<sha256>` is the value in `relate-docs.rl.sha256`, and the search runs only when it matches; on macOS, `shasum -a 256 --strict -c -` stands in for `sha256sum --strict -c -`:
+
+```bash
+curl -sSfLO https://relatedb.ai/docs/relate-docs.rl
+echo "<sha256>  relate-docs.rl" | sha256sum --strict -c - && relate --load ./relate-docs.rl --mode envelope "MATCH (s:Section) SEARCH s IN (FULLTEXT INDEX docs FOR 'exit code' LIMIT 5) SCORE AS score RETURN s.page AS page, s.heading AS heading, s.url AS url, score"
+```
+
+The downloaded store served to an MCP host. A relative path resolves against the directory the host starts the server in:
+
+```bash
+claude mcp add relate-docs-local -- relate serve --mcp stdio --database :memory: --load <absolute-path>/relate-docs.rl --read-only
+```
 
 ## Examples
 
 Over the store, or the seed script replayed into an empty one, these statements read the graph. Their results change as the pages do.
 
-The pages that link to the hosted docs MCP server's page:
+The pages that link to the MCP server reference:
 
 ```cypher
-MATCH (p:Page)-[:LINKS_TO]->(:Page {id: 'reference/server/docs-mcp'})
+MATCH (p:Page)-[:LINKS_TO]->(:Page {id: 'reference/server/mcp'})
 RETURN DISTINCT p.id AS page, p.section AS section ORDER BY page
 ```
 
@@ -124,7 +134,6 @@ RETURN [n IN nodes(path) | n.id] AS chain ORDER BY length(path) DESC
 
 ## See also
 
-- [The hosted docs MCP server](/docs/reference/server/docs-mcp): the tools over this graph, and the local equivalent.
 - [Query the relate docs](/cookbook/query-the-relate-docs/): vector search and graph traversals over a part of this graph, in the browser.
 - [MCP server](/docs/reference/server/mcp): relate's own server, which the local form runs.
 - [The capability catalog](/docs/concepts/problems-relate-solves): the source of the `Capability` and `Problem` nodes.

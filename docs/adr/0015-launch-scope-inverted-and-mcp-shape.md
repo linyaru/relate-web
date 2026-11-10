@@ -95,3 +95,5 @@ security reviewer) agreed on four structural findings:
   `text-to-cypher` prompt, the capability, example and task-skill
   resources, and hybrid `search_docs`; `query_docs_graph` stays gated and
   there is no `run_recipe`.
+- Amended by ADR-0057: the hosted docs MCP server is withdrawn before
+  launch. The docs graph and its seed script stay.

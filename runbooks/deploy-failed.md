@@ -15,8 +15,7 @@ gh run view <run-id> -R relatedb/relate-web --json jobs -q '.jobs[].steps[]|sele
 ```
 
 The failed step name tells you the layer. Both deploy workflows run the same
-steps in this order (Cloudflare adds the negotiation check, the deploy and the
-Worker):
+steps in this order (Cloudflare adds the negotiation check and the deploy):
 
 | Failed step | Cause | Fix |
 | --- | --- | --- |
@@ -30,7 +29,6 @@ Worker):
 | `Check content negotiation` (Cloudflare) | The Pages Function in `functions/` misbehaves under `wrangler pages dev`. | `npm run docs:negotiation-check` after a build. |
 | `Sanity check` | An expected file is missing from `dist/` (`index.html`, `wasm/relate.js`, `wasm/relate_bg.wasm`, `playground/index.html`, `CNAME`, `install.sh`, `releases.json`, `extensions.json`). | `ls dist`; usually a build or fetch problem upstream of this step. |
 | `Deploy to Cloudflare Pages` | Bad or missing token, or the project does not exist. | Check `CLOUDFLARE_API_TOKEN` (Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID`; the project is `relate-web` (`npx wrangler pages project create relate-web --production-branch main`). |
-| Worker bundle / check / deploy (Cloudflare, `main` only) | The docs MCP Worker. | [docs-mcp-worker.md](docs-mcp-worker.md). |
 | `configure-pages` / `deploy-pages` | Pages is not set to "GitHub Actions", or the custom domain is unset. | [dns-and-hosts.md](dns-and-hosts.md). |
 
 ## Not red, but nothing changed
@@ -49,7 +47,7 @@ Worker):
 
 ```bash
 gh run list -R relatedb/relate-web -L 3        # newest Deploy site run: success
-curl -s https://r31473.relatedb.ai/ | grep -o '<title>[^<]*'
+curl -s https://relatedb.ai/ | grep -o '<title>[^<]*'
 ```
 
 ## Roll back

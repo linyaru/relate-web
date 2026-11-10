@@ -1,0 +1,87 @@
+# Checks the Cloudflare Pages Functions in functions/ locally under workerd
+# (DOCS-PLAN.md §8 check 3c; ADR-0012): builds the site, then runs
+# docs:negotiation-check (scripts/docs-negotiation-check.ts) under `wrangler
+# pages dev`: Accept: text/markdown returns the twin, ?section= one section,
+# browsers the HTML, and no URL that is not a page answers with markdown. It
+# needs no Cloudflare account, login or secret.
+#
+# Runs on a paths filter, so it is not a required status check (AGENTS.md
+# lists the required one, cookbook.yml). A failure prints the case and what
+# came back; run `npm run docs:negotiation-check` after `npm run build` to
+# reproduce it.
+name: Docs content negotiation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "scripts/docs-negotiation-check.ts"
+      - "src/content/docs/**"
+      - "src/lib/docs/**"
+      - "public/skills/**"
+      - "public/skill.md"
+      - "public/llms.txt"
+      - "public/_routes.json"
+      - "src/pages/docs/**"
+      - "src/pages/.well-known/**"
+      - "src/components/docs/**"
+      - "src/layouts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docs-negotiation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "scripts/docs-negotiation-check.ts"
+      - "src/content/docs/**"
+      - "src/lib/docs/**"
+      - "public/skills/**"
+      - "public/skill.md"
+      - "public/llms.txt"
+      - "public/_routes.json"
+      - "src/pages/docs/**"
+      - "src/pages/.well-known/**"
+      - "src/components/docs/**"
+      - "src/layouts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docs-negotiation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-negotiation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Full history: each docs page's "Updated" date is its file's last commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            playground/package-lock.json
+
+      - run: npm ci
+
+      # The playground is its own package; `npm run build` builds it into dist/playground.
+      - run: npm ci --prefix playground
+
+      - name: Build site
+        run: npm run build
+
+      - name: Check content negotiation
+        run: npm run docs:negotiation-check

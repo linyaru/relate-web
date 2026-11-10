@@ -1,0 +1,88 @@
+---
+// The bar under a recipe page's header: a way back to every recipe, a picker that lists them
+// by category with each one's summary and level and filters as you type, and the neighbours.
+// The picker is a <details>, so it opens without JavaScript; the filter is the script's.
+import { byCategory } from '../../lib/cookbook/render.ts';
+import { cookbook } from '../../lib/cookbook/site.ts';
+
+interface Props {
+  /** The current recipe's slug. */
+  current: string;
+}
+const { current } = Astro.props;
+const { pages } = await cookbook();
+const groups = byCategory(pages.map((p) => p.recipe));
+const all = groups.flatMap((g) => g.recipes);
+const i = all.findIndex((r) => r.slug === current);
+const here = all[i];
+const prev = i > 0 ? all[i - 1] : null;
+const next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
+---
+<div class="rb" data-pagefind-ignore>
+  <div class="rb-in">
+    <a class="rb-all" href="/cookbook/">All recipes</a>
+    <span class="rb-slash" aria-hidden="true">/</span>
+    <details class="rb-picker" id="rbPicker">
+      <summary aria-label="Choose a recipe">
+        <span class="rb-current">{here?.front.title ?? 'Recipes'}</span>
+        {here && <span class="rb-cat">{here.front.category}</span>}
+        <span class="rb-chev" aria-hidden="true"></span>
+      </summary>
+      <div class="rb-panel">
+        <div class="rb-filter">
+          <label class="sr-only" for="rbFilter">Filter recipes</label>
+          <input id="rbFilter" type="search" placeholder={`Filter ${all.length} recipes`} autocomplete="off" spellcheck="false" />
+        </div>
+        {groups.map((g) => (
+          <section class="rb-group">
+            <h2>{g.category}</h2>
+            <ul>
+              {g.recipes.map((r) => (
+                <li data-text={`${r.front.title} ${r.front.summary} ${r.front.category} ${r.front.level}`.toLowerCase()}>
+                  <a class="rb-item" href={`/cookbook/${r.slug}/`} aria-current={r.slug === current ? 'page' : undefined}>
+                    <strong>{r.front.title}</strong>
+                    <span class="rb-sum">{r.front.summary}</span>
+                    <span class="rb-level">{r.front.level}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <p class="rb-empty" id="rbEmpty" hidden>No recipes match.</p>
+      </div>
+    </details>
+    <div class="rb-prevnext">
+      {prev && <a class="rb-step" href={`/cookbook/${prev.slug}/`} title={prev.front.title} rel="prev">&larr; Previous</a>}
+      {next && <a class="rb-step" href={`/cookbook/${next.slug}/`} title={next.front.title} rel="next">Next &rarr;</a>}
+    </div>
+  </div>
+</div>
+
+<script>
+  const picker = document.getElementById('rbPicker') as HTMLDetailsElement | null;
+  const input = document.getElementById('rbFilter') as HTMLInputElement | null;
+  const empty = document.getElementById('rbEmpty');
+  if (picker && input && empty) {
+    const items = [...picker.querySelectorAll<HTMLElement>('.rb-group li')];
+    const groups = [...picker.querySelectorAll<HTMLElement>('.rb-group')];
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      for (const li of items) li.hidden = !!q && !(li.dataset.text ?? '').includes(q);
+      for (const g of groups) g.hidden = !g.querySelector('li:not([hidden])');
+      empty.hidden = groups.some((g) => !g.hidden);
+    });
+    picker.addEventListener('toggle', () => {
+      if (picker.open) input.focus();
+    });
+    document.addEventListener('click', (e) => {
+      if (picker.open && !picker.contains(e.target as Node)) picker.open = false;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && picker.open) {
+        picker.open = false;
+        picker.querySelector('summary')?.focus();
+      }
+    });
+  }
+</script>

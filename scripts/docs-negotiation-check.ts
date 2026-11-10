@@ -31,9 +31,9 @@
 // failed).
 //
 // wrangler is fetched by npx at the pinned WRANGLER version (override with
-// WRANGLER_VERSION), the version workers/docs-mcp pins, so one wrangler
-// serves both checks and the deploy; nothing is installed in the repo. Prints "skipped" and
-// exits 0 when <dist>/docs is missing. Exits 1 on any mismatch.
+// WRANGLER_VERSION), the version deploy-cf.yml deploys with, so the function
+// deployed is compiled by the wrangler that checked it; nothing is installed
+// in the repo. Prints "skipped" and exits 0 when <dist>/docs is missing. Exits 1 on any mismatch.
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';

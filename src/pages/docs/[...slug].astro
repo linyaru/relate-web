@@ -18,6 +18,7 @@ import { mb } from '../../lib/cookbook/render.ts';
 import { docsPlaygroundHref } from '../../lib/docs/constructs.ts';
 import { elementNeeds } from '../../lib/docs/elements.ts';
 import { engineDownloadBytes, hasCells } from '../../lib/docs/results.ts';
+import { firstUpdated } from '../../lib/docs/content.ts';
 import { resolveHref } from '../../lib/docs/links.ts';
 import { pageUrl } from '../../lib/docs/model.ts';
 import { breadcrumb, humanize, prevNext } from '../../lib/docs/nav.ts';
@@ -36,7 +37,7 @@ const { Content, headings } = await render(page.entry);
 const data = page.entry.data;
 const crumbs = breadcrumb(site.nav, page.id);
 const { prev, next } = prevNext(site.nav, page.id);
-const jsonld = [articleGraph({ title: data.title, description: data.description ?? '', path: page.url, modified: page.lastUpdated, crumbs: crumbs })];
+const jsonld = [articleGraph({ title: data.title, description: data.description ?? '', path: page.url, modified: page.lastUpdated, published: firstUpdated(page.file), crumbs: crumbs })];
 
 // A prerequisite or related entry (`get-started/install`, `reference/x#anchor`,
 // `cookbook/<slug>`) as a link, or as text when its page does not exist yet.

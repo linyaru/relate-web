@@ -45,7 +45,7 @@ export function homeGraph(engine: { version: string; date: string }, description
         name: SITE_NAME,
         alternateName: 'relatedb',
         url: `${CANONICAL_ORIGIN}/`,
-        logo: absolute('/lockup.svg'),
+        logo: absolute('/icon-512.png'),
         sameAs: [GITHUB_URL],
       },
       {
@@ -68,6 +68,8 @@ export function homeGraph(engine: { version: string; date: string }, description
         operatingSystem: 'macOS, Linux, Windows',
         softwareVersion: engine.version,
         dateModified: engine.date,
+        // Free and open source; `offers` is what Google's software-app result asks for.
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
         license: 'https://www.apache.org/licenses/LICENSE-2.0',
         sameAs: [GITHUB_URL],
         publisher: { '@id': ORG_ID },
@@ -83,6 +85,8 @@ export interface ArticleInput {
   path: string;
   /** `YYYY-MM-DD`. */
   modified?: string;
+  /** `YYYY-MM-DD`, the page's first commit; becomes datePublished. */
+  published?: string;
   /** The page's trail, outermost first; a crumb with no `href` is skipped. The page itself is added last. */
   crumbs?: { label: string; href: string | null }[];
   /** `Cypher` for a recipe. */
@@ -102,6 +106,7 @@ export function articleGraph(a: ArticleInput): JsonLd {
       url,
       inLanguage: 'en',
       ...(a.modified ? { dateModified: a.modified } : {}),
+      ...(a.published ? { datePublished: a.published } : {}),
       ...(a.language ? { about: { '@type': 'ComputerLanguage', name: a.language } } : {}),
       isPartOf: { '@id': SITE_ID },
       publisher: { '@id': ORG_ID },

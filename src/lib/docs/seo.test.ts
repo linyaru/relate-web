@@ -43,6 +43,7 @@ describe('structured data', () => {
     const graph = (homeGraph({ version: '0.1.2', date: '2026-11-09' }, 'd') as { '@graph': Record<string, unknown>[] })['@graph'];
     assert.deepEqual(graph.map((n) => n['@type']), ['Organization', 'WebSite', 'SoftwareApplication']);
     assert.equal(graph[2].softwareVersion, '0.1.2');
+    assert.deepEqual(graph[2].offers, { '@type': 'Offer', price: '0', priceCurrency: 'USD' });
   });
 
   test('an article carries its trail ending at the page, skipping crumbs with no link', () => {
@@ -51,6 +52,7 @@ describe('structured data', () => {
       description: 'd',
       path: '/docs/guides/agents/use-in-ci',
       modified: '2026-11-09',
+      published: '2026-09-01',
       crumbs: [
         { label: 'Docs', href: '/docs/' },
         { label: 'Guides', href: null },
@@ -60,6 +62,7 @@ describe('structured data', () => {
     assert.equal(article['@type'], 'TechArticle');
     assert.equal(article.url, 'https://relatedb.ai/docs/guides/agents/use-in-ci/');
     assert.equal(article.dateModified, '2026-11-09');
+    assert.equal(article.datePublished, '2026-09-01');
     const items = trail.itemListElement as { position: number; name: string; item: string }[];
     assert.deepEqual(items.map((i) => [i.position, i.name]), [[1, 'Docs'], [2, 'Use relate in CI']]);
     assert.equal(items[1].item, 'https://relatedb.ai/docs/guides/agents/use-in-ci/');

@@ -2,7 +2,9 @@
 // The head metadata every page shares (ADR-0058): indexing, canonical URL, Open
 // Graph and Twitter cards, theme colour, the agent-facing alternates and any
 // JSON-LD. Base.astro renders it for the section pages and the home page
-// renders it directly, so the two cannot drift.
+// renders it directly, so the two cannot drift. The theme colours are the
+// `--surface-0` tokens from src/styles/base.css (Day #FAFAFA, Night #101013);
+// a meta tag cannot read CSS variables.
 import { absolute, canonicalPath, indexable, jsonLdText, OG_IMAGE, OG_IMAGE_ALT, SITE_NAME, type JsonLd } from '../lib/seo.ts';
 
 interface Props {
@@ -38,6 +40,7 @@ const image = absolute(OG_IMAGE);
 {canonical && <link rel="canonical" href={canonical} />}
 {twinHref && <link rel="alternate" type="text/markdown" href={twinHref} title="This page as markdown" />}
 {describedby && <link rel="describedby" href={describedby} />}
+<link rel="sitemap" type="application/xml" href="/sitemap.xml" />
 <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#101013" media="(prefers-color-scheme: dark)" />
 <meta property="og:site_name" content={SITE_NAME} />

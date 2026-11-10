@@ -20,16 +20,18 @@ no dates, and the icon set was a 32 px and a 192 px PNG plus an SVG.
 
 One component, `SeoHead`, renders the head metadata that is not the title or description:
 the robots meta, canonical URL, Open Graph and Twitter cards (large image, with the site name
-and the page's modified time for articles), theme colours, the icon and manifest links, the
-markdown alternate and the `describedby` link to the section's agent index, and any JSON-LD.
+and the page's modified time for articles), theme colours, the icon and manifest links, a
+sitemap link, the markdown alternate and the `describedby` link to the section's agent index,
+and any JSON-LD.
 `Base.astro` renders it for every section page and the home page renders it directly; the
 docs and cookbook layouts pass props to `Base` and no longer write tags.
 
 Structured data is built in one module (`src/lib/seo.ts`) by page kind: Organization, WebSite
 and SoftwareApplication on the home page; TechArticle and BreadcrumbList on guides,
-concepts, reference pages and recipes; CollectionPage on the cookbook index. The glossary
-keeps its own DefinedTermSet. Dates are the page's last change in git (or the release date
-for pages without a file of their own), never the build time.
+concepts, reference pages and recipes; CollectionPage on the cookbook index and the docs
+landing. The glossary
+keeps its own DefinedTermSet. Dates are the page's first and last change in git (or the
+release date for pages without a file of their own), never the build time.
 
 Indexing has one switch. The build is indexable (no robots restriction on a page, a
 `robots.txt` that allows everything and names the sitemap) unless `PUBLIC_INDEXABLE=false`,

@@ -8,7 +8,7 @@ import { isNotYetPublic } from '../../../lib/cookbook/links.ts';
 import { byCategory, esc, mb, playgroundHref, renderRecipe } from '../../../lib/cookbook/render.ts';
 import { COOKBOOK_DIR } from '../../../lib/cookbook/load.ts';
 import { cookbook, type Page } from '../../../lib/cookbook/site.ts';
-import { lastUpdated } from '../../../lib/docs/content.ts';
+import { firstUpdated, lastUpdated } from '../../../lib/docs/content.ts';
 import { articleGraph } from '../../../lib/seo.ts';
 import { join } from 'node:path';
 
@@ -53,6 +53,7 @@ const jsonld = [
     description: f.summary,
     path: base,
     modified,
+    published: firstUpdated(join(COOKBOOK_DIR, `${recipe.slug}.md`)),
     language: 'Cypher',
     crumbs: [{ label: 'Cookbook', href: '/cookbook/' }],
   }),

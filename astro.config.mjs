@@ -28,9 +28,9 @@ export default defineConfig({
     }),
   ],
   markdown: {
-    // Code blocks stay dark in both themes, as in the cookbook. remarkDocs
-    // highlights docs code itself (src/lib/docs/highlight.ts, same theme).
-    shikiConfig: { theme: 'github-dark-default', langs: ['cypher'] },
+    // Code follows the Day/Night theme (cookbook.css reads the --shiki-* variables).
+    // remarkDocs highlights docs code itself (src/lib/docs/highlight.ts, same themes).
+    shikiConfig: { themes: { light: 'github-light-default', dark: 'github-dark-default' }, defaultColor: false, langs: ['cypher'] },
   },
   vite: {
     // Agent worktrees (.claude/worktrees/) are whole copies of the repo; the

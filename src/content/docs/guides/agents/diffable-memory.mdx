@@ -47,7 +47,7 @@ ls -A memory memory/wal memory/.cypherlite/schema
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":3.681333,"execute_ms":3.3569590000000002,"lex_parse_ms":0.013166,"lower_ms":0.017207999999999998,"parse_ms":0.306375,"plan_ms":0.011708999999999999,"result_generation_ms":0.000209,"rewrite_ms":0.0005},"truncated":false}
 memory:
 .cypherlite
 .cypherlite.lock
@@ -112,7 +112,7 @@ git status --short
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"planCache":"miss","rows":[{"nodes":5}],"timings":{"elapsed_ms":0.335791,"execute_ms":0.169542,"lex_parse_ms":0.03125,"lower_ms":0.043125,"parse_ms":0.107042,"plan_ms":0.050708,"result_generation_ms":0.000292,"rewrite_ms":0.008208},"truncated":false}
 ```
 
 ## Record a session's writes
@@ -125,8 +125,8 @@ relate --database ./memory --mode envelope "MATCH (ada:Person {name: 'Ada'}) MER
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.5647499999999999,"execute_ms":1.341834,"lex_parse_ms":0.008166,"lower_ms":0.010416,"parse_ms":0.210459,"plan_ms":0.00725,"result_generation_ms":0.000167,"rewrite_ms":0.0005},"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.523666,"execute_ms":0.304166,"lex_parse_ms":0.007209,"lower_ms":0.009000000000000001,"parse_ms":0.206875,"plan_ms":0.007459,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.000334},"truncated":false}
 note: write statement changed nothing; the graph is unchanged
 ```
 
@@ -213,7 +213,7 @@ Commit the three files together, `git add memory`, so the graph, the manifest an
 
 ## Know when it stops fitting
 
-Each checkpoint rewrites the whole `graph.json`, and git keeps every version. Measured with relate 0.16.1, nodes with three short properties and one relationship each take about 170 bytes per pair: 167,702 bytes for 1,000 nodes and 999 relationships, 1,733,704 bytes for 10,000 nodes and 9,999 relationships. The file grows with the graph; the diff grows with the session.
+Each checkpoint rewrites the whole `graph.json`, and git keeps every version. Measured with relate 0.1.2, nodes with three short properties and one relationship each take about 170 bytes per pair: 167,702 bytes for 1,000 nodes and 999 relationships, 1,733,704 bytes for 10,000 nodes and 9,999 relationships. The file grows with the graph; the diff grows with the session.
 
 | When | Keep |
 | --- | --- |
@@ -235,7 +235,7 @@ git status --short
 ```
 
 ```text
-{"columnTypes":["STRING","INTEGER"],"columns":["project","since"],"notifications":[],"rows":[{"project":"relate","since":2024},{"project":"docs","since":2026}],"truncated":false}
+{"columnTypes":["STRING","INTEGER"],"columns":["project","since"],"notifications":[],"planCache":"miss","rows":[{"project":"relate","since":2024},{"project":"docs","since":2026}],"timings":{"elapsed_ms":0.471167,"execute_ms":0.25670800000000005,"lex_parse_ms":0.04,"lower_ms":0.044583000000000005,"parse_ms":0.13733399999999998,"plan_ms":0.067,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.009166},"truncated":false}
 ```
 
 ## If it goes wrong

@@ -12,7 +12,7 @@ In about ten minutes, we build a graph of three people and two projects, query i
 
 ## Prerequisites
 
-- `relate` on your `PATH`: `relate --version` prints `Relate v0.16.1` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
+- `relate` on your `PATH`: `relate --version` prints `Relate v0.1.2` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
 - A terminal on macOS or Linux.
 
 ## Create the graph
@@ -205,24 +205,24 @@ Notice the notification on operator 1: it names the index that would make the lo
 
 ## Get JSON
 
-Tables are for people. For a program, `--json` prints the rows as one JSON array: indented on a terminal, and one compact line when piped, as it is here:
+Tables are for people. For a program, `--json` prints one JSON object per result: the rows in `data`, the statement's `timings` in milliseconds, and `planCache`, which says whether a cached plan served it. The object is indented on a terminal and one compact line when piped, as it is here. The timing numbers change from run to run:
 
 ```bash verify
 relate --database ./team.rl --read-only --json --param name=Grace 'MATCH (:Person {name: $name})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, proj.language AS language ORDER BY project'
 ```
 
 ```text
-[{"language":"Gherkin","project":"opencypher-tck"},{"language":"Rust","project":"relate"}]
+{"data":[{"language":"Gherkin","project":"opencypher-tck"},{"language":"Rust","project":"relate"}],"planCache":"miss","timings":{"elapsed_ms":0.560875,"execute_ms":0.36925,"lex_parse_ms":0.034,"lower_ms":0.048625,"parse_ms":0.121958,"plan_ms":0.060625000000000005,"result_generation_ms":0.00025,"rewrite_ms":0.0077919999999999994}}
 ```
 
-`--mode envelope` wraps each result in one object, the :term[envelope]{id=envelope}, with the column names and their types:
+`--mode envelope` prints one richer object per result, the :term[envelope]{id=envelope}, which adds the column names and their types:
 
 ```bash verify
 relate --database ./team.rl --read-only --mode envelope --param name=Grace 'MATCH (:Person {name: $name})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, proj.language AS language ORDER BY project'
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["project","language"],"notifications":[],"rows":[{"language":"Gherkin","project":"opencypher-tck"},{"language":"Rust","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["project","language"],"notifications":[],"planCache":"miss","rows":[{"language":"Gherkin","project":"opencypher-tck"},{"language":"Rust","project":"relate"}],"timings":{"elapsed_ms":0.458333,"execute_ms":0.26966700000000005,"lex_parse_ms":0.034375,"lower_ms":0.044542,"parse_ms":0.11875,"plan_ms":0.06125,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.008041},"truncated":false}
 ```
 
 Notice that keys inside each row are sorted, so `columns` is where the query's column order lives. An empty result still lists its columns, so "no rows" never looks like "no output":
@@ -232,7 +232,7 @@ relate --database ./team.rl --read-only --mode envelope --param name=Zed 'MATCH 
 ```
 
 ```text
-{"columnTypes":["ANY"],"columns":["project"],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["ANY"],"columns":["project"],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.43175,"execute_ms":0.245625,"lex_parse_ms":0.031625,"lower_ms":0.044875,"parse_ms":0.115958,"plan_ms":0.060417,"result_generation_ms":0.000292,"rewrite_ms":0.00825},"truncated":false}
 ```
 
 Nobody called Zed works here yet.

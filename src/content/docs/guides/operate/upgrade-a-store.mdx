@@ -87,14 +87,14 @@ relate upgrade --check
 relate upgrade
 ```
 
-Then confirm the version that opens the store from now on. The first line names the release you installed; this run shows 0.16.1, the version this page is verified against:
+Then confirm the version that opens the store from now on. The first line names the release you installed; this run shows 0.1.2, the version this page is verified against:
 
 ```bash verify
 relate --version
 ```
 
 ```text
-Relate v0.16.1
+Relate v0.1.2
 License: Apache 2.0 (binary)
 ```
 
@@ -109,7 +109,7 @@ relate --database ./team.rl --mode envelope "MATCH (n) RETURN count(n) AS nodes"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"planCache":"miss","rows":[{"nodes":5}],"timings":{"elapsed_ms":0.339666,"execute_ms":0.175167,"lex_parse_ms":0.027917,"lower_ms":0.041208999999999996,"parse_ms":0.10241700000000001,"plan_ms":0.053291000000000005,"result_generation_ms":0.000167,"rewrite_ms":0.008624999999999999},"truncated":false}
 ```
 
 relate prints nothing when it migrates: the output is the statement's, and the store is in the new format by the time it runs. A `--read-only` open never migrates; it reads an older store as it is. A crash in the middle of a migration leaves the old store as it was, and the next writable open migrates it again.

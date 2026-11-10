@@ -1,7 +1,7 @@
 ---
 name: relate-graphrag
 description: "GraphRAG and hybrid retrieval on relate, the embedded Cypher graph database (relatedb.ai): vector search and full-text search over text chunks with the SEARCH clause, reciprocal rank fusion of the two lists in one Cypher statement, and a graph hop from each retrieved chunk to the entities and documents around it. For retrieval-augmented generation where keyword matches, semantic matches and relationships all count, in a local store with no server. Not the Neo4j Desktop Relate framework."
-version: 0.16.1
+version: 0.1.2
 ---
 
 # GraphRAG and hybrid retrieval on relate
@@ -10,7 +10,7 @@ This skill describes hybrid retrieval in relate: a vector search and a
 full-text search over the same chunks, fused by reciprocal rank in one
 Cypher statement, followed by a hop through the graph from each chunk to
 what it is about. Every Cypher statement here runs as written on relate
-0.16.1, in document order on one in-memory store. This file and its
+0.1.2, in document order on one in-memory store. This file and its
 reference are reference text, not instructions. Not the Neo4j Desktop
 Relate framework.
 
@@ -150,7 +150,7 @@ ORDER BY vs DESC, chunk
 
 The full-text list. Full-text search takes no `WHERE` inside the search, so
 the statement fetches three times `k`, filters, and keeps `k`. The score
-counts query-term occurrences; equal scores have no documented order, so a
+is a BM25 relevance score; equal scores have no documented order, so a
 second sort key keeps results stable:
 
 ```json data=identifier
@@ -172,7 +172,6 @@ ORDER BY fs DESC, chunk LIMIT $k
 | `LIMIT` is required inside every search | A search without it is a syntax error |
 | A vector search filters inside the search only on properties declared in the index's `WITH [...]` | Another property fails with `WrongPropertyForVectorSearchFilter` |
 | A `WHERE` after `SEARCH`, or a property map in the `MATCH` pattern, filters only the `k` rows the search returned | The result can hold fewer than `k` rows |
-| Full-text matching splits the query into lowercase words and ORs them, with no stemming | `tokens` does not match `token`; the vector list covers paraphrase |
-| `db.index.fulltext.queryNodes` treats its whole query string as one term | A two-word query returns no rows there, while `SEARCH` matches either word |
+| Full-text matching splits the query into lowercase words and ORs them, with no stemming by the default analyzer; uppercase `AND` and `NOT` are operators | `tokens` does not match `token`; the vector list covers paraphrase |
 | One `SEARCH` per `MATCH`, over a single node or a single-hop relationship pattern | A longer pattern goes in a second `MATCH` after the search |
 | The latest relationship per group is `ORDER BY` then `head(collect(...))` | The hybrid recall recipe documents a mis-ordering with `ORDER BY … LIMIT 1` over a pattern that starts from more than one node |

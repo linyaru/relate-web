@@ -115,7 +115,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:MAIN
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck"},{"person":"Noor","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Noor","project":"opencypher-tck"},{"person":"Noor","project":"relate"}],"timings":{"elapsed_ms":0.408,"execute_ms":0.22716699999999998,"lex_parse_ms":0.033,"lower_ms":0.043084000000000004,"parse_ms":0.112125,"plan_ms":0.060000000000000005,"result_generation_ms":0.00025,"rewrite_ms":0.007917},"truncated":false}
 ```
 
 The relationship the crashed session committed is there. Replay restored it.
@@ -129,7 +129,7 @@ relate --database ./team.rl --mode envelope "MATCH ()-[m:MAINTAINS]->() RETURN c
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["maintains"],"notifications":[],"rows":[{"maintains":2}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["maintains"],"notifications":[],"planCache":"miss","rows":[{"maintains":2}],"timings":{"elapsed_ms":0.352291,"execute_ms":0.18625,"lex_parse_ms":0.03025,"lower_ms":0.041916999999999996,"parse_ms":0.104875,"plan_ms":0.052666,"result_generation_ms":0.000209,"rewrite_ms":0.008167},"truncated":false}
 ```
 
 A checkpoint writes the committed graph to a fresh snapshot, so the next open replays less WAL; a read-only open never checkpoints. It is not a backup: it overwrites the store's own snapshot, and a copy you can restore from comes from `relate clone`. The other points at which a checkpoint runs are in [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints#when-a-checkpoint-runs).

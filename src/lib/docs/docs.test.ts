@@ -31,7 +31,8 @@ const GLOSSARY = new Map<string, GlossaryTerm>([
   ['store', { id: 'store', term: 'store', short: 'A relate database: a directory, a single `.rl` file, or `:memory:`.' }],
   ['wal', { id: 'wal', term: 'WAL', short: 'Append-only log each commit goes to before it applies.' }],
 ]);
-const ENGINE = { version: '0.16.1', verified: '0.16.1', date: '2026-11-04' };
+// The version the example page's recordings and the pinned twin come from: the one the docs track.
+const ENGINE = (({ version, verified, date }) => ({ version, verified, date }))(engine());
 const LINKS = { pages: new Set(['get-started/install']) };
 
 function exampleTwin() {
@@ -60,7 +61,7 @@ test('the twin opens with the frontmatter agents parse, in order', () => {
   assert.deepEqual(Object.keys(front), [
     'title', 'description', 'surfaces', 'status', 'since', 'verified', 'verified_by', 'samples', 'canonical_url', 'prerequisites', 'related', 'last_updated',
   ]);
-  assert.equal(front.verified, '0.16.1');
+  assert.equal(front.verified, ENGINE.verified);
   // Cells recorded on the engine, and samples recorded by both clients at that version.
   assert.deepEqual(front.verified_by, ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   assert.equal(front.canonical_url, 'https://relatedb.ai/docs/_example/example/');
@@ -368,7 +369,7 @@ test('a verified sample renders as its code block and its recorded output; a mis
 
 test('verified_by names the checks a page passed at the docs version, in order', () => {
   const source = splitFrontmatter(readFileSync(EXAMPLE, 'utf8'), EXAMPLE).body;
-  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.16.1'), ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
+  assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), ENGINE.verified), ['cypher', 'python', 'node', 'rust', 'java', 'go', 'swift', 'c']);
   // Recorded on another version: nothing is claimed.
   assert.deepEqual(verifiedBy(EXAMPLE, source, parsePage(source), '0.99.0'), []);
   // `bash verify` fences count when every one is the step docs:cli-check replayed at that version.
@@ -389,5 +390,5 @@ test('the static samples check: every sample recorded, no stale entry', () => {
   assert.equal(findings.length, 0, findings.join('\n'));
   checkSamples({ engine: { ...ENGINE, verified: '0.99.0' }, published: new Map([[page.id, page]]) }, report);
   assert.equal(findings.length, 8, 'one per sample on the example page: python (2, one env=crewai), js, rust, java, go, swift, c');
-  assert.ok(findings.every((f) => f.startsWith('warning samples ') && /recorded by client 0\.16\.1, not 0\.99\.0/.test(f)), findings.join('\n'));
+  assert.ok(findings.every((f) => f.startsWith('warning samples ') && new RegExp(`recorded by client ${ENGINE.verified.replace(/\./g, '\\.')}, not 0\\.99\\.0`).test(f)), findings.join('\n'));
 });

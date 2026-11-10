@@ -6,7 +6,7 @@ surfaces: [http]
 related: [guides/serve/http-query-api, reference/cli/serve, reference/errors#http-query-api-errors, reference/server/bolt, reference/server/mcp, reference/security#served-surfaces, reference/limitations#server]
 ---
 
-`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 0.16.1.
+`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 0.1.2.
 
 ## Synopsis
 
@@ -48,7 +48,7 @@ curl -s http://127.0.0.1:8851/
 ```
 
 ```json
-{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"0.16.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
+{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"0.1.2","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
 ```
 
 | Key | Value |
@@ -69,7 +69,7 @@ The body of a statement or transaction request is one JSON object:
 | `statement` | string | required on the statement route; optional on the transaction routes | One Cypher statement. A second statement after `;` is a syntax error |
 | `parameters` | object | none | The statement's parameters, each bound to `$name`. A statement that names a parameter the object lacks fails with `42N02`; nothing is bound as `null` |
 | `includeCounters` | boolean | `false` | `true` puts `counters` on a response that wrote nothing |
-| `accessMode` | string | none | `"READ"` on a transaction route refuses writes for the rest of that transaction; the auto-commit route ignores it |
+| `accessMode` | string | none | `"READ"` on the begin route refuses writes for the rest of that transaction; the run and commit routes and the auto-commit route ignore it |
 
 Other keys are ignored. On the statement route, a body that is not JSON, or that has no `statement`, is a 400 with code `42N06`. On the transaction routes, a body without `statement`, an empty body included, runs nothing: it opens a transaction on the begin route and keeps one alive on the run route.
 
@@ -105,9 +105,11 @@ Error responses are always `application/json`.
 | `queryPlan` | On an `EXPLAIN` statement | The plan tree ([Plans and notifications](#plans-and-notifications)) |
 | `profiledQueryPlan` | On a `PROFILE` statement | The plan tree with its measured metrics |
 | `notifications` | On an `EXPLAIN` or `PROFILE` statement that raised any | The plan's notifications |
+| `timings` | When a statement ran | The statement's phase timings in milliseconds: `elapsed_ms`, `execute_ms`, `lex_parse_ms`, `lower_ms`, `parse_ms`, `plan_ms`, `result_generation_ms` and `rewrite_ms` |
+| `planCache` | When a statement ran | The plan cache's outcome, such as `miss`, or `hit-raw-fastpath` for a statement the server planned before |
 | `transaction` | On a begin or run in a managed transaction | `id` and `expires` ([Transactions](#transactions)) |
 
-The envelope carries no column types and no timings. The [MCP server](/docs/reference/server/mcp#results) and the CLI's `--mode envelope` carry both.
+`timings` and `planCache` follow the members of Neo4j's Query API v2 shape, and their values differ on every request. The envelope carries no column types; the [MCP server](/docs/reference/server/mcp#results) and the CLI's `--mode envelope` carry them.
 
 The examples on this page run against the shared example graph of three people and two projects, served writable because some of them write:
 
@@ -125,7 +127,7 @@ curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
 ```
 
 ```json
-{"data":{"fields":["name","p"],"values":[["Ada",{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}],["Grace",{"elementId":"1","labels":["Person"],"properties":{"name":"Grace","role":"engineer"}}]]},"bookmarks":[]}
+{"data":{"fields":["name","p"],"values":[["Ada",{"elementId":"0","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}],["Grace",{"elementId":"1","labels":["Person"],"properties":{"name":"Grace","role":"engineer"}}]]},"bookmarks":[],"timings":{"elapsed_ms":0.495042,"execute_ms":0.288666,"lex_parse_ms":0.034875,"lower_ms":0.055083,"parse_ms":0.132209,"plan_ms":0.063459,"result_generation_ms":0.00025,"rewrite_ms":0.007708},"planCache":"miss"}
 ```
 
 A write returns `counters`:
@@ -137,7 +139,7 @@ curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
 ```
 
 ```json
-{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[]}
+{"data":{"fields":[],"values":[]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":2,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"timings":{"elapsed_ms":1.1645830000000001,"execute_ms":1.1110829999999998,"lex_parse_ms":0.002375,"lower_ms":0.003292,"parse_ms":0.050459,"plan_ms":0.001375,"result_generation_ms":0.000166,"rewrite_ms":0.00020800000000000001},"planCache":"miss"}
 ```
 
 ### Value encoding
@@ -154,7 +156,7 @@ curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
 | Point | `{"type": "Point", "coordinates": [13.0, 55.6], "crs": {…}}`, `crs` naming the SRID, such as `4326` (`wgs-84`) | `Point` with `coordinates` and `crs` |
 | Byte array | A list of integers from 0 to 255 | A `List` of `Integer` |
 
-The `elementId` in this API is the node's or relationship's number as a string (`"0"`); Bolt 5.4 carries the `elementId()` form, such as `4:relate:n0`. A byte array reaches the engine only as a Bolt or Rust parameter, never through this API's JSON.
+The `elementId` in this API is the node's or relationship's number as a string (`"0"`); Bolt 5.4 carries the `elementId()` form, such as `4:relate-neo4j:n0`. A byte array reaches the engine only as a Bolt or Rust parameter, never through this API's JSON.
 
 ### Plans and notifications
 
@@ -214,13 +216,13 @@ curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2/tx/
   -d '{"statement": "MATCH (p:Person) RETURN count(p) AS people"}'
 ```
 
-The four responses, in order; the `expires` values differ on every run:
+The four responses, in order; the `expires` and `timings` values differ on every run:
 
 ```text
-{"data":{"fields":["name"],"values":[["Eve"]]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":1,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:53:54.828Z","id":"tx-0"}}
-{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[],"transaction":{"expires":"2026-11-08T09:53:54.840Z","id":"tx-0"}}
-{"data":{"fields":["people"],"values":[[3]]},"bookmarks":[]}
-{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[]}
+{"data":{"fields":["name"],"values":[["Eve"]]},"counters":{"constraints_added":0,"constraints_removed":0,"indexes_added":0,"indexes_removed":0,"labels_added":1,"labels_removed":0,"nodes_created":1,"nodes_deleted":0,"properties_set":1,"relationships_created":0,"relationships_deleted":0},"bookmarks":[],"timings":{"elapsed_ms":0.41541700000000004,"execute_ms":0.356708,"lex_parse_ms":0.004416,"lower_ms":0.002875,"parse_ms":0.054333000000000006,"plan_ms":0.0022919999999999998,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00025},"planCache":"miss","transaction":{"expires":"2026-11-10T01:57:39.290Z","id":"tx-0"}}
+{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[],"timings":{"elapsed_ms":0.132084,"execute_ms":0.056,"lex_parse_ms":0.010875,"lower_ms":0.019791,"parse_ms":0.041708,"plan_ms":0.028292,"result_generation_ms":0.000292,"rewrite_ms":0.00175},"planCache":"miss","transaction":{"expires":"2026-11-10T01:57:39.303Z","id":"tx-0"}}
+{"data":{"fields":["people"],"values":[[3]]},"bookmarks":[],"timings":{"elapsed_ms":0.387084,"execute_ms":0.33725,"lex_parse_ms":0.0,"lower_ms":0.0,"parse_ms":0.000334,"plan_ms":0.047875,"result_generation_ms":0.00025,"rewrite_ms":0.0},"planCache":"hit-raw-fastpath"}
+{"data":{"fields":["people"],"values":[[4]]},"bookmarks":[],"timings":{"elapsed_ms":0.066708,"execute_ms":0.037958,"lex_parse_ms":0.0,"lower_ms":0.0,"parse_ms":0.000209,"plan_ms":0.027416999999999997,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.0},"planCache":"hit-raw-fastpath"}
 ```
 
 Inside the transaction there are four people; the auto-commit route still counts three until the commit.
@@ -296,7 +298,7 @@ echo "exit=$?"
 
 ```text
 Error: serve --origin expects an origin URL (http(s)://…) or *, got "example.com"
-Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE]
+Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]
 Run 'relate serve --help' for more information.
 exit=2
 ```
@@ -310,7 +312,7 @@ exit=2
 | An uncompressed body of 65536 bytes or more, measured before gzip | `Transfer-Encoding: chunked` instead of `Content-Length`; the chunk boundaries carry no meaning |
 | Any other body | `Content-Length` |
 
-`RETURN range(1, 500) AS r` with `Accept-Encoding: gzip` came back gzipped in 936 bytes, `RETURN 1 AS i` uncompressed, and `RETURN range(1, 20000) AS r` (108949 bytes uncompressed) chunked, even gzipped to 40823 bytes. Clients that decode gzip and chunked framing, `curl --compressed` and the Neo4j drivers among them, see the same JSON either way.
+`RETURN range(1, 500) AS r` with `Accept-Encoding: gzip` came back gzipped in 1091 bytes, `RETURN 1 AS i` uncompressed, and `RETURN range(1, 20000) AS r` (109198 bytes uncompressed) chunked, even gzipped to 41038 bytes. These sizes move by a few bytes from run to run with the `timings` values. Clients that decode gzip and chunked framing, `curl --compressed` and the Neo4j drivers among them, see the same JSON either way.
 
 ## Limits
 

@@ -180,31 +180,47 @@ hop runs later and stay out of the search. Three terms remain:
 }
 ```
 
-A plain `SEARCH` for all three scores each node by how many of the terms it
-contains, and nothing more:
+A plain `SEARCH` for all three ranks every node that contains any of them by
+BM25, the score Neo4j's full-text index gives: a term few nodes contain
+counts for more, and a hit in a short text counts for more than one in a
+long text. The top eight, with the terms each one contains:
 
 ```cypher cell=plain params=seed
 WITH reduce(q = head($terms), t IN tail($terms) | q + ' ' + t) AS query
-MATCH (n) SEARCH n IN (FULLTEXT INDEX terms FOR query LIMIT 1000) SCORE AS score
-RETURN query, score, count(n) AS nodes
-ORDER BY score DESC
+MATCH (n) SEARCH n IN (FULLTEXT INDEX terms FOR query LIMIT 8) SCORE AS score
+OPTIONAL MATCH (doc:Doc)-[:HAS_CHUNK]->(n)
+RETURN round(score, 2) AS score,
+       CASE WHEN n:Crate THEN 'Crate' WHEN n:Chunk THEN 'Chunk' ELSE 'Doc' END AS kind,
+       coalesce(n.name, doc.title + ' § ' + n.heading, n.title) AS label,
+       [t IN $terms WHERE t IN split(n.terms, ' ')] AS matched
+ORDER BY score DESC, label
 ```
 
 ```table
-| query                  | score | nodes |
-|------------------------|-------|-------|
-| "wal first checkpoint" | 3.0   | 9     |
-| "wal first checkpoint" | 2.0   | 34    |
-| "wal first checkpoint" | 1.0   | 98    |
-3 rows
+| score | kind    | label                                                                                        | matched                        |
+|-------|---------|----------------------------------------------------------------------------------------------|--------------------------------|
+| 3.65  | "Doc"   | "0012. WAL-first durability with Parquet checkpoints"                                        | ["wal", "first", "checkpoint"] |
+| 3.25  | "Chunk" | "0012. WAL-first durability with Parquet checkpoints § Preamble"                             | ["wal", "first", "checkpoint"] |
+| 2.37  | "Chunk" | "0044. Withdraw engine-level S3 § Context"                                                   | ["wal", "first", "checkpoint"] |
+| 2.06  | "Chunk" | "0072. Synchronous virtual filesystem for WAL, snapshots, and CDC § Alternatives considered" | ["wal", "first", "checkpoint"] |
+| 2.05  | "Doc"   | "0020. Checkpoint at a frozen LSN; writers append a new WAL segment"                         | ["wal", "checkpoint"]          |
+| 1.9   | "Chunk" | "0022. Checkpoint shards are byte-budgeted id windows (copy-on-write) § Consequences"        | ["first", "checkpoint"]        |
+| 1.86  | "Chunk" | "0020. Checkpoint at a frozen LSN; writers append a new WAL segment § Preamble"              | ["wal", "checkpoint"]          |
+| 1.83  | "Chunk" | "0018. Snapshot reads do not exclude apply_redo § Decision"                                  | ["wal", "first", "checkpoint"] |
+8 rows
 ```
 
-Nine nodes tie for first place, and the ADR whose title is the question
-does not stand out from the sections that happen to use the same three
-words. Two refinements fix that. A rare term should count for more than a
-common one, so each term is weighted by its inverse document frequency,
-`log(N / df)`, where `df` is the number of nodes the term hits. And a hit
-on a title or a crate name counts 1.5 times a hit in body text.
+ADR-0012's title leads, and its preamble follows. Below them, text length
+decides as much as coverage: the ADR-0020 title and two sections hold two of
+the three terms and still outrank the ADR-0018 section, which holds all
+three. The procedure `db.index.fulltext.queryNodes('terms', 'wal first
+checkpoint')` returns the same ranking. A seed for this question should
+cover its words, with the rare ones counting for more, and two refinements
+give that. Each term is weighted by its inverse document frequency,
+`log(N / df)`, where `df` is the number of nodes the term hits, and a node
+scores the sum of the weights of the terms it contains, whatever its
+length. A hit on a title or a crate name counts 1.5 times a hit in body
+text.
 
 One `SEARCH` per term gives each term's hits, so its `df` is the size of
 that list. The search `LIMIT` must cover every hit, because `SEARCH` cuts
@@ -241,18 +257,11 @@ LIMIT $k
 6 rows
 ```
 
-Across the 344 indexed nodes, `wal` hits 85, `checkpoint` 69, and `first`
-39, so `first` weighs the most (2.18, against 1.61 and 1.40). ADR-0012's
-title now leads at 7.77. The sections below it all contain the three terms;
+Across the 342 indexed nodes, `wal` hits 85, `checkpoint` 69, and `first`
+39, so `first` weighs the most (2.17, against 1.60 and 1.39). ADR-0012's
+title leads at 7.75, and every section below it contains all three terms;
 which five of them make the cut is decided by their ids, so treat the tail
 as a list, not a ranking.
-
-> **Note**
-> In Relate the procedure
-> `db.index.fulltext.queryNodes('terms', 'wal first checkpoint')` currently
-> returns no rows: it looks the whole string up as one token, and every hit
-> scores 1.0. The `SEARCH` clause splits the query into terms, which is why
-> every step here uses it.
 
 ## Anchor each question
 

@@ -19,7 +19,9 @@
 // the background before `command` with its stdin held open until `command`
 // exits: a second process that keeps the store open (the locked-store case).
 // `stdout`, `stderr` and `exit` are what `command` printed and returned, with
-// the directory written `<dir>` and the home directory `<home>`.
+// the directory written `<dir>` and the home directory `<home>`. A replay
+// compares them with timing values masked (`maskTimings`, ADR-0054), so a
+// recording keeps the timings of the run it came from.
 //
 // A page fence pair tagged `verify` is replayed the same way: a ```bash verify
 // fence is run, and when the next fence on the page is a ```text fence, that
@@ -179,6 +181,24 @@ export function normalizeOutput(out: string, dirs: { dir: string[]; home: string
   let s = out;
   for (const [from, to] of pairs) if (from) s = s.split(from).join(to);
   return s;
+}
+
+/**
+ * `out` with every timing value written `<ms>` (ADR-0054): the number after a
+ * JSON key ending `_ms`, in compact or pretty JSON and in JSON quoted inside a
+ * JSON string (`_ms\":0.3`). Since relate 0.1.0 every machine-readable result
+ * carries per-phase timings (upstream ADR-0540), which change on every run, so
+ * a replay compares recorded and replayed output through this mask and a page
+ * may show the numbers of the run it was written from. `planCache` and every
+ * other key are compared as printed.
+ */
+export function maskTimings(out: string): string {
+  return out.replace(/(_ms\\?"\s*:\s*)-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g, '$1<ms>');
+}
+
+/** Whether a recorded and a replayed output agree once their timing values are masked. */
+export function sameOutput(recorded: string, replayed: string): boolean {
+  return recorded === replayed || maskTimings(recorded) === maskTimings(replayed);
 }
 
 /** A data-file message as a pattern: `<name>` is a variable part, `…` an elision; the rest is literal. */

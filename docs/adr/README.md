@@ -131,3 +131,4 @@ Copy `template.md`.
 | [0051](0051-graph-diff.md) | The graph diff matches two of the page's results by a key property, draws the changes with a mark as well as a colour, and reruns the page's cells on a database of its own | Proposed |
 | [0052](0052-timeline-view.md) | The timeline view draws a step's own rows on a time axis, with columns named by attributes and an as-of slider that re-runs the page's own statement | Proposed |
 | [0053](0053-verified-sample-manifests.md) | Each verified language sample is published as a manifest, with the client build it actually ran on | Proposed |
+| [0054](0054-replays-mask-timing-values.md) | CLI replays compare output with timing values masked, and pages show a real run's timings | Proposed |

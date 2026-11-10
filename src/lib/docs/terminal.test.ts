@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 
+import { maskTimings } from './checks/cli.ts';
 import { ROOT } from './content.ts';
 import { digestFacts, factsProblem, messagePattern } from './elements/_terminal-facts.ts';
 import { CASES, runKey, type Fixtures } from './elements/_terminal-record.ts';
@@ -62,10 +63,10 @@ function engine(statement: string, writable = false): string[] {
   }
 }
 
-/** What the renderers print for a run, as the two streams' bytes. */
+/** What the renderers print for a run, as the two streams' bytes, timing values masked (ADR-0054): the engine's and the binary's runs time differently. */
 function render(statement: string, mode: Mode, cap: number | null, writable = false) {
   const out = renderRun({ envelopes: engine(statement, writable), statements: splitStatements(statement).length, mode, cap }, facts);
-  const stream = (fd: 1 | 2) => out.lines.filter((l) => l.fd === fd).map((l) => `${l.text}\n`).join('');
+  const stream = (fd: 1 | 2) => maskTimings(out.lines.filter((l) => l.fd === fd).map((l) => `${l.text}\n`).join(''));
   return { stdout: stream(1), stderr: stream(2), exit: out.exit };
 }
 
@@ -88,7 +89,8 @@ for (const c of fixtures.cases) {
   test(`the binary's bytes, rendered from the engine's envelopes: ${c.name}`, () => {
     for (const mode of MODES) {
       for (const harness of [false, true]) {
-        const want = c.runs[runKey(mode, harness)];
+        const recorded = c.runs[runKey(mode, harness)];
+        const want = { ...recorded, stdout: maskTimings(recorded.stdout), stderr: maskTimings(recorded.stderr) };
         const have = render(c.statement, mode, harness ? facts.agentCap : null, c.writable);
         const at = `${c.name}, --mode ${mode}${harness ? `, ${facts.harnessVariable}=1` : ''}`;
         assert.equal(have.exit, want.exit, `${at}: exit code`);
@@ -197,10 +199,10 @@ test('every query run recorded in cli.json and errors.json that the terminal can
       continue;
     }
     const have = render(run.statement, run.mode, run.cap, run.writable);
-    assert.equal(have.stdout, rec.stdout, `${rec.command}: stdout`);
+    assert.equal(have.stdout, maskTimings(String(rec.stdout)), `${rec.command}: stdout`);
     // The one known gap (see the fixtures): the note relate prints for a write that changed nothing.
     if (rec.stderr === `${zeroEffect}\n` && have.stderr === '') gaps.push(rec.command as string);
-    else assert.equal(have.stderr, rec.stderr, `${rec.command}: stderr`);
+    else assert.equal(have.stderr, maskTimings(String(rec.stderr)), `${rec.command}: stderr`);
     assert.equal(have.exit, rec.exit, `${rec.command}: exit code`);
     compared.push(rec.command as string);
   }

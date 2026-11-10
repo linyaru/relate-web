@@ -15,13 +15,16 @@
 //     signed `# relate-release-version: vX.Y.Z` header, and the binary's
 //     SHA-256 (distribution/install.sh, RELEASING.md "Signing key"). Releases
 //     up to and including 0.16.1 carry `cypherlite` in those names instead
-//     (`releaseNames`), so the pinned blocks name what that release shipped.
+//     (`releaseNames`, by publication date: relate restarted its version line
+//     at 0.1.0), so the pinned blocks name what that release shipped.
 //   - The key and its fingerprint: distribution/release-signing-key.pub
 //     (`ssh-keygen -lf` prints the fingerprint).
 //   - `relate --version` and the envelope bytes of `RETURN 1 AS ok`: read from
 //     the runs recorded in src/content/docs/_data/engine.json (`version_check`,
 //     `envelope_check`), which `npm run docs:cli-check` replays against the
-//     binary. The skill agent names and `relate skill install` writing under
+//     binary. The envelope carries per-phase timings that change on every run
+//     (relate 0.1.0, upstream ADR-0540), so the pages print it with each
+//     timing value written `<ms>` (`maskTimings`, ADR-0054) and say so. The skill agent names and `relate skill install` writing under
 //     the home directory: recorded from the binary in _data/cli.json
 //     (`commands[skill].recorded`).
 //
@@ -36,6 +39,7 @@ import { readFileSync } from 'node:fs';
 
 import type { ComponentProps } from '../../lib/docs/constructs.ts';
 import { engine, ENGINE_FILE, publishedIds } from '../../lib/docs/content.ts';
+import { maskTimings } from '../../lib/docs/checks/cli.ts';
 import { absoluteUrl, resolveHref } from '../../lib/docs/links.ts';
 
 /** A paragraph (inline markdown: `code` and [links](/docs/…)) or a code block. */
@@ -66,28 +70,28 @@ export const SIGNER = 'relate-release';
 /** The agents `relate skill install --agent` accepts, as the CLI lists them. */
 export const SKILL_AGENTS = ['claude-code', 'cursor', 'windsurf', 'copilot', 'antigravity', 'gemini-cli', 'cline', 'codex', 'pi', 'opencode', 'junie'];
 
-/** The last release published under the earlier name, cypherlite (public/releases.json: its assets are `cypherlite-<os>-<arch>`). */
+/** The last release published under the earlier name, cypherlite (its assets are `cypherlite-<os>-<arch>`). */
 export const LAST_CYPHERLITE_RELEASE = '0.16.1';
-
-/** True when `a` (X.Y.Z) is at or below `b`. */
-function atOrBelow(a: string, b: string): boolean {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) < (pb[i] ?? 0);
-  }
-  return true;
-}
+/**
+ * The first relate-named release and its publication date (UTC). relate
+ * restarted its version line at 0.1.0, so a version number alone no longer
+ * says which name a release was published under (0.1.2 is below 0.16.1); the
+ * publication date does: every cypherlite release came before this one.
+ */
+export const FIRST_RELATE_RELEASE = { version: '0.1.0', date: '2026-11-09' } as const;
 
 /**
- * The names a release at version `v` is published under. Up to and including
- * 0.16.1 the assets, the signer identity, the signature namespace and the
- * manifest header carried the earlier name, with the same key (the pre-rename
- * install.sh in this repository's history; public/releases.json for the asset
- * names). From the first relate-named release on they carry `relate`.
+ * The names a release at version `v`, published on `date` (YYYY-MM-DD), is
+ * published under. Releases before the first relate-named release (the last
+ * was 0.16.1) carried the earlier name in the assets, the signer identity, the
+ * signature namespace and the manifest header, with the same key (the
+ * pre-rename install.sh in this repository's history). From the first
+ * relate-named release on they carry `relate`. `date` defaults to
+ * _data/engine.json's when `v` is its version; a release with no known date is
+ * taken to be relate-named.
  */
-export function releaseNames(v: string): { prefix: string; signer: string; key: string; header: string; legacy: boolean } {
-  const legacy = atOrBelow(v, LAST_CYPHERLITE_RELEASE);
+export function releaseNames(v: string, date: string | null = v === engine().version ? engine().date : null): { prefix: string; signer: string; key: string; header: string; legacy: boolean } {
+  const legacy = date !== null && date < FIRST_RELATE_RELEASE.date;
   const prefix = legacy ? 'cypherlite' : 'relate';
   const signer = `${prefix}-release`;
   // The same key; its comment field named the signer of the day (the pre-rename install.sh pinned it as `… cypherlite-release`).
@@ -104,9 +108,11 @@ function recordedCheck(name: 'version_check' | 'envelope_check'): { command: str
 }
 
 const envelopeCheck = recordedCheck('envelope_check');
-/** The envelope check and the exact bytes it prints, as recorded from the binary. */
+/** The envelope check and the bytes it prints, as recorded from the binary, each timing value written `<ms>`. */
 export const ENVELOPE_CHECK = envelopeCheck.command;
-export const ENVELOPE_OUTPUT = envelopeCheck.output;
+export const ENVELOPE_OUTPUT = maskTimings(envelopeCheck.output);
+/** Whether the envelope check's output holds timing values (then the pages say what `<ms>` stands for). */
+export const ENVELOPE_HAS_TIMINGS = ENVELOPE_OUTPUT !== envelopeCheck.output;
 /** What `relate --version` prints at the engine.json version, as recorded from the binary. */
 export const VERSION_OUTPUT = recordedCheck('version_check').output;
 /** Its first line, `Relate v<version>`. */
@@ -211,6 +217,7 @@ export function agentPrompt(v: string): string {
     `~/.local/bin/relate (chmod +x) and run \`${PATH_LINE}\`.`,
     `Verify: \`relate --version\` prints \`${VERSION_LINE}\` and \`${ENVELOPE_CHECK}\` prints`,
     ENVELOPE_OUTPUT,
+    ...(ENVELOPE_HAS_TIMINGS ? ['where each <ms> is a number of milliseconds that changes from run to run.'] : []),
     `Then run \`relate skill install --agent <your-agent>\` (one of ${SKILL_AGENTS.join(', ')};`,
     "it writes the skill into that agent's skills folder in the home directory) and `relate agent-context`",
     'for the version-true command reference. Read https://relatedb.ai/docs/llms.txt before going further.',

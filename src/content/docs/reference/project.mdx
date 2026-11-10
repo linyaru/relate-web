@@ -14,7 +14,7 @@ relate is open source under the Apache License 2.0. It is pre-1.0: under semanti
 | --- | --- |
 | License | Apache License 2.0 |
 | Source | [github.com/relatedb/relate](https://github.com/relatedb/relate), public at launch |
-| Version these pages track | 0.16.1 |
+| Version these pages track | 0.1.2 |
 | Stability | Pre-1.0; any release can change behavior, and breaking changes are marked |
 | Contributions | Issues; no pull requests from outside the maintainer team |
 | Release cadence | None published |
@@ -28,7 +28,7 @@ relate --version
 ```
 
 ```text
-Relate v0.16.1
+Relate v0.1.2
 License: Apache 2.0 (binary)
 ```
 
@@ -55,7 +55,7 @@ relate follows semantic versioning, and is pre-1.0:
 
 | Promise | What it means |
 | --- | --- |
-| Any release can break | Under semantic versioning, anything can change in a 0.x release, a patch release included. 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C application binary interface (ABI) with an incompatible typed one. |
+| Any release can break | Under semantic versioning, anything can change in a 0.x release, a patch release included. 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C application binary interface (ABI) with an incompatible typed one, and 0.1.2 changed the strings `elementId()` returns. |
 | Breaking changes are marked | A change that can make working code or statements fail is marked **Breaking** in the [changelog](/docs/reference/changelog) entry of the release that ships it, with its replacement when there is one. |
 | Deprecations are listed | A feature that still works but is to be removed is listed under Deprecated in the release that deprecates it. |
 | One version number | The binary and every client package carry the same version number. |
@@ -100,7 +100,7 @@ The project publishes no release cadence and no support period for older release
 | C library, `relate-ffi-<target>.tar.gz` (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) | Yes | Yes | Yes | Yes | Yes | — |
 | Swift package, `Relate` | Yes | Yes | — | — | — | macOS 13 or later; iOS 16 or later |
 
-Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser :term[store]{id=store} needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
+Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries; the first release named relate restarted the version numbers at 0.1.0. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser :term[store]{id=store} needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
 
 Nothing is published to a package registry yet. The names in the table are the names each package is to be published under at launch:
 

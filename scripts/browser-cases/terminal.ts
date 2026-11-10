@@ -6,7 +6,7 @@
 // failure exits 6 with its stderr lines and its errors-reference link, an
 // error object in the JSON modes and none in the table, and the status line
 // (the live region) names the exit code; a write is refused by the read-only
-// database; the one known engine wording difference is labelled; the harness
+// database; an argument error carries the binary's wording; the harness
 // toggle cuts 250 rows to the recorded cap with the warning on stderr; a
 // result of 200,000 rows draws the pane's first lines and says how many it
 // left out, the counts staying exact; and the tabs, the statement and
@@ -72,6 +72,8 @@ const HELPERS = `
     }
     return m;
   };
+  /** Timing values written \`<ms>\`, as the static form writes them and the CLI check masks them (ADR-0054): a live run times differently. */
+  const maskMs = (t) => t.replace(/(_ms\\\\?"\\s*:\\s*)-?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?/g, '$1<ms>');
   const modesShown = () => expect(log, failures, 'each mode switch (' + [...via].join(', ') + ') shows its --mode', modeMiss.length === 0, modeMiss.join('; '));
 `;
 
@@ -94,11 +96,11 @@ const FIRST = scenario(`
   const bad = [];
   for (const m of modes) {
     setMode(m);
-    if (out() !== rec[m].output) bad.push(m + ' output');
+    if (maskMs(out()) !== maskMs(rec[m].output)) bad.push(m + ' output');
     if (command() !== rec[m].command) bad.push(m + ' command');
     if (!/ --read-only /.test(' ' + command() + ' ')) bad.push(m + ' has no --read-only');
   }
-  expect(log, failures, 'the live bytes equal the recorded ones in every mode, each command read-only', bad.length === 0, bad.join('; '));
+  expect(log, failures, 'the live bytes equal the recorded ones in every mode, timing values aside, each command read-only', bad.length === 0, bad.join('; '));
   modesShown();
   const attrs = JSON.parse(h.dataset.attrs);
   expect(log, failures, 'the harness variable shows when harness=on', (attrs.harness === 'on') === /^CLAUDECODE=1 /.test(command()), command().slice(0, 40));
@@ -145,7 +147,7 @@ export default {
       },
     },
     {
-      name: 'a failure exits 6 with its stderr, link and a status that names it; a write is refused; an engine difference is labelled',
+      name: 'a failure exits 6 with its stderr, link and a status that names it; a write is refused; an argument error carries the binary\'s wording',
       scenario: scenario(`
         const log = [], failures = [];
         ${HELPERS}
@@ -173,7 +175,8 @@ export default {
         expect(log, failures, 'three statements stop at the second, and say so', lines(2).includes('statement 2 of 3 failed; 1 completed and committed; 1 not run') && lines(1).includes('| 1 |'), lines(2).join(' / '));
         type('RETURN point({latitude: 100, longitude: 0}) AS p');
         await run();
-        expect(log, failures, 'the known engine wording difference is labelled as the engine\\'s', /words this error differently from the relate \\d+\\.\\d+\\.\\d+ binary, which prints "semantic error: InvalidArgumentValue: …" with kind argument/.test(exitLine()), exitLine());
+        // Since relate 0.1.2 the engine in the page words this refusal as the binary does, so nothing is labelled.
+        expect(log, failures, 'an out-of-range latitude exits 6 with kind argument and the binary\\'s wording, unlabelled', /^exit 6 · validation_error \\(kind argument/.test(exitLine()) && !/words this error differently/.test(exitLine()) && lines(2).some((t) => /^semantic error: InvalidArgumentValue: point\\(\\) latitude/.test(t)), exitLine());
         modesShown();
         return { log: [lines(2).at(-1)], failures };
       `),
@@ -187,10 +190,10 @@ export default {
         choose('250 rows');
         await run();
         setMode('jsonl');
-        expect(log, failures, 'without the harness, all 250 rows print', screen.dataset.printed === '250' && lines(1).length === 250, screen.dataset.printed);
+        expect(log, failures, 'without the harness, all 250 rows print, then the timing line', screen.dataset.printed === '250' && lines(1).length === 251 && /^\\{"planCache":/.test(lines(1).at(-1)), screen.dataset.printed + ' printed, ' + lines(1).length + ' lines');
         setHarness(true);
         const kept = lines(1).filter((t) => /^\\{"x":/.test(t)).length;
-        expect(log, failures, 'with it, 100 print, then the rowCap line', screen.dataset.printed === '100' && kept === 100 && lines(1).at(-1) === '{"rowCap":{"kept":100,"total":250}}', kept + ' rows; last ' + lines(1).at(-1));
+        expect(log, failures, 'with it, 100 print, then the rowCap line, then the timing line', screen.dataset.printed === '100' && kept === 100 && lines(1).at(-2) === '{"rowCap":{"kept":100,"total":250}}' && /^\\{"planCache":/.test(lines(1).at(-1)), kept + ' rows; last two ' + lines(1).slice(-2).join(' | '));
         expect(log, failures, 'the warning is on stderr', lines(2).some((t) => /^warning: result truncated to 100 rows \\(the statement returned 250\\)/.test(t)), lines(2)[0]);
         expect(log, failures, 'the command carries the harness variable', /^CLAUDECODE=1 relate --read-only --mode jsonl /.test(command()), command().slice(0, 60));
         expect(log, failures, 'the exit code stays 0', /^exit 0 /.test(exitLine()), exitLine().slice(0, 40));
@@ -210,10 +213,10 @@ export default {
         await run(120000);
         const ms = Math.round(performance.now() - t0);
         expect(log, failures, 'the run draws', /^From this tab's run/.test(status()) && screen.dataset.runs !== undefined, status().slice(0, 120));
-        expect(log, failures, 'jsonl: 500 lines drawn of 200,000, the count exact', screen.dataset.lines === '200000' && screen.dataset.drawn === '500' && lines(1).length === 500 && lines(1)[499] === '{"x":500}', screen.dataset.lines + ' / ' + screen.dataset.drawn);
-        expect(log, failures, 'the pane says what it left out, as its own line', notes().length === 1 && notes()[0] === 'the pane stops here; relate prints 199,500 more lines' && screen.querySelector('.term-note .term-fd').textContent === 'pane', notes().join(' | '));
+        expect(log, failures, 'jsonl: 500 lines drawn of 200,001 (the rows and the timing line), the count exact', screen.dataset.lines === '200001' && screen.dataset.drawn === '500' && lines(1).length === 500 && lines(1)[499] === '{"x":500}', screen.dataset.lines + ' / ' + screen.dataset.drawn);
+        expect(log, failures, 'the pane says what it left out, as its own line', notes().length === 1 && notes()[0] === 'the pane stops here; relate prints 199,501 more lines' && screen.querySelector('.term-note .term-fd').textContent === 'pane', notes().join(' | '));
         expect(log, failures, 'the exit line keeps the true counts', /200,000 rows from the engine, 200,000 printed/.test(exitLine()), exitLine());
-        expect(log, failures, 'the status names the outcome in full', /Exit 0, success: 0 lines on stderr, 200,000 on stdout\\./.test(status()), status());
+        expect(log, failures, 'the status names the outcome in full', /Exit 0, success: 0 lines on stderr, 200,001 on stdout\\./.test(status()), status());
         const t1 = performance.now();
         setMode('table');
         const tableMs = Math.round(performance.now() - t1);

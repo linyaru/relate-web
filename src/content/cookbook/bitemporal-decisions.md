@@ -242,8 +242,10 @@ SET old.validTo = d.validFrom, old.closedAt = d.recordedAt
 ## A reviewer rejects a decision
 
 A reviewer reads the new entries and disagrees with the cache. They find it
-by its words. Full-text `SEARCH` scores a decision by how many of the
-query's terms it contains:
+by its words. Full-text `SEARCH` returns the decisions that contain any of
+the query's terms, ranked by BM25 score. The cache decision holds two of
+them, `redis` and `cache`, and comes first; the two decisions that hold
+only `orders` tie below it:
 
 ```json data=find
 {
@@ -259,11 +261,11 @@ ORDER BY score DESC, id
 ```
 
 ```table
-| id   | score | text                           |
-|------|-------|--------------------------------|
-| "d6" | 2.0   | "cache order lookups in redis" |
-| "d1" | 1.0   | "orders uses postgres"         |
-| "d4" | 1.0   | "orders uses mysql"            |
+| id   | score              | text                           |
+|------|--------------------|--------------------------------|
+| "d6" | 1.4030438316063143 | "cache order lookups in redis" |
+| "d1" | 0.5959606622679284 | "orders uses postgres"         |
+| "d4" | 0.5959606622679284 | "orders uses mysql"            |
 3 rows
 ```
 

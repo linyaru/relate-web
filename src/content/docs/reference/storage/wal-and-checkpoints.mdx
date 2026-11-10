@@ -155,12 +155,15 @@ cat team/wal/00000002.log; echo
 ```
 
 ```text
+{"planCache":"miss","timings":{"elapsed_ms":1.341,"execute_ms":1.173125,"lex_parse_ms":0.004666,"lower_ms":0.003875,"parse_ms":0.16037500000000002,"plan_ms":0.001708,"result_generation_ms":0.000209,"rewrite_ms":0.00025}}
+{"planCache":"miss","timings":{"elapsed_ms":0.876416,"execute_ms":0.844,"lex_parse_ms":0.002209,"lower_ms":0.002,"parse_ms":0.030042000000000003,"plan_ms":0.001333,"result_generation_ms":0.000083,"rewrite_ms":0.000167}}
+{"planCache":"miss","timings":{"elapsed_ms":0.8362499999999999,"execute_ms":0.795542,"lex_parse_ms":0.002375,"lower_ms":0.003791,"parse_ms":0.038416,"plan_ms":0.001458,"result_generation_ms":0.000042,"rewrite_ms":0.000209}}
 layout: native directory
 codec: parquet
 format version: 3
 checkpoint LSN: 3
 commit timestamp: 3
-total bytes: 1952
+total bytes: 2010
 wal segments past checkpoint: 1
 nodes (at checkpoint LSN 3): 3
 relationships (at checkpoint LSN 3): 0
@@ -188,10 +191,10 @@ relate query --database ./team < checkpoint.cypher | grep -E '^(checkpoint LSN|t
 
 ```text
 checkpoint LSN:               3
-total bytes:                  2070
+total bytes:                  2128
 wal segments past checkpoint: 1
 checkpoint LSN:               4
-total bytes:                  3280
+total bytes:                  3338
 wal segments past checkpoint: 1
 ```
 

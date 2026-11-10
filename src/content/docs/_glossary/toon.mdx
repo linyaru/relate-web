@@ -10,7 +10,7 @@ related: ["agent-mode", "envelope"]
 
 TOON spends fewer characters than JSON on a uniform set of rows, because the column names appear once, in a header line, instead of in every row. `--toon` or `--mode toon` selects it, and :term[agent mode]{id=agent-mode} makes it the default when stdout is piped and no output flag is given.
 
-The header is `rows[N]{col1,col2,…}:`, followed by one line per row, indented by two spaces. Integers, floats, booleans and `null` print bare; a string prints bare unless it would read back as something else, and then it is quoted as JSON. Nested values such as lists, maps, nodes, and paths print as compact JSON.
+The header is `rows[N]{col1,col2,…}:`, followed by one line per row, indented by two spaces. A `timings:` entry, the statement's phase timings as inline JSON, and a `planCache:` entry close each statement's block; the timing numbers change from run to run. Integers, floats, booleans and `null` print bare; a string prints bare unless it would read back as something else, and then it is quoted as JSON. Nested values such as lists, maps, nodes, and paths print as compact JSON.
 
 ```bash
 relate --toon "UNWIND [1, 2] AS x RETURN x, x * 10 AS y"
@@ -20,6 +20,10 @@ relate --toon "UNWIND [1, 2] AS x RETURN x, x * 10 AS y"
 rows[2]{x,y}:
   1,10
   2,20
+timings:
+  {"elapsed_ms":0.457667,"execute_ms":0.26066700000000004,"lex_parse_ms":0.035250000000000004,"lower_ms":0.037167,"parse_ms":0.13137500000000002,"plan_ms":0.051458000000000004,"result_generation_ms":0.000417,"rewrite_ms":0.008583}
+planCache:
+  miss
 ```
 
 TOON prints no error object, so a failed statement shows only on stderr and in the exit code.

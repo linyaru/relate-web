@@ -10,7 +10,7 @@ related: ["snapshot", "store", "clone"]
 
 The codec decides the files a :term[checkpoint]{id=checkpoint} writes; it does not change the engine, the WAL, or how a statement runs. `parquet`, the default, writes columnar files. `json` writes the graph as a text file, `graph.json`, that a diff can read. `markdown` writes a vault of notes, one file per node in a folder per label, with the WAL under `.cypherlite/wal/`.
 
-`--snapshot-format parquet|json|markdown` picks the codec, and only for an empty directory: an existing store keeps the codec it was created with. To change it, `relate clone --to-snapshot-format <codec> <source> <dest>` writes a new store in the other codec.
+`--snapshot-format parquet|json|markdown` picks the codec, and only for an empty directory: an existing store keeps the codec it was created with. To change it, `relate clone --to-snapshot-format <codec> <source> <dest>` writes a new store in the other codec. `--snapshot-format parquet-wide` is the one value that applies to an existing store too: it keeps the `parquet` codec and writes one typed column per common property key, converting a `parquet` store at its next checkpoint.
 
 ```bash
 relate clone --to-snapshot-format json ./team.rl ./team-json

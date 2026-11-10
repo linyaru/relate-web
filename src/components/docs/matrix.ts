@@ -115,7 +115,7 @@ export function table(props: ComponentProps = {}, d: SurfacesData = surfacesData
       return { id: rowId(id), cells: [[`${f.label}.`, f.means], ...cols.map((c) => [cellText(d.cells[id][c])])] };
     }),
     notes: [
-      `Each cell is yes, no, partial or unknown, with the call, flag or reason. Checked on ${d.checked} against relate ${d.verified}: runs of the CLI binary, the WebAssembly build this site ships and the Python and Node.js clients, and each surface's upstream reference; the result-metadata cells of the Java, Go and Swift clients also from runs of those clients. The C, Java, Go and Swift clients load the same C ABI library as the Node.js client.`,
+      `Each cell is yes, no, partial or unknown, with the call, flag or reason. Checked on ${d.checked} against relate ${d.verified}: runs of the CLI binary and \`relate serve\` (Bolt, HTTP and MCP), the WebAssembly build this site ships, and the Python, Node.js, C, Java, Go, Swift and Rust clients, and each surface's upstream reference. The C, Java, Go and Swift clients load the same C ABI library as the Node.js client.`,
     ],
   };
 }

@@ -81,7 +81,7 @@ relate --database ./team-vault --snapshot-format markdown --mode envelope "MATCH
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["label","name"],"notifications":[],"rows":[{"label":"Person","name":"Ada"},{"label":"Person","name":"Grace"},{"label":"Person","name":"Noor"},{"label":"Project","name":"opencypher-tck"},{"label":"Project","name":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["label","name"],"notifications":[],"planCache":"miss","rows":[{"label":"Person","name":"Ada"},{"label":"Person","name":"Grace"},{"label":"Person","name":"Noor"},{"label":"Project","name":"opencypher-tck"},{"label":"Project","name":"relate"}],"timings":{"elapsed_ms":0.545708,"execute_ms":0.362875,"lex_parse_ms":0.005791999999999999,"lower_ms":0.045417,"parse_ms":0.130916,"plan_ms":0.045958000000000006,"result_generation_ms":0.000166,"rewrite_ms":0.007416},"truncated":false}
 ```
 
 `opencypher-tck` is a node because Grace's note links it. The codec is now recorded in `.cypherlite/manifest.json`, so later opens need no flag.
@@ -144,7 +144,7 @@ relate --database ./team-vault --read-only --mode envelope "MATCH (p:Person)-[r]
 ```
 
 ```text
-{"columnTypes":["STRING","STRING","STRING"],"columns":["person","rel","target"],"notifications":[],"rows":[{"person":"Ada","rel":"KNOWS","target":"Grace"},{"person":"Ada","rel":"WORKS_ON","target":"relate"},{"person":"Grace","rel":"WORKS_ON","target":"opencypher-tck"},{"person":"Grace","rel":"WORKS_ON","target":"relate"},{"person":"Noor","rel":"MAINTAINS","target":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING","STRING"],"columns":["person","rel","target"],"notifications":[],"planCache":"miss","rows":[{"person":"Ada","rel":"KNOWS","target":"Grace"},{"person":"Ada","rel":"WORKS_ON","target":"relate"},{"person":"Grace","rel":"WORKS_ON","target":"opencypher-tck"},{"person":"Grace","rel":"WORKS_ON","target":"relate"},{"person":"Noor","rel":"MAINTAINS","target":"relate"}],"timings":{"elapsed_ms":0.451625,"execute_ms":0.27304199999999995,"lex_parse_ms":0.03275,"lower_ms":0.045583,"parse_ms":0.113375,"plan_ms":0.057374999999999995,"result_generation_ms":0.000292,"rewrite_ms":0.0085},"truncated":false}
 ```
 
 A write becomes a note at the checkpoint. This statement adds Ines, with a body, working on `relate`:
@@ -155,7 +155,7 @@ cat team-vault/Person/Ines.md
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.515666,"execute_ms":1.318625,"lex_parse_ms":0.006333,"lower_ms":0.006791,"parse_ms":0.186708,"plan_ms":0.0052499999999999995,"result_generation_ms":0.000167,"rewrite_ms":0.00033299999999999996},"truncated":false}
 ---
 type: Person
 name: Ines
@@ -190,7 +190,7 @@ relate --database ./team-vault --read-only --mode envelope "MATCH (p:Person {nam
 ```
 
 ```text
-{"columnTypes":["STRING","LIST"],"columns":["body","maintains"],"notifications":[],"rows":[{"body":"Reviews every release.","maintains":["opencypher-tck","relate"]}],"truncated":false}
+{"columnTypes":["STRING","LIST"],"columns":["body","maintains"],"notifications":[],"planCache":"miss","rows":[{"body":"Reviews every release.","maintains":["opencypher-tck","relate"]}],"timings":{"elapsed_ms":0.481791,"execute_ms":0.28125,"lex_parse_ms":0.033958,"lower_ms":0.049208,"parse_ms":0.125375,"plan_ms":0.065667,"result_generation_ms":0.000334,"rewrite_ms":0.00825},"truncated":false}
 ```
 
 While a process holds the vault open, it is the one writer: an edit made to the files then is refused at its next checkpoint ([If it goes wrong](#if-it-goes-wrong)).
@@ -205,7 +205,7 @@ cat team-vault/Person/Ada.md
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.363583,"execute_ms":1.1715,"lex_parse_ms":0.0047090000000000005,"lower_ms":0.004125,"parse_ms":0.18016700000000002,"plan_ms":0.006625,"result_generation_ms":0.000125,"rewrite_ms":0.000334},"truncated":false}
 ---
 type: Person
 name: Ada
@@ -227,7 +227,7 @@ The list is recorded in `.cypherlite/manifest.json`, so later opens use it witho
 
 ## Round-trip through another codec
 
-`relate clone` copies the vault into any layout and codec, and back. A `parquet` copy does not record the body list, so pass it again when cloning back to markdown, and the notes come back the same:
+`relate clone` copies the vault into another layout and codec, and back. A `.rl` copy of a vault names its codec, `parquet` or `json`: in relate 0.1.2 a `.rl` destination refuses the body list a vault records. A `parquet` copy does not record the body list, so pass it again when cloning back to markdown, and the notes come back the same:
 
 ```bash verify
 relate clone --to-snapshot-format parquet ./team-vault ./team.rl
@@ -250,7 +250,7 @@ relate --database ./team-vault --read-only --mode envelope "MATCH (n) RETURN lab
 ```
 
 ```text
-{"columnTypes":["STRING","INTEGER"],"columns":["label","notes"],"notifications":[],"rows":[{"label":"Person","notes":4},{"label":"Project","notes":2}],"truncated":false}
+{"columnTypes":["STRING","INTEGER"],"columns":["label","notes"],"notifications":[],"planCache":"miss","rows":[{"label":"Person","notes":4},{"label":"Project","notes":2}],"timings":{"elapsed_ms":0.622666,"execute_ms":0.442458,"lex_parse_ms":0.005958000000000001,"lower_ms":0.046542,"parse_ms":0.128,"plan_ms":0.046459,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.006541},"truncated":false}
 ```
 
 ## If it goes wrong
@@ -266,7 +266,7 @@ relate --database ./team-vault --read-only --mode envelope "MATCH (n) RETURN lab
   ```
 
   ```text
-  {"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+  {"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":2.6516669999999998,"execute_ms":2.385125,"lex_parse_ms":0.008209000000000001,"lower_ms":0.006791,"parse_ms":0.253625,"plan_ms":0.002333,"result_generation_ms":0.000292,"rewrite_ms":0.000542},"truncated":false}
   Error: final checkpoint failed: storage error: markdown vault: node 7 of label Person has no 'name' property; the markdown vault requires a non-null unique 'name' on :Person
   exit=1
   ```
@@ -279,7 +279,7 @@ relate --database ./team-vault --read-only --mode envelope "MATCH (n) RETURN lab
   ```
 
   ```text
-  {"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+  {"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":12.825,"execute_ms":12.275584,"lex_parse_ms":0.21241700000000002,"lower_ms":0.013875,"parse_ms":0.522375,"plan_ms":0.017249999999999998,"result_generation_ms":0.000167,"rewrite_ms":0.001167},"truncated":false}
   Ada.md
   Grace.md
   Ines.md

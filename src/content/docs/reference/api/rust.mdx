@@ -7,7 +7,7 @@ surfaces: [rust]
 related: [guides/embed/rust, get-started/rust, reference/api/c, reference/errors, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The `relate` crate is the engine as a Rust library: a `Database` opens a :term[store]{id=store}, a `Connection` runs statements on it, and each statement returns a `QueryResult` of `Value` rows or a `relate::Error`. This page lists what the crate exports at its root (every name is `relate::<name>`), as of the source build the docs are verified against. The C application binary interface (ABI) and the Python client are built on the same `Database`. The guide [Use the Rust crate](/docs/guides/embed/rust) covers the same API with runnable programs.
+The `relate` crate is the engine as a Rust library: a `Database` opens a :term[store]{id=store}, a `Connection` runs statements on it, and each statement returns a `QueryResult` of `Value` rows or a `relate::Error`. This page lists what the crate exports at its root (every name is `relate::<name>`), as of relate 0.1.2. The C application binary interface (ABI) and the Python client are built on the same `Database`. The guide [Use the Rust crate](/docs/guides/embed/rust) covers the same API with runnable programs.
 
 ## Synopsis
 
@@ -30,11 +30,12 @@ relate::error_info(&Error) -> ErrorInfo
 
 ## Cargo features
 
-The crate is `relate`, in the workspace at version 0.16.1, with `rust-version` 1.88 and edition 2021. Before crates.io publication it is a Git dependency, `cargo add --git https://github.com/relatedb/relate relate`.
+The crate is `relate`, in the workspace at version 0.1.2, with `rust-version` 1.88 and edition 2021. Before crates.io publication it is a Git dependency, `cargo add --git https://github.com/relatedb/relate relate`.
 
 | Feature | Default | Effect |
 | --- | --- | --- |
-| `parquet` | on | Compiles the Parquet snapshot codec and its Arrow and Parquet dependencies. Without it, new stores use the JSON codec, and opening a Parquet store or asking for `SnapshotCodecKind::Parquet` fails at open with `Error::Storage` carrying `parquet snapshot codec is not compiled into this build (enable the "parquet" feature)`; there is no fallback to JSON. The feature postdates the `v0.16.1` tag, at which Parquet is always compiled. |
+| `parquet` | on | Compiles the Parquet snapshot codec and its Arrow and Parquet dependencies. Without it, new stores use the JSON codec, and opening a Parquet store or asking for `SnapshotCodecKind::Parquet` fails at open with `Error::Storage` carrying `parquet snapshot codec is not compiled into this build (enable the "parquet" feature)`; there is no fallback to JSON. |
+| `rkyv-codec` | off | Compiles the experimental rkyv snapshot codec, `SnapshotCodecKind::Rkyv`, on native targets, for measurement only; a store it writes opens only in a build with the feature. Without it, asking for `Rkyv` fails at open with `Error::Storage` carrying `rkyv snapshot codec is not compiled into this build (enable the "rkyv-codec" feature)`. |
 | `research` | off | Research-only kernels; outside the public API |
 
 ## Database
@@ -81,7 +82,8 @@ The settings of `Database::open_with`, a struct with public fields and `Default`
 | `durability_mode` | `Option<DurabilityMode>` | `RELATE_DURABILITY_MODE`, else `Full` | When a commit is acknowledged; not persisted with the store |
 | `checkpoint_interval` | `Option<Duration>` | `RELATE_CHECKPOINT_INTERVAL_SECS`, else 300 seconds (`DEFAULT_CHECKPOINT_INTERVAL_SECS`) | The checkpoint timer, which runs when the WAL has work; `Duration::ZERO` turns it off |
 | `wal_dir` | `Option<PathBuf>` | `<store>/wal` | A directory store's WAL directory; ignored for `:memory:` |
-| `snapshot_codec` | `Option<SnapshotCodecKind>` | `RELATE_SNAPSHOT_FORMAT`, else Parquet (JSON without the `parquet` feature) | A new store's codec: `Parquet`, `Json` or `Markdown`. An existing directory store keeps its own; a different one is an error. |
+| `snapshot_codec` | `Option<SnapshotCodecKind>` | `RELATE_SNAPSHOT_FORMAT`, else Parquet (JSON without the `parquet` feature) | A new store's codec: `Parquet`, `Json`, `Markdown`, or the experimental `Rkyv` (only with the `rkyv-codec` feature). An existing directory store keeps its own; a different one is an error. |
+| `wide_columns` | `bool` | `false` | Opts a Parquet store into the wide-column encoding: its next checkpoint writes one typed column per promoted property key beside a JSON tail, and the store stays wide from then on, whatever later opens set. On a store whose codec is not Parquet, or with `markdown_body_properties` set too, the open fails with `Error::Semantic`. |
 | `markdown_body_properties` | `Option<MarkdownBodyProperties>` | `RELATE_MARKDOWN_BODY_PROPERTIES`, else the store's recorded setting, else `body` | The properties a `Markdown` store writes as note bodies; set on another codec, the open fails |
 | `logical_graph_size_limit` | `Option<u64>` | `RELATE_LOGICAL_GRAPH_SIZE_LIMIT`, else unlimited | Limit: the live graph plus its indexes, in logical bytes; `Some(0)` is unlimited. A growing write over it fails with `Error::Capacity`. |
 | `expression_memory_limit` | `Option<u64>` | `RELATE_EXPRESSION_MEMORY_LIMIT`, else 256 MiB | Limit: one value an expression builds; `Some(0)` turns it off |
@@ -123,7 +125,7 @@ One session on a `Database`. `Connection` is `Send` but not `Sync`; every method
 
 ## QueryResult
 
-`QueryResult.header` is a `ResultHeader`, the metadata every statement announces; a staged run's `ExecutionFailure` carries the same struct. Its public fields are `columns`, `column_types`, `query_type`, `namespace` and `elapsed`; its parse, plan and execute split is read through the `QueryResult` methods.
+`QueryResult.header` is a `ResultHeader`, the metadata every statement announces; a staged run's `ExecutionFailure` carries the same struct. Its public fields are `columns`, `column_types`, `query_type`, `namespace` and `elapsed`; its phase timings and plan-cache outcome are read through the `QueryResult` methods.
 
 | Field or method | Holds |
 | --- | --- |
@@ -134,6 +136,9 @@ One session on a `Database`. `Connection` is `Send` but not `Sync`; every method
 | `header.namespace` | The namespace the statement ran in: its `USE` target, else the session namespace |
 | `header.elapsed`, `elapsed_ms()` | The engine's wall-clock time for parse, plan and run, excluding row handling |
 | `parse_ms()`, `plan_ms()`, `execute_ms()` | Three disjoint parts of the elapsed time; their sum never exceeds it |
+| `lex_parse_ms()`, `rewrite_ms()`, `lower_ms()` | Three disjoint parts of `parse_ms()`: lexing and building the syntax tree, the rewrite pass, and validation with lowering; each `0.0` when a cached plan served the statement |
+| `result_generation_ms()` | The part of `execute_ms()` that builds the `QueryResult`; `0.0` under `EXPLAIN` |
+| `plan_cache()` | A `PlanCacheOutcome`: `Miss`, `HitRawFastPath` (the statement text matched a cached plan), `HitTemplate` (its parameterized form matched), `ReplanGenerationMismatch` (a cached plan, re-planned after the statistics changed) or `Bypassed` (the cache was not consulted); `as_str()` gives `miss`, `hit-raw-fastpath`, `hit-template`, `replan-generation-mismatch` or `bypassed` |
 | `stats` | `QueryStats`, each counter an `i64`: `nodes_created`, `nodes_deleted`, `relationships_created`, `relationships_deleted`, `properties_set`, `properties_removed`, `labels_added`, `labels_removed`, `indexes_added`, `indexes_removed`, `constraints_added`, `constraints_removed`, `node_labels_added`, `node_labels_removed`, `properties_written` |
 | `bookmark` | An auto-commit write's bookmark, `relate:<n>`; `None` for a read, an `EXPLAIN`, a write whose counters are all zero (it changed nothing), and any statement inside an explicit transaction |
 | `effect` | `StatementEffect`: whether a write ran (`attempted()`), changed something (`applied()`), or changed nothing (`changed_nothing()`) |
@@ -201,8 +206,8 @@ The `gql_status` shown for `Syntax`, `Semantic` and `Execution` is the default: 
 
 | Type | Holds |
 | --- | --- |
-| `PlanNode` | `operator`, `details`, `identifiers`, `children`, `estimated_rows`, `id`, `warnings`, `metrics` under `PROFILE`, `statement_echo` (the wrapped statement without its `EXPLAIN` or `PROFILE` keyword), and `token_estimate` (the plan's peak logical workspace, `None` unless admission is on); `to_value()` gives the tree as a `Value` |
-| `ClauseMetrics` | One operator's `PROFILE` figures: `rows`, `db_hits`, `memory_bytes`, `expression_built_bytes`, `time_ns`, `reads`, `start`, `phases`, `batched` (whether the clause ran as batch operators), `zone_skips` (batch filter evaluations skipped by chunk min/max metadata), `frontier` (the breadth-first frontier's counts of relationships visited, levels completed and endpoints accepted) and `frontier_decline` (why a frontier run fell back, when it did) |
+| `PlanNode` | `operator`, `details`, `identifiers`, `children`, `estimated_rows`, `id`, `warnings`, `metrics` under `PROFILE`, `statement_echo` (the wrapped statement without its `EXPLAIN` or `PROFILE` keyword), `token_estimate` (the plan's peak logical workspace, `None` unless admission is on), and `pattern_engine` (on a `MATCH` operator, the `PatternEngine` mode `RELATE_PATTERN_ENGINE` sets at open: `Auto`, `Nfa` or `Walk`; `None` elsewhere); `to_value()` gives the tree as a `Value` |
+| `ClauseMetrics` | One operator's `PROFILE` figures: `rows`, `db_hits`, `memory_bytes`, `expression_built_bytes`, `time_ns`, `reads`, `start`, `kernel` (the `KernelRung` that served the clause's `MATCH` walk: `Chain { hops }`, `HubStar`, `FrontierNfa` or `Walker`; `None` without a `MATCH` walk), `phases`, `batched` (whether the clause ran as batch operators), `zone_skips` (batch filter evaluations skipped by chunk min/max metadata), `frontier` (the breadth-first frontier's counts of relationships visited, levels completed and endpoints accepted) and `frontier_decline` (why a frontier run fell back, when it did) |
 | `PlanWarning` | A typed warning on one operator, such as a Cartesian product, or a row count 10 or more times its estimate under `PROFILE` |
 | `PlanArtifacts` | A result's plan tree with the notifications derived from it |
 | `Notification` | `kind()`, `code()` (`Neo.ClientNotification.*` for a kind with a Neo4j counterpart, `Relate.Notification.*` for an engine-own kind), `gql_status()`, `severity()`, `category()`, `title()`, `description()`, `remedy()`, `operator_id()`; `NotificationKind`, `NotificationSeverity` and `NotificationCategory` are its vocabularies |
@@ -231,7 +236,7 @@ Upstream documents these entry points for network transports, which report plann
 | Settings | `durability_mode_from_setting`, `expression_limit_from_setting`, `workspace_limit_from_setting`, `reject_cypherlite_env` (fails when a retired `CYPHERLITE_*` variable is set, naming its `RELATE_*` replacement) |
 | Surface helpers | `execute_wire`, `run_script_wire`, `query_result_to_wire`, `query_result_to_cypher_rows`, `query_stats_to_wire`, `plan_wire_json`, `timing_stamp_ms`, `params_from_json`, `params_from_value`, `params_from_map`, `binding_error_metadata`: the shared conversions the other surfaces build their envelopes and parameters with |
 | Admission | `ExecutionReceipt`, `TokenEstimate`, `TokenOutcome`, `TokenPoolSnapshot` |
-| Executor facts | `QueryStats`, `StatementEffect`, `StoreReads`, `PhaseTimes`, `FrontierCounters`, `FrontierRunDecline`, `WalkStart`, `StartReason`, `PullKind`, `Procedure`, `QueryType` |
+| Executor facts | `QueryStats`, `StatementEffect`, `StoreReads`, `PhaseTimes`, `FrontierCounters`, `FrontierRunDecline`, `WalkStart`, `StartReason`, `KernelRung`, `PatternEngine`, `PullKind`, `Procedure`, `QueryType`, `PlanCacheOutcome` |
 | UUIDs | `uuid_hyphenated`, `uuid_parse` |
 
 ## Limits

@@ -87,7 +87,8 @@ export default {
     const first = renderRun({ envelopes: [text], statements: 1, mode: 'envelope', cap }, facts);
     parts.push(
       `The statement as relate ${facts.version} prints it in four of its output modes${harness ? ` under an agent harness (\`${facts.harnessVariable}=1\`)` : ''}, ` +
-        `rendered from this page's recorded result by the terminal's renderers, which match the relate ${facts.version} binary byte for byte on the recorded runs. ` +
+        `rendered from this page's recorded result by the terminal's renderers, which match the relate ${facts.version} binary byte for byte on the recorded runs, timing values aside. ` +
+        `The recording keeps no timings, so each one shows as \`<ms>\`; relate prints the milliseconds of its own run, and the live terminal prints the engine's. ` +
         `Exit code ${first.exit}, as relate ${facts.version} returns it.`,
     );
     if (env.error !== null) {

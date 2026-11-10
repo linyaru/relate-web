@@ -112,7 +112,7 @@ relate --mode envelope "RETURN 1 AS ok"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":0.351167,"execute_ms":0.203625,"lex_parse_ms":0.023166000000000003,"lower_ms":0.0295,"parse_ms":0.09595899999999999,"plan_ms":0.040874999999999995,"result_generation_ms":0.00041600000000000003,"rewrite_ms":0.006667},"truncated":false}
 ```
 
 `relate query` with no statement reads a script from piped stdin, one envelope per statement:
@@ -122,8 +122,8 @@ printf 'RETURN 1 AS a;\nRETURN 2 AS b;\n' | relate query --mode envelope
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["a"],"notifications":[],"rows":[{"a":1}],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["b"],"notifications":[],"rows":[{"b":2}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["a"],"notifications":[],"planCache":"miss","rows":[{"a":1}],"timings":{"elapsed_ms":0.331042,"execute_ms":0.19675,"lex_parse_ms":0.020125,"lower_ms":0.027959,"parse_ms":0.087084,"plan_ms":0.038167,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.006583},"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["b"],"notifications":[],"planCache":"miss","rows":[{"b":2}],"timings":{"elapsed_ms":0.02425,"execute_ms":0.004041,"lex_parse_ms":0.003792,"lower_ms":0.003416,"parse_ms":0.01325,"plan_ms":0.0051660000000000005,"result_generation_ms":0.000083,"rewrite_ms":0.000417},"truncated":false}
 ```
 
 The version line names the release:
@@ -133,7 +133,7 @@ relate --version
 ```
 
 ```text
-Relate v0.16.1
+Relate v0.1.2
 License: Apache 2.0 (binary)
 ```
 

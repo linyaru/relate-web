@@ -55,7 +55,7 @@ These functions read a :term[node]{id=node}, a :term[relationship]{id=relationsh
 
 | Signature | Returns | Notes |
 | --- | --- | --- |
-| `elementId(input :: NODE \| RELATIONSHIP) :: STRING` | The element id | `4:relate:n<k>` for a node, `5:relate:r<k>` for a relationship |
+| `elementId(input :: NODE \| RELATIONSHIP) :: STRING` | The element id | `4:relate-neo4j:n<k>` for a node, `5:relate-neo4j:r<k>` for a relationship in the `neo4j` namespace |
 | `id(input :: NODE \| RELATIONSHIP) :: INTEGER` | The integer id | Deprecated; the catalog names `elementId` as the replacement |
 | `db.nameFromElementId(elementId :: STRING) :: STRING` | The namespace of an element id | `neo4j` for the data namespace |
 | `labels(input :: NODE) :: LIST<STRING>` | The node's labels | — |
@@ -420,6 +420,7 @@ RELATE_PREVIEW=coll-zip,coll-has,gql-stddev-aliases relate --mode jsonl "RETURN 
 
 ```text
 {"all_of":false,"any_of":true,"none_of":true,"zipped":[[1,"a"],[2,null]]}
+{"planCache":"miss","timings":{"elapsed_ms":0.424875,"execute_ms":0.25816700000000004,"lex_parse_ms":0.031375,"lower_ms":0.03875,"parse_ms":0.11012499999999999,"plan_ms":0.048291999999999995,"result_generation_ms":0.0005,"rewrite_ms":0.007416}}
 ```
 
 ## See also

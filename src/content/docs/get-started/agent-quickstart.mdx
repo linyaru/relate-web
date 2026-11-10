@@ -25,17 +25,17 @@ Notice that nothing runs until all three checks pass. If one fails, the download
 
 ## Check the output format
 
-An agent reads the :term[envelope]{id=envelope}: one JSON object per result set. Let's confirm the bytes match:
+An agent reads the :term[envelope]{id=envelope}: one JSON object per result set. Let's confirm the shape. The numbers in `timings` change from run to run:
 
 ```bash verify
 relate --mode envelope "RETURN 1 AS ok"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":0.38816700000000004,"execute_ms":0.248042,"lex_parse_ms":0.020832999999999997,"lower_ms":0.028915999999999997,"parse_ms":0.090625,"plan_ms":0.039958,"result_generation_ms":0.000292,"rewrite_ms":0.007042},"truncated":false}
 ```
 
-The output should be exactly that line. Every statement an agent runs on this page passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
+The output should be that line, with the same keys in the same order; only the `timings` numbers differ. Every statement an agent runs on this page passes `--mode envelope`, except the `EXPLAIN` plan, so its output is the same in a terminal, in a pipe and under :term[agent mode]{id=agent-mode}, the defaults relate switches on when it detects an agent harness.
 
 The envelope is one of relate's [output modes](/docs/reference/cli/output-modes). This statement runs in your browser, on the engine this page loads, and the terminal below shows it in four of those modes: `table`, `envelope`, `jsonl` and `toon`.
 
@@ -73,7 +73,7 @@ relate agent-context
 ```
 
 ```text
-relate v0.16.1 — agent context
+relate v0.1.2 — agent context
 
 Commands (detail: relate agent-context <COMMAND>):
   query          Run a statement session (oneshot, stdin, or shell)
@@ -145,7 +145,7 @@ relate query --database ./team.rl --mode envelope < team.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":3.142916,"execute_ms":2.844709,"lex_parse_ms":0.014208,"lower_ms":0.020458,"parse_ms":0.279334,"plan_ms":0.012917,"result_generation_ms":0.000209,"rewrite_ms":0.0005},"truncated":false}
 ```
 
 One envelope for the one statement: the `CREATE` returns no rows. Noor maintains relate but works on neither project yet. We're about to change that.
@@ -163,7 +163,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WOR
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"}],"timings":{"elapsed_ms":0.595166,"execute_ms":0.412,"lex_parse_ms":0.031167,"lower_ms":0.044542,"parse_ms":0.115625,"plan_ms":0.059417,"result_generation_ms":0.000209,"rewrite_ms":0.008457999999999999},"truncated":false}
 ```
 
 Three `WORKS_ON` relationships, and none of them is Noor's.
@@ -220,7 +220,7 @@ relate --database ./team.rl --read-only --safe --mode envelope "MATCH (p:Person)
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[{"name":"Ada"},{"name":"Grace"},{"name":"Noor"}],"timings":{"elapsed_ms":0.42925,"execute_ms":0.24854199999999999,"lex_parse_ms":0.028541,"lower_ms":0.042416999999999996,"parse_ms":0.11758300000000001,"plan_ms":0.053583,"result_generation_ms":0.000375,"rewrite_ms":0.007916},"truncated":false}
 ```
 
 ### Try the write on a throwaway copy
@@ -233,7 +233,7 @@ relate --load ./team.rl --database ./rehearsal.rl --mode envelope --param name=N
 
 ```text
 --load ./team.rl: loaded into ./rehearsal.rl
-{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"truncated":false}
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"planCache":"miss","rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"timings":{"elapsed_ms":1.717709,"execute_ms":1.469709,"lex_parse_ms":0.007625,"lower_ms":0.011334,"parse_ms":0.233792,"plan_ms":0.008916,"result_generation_ms":0.000334,"rewrite_ms":0.0005},"truncated":false}
 ```
 
 The copy has the new relationship. The original still has none for Noor:
@@ -243,7 +243,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (:Person {name: '
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":0}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"planCache":"miss","rows":[{"projects":0}],"timings":{"elapsed_ms":0.959625,"execute_ms":0.7674580000000001,"lex_parse_ms":0.031333,"lower_ms":0.045583,"parse_ms":0.118834,"plan_ms":0.062708,"result_generation_ms":0.000292,"rewrite_ms":0.008749999999999999},"truncated":false}
 ```
 
 The rehearsal did what we wanted, so the copy can go:
@@ -261,7 +261,7 @@ relate --database ./team.rl --mode envelope --param name=Noor --param project=op
 ```
 
 ```text
-{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"truncated":false}
+{"columnTypes":["STRING","STRING","INTEGER"],"columns":["person","project","since"],"notifications":[],"planCache":"miss","rows":[{"person":"Noor","project":"opencypher-tck","since":2026}],"timings":{"elapsed_ms":1.9617499999999999,"execute_ms":1.7107080000000001,"lex_parse_ms":0.0077919999999999994,"lower_ms":0.014333,"parse_ms":0.23608400000000002,"plan_ms":0.00925,"result_generation_ms":0.00041600000000000003,"rewrite_ms":0.000417},"truncated":false}
 ```
 
 The CLI prints no summary of what changed, so we check with a read:
@@ -271,7 +271,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[w:WOR
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"}],"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["person","project"],"notifications":[],"planCache":"miss","rows":[{"person":"Ada","project":"relate"},{"person":"Grace","project":"opencypher-tck"},{"person":"Grace","project":"relate"},{"person":"Noor","project":"opencypher-tck"}],"timings":{"elapsed_ms":0.477916,"execute_ms":0.290458,"lex_parse_ms":0.032125,"lower_ms":0.047709,"parse_ms":0.11766599999999999,"plan_ms":0.060667,"result_generation_ms":0.000375,"rewrite_ms":0.008584},"truncated":false}
 ```
 
 Four `WORKS_ON` relationships. Noor is on the TCK.
@@ -335,7 +335,7 @@ relate --database ./team.rl --read-only --mode envelope --param name=Noor 'MATCH
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["role"],"notifications":[],"rows":[{"role":"maintainer"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["role"],"notifications":[],"planCache":"miss","rows":[{"role":"maintainer"}],"timings":{"elapsed_ms":0.586875,"execute_ms":0.401916,"lex_parse_ms":0.031958999999999994,"lower_ms":0.043083,"parse_ms":0.118791,"plan_ms":0.057125,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.007917},"truncated":false}
 ```
 :::
 ::::

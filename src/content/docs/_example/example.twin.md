@@ -6,7 +6,7 @@ surfaces:
   - python
 status: stable
 since: 0.16.0
-verified: 0.16.1
+verified: 0.1.2
 verified_by:
   - cypher
   - python
@@ -37,7 +37,7 @@ last_updated: 2026-11-07
 
 A throwaway page that exercises every docs construct, for the pipeline's tests. Not part of the site.
 
-> Verified against relate 0.16.1. If your `relate --version` is newer, read https://relatedb.ai/docs/reference/changelog/#since-0.16.1
+> Verified against relate 0.1.2. If your `relate --version` is newer, read https://relatedb.ai/docs/reference/changelog/#since-0.1.2
 
 This page opens a store and writes through the write-ahead log. The second store link adds no second entry to the terms. A colon in prose, like ratio a:b, stays text. Badges: (since 0.16) and (preview).
 
@@ -500,7 +500,7 @@ The script always installs the latest release. To install an exact version, use 
 
 #### Windows
 
-`install.sh` runs on macOS and Linux. On Windows, download `cypherlite-windows-amd64.exe` and `SHA256SUMS` from the releases page. In PowerShell, `Get-FileHash cypherlite-windows-amd64.exe` prints the binary's SHA-256, which must equal its line in `SHA256SUMS`. Releases up to and including 0.16.1 use the earlier name, so 0.16.1 ships it as `cypherlite-windows-amd64.exe`; from the first relate-named release it is `relate-windows-amd64.exe`.
+`install.sh` runs on macOS and Linux. On Windows, download `relate-windows-amd64.exe` and `SHA256SUMS` from the releases page. In PowerShell, `Get-FileHash relate-windows-amd64.exe` prints the binary's SHA-256, which must equal its line in `SHA256SUMS`.
 
 ### Package
 
@@ -546,34 +546,35 @@ In a Go module (`go mod init <module>` creates one):
 go get github.com/relatedb/relate/clients/go
 ```
 
-The module uses cgo and links `librelate_ffi`, from the `cypherlite-ffi-<target>.tar.gz` archive attached to each release (`relate-ffi-<target>.tar.gz` from the first relate-named release on).
+The module uses cgo and links `librelate_ffi`, from the `relate-ffi-<target>.tar.gz` archive attached to each release.
 
 #### Swift
 
 A SwiftPM package for iOS 16 or later and macOS 13 or later, Swift 6. In your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/relatedb/relate", from: "0.16.1")
+.package(url: "https://github.com/relatedb/relate", from: "0.1.2")
 .product(name: "Relate", package: "relate")
 ```
 
 ### Agent
 
-Paste this prompt into your agent. It pins relate 0.16.1, checks the release the way `install.sh` does, and sets the safe defaults: machine output, stores opened read-only until you ask for writes, and exit codes to branch on.
+Paste this prompt into your agent. It pins relate 0.1.2, checks the release the way `install.sh` does, and sets the safe defaults: machine output, stores opened read-only until you ask for writes, and exit codes to branch on.
 
 ```text
-Install relate, the embedded Cypher graph database (relatedb.ai), version 0.16.1, with the checks
+Install relate, the embedded Cypher graph database (relatedb.ai), version 0.1.2, with the checks
 https://relatedb.ai/install.sh makes, and install nothing if any check fails. Download
-cypherlite-<os>-<arch> for this machine (os darwin or linux, arch amd64 or arm64), SHA256SUMS and
-SHA256SUMS.sig from https://github.com/relatedb/relate/releases/download/v0.16.1/. Write the line
-`cypherlite-release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK cypherlite-release`
+relate-<os>-<arch> for this machine (os darwin or linux, arch amd64 or arm64), SHA256SUMS and
+SHA256SUMS.sig from https://github.com/relatedb/relate/releases/download/v0.1.2/. Write the line
+`relate-release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release`
 to a file named allowed_signers and run
-`ssh-keygen -Y verify -f allowed_signers -I cypherlite-release -n cypherlite-release -s SHA256SUMS.sig < SHA256SUMS`.
-Check that the first line of SHA256SUMS is `# cypherlite-release-version: v0.16.1`, then check the binary
+`ssh-keygen -Y verify -f allowed_signers -I relate-release -n relate-release -s SHA256SUMS.sig < SHA256SUMS`.
+Check that the first line of SHA256SUMS is `# relate-release-version: v0.1.2`, then check the binary
 with `sha256sum -c` (or `shasum -a 256 -c`) against its SHA256SUMS line. Install it as
 ~/.local/bin/relate (chmod +x) and run `export PATH="$HOME/.local/bin:$PATH"`.
-Verify: `relate --version` prints `Relate v0.16.1` and `relate --mode envelope "RETURN 1 AS ok"` prints
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+Verify: `relate --version` prints `Relate v0.1.2` and `relate --mode envelope "RETURN 1 AS ok"` prints
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":<ms>,"execute_ms":<ms>,"lex_parse_ms":<ms>,"lower_ms":<ms>,"parse_ms":<ms>,"plan_ms":<ms>,"result_generation_ms":<ms>,"rewrite_ms":<ms>},"truncated":false}
+where each <ms> is a number of milliseconds that changes from run to run.
 Then run `relate skill install --agent <your-agent>` (one of claude-code, cursor, windsurf, copilot, antigravity, gemini-cli, cline, codex, pi, opencode, junie;
 it writes the skill into that agent's skills folder in the home directory) and `relate agent-context`
 for the version-true command reference. Read https://relatedb.ai/docs/llms.txt before going further.
@@ -586,13 +587,11 @@ The relate documentation is also an MCP server that needs no install: `claude mc
 
 ### Pinned binary
 
-These steps install relate 0.16.1 exactly, with the same checks `install.sh` makes. Set `ASSET` to the binary for your machine: `cypherlite-linux-amd64` (as below), `cypherlite-linux-arm64`, `cypherlite-darwin-arm64` or `cypherlite-darwin-amd64`.
-
-Release 0.16.1 was published under the project's earlier name, so its asset names, its signer and its manifest header say `cypherlite`; the signing key is the same one. From the first relate-named release on they say `relate` ([release signing](https://relatedb.ai/docs/reference/security/#release-signing-key)).
+These steps install relate 0.1.2 exactly, with the same checks `install.sh` makes. Set `ASSET` to the binary for your machine: `relate-linux-amd64` (as below), `relate-linux-arm64`, `relate-darwin-arm64` or `relate-darwin-amd64`.
 
 ```bash
-ASSET=cypherlite-linux-amd64
-BASE=https://github.com/relatedb/relate/releases/download/v0.16.1
+ASSET=relate-linux-amd64
+BASE=https://github.com/relatedb/relate/releases/download/v0.1.2
 curl -sSfLO "$BASE/$ASSET"
 curl -sSfLO "$BASE/SHA256SUMS"
 curl -sSfLO "$BASE/SHA256SUMS.sig"
@@ -601,12 +600,12 @@ curl -sSfLO "$BASE/SHA256SUMS.sig"
 Check the signature on `SHA256SUMS` against the release signing key, the key pinned in `install.sh`. Its fingerprint is `SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA`.
 
 ```bash
-echo 'cypherlite-release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK cypherlite-release' > allowed_signers
-ssh-keygen -Y verify -f allowed_signers -I cypherlite-release -n cypherlite-release -s SHA256SUMS.sig < SHA256SUMS
+echo 'relate-release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release' > allowed_signers
+ssh-keygen -Y verify -f allowed_signers -I relate-release -n relate-release -s SHA256SUMS.sig < SHA256SUMS
 ```
 
 ```text
-Good "cypherlite-release" signature for cypherlite-release with ED25519 key SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA
+Good "relate-release" signature for relate-release with ED25519 key SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA
 ```
 
 Check that the signed manifest is for the release you asked for. Its first line names the release:
@@ -616,7 +615,7 @@ head -n 1 SHA256SUMS
 ```
 
 ```text
-# cypherlite-release-version: v0.16.1
+# relate-release-version: v0.1.2
 ```
 
 Check the binary against its line in the manifest. On a Mac without `sha256sum`, use `shasum -a 256 -c -` instead:
@@ -626,7 +625,7 @@ grep "  $ASSET\$" SHA256SUMS | sha256sum -c -
 ```
 
 ```text
-cypherlite-linux-amd64: OK
+relate-linux-amd64: OK
 ```
 
 If any check fails, delete the downloads and install nothing. When all three pass, install the binary and put `~/.local/bin` on your `PATH`:
@@ -640,7 +639,7 @@ relate --version
 ```
 
 ```text
-Relate v0.16.1
+Relate v0.1.2
 License: Apache 2.0 (binary)
 ```
 
@@ -651,10 +650,10 @@ Add this to your repository's `AGENTS.md` or `CLAUDE.md`:
 ```markdown
 ## relate
 
-relate, the embedded Cypher graph database (relatedb.ai). This repository uses version 0.16.1. Not the Neo4j Desktop Relate framework.
+relate, the embedded Cypher graph database (relatedb.ai). This repository uses version 0.1.2. Not the Neo4j Desktop Relate framework.
 
 - Install, pinned and verified: https://relatedb.ai/docs/get-started/install.md (the "Pinned binary" steps)
-- Check: `relate --version` prints `Relate v0.16.1`
+- Check: `relate --version` prints `Relate v0.1.2`
 - Query: `relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"`
 - Pass values as `$parameters` with `--param name=<value>`, never by pasting them into the statement.
 - Open stores with `--read-only` until you are asked to write.
@@ -703,7 +702,7 @@ relate, the embedded Cypher graph database (relatedb.ai). This repository uses v
 | `cli-invalid-env-preview`; code `fatal_error`, kind `semantic` | `Failed to open Relate: semantic error: SemanticError: invalid RELATE_PREVIEW value: unknown preview feature '<name>' (known features: …)` | `RELATE_PREVIEW` names a feature the engine does not know; the open fails closed. The error object's `message` drops the `Failed to open Relate: ` prefix. | Use a name from the known-features list in the message. | — | 1 |
 | `cli-invalid-env-pattern-engine`; code `fatal_error`, kind `semantic` | `semantic error: invalid RELATE_PATTERN_ENGINE: semantic error: invalid pattern engine "<value>"; expected auto, nfa, or walk` | `RELATE_PATTERN_ENGINE` is not `auto`, `nfa` or `walk`; the open fails. stderr prefixes `Failed to open Relate: `. | Use one of the three values, or unset it. | no | 1 |
 | `cli-invalid-env-bulk-batch-threshold`; code `fatal_error`, kind `semantic` | `semantic error: invalid RELATE_BULK_BATCH_THRESHOLD '<value>'` | `RELATE_BULK_BATCH_THRESHOLD` is not a number; the open fails. stderr prefixes `Failed to open Relate: `. | Set a whole number, or unset it. | no | 1 |
-| `cli-invalid-env-snapshot-format`; code `fatal_error`, kind `storage` | `storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)` | `RELATE_SNAPSHOT_FORMAT` names no codec; the open of a persistent store fails. stderr prefixes `Failed to open Relate: `. The same value given as `--snapshot-format` is a usage error, exit code 2: `Error: invalid --snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`. | Use `parquet`, `json` or `markdown`, or unset it. | no | 1 |
+| `cli-invalid-env-snapshot-format`; code `fatal_error`, kind `storage` | `storage error: unknown snapshot codec '<value>' (expected parquet, json, markdown or rkyv)` | `RELATE_SNAPSHOT_FORMAT` names no codec the variable takes (`parquet-wide` is a flag value only); a query run's open fails, `:memory:` included. stderr prefixes `Failed to open Relate: `. The same value given as `--snapshot-format` is a usage error, exit code 2: `Error: invalid --snapshot-format: storage error: unknown snapshot format '<value>' (expected parquet or json or markdown or parquet-wide)`. `rkyv` is not compiled into the release binary: `RELATE_SNAPSHOT_FORMAT=rkyv` fails the open with `storage error: rkyv snapshot codec is not compiled into this build (enable the "rkyv-codec" feature)`. | Use `parquet`, `json` or `markdown`, or unset it; for wide-column parquet, pass `--snapshot-format parquet-wide`. | no | 1 |
 | `cli-final-checkpoint-failed`; code `fatal_error` | `Error: final checkpoint failed: <reason>` | The checkpoint every persistent run takes on exit failed, for example on a full disk. A non-zero statement exit code is kept instead. | Free disk space and check permissions. | — | 1 |
 | `cli-open-transaction-at-exit` | `Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.` | A `.begin` transaction was still open at exit. One-shot and piped runs exit 1; the interactive shell keeps exit 0. | End the script with `.commit` (or `.rollback`). | — | 1 |
 | `cli-stdin-read-error` | `Error: could not read query input from stdin: <reason>` | Piped stdin could not be read, including invalid UTF-8; nothing runs. | Pipe valid UTF-8. | — | 1 |
@@ -730,7 +729,7 @@ relate, the embedded Cypher graph database (relatedb.ai). This repository uses v
 | `cli-clone-markdown-body-properties-codec` | `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored` | `--markdown-body-properties` on a clone whose destination codec is not `markdown`. | Add `--to-snapshot-format markdown`, or drop `--markdown-body-properties`. | — | 1 |
 | `cli-clone-source-missing-rl` | `Failed to clone database: storage error: database not found: <path>` | The `.rl` SOURCE does not exist. | Correct the SOURCE path. | — | 1 |
 | `cli-info-not-found` | `Failed to read store info: storage error: database not found: <path>` | `relate info --database` names a path with no store. | Correct the path. | — | 1 |
-| `cli-telemetry-no-config-dir` | `Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)` | `relate telemetry on` or `off` with neither `HOME` nor an absolute `XDG_CONFIG_HOME` set, so there is nowhere to write its config file. A failed write prints `Error: telemetry: writing <path>: <reason>` (from the source; not reproduced). | Set `HOME`, or set `XDG_CONFIG_HOME` to an absolute path; `DO_NOT_TRACK=1` turns usage metrics off without a config directory. | — | 1 |
+| `cli-telemetry-no-config-dir` | `Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)` | `relate telemetry on` or `off` with no config directory base: no absolute `XDG_CONFIG_HOME`, no `HOME`, and no absolute `APPDATA` or `USERPROFILE`, so there is nowhere to write its config file. A failed write prints `Error: telemetry: writing <path>: <reason>` (from the source; not reproduced). | Set `HOME`, or set `XDG_CONFIG_HOME` to an absolute path; `DO_NOT_TRACK=1` turns usage metrics off without a config directory. | — | 1 |
 | `cli-pull-destination-not-empty` | `Error: destination database is not empty; pull writes into an empty database only (ADR-0158)` | `relate pull` into a store that already holds data. The check runs before any connection. | Pull into a new path; a pull never merges. | — | 1 |
 | `cli-pull-shape-query` | `Error: shape query RETURN must be graph elements (nodes/rels/paths), not projections/scalars/aggregates; rejected item: <item>` | A `--query` statement returns a property, a scalar or an aggregate; pull copies only nodes, relationships and paths. | Return the graph elements themselves, such as `RETURN n`. | — | 1 |
 | `cli-pull-plaintext` | `Error: refusing to send Basic auth credentials in the clear: Query API URL <url> is http:// to a non-loopback host; pass --allow-plaintext to accept the risk, or use an https:// NEO4J_URI` | The Neo4j URI resolves to `http://` on a host other than the loopback interface, so the credentials would cross the network unencrypted. | Use an `https://` `NEO4J_URI`, or pass `--allow-plaintext` to accept the risk. | — | 1 |
@@ -871,7 +870,7 @@ relate, the embedded Cypher graph database (relatedb.ai). This repository uses v
 | Read-only open. An open that loads the store once and refuses every write. | yes: `--read-only`; a write exits 6 | yes: `read_only=True` | yes: `new RelateDb(true)` |
 | Explicit transactions. Several statements committed or rolled back together. | yes: `.begin`, `.commit`, `.rollback` in a script on stdin or the shell | yes: `autocommit = False`, then `commit()` or `rollback()` | no: each statement commits on its own; `BEGIN` is a syntax error |
 
-Each cell is yes, no, partial or unknown, with the call, flag or reason. Checked on 2026-11-08 against relate 0.16.1: runs of the CLI binary, the WebAssembly build this site ships and the Python and Node.js clients, and each surface's upstream reference; the result-metadata cells of the Java, Go and Swift clients also from runs of those clients. The C, Java, Go and Swift clients load the same C ABI library as the Node.js client.
+Each cell is yes, no, partial or unknown, with the call, flag or reason. Checked on 2026-11-09 against relate 0.1.2: runs of the CLI binary and `relate serve` (Bolt, HTTP and MCP), the WebAssembly build this site ships, and the Python, Node.js, C, Java, Go, Swift and Rust clients, and each surface's upstream reference. The C, Java, Go and Swift clients load the same C ABI library as the Node.js client.
 
 ## Links
 

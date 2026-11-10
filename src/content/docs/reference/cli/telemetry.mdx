@@ -29,8 +29,10 @@ Exactly one action is required, in lowercase. The command takes no flags beyond 
 | Environment | File |
 | --- | --- |
 | `XDG_CONFIG_HOME` set to an absolute path | `$XDG_CONFIG_HOME/relate/config.json` |
-| Otherwise (unset, or a relative path) | `$HOME/.config/relate/config.json` |
-| Neither `HOME` nor an absolute `XDG_CONFIG_HOME` | No file: exit code 1 with `Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)` |
+| Otherwise, with `HOME` set | `$HOME/.config/relate/config.json` |
+| Otherwise, with `APPDATA` set to an absolute path | `$APPDATA/relate/config.json` |
+| Otherwise, with `USERPROFILE` set to an absolute path | `$USERPROFILE/.config/relate/config.json` |
+| None of them | No file: exit code 1 with `Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)` |
 
 The same directory holds `state.json`, which holds the random install ID and the first-run notice flag. Any run with usage metrics on, `relate telemetry off` included, creates it when it is missing and sends one `RELATE-CLI_COMMAND` event (`command: telemetry`, `action: off`) before the new setting takes effect. A run with `DO_NOT_TRACK=1` set writes neither.
 
@@ -56,7 +58,7 @@ The first statement run with usage metrics on prints `relate collects anonymous 
 | Exit code | When | Message on stderr |
 | --- | --- | --- |
 | [0](/docs/reference/cli/exit-codes-and-errors#exit-0) | The action ran | None |
-| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | `on` or `off` found no config directory, or could not write the file | `Error: telemetry: cannot resolve a config directory (set $HOME or $XDG_CONFIG_HOME)`, or `Error: telemetry: writing <path to config.json>: <reason>` |
+| [1](/docs/reference/cli/exit-codes-and-errors#exit-1) | `on` or `off` found no config directory, or could not write the file | `Error: telemetry: cannot resolve a config directory (set $XDG_CONFIG_HOME, $HOME, $APPDATA, or $USERPROFILE)`, or `Error: telemetry: writing <path to config.json>: <reason>` |
 | [2](/docs/reference/cli/exit-codes-and-errors#exit-2) | No action | `Error: telemetry requires an action (on, off, or status)` |
 | 2 | An unknown action, or a second argument | `Error: unexpected argument to telemetry: <argument>` |
 

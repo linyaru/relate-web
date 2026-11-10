@@ -15,6 +15,7 @@ import {
   flagNames,
   messagePattern,
   misplacedVerify,
+  maskTimings,
   normalizeOutput,
   pageCliVerified,
   pageStepProblems,
@@ -25,6 +26,7 @@ import {
   recordedStep,
   recordedWithLine,
   recordingsOf,
+  sameOutput,
   unifiedDiff,
   verifySteps,
   type Report,
@@ -53,6 +55,17 @@ test('recorded output names the directories as placeholders, the longest spellin
     home: ['/private/var/t/home', '/var/t/home'],
   });
   assert.equal(out, 'locked: <dir>/s.rl in <home>/.claude and <home>');
+});
+
+test('timing values are masked in compact, pretty and quoted JSON, and nothing else is', () => {
+  const compact = '{"planCache":"miss","timings":{"elapsed_ms":0.321125,"execute_ms":1.2e-5,"rewrite_ms":0}}';
+  assert.equal(maskTimings(compact), '{"planCache":"miss","timings":{"elapsed_ms":<ms>,"execute_ms":<ms>,"rewrite_ms":<ms>}}');
+  assert.equal(maskTimings('  "elapsed_ms": 0.315584,'), '  "elapsed_ms": <ms>,');
+  assert.equal(maskTimings('{"text":"{\\"elapsed_ms\\":0.3,\\"rows\\":[]}"}'), '{"text":"{\\"elapsed_ms\\":<ms>,\\"rows\\":[]}"}');
+  assert.equal(maskTimings('{"kept":100,"total_bytes":2010,"ms":3}'), '{"kept":100,"total_bytes":2010,"ms":3}');
+  assert.ok(sameOutput('{"timings":{"elapsed_ms":0.4}}', '{"timings":{"elapsed_ms":0.9}}'));
+  assert.ok(sameOutput('{"timings":{"elapsed_ms":<ms>}}', '{"timings":{"elapsed_ms":0.9}}'));
+  assert.ok(!sameOutput('{"planCache":"miss","timings":{"elapsed_ms":0.4}}', '{"planCache":"hit-template","timings":{"elapsed_ms":0.4}}'));
 });
 
 test('a unified diff shows deletions before insertions and is empty for equal texts', () => {

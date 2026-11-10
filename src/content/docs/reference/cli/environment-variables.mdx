@@ -37,9 +37,11 @@ RELATE_MAX_ROWS=1 relate --mode jsonl --max-rows 0 "UNWIND [1, 2, 3] AS x RETURN
 warning: result truncated to 1 rows (the statement returned 3); pass --max-rows 0 for all rows
 {"x":1}
 {"rowCap":{"kept":1,"total":3}}
+{"planCache":"miss","timings":{"elapsed_ms":0.362833,"execute_ms":0.212625,"lex_parse_ms":0.021375,"lower_ms":0.030208,"parse_ms":0.094958,"plan_ms":0.042249999999999996,"result_generation_ms":0.000209,"rewrite_ms":0.007083}}
 {"x":1}
 {"x":2}
 {"x":3}
+{"planCache":"miss","timings":{"elapsed_ms":0.30329100000000003,"execute_ms":0.182666,"lex_parse_ms":0.016875,"lower_ms":0.026375,"parse_ms":0.078042,"plan_ms":0.032,"result_generation_ms":0.00041600000000000003,"rewrite_ms":0.005542}}
 ```
 
 The same holds for every pair: `--no-safe` beats `RELATE_SAFE_MODE=1`, `--durability-mode` beats `RELATE_DURABILITY_MODE`, and `--load-csv-dir` beats `RELATE_LOAD_CSV_DIR`.
@@ -58,11 +60,11 @@ These set the defaults for a persistent store's write path and snapshot. `:memor
 | --- | --- | --- | --- |
 | `RELATE_DURABILITY_MODE` | `--durability-mode` | `full` (default), `everysecond`, `snapshot` | Exit 2: `Error: invalid RELATE_DURABILITY_MODE: semantic error: invalid durability mode "<value>"; expected full, everysecond, or snapshot` |
 | `RELATE_CHECKPOINT_INTERVAL_SECS` | `--checkpoint-interval-secs` | Whole seconds, default `300`; `0` turns the timer off | Ignored: the default `300` applies |
-| `RELATE_SNAPSHOT_FORMAT` | `--snapshot-format` | `parquet` (default), `json`, `markdown`, for an empty directory | Exit 1: `Failed to open Relate: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)` |
+| `RELATE_SNAPSHOT_FORMAT` | `--snapshot-format` | `parquet` (default), `json`, `markdown`, for an empty directory; `parquet-wide` is a flag value only | Exit 1: `Failed to open Relate: storage error: unknown snapshot codec '<value>' (expected parquet, json, markdown or rkyv)` |
 | `RELATE_MARKDOWN_BODY_PROPERTIES` | `--markdown-body-properties` | The flag's list grammar; default `body` | Exit 1: `Failed to open Relate: semantic error: invalid markdown body properties '<value>': an entry names no property` |
 | `RELATE_SHARD_TARGET_BYTES` | none | The target size of one Parquet shard written at a checkpoint, `1` to `1073741824` bytes; default 256 MiB | The checkpoint fails, exit 1, after the run's statements have committed to the WAL: `Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824`; an empty value fails the same way |
 
-On an existing store, `RELATE_SNAPSHOT_FORMAT` must name the store's recorded :term[codec]{id=codec}, or the open fails with exit 1: `Failed to open Relate: storage error: snapshot codec mismatch: directory is <codec>, requested <codec>`. `relate serve` takes no `--checkpoint-interval-secs` flag, so `RELATE_CHECKPOINT_INTERVAL_SECS` is how a server's checkpoint timer is set. Only a checkpoint that writes Parquet shards reads `RELATE_SHARD_TARGET_BYTES`, so a run on `:memory:`, a `--read-only` open, and a `json` codec store never check it. The [durability modes guide](/docs/guides/operate/durability-modes) covers each mode's loss window.
+On an existing store, `RELATE_SNAPSHOT_FORMAT` must name the store's recorded :term[codec]{id=codec}, or the open fails with exit 1: `Failed to open Relate: storage error: snapshot codec mismatch: directory is <codec>, requested <codec>`. The message lists `rkyv`, which the release binary is not built with: `RELATE_SNAPSHOT_FORMAT=rkyv` fails the open with exit 1 and `Failed to open Relate: storage error: rkyv snapshot codec is not compiled into this build (enable the "rkyv-codec" feature)`. `relate serve` takes no `--checkpoint-interval-secs` flag, so `RELATE_CHECKPOINT_INTERVAL_SECS` is how a server's checkpoint timer is set. Only a checkpoint that writes Parquet shards reads `RELATE_SHARD_TARGET_BYTES`, so a run on `:memory:`, a `--read-only` open, and a `json` codec store never check it. The [durability modes guide](/docs/guides/operate/durability-modes) covers each mode's loss window.
 
 ## Limits
 
@@ -121,7 +123,7 @@ RELATE_PREVIEW=coll-zip relate --mode envelope "RETURN coll.zip([1, 2], ['a', 'b
 ```
 
 ```text
-{"columnTypes":["LIST"],"columns":["pairs"],"notifications":[],"rows":[{"pairs":[[1,"a"],[2,"b"]]}],"truncated":false}
+{"columnTypes":["LIST"],"columns":["pairs"],"notifications":[],"planCache":"miss","rows":[{"pairs":[[1,"a"],[2,"b"]]}],"timings":{"elapsed_ms":0.500958,"execute_ms":0.357792,"lex_parse_ms":0.024290999999999997,"lower_ms":0.034375,"parse_ms":0.092541,"plan_ms":0.042917000000000004,"result_generation_ms":0.000959,"rewrite_ms":0.007333},"truncated":false}
 ```
 
 An unknown name fails the open with exit 1, and the message lists every name the binary knows:
@@ -160,13 +162,13 @@ DO_NOT_TRACK=1 RELATE_TELEMETRY=1 relate telemetry status
 disabled (DO_NOT_TRACK)
 ```
 
-Three more variables exist for development and testing: `RELATE_MIXPANEL_ENDPOINT` replaces the `/track` URL (an `https://` URL, or `http://` for a loopback host only; a rejected value turns metrics off for the run with one warning on stderr), `RELATE_MIXPANEL_TOKEN` replaces the project token, and `RELATE_TELEMETRY_FLUSH_MS` sets how long the exit waits for the last batch, default `250`, with `0` waiting not at all. Each event's `invoker` property is `agent` when `CLAUDECODE`, `CURSOR_AGENT`, `GEMINI_CLI` or `OPENCODE` is set, else `ci` when `CI` is set to a value other than empty, `0` or `false`, else `human`. The [privacy and telemetry page](/docs/reference/privacy-and-telemetry#turning-usage-metrics-off) lists every event and property.
+Two more variables exist for development and testing: `RELATE_MIXPANEL_ENDPOINT` replaces the `/track` URL (an `https://` URL, or `http://` for a loopback host only; a rejected value turns metrics off for the run with one warning on stderr), and `RELATE_MIXPANEL_TOKEN` replaces the project token. Since relate 0.1.0 an exit writes its events to the spool instead of waiting for a delivery, so `RELATE_TELEMETRY_FLUSH_MS` is gone. Each event's `invoker` property is `agent` when `CLAUDECODE`, `CURSOR_AGENT`, `GEMINI_CLI` or `OPENCODE` is set, else `ci` when `CI` is set to a value other than empty, `0` or `false`, else `human`. The [privacy and telemetry page](/docs/reference/privacy-and-telemetry#turning-usage-metrics-off) lists every event and property.
 
 ## Paths and terminal
 
 | Variable | Read by | Effect |
 | --- | --- | --- |
-| `XDG_CONFIG_HOME` | Usage metrics, `relate extension`, `relate skill` | The config directory is `$XDG_CONFIG_HOME/relate/` when the value is set, non-empty and an absolute path; otherwise `$HOME/.config/relate/`. It holds `config.json`, `state.json` and installed extensions. `relate skill` also resolves agent directories under it |
+| `XDG_CONFIG_HOME` | Usage metrics, `relate extension`, `relate skill` | The config directory is `$XDG_CONFIG_HOME/relate/` when the value is set, non-empty and an absolute path; otherwise `$HOME/.config/relate/`; without `HOME`, `$APPDATA/relate/`, then `$USERPROFILE/.config/relate/` (each only as an absolute path). It holds `config.json`, `state.json` and installed extensions. `relate skill` also resolves agent directories under it |
 | `HOME` | The same | The base of `~/.config/relate/` and of the agent directories `relate skill install` writes to |
 | `COLUMNS` | The `table` output mode | The wrap width when stdout is not a terminal and `--width` is not given; a value under `20` is ignored, and the table keeps its natural width |
 

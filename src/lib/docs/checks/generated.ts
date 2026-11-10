@@ -126,7 +126,10 @@ export function checkGenerated(site: GeneratedCheckSite, report: Report, dist = 
         report(CHANGELOG_FILE, null, 'error', 'generated', `no entry is, or follows, ${site.engine.verified}: every twin links #since-${site.engine.verified}`);
       }
     }
-    const newer = c.releases.filter((r) => r.version.localeCompare(site.engine.version, undefined, { numeric: true }) > 0);
+    // Newest first by publication (relate restarted its numbers at 0.1.0 after
+    // cypherlite's 0.16.1), so a newer release is one listed before the engine's.
+    const at = c.releases.findIndex((r) => r.version === site.engine.version);
+    const newer = at < 0 ? [] : c.releases.slice(0, at);
     for (const r of newer) report(CHANGELOG_FILE, null, 'warning', 'generated', `${r.version} is newer than the engine the docs track (${site.engine.version}, _data/engine.json)`);
     for (const r of c.releases) {
       for (const items of [r.added, r.changed, r.deprecated, r.removed, r.fixed]) {

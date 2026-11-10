@@ -371,7 +371,8 @@ export function readSidecar(file: string): Sidecar | null {
  * every Cypher cell's entry is kept as it was, in place; a recorded sample
  * keeps its position or is appended; a "text" entry that is no longer a
  * sample on the page is dropped. A new sidecar takes `verified` from the
- * engine.
+ * engine, and so does a sidecar that holds samples only: no cell recording
+ * (docs:record's) stays behind to keep the older version.
  */
 export function mergeSamples(sidecar: Sidecar | null, recorded: Map<string, SidecarEntry>, engineVersion: string): Sidecar {
   const base: Sidecar = sidecar ?? { format: 1, verified: engineVersion, cells: {} };
@@ -381,7 +382,8 @@ export function mergeSamples(sidecar: Sidecar | null, recorded: Map<string, Side
     else if (entry.kind !== 'text') cells[id] = entry;
   }
   for (const [id, entry] of recorded) if (!(id in cells)) cells[id] = entry;
-  return { ...base, cells };
+  const samplesOnly = Object.values(cells).every((c) => c.kind === 'text');
+  return { ...base, verified: samplesOnly ? engineVersion : base.verified, cells };
 }
 
 /** The sidecar as the recorders write it: two-space JSON and a final newline. */

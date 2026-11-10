@@ -12,7 +12,7 @@ Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 k
 
 | Item | Status |
 | --- | --- |
-| Release signing | One Ed25519 key, OpenSSH signature (SSHSIG) namespace `relate-release` from the first relate-named release (`cypherlite-release` up to and including 0.16.1), over each release's `SHA256SUMS` |
+| Release signing | One Ed25519 key, OpenSSH signature (SSHSIG) namespace `relate-release` from 0.1.0, the first relate-named release (`cypherlite-release` up to and including 0.16.1), over each release's `SHA256SUMS` |
 | Key fingerprint | `SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA` |
 | Checked by | `install.sh` and `relate upgrade`, against a pinned copy of the key; never fetched from the release |
 | macOS binaries | Signed with an Apple Developer ID and notarized |
@@ -47,7 +47,7 @@ ssh-keygen -lf release-signing-key.pub
 256 SHA256:BfnIA0YD0h+ldihdq8V1k/xFY91lm8mRCuVS21+3kzA relate-release (ED25519)
 ```
 
-The signer identity and the signature namespace are both `relate-release`, from the first relate-named release on. Releases up to and including 0.16.1 were published under the earlier name, as `cypherlite-<os>-<arch>`, signed with the same key under the identity and namespace `cypherlite-release`, with the manifest header `# cypherlite-release-version: `. A new key ships inside a release. A binary installed before a key change still trusts the old key, so its `relate upgrade` refuses releases signed with the new one; `install.sh`, which carries the new key, installs them.
+The signer identity and the signature namespace are both `relate-release`, from 0.1.0, the first relate-named release, on. Releases up to and including 0.16.1 were published under the earlier name, as `cypherlite-<os>-<arch>`, signed with the same key under the identity and namespace `cypherlite-release`, with the manifest header `# cypherlite-release-version: `. A new key ships inside a release. A binary installed before a key change still trusts the old key, so its `relate upgrade` refuses releases signed with the new one; `install.sh`, which carries the new key, installs them.
 
 ## What install.sh and relate upgrade check
 
@@ -59,11 +59,11 @@ The signer identity and the signature namespace are both `relate-release`, from 
 | The manifest's first line, `# relate-release-version: v<version>`, equals the tag being installed: the latest release for `install.sh`, the release `relate upgrade` read from `releases.json` | A validly signed manifest of another release cannot be replayed; the line is inside the signed bytes | `install.sh: SHA256SUMS is for <version>, not the requested release <tag>; installing nothing` |
 | The binary's SHA-256 equals its line in the manifest | The binary is the one the manifest lists | `install.sh: checksum verification failed for <asset>; installing nothing` |
 
-A manifest with no version line is accepted, with a warning, only for releases up to v0.14.0, which predate the line.
+A manifest with no version line is accepted, with a warning, only for releases up to v0.14.0, which predate the line. `install.sh` compares version numbers alone, and relate restarted them at 0.1.0, so the rule also covers relate 0.1.0 to 0.14.0; every relate release so far carries the line.
 
 ## Manual verification
 
-The same three checks run by hand with `curl`, `ssh-keygen`, and `sha256sum`. For a release on Linux amd64, from the first relate-named release on, with `VERSION` holding the release's version number (without the `v`), the commands and their expected output are:
+The same three checks run by hand with `curl`, `ssh-keygen`, and `sha256sum`. For a release on Linux amd64, from 0.1.0 on, with `VERSION` holding the release's version number (without the `v`), the commands and their expected output are:
 
 ```bash
 ASSET=relate-linux-amd64

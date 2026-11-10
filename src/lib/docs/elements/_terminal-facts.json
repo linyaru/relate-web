@@ -1,6 +1,6 @@
 {
-  "version": "0.16.1",
-  "recordedWith": "relate 0.16.1 (ac441ec), source build",
+  "version": "0.1.2",
+  "recordedWith": "relate 0.1.2 (f0c09d2), release build",
   "agentCap": 100,
   "harnessVariable": "CLAUDECODE",
   "harnessVariables": [
@@ -441,6 +441,14 @@
       "retryable": false
     },
     {
+      "id": "cli-invalid-env-snapshot-format",
+      "pattern": "^storage error: unknown snapshot codec '[\\s\\S]+?' \\(expected parquet, json, markdown or rkyv\\)$",
+      "kind": "storage",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
       "id": "engine-query-too-large",
       "pattern": "^syntax error: query text of [\\s\\S]+? bytes exceeds the maximum query size of 4194304 bytes$",
       "kind": "syntax",
@@ -454,14 +462,6 @@
       "kind": "semantic",
       "code": "validation_error",
       "exit": 6,
-      "retryable": false
-    },
-    {
-      "id": "cli-invalid-env-snapshot-format",
-      "pattern": "^storage error: unknown snapshot codec '[\\s\\S]+?' \\(expected parquet, json or markdown\\)$",
-      "kind": "storage",
-      "code": "fatal_error",
-      "exit": 1,
       "retryable": false
     },
     {

@@ -17,11 +17,12 @@ This guide shows you how to embed relate in a C program through its C applicatio
 
 ## Add the client
 
-Each release attaches a `relate-ffi-<target>.tar.gz` archive (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`) per platform to the [releases page](https://github.com/relatedb/relate/releases), with `<target>` one of `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu` and `x86_64-pc-windows-msvc`. The archive holds `include/relate.h` and the static and shared libraries.
+Each release attaches a `relate-ffi-<target>.tar.gz` archive (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) per platform to the [releases page](https://github.com/relatedb/relate/releases), with `<target>` one of `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu` and `x86_64-pc-windows-msvc`. The archive holds `include/relate.h` and the static and shared libraries.
 
-Compile against the header and link the shared library. On macOS and Linux, an rpath lets the program find the library when it runs:
+Compile against the header and link the shared library. An rpath lets the program find the library when it runs. On macOS, the release library's install name is the absolute path it was built at, so an rpath finds it only after `install_name_tool` gives it an rpath-relative name, once per unpacked archive:
 
 ```bash
+install_name_tool -id @rpath/librelate_ffi.dylib <dir>/librelate_ffi.dylib   # macOS only
 cc -I<dir>/include app.c -L<dir> -lrelate_ffi -Wl,-rpath,<dir> -o app
 ```
 
@@ -537,7 +538,7 @@ Run the `open` program, or your own, against a fresh directory. It prints `ABI v
 | `{"code":"Neo.DatabaseError.General.UnknownError","gql_status":"42000","stage":"internal","retryable":false,"message":"internal error"}` from `relate_database_open` | A storage failure, most often another writable open of the same store. | Set `RELATE_FFI_LOG=1` to see the original message on stderr; close the other handle, or open with `relate_database_open_read_only`. |
 | `semantic error: ParameterMissing: Expected parameter(s): <names>` in an error result | The statement names a `$parameter` the builder does not hold. | Put every named value; a bound null counts. |
 | `null out pointer` from `relate_conn_commit` | `bookmark_out` was `NULL`; the transaction did not commit. | Pass the address of a `char *` and free the bookmark afterwards. |
-| The loader cannot find `librelate_ffi` when the program starts | The shared library is not on the runtime search path. | Link with `-Wl,-rpath,<dir>`, or add `<dir>` to `LD_LIBRARY_PATH` on Linux or `DYLD_LIBRARY_PATH` on macOS. |
+| The loader cannot find `librelate_ffi` when the program starts | The shared library is not on the runtime search path; on macOS, `dyld` names the absolute path the release library was built at. | Link with `-Wl,-rpath,<dir>` (on macOS, after `install_name_tool -id @rpath/librelate_ffi.dylib <dir>/librelate_ffi.dylib`), or add `<dir>` to `LD_LIBRARY_PATH` on Linux or `DYLD_LIBRARY_PATH` on macOS. |
 
 The [errors reference](/docs/reference/errors) lists every engine message with its codes.
 

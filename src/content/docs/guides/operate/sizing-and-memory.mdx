@@ -112,8 +112,8 @@ The first two lines are stderr, the last is the error object on stdout:
 
 ```text
 --load ./team.rl: loaded into ./probe.rl
-capacity exceeded: used=6403 limit=1
-{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6403 limit=1","retryable":false}}
+capacity exceeded: used=6555 limit=1
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6555 limit=1","retryable":false}}
 ```
 
 The example graph is 6,403 logical bytes. Remove the copy when you're done:
@@ -136,8 +136,8 @@ echo "exit=$?"
 ```
 
 ```text
-capacity exceeded: used=6403 limit=6500
-{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6403 limit=6500","retryable":false}}
+capacity exceeded: used=6555 limit=6500
+{"error":{"code":"fatal_error","exit_code":1,"kind":"capacity","message":"capacity exceeded: used=6555 limit=6500","retryable":false}}
 exit=1
 ```
 
@@ -160,7 +160,7 @@ relate --database ./team.rl --read-only --logical-graph-size-limit 6500 --mode e
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":3}],"timings":{"elapsed_ms":0.34058299999999997,"execute_ms":0.164833,"lex_parse_ms":0.029375,"lower_ms":0.042624999999999996,"parse_ms":0.112292,"plan_ms":0.05450000000000001,"result_generation_ms":0.000292,"rewrite_ms":0.008417},"truncated":false}
 ```
 
 ## If it goes wrong

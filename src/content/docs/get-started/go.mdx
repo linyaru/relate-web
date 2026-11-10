@@ -24,7 +24,7 @@ go mod init team
 go get github.com/relatedb/relate/clients/go
 ```
 
-The module uses cgo and links the engine's C library, `librelate_ffi`. Each release attaches it as `relate-ffi-<target>.tar.gz` (a launch-day name; 0.16.1 ships it as `cypherlite-ffi-<target>.tar.gz`), holding the library and its header in `include/relate.h`. Unpack it into a directory and point cgo at that directory when you build, and the dynamic loader at it when you run:
+The module uses cgo and links the engine's C library, `librelate_ffi`. Each release attaches it as `relate-ffi-<target>.tar.gz` (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1), holding the library and its header in `include/relate.h`. Unpack it into a directory and point cgo at that directory when you build, and the dynamic loader at it when you run:
 
 ```bash
 export CGO_CFLAGS="-I<dir>/include"

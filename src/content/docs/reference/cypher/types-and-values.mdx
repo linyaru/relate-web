@@ -98,7 +98,7 @@ CREATE (:Sample {settings: {a: 1}})
 
 A :term[node]{id=node} carries labels and properties, a :term[relationship]{id=relationship} carries one type, properties and its two end nodes, and a :term[path]{id=path} alternates nodes and relationships and starts and ends with a node. None of them can be stored as a property.
 
-Each node and relationship has an :term[element id]{id=element-id}, a string that `elementId()` returns: `4:relate:n<k>` for a node and `5:relate:r<k>` for a relationship. `db.nameFromElementId()` returns the namespace the id belongs to. `id()` returns the integer part and is deprecated; under `EXPLAIN` it raises notification `01N01` ([notifications](/docs/reference/cypher/notifications)).
+Each node and relationship has an :term[element id]{id=element-id}, a string that `elementId()` returns: `4:relate-neo4j:n<k>` for a node and `5:relate-neo4j:r<k>` for a relationship. The middle segment names the namespace (`relate-neo4j` for `neo4j`), and `db.nameFromElementId()` returns that namespace. The middle segment was `relate` before 0.1.2: an id in that spelling, such as `4:relate:n0`, matches no entity, and `db.nameFromElementId()` fails on it with `No database corresponds to the given element id`. `id()` returns the integer part and is deprecated; under `EXPLAIN` it raises notification `01N01` ([notifications](/docs/reference/cypher/notifications)).
 
 ```cypher run name=element-ids
 CREATE (a:Sample {name: 'a'})-[r:LINKS]->(b:Sample {name: 'b'})
@@ -222,14 +222,14 @@ Each CLI output mode prints the same values in its own form ([output modes](/doc
 
 In `csv`, a field that starts with `=`, `+`, `-` or `@` gets a leading `'`, so a spreadsheet does not read it as a formula: `-0.0` prints as `'-0.0`. The `cypher` mode prints rows as `CREATE` statements and leaves out a `VECTOR` column with the comment `// column v (VECTOR) omitted: no Cypher literal form`.
 
-The scalars and collections in JSON, TOON and CSV:
+The scalars and collections in JSON, TOON and CSV. In `json`, the row sits in the result object's `data` key. The `json`, `jsonl` and `toon` examples on this page also print the statement's [timings and plan-cache outcome](/docs/reference/cli/output-modes#timings-and-the-plan-cache), whose numbers change from run to run:
 
 ```bash verify
 relate --mode json "RETURN 42 AS int, 3.5 AS float, 'Ada' AS string, true AS bool, null AS nothing, [1, 'two'] AS list, {k: 1} AS map"
 ```
 
 ```text
-[{"bool":true,"float":3.5,"int":42,"list":[1,"two"],"map":{"k":1},"nothing":null,"string":"Ada"}]
+{"data":[{"bool":true,"float":3.5,"int":42,"list":[1,"two"],"map":{"k":1},"nothing":null,"string":"Ada"}],"planCache":"miss","timings":{"elapsed_ms":0.553208,"execute_ms":0.388125,"lex_parse_ms":0.026042,"lower_ms":0.033167,"parse_ms":0.110167,"plan_ms":0.043833,"result_generation_ms":0.000417,"rewrite_ms":0.007}}
 ```
 
 ```bash verify
@@ -239,6 +239,10 @@ relate --mode toon "RETURN 42 AS int, 3.5 AS float, 'Ada' AS string, true AS boo
 ```text
 rows[1]{int,float,string,bool,nothing,list,map}:
   42,3.5,Ada,true,null,[1,"two"],{"k":1}
+timings:
+  {"elapsed_ms":0.367209,"execute_ms":0.209583,"lex_parse_ms":0.023541,"lower_ms":0.031458,"parse_ms":0.107166,"plan_ms":0.040874999999999995,"result_generation_ms":0.000292,"rewrite_ms":0.00675}
+planCache:
+  miss
 ```
 
 ```bash verify
@@ -258,6 +262,7 @@ relate --mode jsonl "RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt
 
 ```text
 {"d":"2026-11-08","dt":"2026-11-08T10:15:30+01:00[Europe/Paris]","dur":"P1DT2H30M","ldt":"2026-11-08T10:15:30","lt":"10:15:30","t":"10:15:30+01:00"}
+{"planCache":"miss","timings":{"elapsed_ms":0.386625,"execute_ms":0.1875,"lex_parse_ms":0.023958,"lower_ms":0.090042,"parse_ms":0.15275,"plan_ms":0.038875,"result_generation_ms":0.0005,"rewrite_ms":0.009125}}
 ```
 
 ```bash verify
@@ -277,6 +282,7 @@ relate --mode jsonl "RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, lo
 
 ```text
 {"geo":{"crs":"wgs-84","latitude":51.5,"longitude":-0.1,"srid":4326},"u":"f066ecfc-5151-4121-8a36-b35e00d72918","v":{"dim":3,"type":"INTEGER8","values":[1,2,3]},"xy":{"crs":"cartesian","srid":7203,"x":1.0,"y":2.0}}
+{"planCache":"miss","timings":{"elapsed_ms":0.443833,"execute_ms":0.24812499999999998,"lex_parse_ms":0.028541999999999998,"lower_ms":0.047666,"parse_ms":0.132542,"plan_ms":0.050083,"result_generation_ms":0.000458,"rewrite_ms":0.007417}}
 ```
 
 ```bash verify
@@ -296,6 +302,7 @@ relate --mode jsonl "CREATE p = (a:Person {name: 'Ada'})-[r:KNOWS {since: 2024}]
 
 ```text
 {"a":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},"p":[{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"},{"id":1,"kind":"node","labels":["Person"],"properties":{"name":"Grace"}}],"r":{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"}}
+{"planCache":"miss","timings":{"elapsed_ms":0.528292,"execute_ms":0.303916,"lex_parse_ms":0.009042000000000001,"lower_ms":0.010541,"parse_ms":0.208167,"plan_ms":0.009917,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.000583}}
 ```
 
 ## Column types in the envelope
@@ -318,7 +325,7 @@ relate --mode envelope "RETURN 42 AS int, null AS nothing, localtime('10:15:30')
 ```
 
 ```text
-{"columnTypes":["INTEGER","ANY","TIME","STRING","LIST"],"columns":["int","nothing","lt","u","list"],"notifications":[],"rows":[{"int":42,"list":[1,2],"lt":"10:15:30","nothing":null,"u":"f066ecfc-5151-4121-8a36-b35e00d72918"}],"truncated":false}
+{"columnTypes":["INTEGER","ANY","TIME","STRING","LIST"],"columns":["int","nothing","lt","u","list"],"notifications":[],"planCache":"miss","rows":[{"int":42,"list":[1,2],"lt":"10:15:30","nothing":null,"u":"f066ecfc-5151-4121-8a36-b35e00d72918"}],"timings":{"elapsed_ms":0.515875,"execute_ms":0.346709,"lex_parse_ms":0.023542,"lower_ms":0.043917,"parse_ms":0.11541699999999999,"plan_ms":0.044833000000000005,"result_generation_ms":0.0005,"rewrite_ms":0.006834},"truncated":false}
 ```
 
 ## See also

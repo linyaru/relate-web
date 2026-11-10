@@ -10,7 +10,7 @@ related: [reference/cli/dot-commands, reference/cli/output-modes, reference/cli/
 
 This guide shows you how to work in the `relate` interactive shell: start it on a store, run statements that span several lines, edit and recall what you typed, bind parameters, use the dot commands, group writes in a transaction, and leave. The shell opens when `relate` runs on a terminal with no statement to run. It reads one :term[statement]{id=statement} at a time, runs it when it sees the closing `;`, and prints the result as a table.
 
-The transcripts on this page come from a terminal session with relate 0.16.1 and are not replayed by the docs checks. Each is followed by the same statements as a piped script, which the checks replay; a script and the shell share the statement splitter and the dot commands.
+The transcripts on this page come from a terminal session with relate 0.1.2 and are not replayed by the docs checks. Each is followed by the same statements as a piped script, which the checks replay; a script and the shell share the statement splitter and the dot commands.
 
 ## Prerequisites
 
@@ -49,7 +49,7 @@ relate --database ./team.rl --read-only
 The shell prints a banner and the `cypher>` prompt:
 
 ```text
-Relate 0.16.1. End statements with ;  (.quit to exit)
+Relate 0.1.2. End statements with ;  (.quit to exit)
 cypher>
 ```
 
@@ -201,7 +201,7 @@ relate query --database ./team.rl --mode envelope < ines.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.46883400000000003,"execute_ms":0.249917,"lex_parse_ms":0.00625,"lower_ms":0.008791,"parse_ms":0.207125,"plan_ms":0.006917,"result_generation_ms":0.000125,"rewrite_ms":0.00033299999999999996},"truncated":false}
 ```
 
 ## Leave the shell

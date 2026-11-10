@@ -1334,16 +1334,21 @@ function lint(): number {
   if (writeVocabulary()) console.error(`updated ${rel(VOCAB_FILE)}`);
   const probe = spawnSync('vale', ['--version'], { encoding: 'utf8' });
   if (probe.error || probe.status !== 0) {
+    // A missing Vale fails the lint everywhere, so a local run never reports
+    // success for a check it did not run.
     console.error(
       [
-        'docs:lint needs Vale (https://vale.sh), which is not on PATH.',
-        `  macOS:  brew install vale`,
-        `  other:  download vale ${VALE_VERSION} from https://github.com/vale-cli/vale/releases/tag/v${VALE_VERSION}`,
-        '          and put the `vale` binary on PATH; CI installs that version (.github/workflows/cookbook.yml).',
+        `docs:lint needs Vale ${VALE_VERSION} (https://vale.sh), which is not on PATH.`,
+        '  bash scripts/vale/install.sh   installs that version into ~/.local/bin, checked against its published SHA-256;',
+        '                                 CI installs it the same way (.github/workflows/cookbook.yml).',
         'Then run `npm run docs:lint` again. It fetches the Google style on first run (`vale sync`).',
       ].join('\n'),
     );
-    return process.env.CI ? 1 : 0;
+    return 1;
+  }
+  const found = /(\d+\.\d+\.\d+)/.exec(probe.stdout ?? '')?.[1] ?? '?';
+  if (found !== VALE_VERSION) {
+    console.error(`docs:lint: warning: vale ${found} is on PATH; CI lints with ${VALE_VERSION}, so results can differ (bash scripts/vale/install.sh installs it).`);
   }
   const valeIni = join(ROOT, '.vale.ini');
   if (!existsSync(join(ROOT, 'scripts/vale/styles/Google'))) {

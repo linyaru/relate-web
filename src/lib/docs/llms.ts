@@ -3,7 +3,7 @@
 // page's twin, concatenated: all of them, and one file per section and per
 // group).
 
-import { ENVELOPE_CHECK, ENVELOPE_OUTPUT, VERSION_LINE } from '../../components/docs/install.ts';
+import { ENVELOPE_CHECK, ENVELOPE_HAS_TIMINGS, ENVELOPE_OUTPUT, VERSION_LINE } from '../../components/docs/install.ts';
 import { CANONICAL_ORIGIN } from '../cookbook/links.ts';
 import type { Engine } from './content.ts';
 import { EVALUATE, LLMS_GROUPS, llmsGroupOf } from './landing.ts';
@@ -33,7 +33,7 @@ export function factsBlock(engine: Engine): string {
       : []),
     '',
     '- Install (macOS, Linux): `curl -sSfL https://relatedb.ai/install.sh | bash`. It installs the latest release to `~/.local/bin` after checking the signed SHA256SUMS, and installs nothing if a check fails.',
-    `- Check the install: \`relate --version\` prints \`${VERSION_LINE}\`, and \`${ENVELOPE_CHECK}\` prints \`${ENVELOPE_OUTPUT}\`.`,
+    `- Check the install: \`relate --version\` prints \`${VERSION_LINE}\`, and \`${ENVELOPE_CHECK}\` prints \`${ENVELOPE_OUTPUT}\`${ENVELOPE_HAS_TIMINGS ? ', each `<ms>` a number of milliseconds that changes from run to run' : ''}.`,
     '- Run a statement: `relate --database ./graph.rl --read-only --mode envelope "MATCH (n) RETURN count(n) AS n"`; remove `--read-only` to write. `--mode envelope` prints one JSON object per result set.',
     '- Stores: `:memory:` (the default), a directory, or a single `.rl` file, named by `--database`. Add `--read-only` to open an existing store without writing.',
     '- Parameters: write `$name` in the statement and bind it with `--param name=<value>`.',

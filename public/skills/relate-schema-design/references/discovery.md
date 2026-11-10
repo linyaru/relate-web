@@ -3,7 +3,7 @@
 Three ways to read what a store's schema is: Cypher (`SHOW` statements and
 the `db.schema.*` procedures), the schema folder a directory store writes as
 text, and the ontology procedures, a preview. The Cypher statements below
-run in order on one in-memory store, on relate 0.16.1.
+run in order on one in-memory store, on relate 0.1.2.
 
 Sources: <https://relatedb.ai/docs/reference/cypher/differences-from-neo4j.md>
 (the `db.schema` procedures in place of APOC's),

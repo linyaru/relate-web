@@ -73,13 +73,7 @@ The [`relate skill` reference](/docs/reference/cli/skill#install-states) defines
 
 ## Output
 
-Every successful outcome, `--check` included, prints its status lines and then a two-line notice this build carries over from the project's previous name:
-
-{/* docs-check-ignore trust-pin */}
-```text
-cypherlite is now relate — this is the final cypherlite release
-install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
-```
+Every successful outcome, `--check` included, prints its status lines and nothing after them; releases up to 0.1.1 also printed a two-line notice of the project's rename.
 
 | Outcome | Status lines on stdout |
 | --- | --- |
@@ -113,21 +107,17 @@ relate upgrade --check
 ```
 
 ```text
-current version: 0.16.1
-latest release:  0.16.1
+current version: 0.1.2
+latest release:  0.1.2
 relate is up to date
-cypherlite is now relate — this is the final cypherlite release
-install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
 ```
 
 With the copy edited to list a higher version, `v0.99.0`, the report names it and nothing is downloaded:
 
 ```text
-current version: 0.16.1
+current version: 0.1.2
 latest release:  0.99.0
 upgrade available: run `relate upgrade` to install 0.99.0
-cypherlite is now relate — this is the final cypherlite release
-install relate with: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
 ```
 
 A run that cannot reach the release list exits 1. This one had `RELATE_RELEASES_JSON_URL=http://127.0.0.1:8874/releases.json` with nothing listening; the text after `io:` comes from the operating system, and this recording is from macOS:

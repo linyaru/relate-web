@@ -30,7 +30,7 @@ exit=6
 | Run | stderr | stdout | Exit code |
 | --- | --- | --- | --- |
 | Query run that succeeds | Diagnostics only: warnings, notes, `table`-mode plans | The results | 0 |
-| Query run that fails, in `json`, `jsonl`, `envelope` or `speedscope` | The message | Any rows already printed, then one error object | 1, 5, 6, or 7 |
+| Query run that fails, in `json`, `jsonl`, `envelope` or `speedscope` | The message | Any results already printed, then one error object | 1, 5, 6, or 7 |
 | Query run that fails, in `table`, `csv`, `markdown`, `cypher` or `toon` (agent mode's piped default) | The message | Nothing extra | 1, 5, 6, or 7 |
 | Usage error, in any mode | `Error: <message>`. An unknown flag, an unexpected argument, a missing value, a `--read-only` value not attached, or an unknown `--namespace` adds the usage line and a `--help` hint; a value rejected after parsing (`--mode`, `--timeout`, `--width`, `--max-rows`, `--param`, `--command` with a positional query, `RELATE_AGENT_MODE`) prints the `Error:` line alone | Nothing | 2 |
 | A command (`clone`, `skill`, `info`, …) | Its own messages | Its own output; never an error object | 0, 1, or 2 |
@@ -45,7 +45,7 @@ A run of several statements stops at the first one that fails and exits with tha
 
 ## The error object
 
-A query run (a one-shot statement or a piped script) that fails in `--mode json`, `--mode jsonl`, `--mode envelope` or `--mode speedscope` prints one compact JSON object on stdout, after any rows already written, on one line. Its keys are sorted alphabetically, as in every JSON mode.
+A query run (a one-shot statement or a piped script) that fails in `--mode json`, `--mode jsonl`, `--mode envelope` or `--mode speedscope` prints one compact JSON object on stdout, after any results already written, on one line. It carries no `timings` or `planCache`. Its keys are sorted alphabetically, as in every JSON mode.
 
 ```json
 {"error":{"code":"validation_error","exit_code":6,"kind":"syntax","message":"syntax error: …","retryable":false}}
@@ -114,9 +114,9 @@ echo "exit=$?"
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"rows":[{"ok":1}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["ok"],"notifications":[],"planCache":"miss","rows":[{"ok":1}],"timings":{"elapsed_ms":0.34937500000000005,"execute_ms":0.201167,"lex_parse_ms":0.029709,"lower_ms":0.029207999999999998,"parse_ms":0.09624999999999999,"plan_ms":0.042583,"result_generation_ms":0.000292,"rewrite_ms":0.0065},"truncated":false}
 exit=0
-{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":["ANY"],"columns":["p"],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.352833,"execute_ms":0.205334,"lex_parse_ms":0.026416,"lower_ms":0.036291000000000004,"parse_ms":0.093209,"plan_ms":0.047166,"result_generation_ms":0.00025,"rewrite_ms":0.007292},"truncated":false}
 exit=0
 ```
 
@@ -206,7 +206,7 @@ echo "exit=$?"
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.539084,"execute_ms":0.388542,"lex_parse_ms":0.003583,"lower_ms":0.003083,"parse_ms":0.1435,"plan_ms":0.001583,"result_generation_ms":0.000167,"rewrite_ms":0.00025},"truncated":false}
 syntax error: parse error: unexpected token "RETRN"
   RETRN 2
   ^

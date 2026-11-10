@@ -29,7 +29,7 @@ A directory store can be cloned while another process writes it: the clone takes
 
 ## Layouts
 
-Every pairing of the two durable layouts works; the in-memory store is refused on either side.
+Every pairing of the two durable layouts works; the in-memory store is refused on either side. One pairing depends on the codec: in relate 0.1.2 a `.rl` destination refuses markdown body properties, so a `markdown` source reaches a `.rl` path only with `--to-snapshot-format parquet` or `json` ([Codecs](#codecs)).
 
 | Source | Destination | Result |
 | --- | --- | --- |
@@ -69,9 +69,13 @@ done
 
 ```text
 {"store":"team-copy","works":3}
+{"planCache":"miss","timings":{"elapsed_ms":0.387583,"execute_ms":0.2,"lex_parse_ms":0.030125,"lower_ms":0.045166,"parse_ms":0.11820800000000001,"plan_ms":0.059417,"result_generation_ms":0.000292,"rewrite_ms":0.008624999999999999}}
 {"store":"team.rl","works":3}
+{"planCache":"miss","timings":{"elapsed_ms":0.39399999999999996,"execute_ms":0.208584,"lex_parse_ms":0.03025,"lower_ms":0.04575,"parse_ms":0.116167,"plan_ms":0.060291000000000004,"result_generation_ms":0.00025,"rewrite_ms":0.007833}}
 {"store":"team-unpacked","works":3}
+{"planCache":"miss","timings":{"elapsed_ms":0.33675000000000005,"execute_ms":0.181292,"lex_parse_ms":0.025791,"lower_ms":0.038542,"parse_ms":0.09875,"plan_ms":0.049499999999999995,"result_generation_ms":0.000292,"rewrite_ms":0.006875}}
 {"store":"team-copy.rl","works":3}
+{"planCache":"miss","timings":{"elapsed_ms":0.3995,"execute_ms":0.206292,"lex_parse_ms":0.033583,"lower_ms":0.049917,"parse_ms":0.126208,"plan_ms":0.058332999999999996,"result_generation_ms":0.000292,"rewrite_ms":0.008459}}
 ```
 
 ## Codecs
@@ -84,10 +88,9 @@ Without `--to-snapshot-format`, the destination keeps the source's codec. With i
 | `parquet` | `markdown` | directory to directory, `.rl` to directory |
 | `parquet` | `parquet` | directory to directory |
 | `json` | `parquet` | directory to directory |
-| `markdown` | `parquet` | directory to directory |
-| `markdown` | none (kept) | directory to `.rl` |
+| `markdown` | `parquet` | directory to directory, directory to `.rl` |
 
-Any other value exits 2 with `Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json or markdown)`. [Storage formats](/docs/reference/storage/formats#codecs) describes each codec's files.
+Any other value exits 2 with `Error: invalid --to-snapshot-format: storage error: unknown snapshot codec '<value>' (expected parquet, json, markdown or rkyv)`. `rkyv` is not compiled into the release binary: `--to-snapshot-format rkyv` exits 1 with `Failed to clone database: storage error: rkyv snapshot codec is not compiled into this build (enable the "rkyv-codec" feature)`. [Storage formats](/docs/reference/storage/formats#codecs) describes each codec's files.
 
 Each pairing in the table, with the codec `relate info` reports for every result:
 
@@ -97,7 +100,7 @@ relate clone --to-snapshot-format markdown ./team ./team-vault
 relate clone --to-snapshot-format parquet ./team ./team-parquet
 relate clone --to-snapshot-format parquet ./team-json ./from-json
 relate clone --to-snapshot-format parquet ./team-vault ./from-vault
-relate clone ./team-vault ./team-vault.rl
+relate clone --to-snapshot-format parquet ./team-vault ./team-vault.rl
 relate clone --to-snapshot-format json ./team.rl ./team-json.rl
 relate clone --to-snapshot-format markdown ./team.rl ./vault-from-rl
 for store in team-json team-vault team-parquet from-json from-vault team-vault.rl team-json.rl vault-from-rl; do
@@ -112,7 +115,7 @@ team-vault: codec: markdown
 team-parquet: codec: parquet
 from-json: codec: parquet
 from-vault: codec: parquet
-team-vault.rl: codec: markdown
+team-vault.rl: codec: parquet
 team-json.rl: codec: json
 vault-from-rl: codec: markdown
 ```
@@ -127,11 +130,32 @@ relate --database ./from-vault --read-only --mode jsonl "MATCH (p:Person)-[w:WOR
 {"person":"Grace","project":"opencypher-tck","since":2022}
 {"person":"Grace","project":"relate","since":2023}
 {"person":"Ada","project":"relate","since":2024}
+{"planCache":"miss","timings":{"elapsed_ms":0.579875,"execute_ms":0.39808299999999996,"lex_parse_ms":0.030583000000000003,"lower_ms":0.044875,"parse_ms":0.115042,"plan_ms":0.058415999999999996,"result_generation_ms":0.000417,"rewrite_ms":0.008333}}
 ```
+
+### Markdown into a `.rl` file
+
+In relate 0.1.2 a `.rl` destination refuses markdown body properties, whether they come from `--markdown-body-properties` or from the configuration a `markdown` source records. Cloning a `markdown` store into a `.rl` path therefore needs `--to-snapshot-format parquet` or `json`; without it, or with `--to-snapshot-format markdown`, the clone exits 1 and creates nothing. The message names `parquet` whatever codec the command asked for:
+
+```bash verify
+relate clone ./team-vault ./vault-kept.rl
+echo "exit=$?"
+relate clone --to-snapshot-format markdown ./team-vault ./vault-md.rl
+echo "exit=$?"
+```
+
+```text
+Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored
+exit=1
+Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored
+exit=1
+```
+
+A `parquet` or `json` source with no body properties clones into a `markdown` `.rl` file: `relate clone --to-snapshot-format markdown ./team.rl ./team-md.rl` succeeds, and `relate info` reports `codec: markdown` for it. A `markdown` store clones into a directory store with any codec.
 
 ### Markdown body properties
 
-`--markdown-body-properties` names the properties a `markdown` destination writes as each note's body instead of its frontmatter: a comma-separated list for every label, or `Label=LIST` for one label, with several entries separated by `;` (`Person=role,bio;Project=language`). The first listed property is written as the bare body and the rest as `##` sections. Without the flag, the destination uses the source's recorded configuration, else the single property `body`. On a destination whose codec is not `markdown`, it exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored` (the codec named is the destination's).
+`--markdown-body-properties` names the properties a `markdown` destination writes as each note's body instead of its frontmatter: a comma-separated list for every label, or `Label=LIST` for one label, with several entries separated by `;` (`Person=role,bio;Project=language`). The first listed property is written as the bare body and the rest as `##` sections. Without the flag, the destination uses the source's recorded configuration, else the single property `body`. On a directory destination whose codec is not `markdown`, it exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored` (the codec named is the destination's).
 
 ```bash verify
 relate clone --to-snapshot-format markdown --markdown-body-properties 'Person=role' ./team ./team-notes
@@ -166,6 +190,7 @@ engineer
 | A `.rl` `SOURCE` that does not exist | 1 | `Failed to clone database: storage error: database not found: <path>` |
 | A `.rl` `SOURCE` another process holds for writing | 1 | `Failed to clone database: storage locked: <path>` |
 | `:memory:` on either side | 1 | `clone source must be a native directory or .rl bundle path`, or `clone destination …`, after `Failed to clone database: storage error: ` |
+| A `.rl` `DEST` with markdown body properties: a `markdown` `SOURCE` without `--to-snapshot-format parquet` or `json`, or `--markdown-body-properties` | 1 | `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored` |
 | `--wal-dir` with a `.rl` source | 1 | `Failed to clone database: storage error: wal_dir is not supported for .rl single-file databases (ADR-0074)` |
 | Fewer than two paths | 2 | `Error: clone requires SOURCE and DEST` |
 | A third path, or a flag clone does not take | 2 | `Error: unexpected argument to clone: <argument>` |

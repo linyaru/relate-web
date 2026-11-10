@@ -38,7 +38,7 @@ relate query --database ./team.rl --mode envelope < team.cypher
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":1.927083,"execute_ms":1.609875,"lex_parse_ms":0.015000000000000001,"lower_ms":0.020458999999999998,"parse_ms":0.298333,"plan_ms":0.012416,"result_generation_ms":0.00025,"rewrite_ms":0.000542},"truncated":false}
 ```
 
 ## Open the store read-only
@@ -121,7 +121,7 @@ relate --database ./team-backup.rl --read-only --mode envelope 'MATCH (n) RETURN
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"rows":[{"nodes":5}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["nodes"],"notifications":[],"planCache":"miss","rows":[{"nodes":5}],"timings":{"elapsed_ms":0.5135,"execute_ms":0.351833,"lex_parse_ms":0.027875,"lower_ms":0.042624999999999996,"parse_ms":0.10258300000000001,"plan_ms":0.049833999999999996,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.008084},"truncated":false}
 ```
 
 A directory store can be cloned while its writer runs. A `.rl` source fails with `Failed to clone database: storage locked: <path>` (exit code 1) while a writer holds it. To rehearse a write instead of backing up, `--load ./team.rl --database ./rehearsal.rl` copies the store and opens the copy for writing, as the [agent quickstart](/docs/get-started/agent-quickstart#try-the-write-on-a-throwaway-copy) shows.
@@ -139,9 +139,9 @@ EOF
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":1}],"truncated":false}
-{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"rows":[{"projects":2}],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.5173340000000001,"execute_ms":0.332333,"lex_parse_ms":0.003167,"lower_ms":0.005,"parse_ms":0.175583,"plan_ms":0.004583,"result_generation_ms":0.000166,"rewrite_ms":0.00033299999999999996},"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"planCache":"miss","rows":[{"projects":1}],"timings":{"elapsed_ms":0.08254099999999999,"execute_ms":0.038167,"lex_parse_ms":0.007875,"lower_ms":0.01225,"parse_ms":0.026250000000000002,"plan_ms":0.01475,"result_generation_ms":0.000209,"rewrite_ms":0.0007080000000000001},"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["projects"],"notifications":[],"planCache":"hit-raw-fastpath","rows":[{"projects":2}],"timings":{"elapsed_ms":0.028625,"execute_ms":0.006292,"lex_parse_ms":0.0,"lower_ms":0.0,"parse_ms":0.00020800000000000001,"plan_ms":0.021542000000000002,"result_generation_ms":0.000084,"rewrite_ms":0.0},"truncated":false}
 ```
 
 Inside the transaction one project is left; after the rollback, both are back.
@@ -160,7 +160,7 @@ relate --database ./team.rl --mode envelope "MATCH (p:Person {name: 'Zed'}) SET 
 ```
 
 ```text
-{"columnTypes":[],"columns":[],"notifications":[],"rows":[],"truncated":false}
+{"columnTypes":[],"columns":[],"notifications":[],"planCache":"miss","rows":[],"timings":{"elapsed_ms":0.397583,"execute_ms":0.208541,"lex_parse_ms":0.005915999999999999,"lower_ms":0.005417,"parse_ms":0.17962499999999998,"plan_ms":0.004667,"result_generation_ms":0.000166,"rewrite_ms":0.00033299999999999996},"truncated":false}
 note: write statement changed nothing; the graph is unchanged
 ```
 
@@ -206,7 +206,7 @@ relate --load-csv-dir ./imports --mode envelope "LOAD CSV WITH HEADERS FROM 'peo
 ```
 
 ```text
-{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"rows":[{"name":"Ola"}],"truncated":false}
+{"columnTypes":["STRING"],"columns":["name"],"notifications":[],"planCache":"miss","rows":[{"name":"Ola"}],"timings":{"elapsed_ms":0.445625,"execute_ms":0.269958,"lex_parse_ms":0.0050420000000000005,"lower_ms":0.003791,"parse_ms":0.16458299999999998,"plan_ms":0.006,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.000417},"truncated":false}
 ```
 
 `relate serve` has no `--load-csv-dir` flag: `RELATE_LOAD_CSV_DIR` in the server's environment is its only switch. Over MCP, `read_cypher` refuses `LOAD CSV`, and `write_cypher` runs it when the directory is set and the store is writable.
@@ -270,7 +270,7 @@ relate --database ./team.rl --read-only --safe --mode envelope 'MATCH (p:Person)
 ```
 
 ```text
-{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"rows":[{"people":3}],"truncated":false}
+{"columnTypes":["INTEGER"],"columns":["people"],"notifications":[],"planCache":"miss","rows":[{"people":3}],"timings":{"elapsed_ms":0.334542,"execute_ms":0.16141699999999998,"lex_parse_ms":0.030000000000000002,"lower_ms":0.04375,"parse_ms":0.108167,"plan_ms":0.055958,"result_generation_ms":0.00033299999999999996,"rewrite_ms":0.008792},"truncated":false}
 ```
 
 ## If it goes wrong

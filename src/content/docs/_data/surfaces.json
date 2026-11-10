@@ -1,26 +1,28 @@
 {
   "$schema_note": "The surfaces capability matrix (<Matrix />, src/components/docs/matrix.ts). features are the rows, surfaces the columns, cells[feature][surface] = {value: yes|no|partial|unknown, note, sources}; every source id is a key of `sources`. A cell nobody has checked is \"unknown\", never a guess.",
-  "verified": "0.16.1",
-  "checked": "2026-11-08",
+  "verified": "0.1.2",
+  "checked": "2026-11-09",
   "sources": {
-    "binary": "A run of the relate 0.16.1 release-profile source build (commit ac441ec) on 2026-11-07, with DO_NOT_TRACK=1; `relate serve` runs were made over HTTP and MCP on stdio.",
-    "cli-json": "src/content/docs/_data/cli.json (the recorded CLI facts).",
-    "wasm": "A run of public/wasm (the WASM build this site ships) in Node.js on 2026-11-07, and its relate.d.ts.",
-    "python-client": "A run of the Python client built from upstream commit ac441ec on 2026-11-07.",
-    "node-client": "A run of the Node.js client built from upstream commit ac441ec on 2026-11-07; it loads the C ABI library (`librelate_ffi`) that the C, Java, Go and Swift clients load.",
-    "spec-rust": "Upstream docs/api/rust/spec.md and description.md at ac441ec.",
-    "spec-c": "Upstream docs/api/c/spec.md at ac441ec.",
-    "spec-python": "Upstream docs/api/python/spec.md and description.md at ac441ec.",
-    "spec-javascript": "Upstream docs/api/javascript/spec.md at ac441ec.",
-    "spec-wasm": "Upstream docs/api/wasm/spec.md at ac441ec.",
-    "spec-java": "Upstream docs/api/java/spec.md at ac441ec, and clients/java Database.java (the path goes to `relate_database_open` unchanged).",
-    "spec-go": "Upstream docs/api/go/spec.md at ac441ec.",
-    "spec-swift": "Upstream docs/api/swift/spec.md at ac441ec, and clients/swift Database.swift (the path goes to `relate_database_open` unchanged).",
-    "spec-bolt": "Upstream docs/api/bolt/spec.md at ac441ec.",
-    "spec-http": "Upstream docs/api/http/spec.md at ac441ec.",
-    "spec-mcp": "Upstream docs/api/mcp/spec.md at ac441ec.",
+    "binary": "A run of the relate v0.1.2 release binary (upstream tag v0.1.2, commit f0c09d2) on 2026-11-09, with DO_NOT_TRACK=1: the query session, and `relate serve` on in-memory, directory and `.rl` stores, with `--read-only` and with `--load`, over Bolt (the Neo4j Python driver 6.4.0), HTTP and MCP (stdio and streamable HTTP). `--load` loaded a `.rl` file from an http URL on loopback; an https URL on loopback reached a verified TLS handshake, which refused the local test CA's certificate, so no store was loaded over https.",
+    "cli-json": "src/content/docs/_data/cli.json (the recorded CLI facts, verified against v0.1.2).",
+    "wasm": "A run of public/wasm (the WASM build this site ships, built from upstream v0.1.2) in Node.js on 2026-11-09, and its relate.d.ts.",
+    "python-client": "A run of the Python client built from upstream v0.1.2 (commit f0c09d2) on 2026-11-09.",
+    "node-client": "A run of the Node.js client built from upstream v0.1.2 (commit f0c09d2) on 2026-11-09; it loads the C ABI library (`librelate_ffi`) that the C, Java, Go and Swift clients load.",
+    "spec-rust": "Upstream docs/api/rust/spec.md and description.md at v0.1.2 (f0c09d2).",
+    "spec-c": "Upstream docs/api/c/spec.md at v0.1.2 (f0c09d2).",
+    "spec-python": "Upstream docs/api/python/spec.md and description.md at v0.1.2 (f0c09d2).",
+    "spec-javascript": "Upstream docs/api/javascript/spec.md at v0.1.2 (f0c09d2).",
+    "spec-wasm": "Upstream docs/api/wasm/spec.md at v0.1.2 (f0c09d2).",
+    "spec-java": "Upstream docs/api/java/spec.md at v0.1.2 (f0c09d2), and clients/java Database.java (the path goes to `relate_database_open` unchanged).",
+    "spec-go": "Upstream docs/api/go/spec.md at v0.1.2 (f0c09d2).",
+    "spec-swift": "Upstream docs/api/swift/spec.md at v0.1.2 (f0c09d2), and clients/swift Database.swift (the path goes to `relate_database_open` unchanged).",
+    "spec-bolt": "Upstream docs/api/bolt/spec.md at v0.1.2 (f0c09d2).",
+    "spec-http": "Upstream docs/api/http/spec.md at v0.1.2 (f0c09d2).",
+    "spec-mcp": "Upstream docs/api/mcp/spec.md at v0.1.2 (f0c09d2).",
     "serve-help": "The `relate serve --help` text of the same binary.",
-    "jvm-go-swift-clients": "Runs of the Java, Go and Swift clients built from upstream commit 6a0c391 (relate 0.16.1) on 2026-11-08 (the docs sample runners, scripts/docs-samples.ts)."
+    "jvm-go-swift-clients": "Runs of probe programs on the Java, Go and Swift clients built from upstream v0.1.2 (commit f0c09d2) on 2026-11-09, compiled and run the way the docs sample runner runs samples (scripts/docs-samples.ts).",
+    "c-client": "A run of a C probe program compiled against relate.h and linked with `librelate_ffi`, both built from upstream v0.1.2 (commit f0c09d2), on 2026-11-09.",
+    "rust-crate": "A run of a Rust probe program built against the `relate` crate at upstream v0.1.2 (commit f0c09d2) on 2026-11-09."
   },
   "surfaces": [
     {
@@ -196,6 +198,7 @@
         "value": "yes",
         "note": "`Database::open(\":memory:\")`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -203,6 +206,7 @@
         "value": "yes",
         "note": "`relate_database_open(\":memory:\", …)`",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -210,6 +214,7 @@
         "value": "yes",
         "note": "`Database.open(\":memory:\")`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -217,6 +222,7 @@
         "value": "yes",
         "note": "`relate.Open(\":memory:\")`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -224,6 +230,7 @@
         "value": "yes",
         "note": "`Database.inMemory()`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -286,6 +293,7 @@
         "value": "yes",
         "note": "`Database::open(path)`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -293,6 +301,7 @@
         "value": "yes",
         "note": "`relate_database_open(path, …)`",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -300,6 +309,7 @@
         "value": "yes",
         "note": "`Database.open(path)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -307,6 +317,7 @@
         "value": "yes",
         "note": "`relate.Open(path)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -314,6 +325,7 @@
         "value": "yes",
         "note": "`Database(path:)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -376,6 +388,7 @@
         "value": "yes",
         "note": "`Database::open(\"graph.rl\")`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -383,6 +396,7 @@
         "value": "yes",
         "note": "a `*.rl` URI",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -390,6 +404,7 @@
         "value": "yes",
         "note": "`Database.open(\"graph.rl\")`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java",
           "spec-c"
         ]
@@ -398,6 +413,7 @@
         "value": "yes",
         "note": "`relate.Open(\"graph.rl\")`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -405,6 +421,7 @@
         "value": "yes",
         "note": "`Database(path: \"graph.rl\")`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift",
           "spec-c"
         ]
@@ -467,6 +484,7 @@
         "value": "yes",
         "note": "`OpenMode::ReadOnly`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -474,6 +492,7 @@
         "value": "yes",
         "note": "`relate_database_open_read_only`",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -481,6 +500,7 @@
         "value": "yes",
         "note": "`Database.openReadOnly(uri)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -488,6 +508,7 @@
         "value": "yes",
         "note": "`relate.OpenReadOnly(uri)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -495,6 +516,7 @@
         "value": "yes",
         "note": "`Database(readOnlyPath:)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -502,6 +524,7 @@
         "value": "yes",
         "note": "`relate serve --read-only`",
         "sources": [
+          "binary",
           "serve-help"
         ]
       },
@@ -509,6 +532,7 @@
         "value": "yes",
         "note": "`relate serve --read-only`",
         "sources": [
+          "binary",
           "serve-help"
         ]
       },
@@ -554,8 +578,9 @@
       },
       "rust": {
         "value": "yes",
-        "note": "`begin()`, `commit()`",
+        "note": "`begin()`, `commit()`, `rollback()`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -563,6 +588,7 @@
         "value": "yes",
         "note": "`relate_conn_begin`, `relate_conn_commit`, `relate_conn_rollback`",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -570,6 +596,7 @@
         "value": "yes",
         "note": "`begin()`, `commit()`, `rollback()`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -577,6 +604,7 @@
         "value": "yes",
         "note": "`Begin()`, `Commit()`, `Rollback()`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -584,6 +612,7 @@
         "value": "yes",
         "note": "`begin()`, `commit()`, `rollback()`, `transaction { }`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -591,6 +620,7 @@
         "value": "yes",
         "note": "`BEGIN`, `COMMIT`, `ROLLBACK`",
         "sources": [
+          "binary",
           "spec-bolt"
         ]
       },
@@ -598,6 +628,7 @@
         "value": "yes",
         "note": "`POST /db/<name>/query/v2/tx`, then `…/tx/<id>/commit`",
         "sources": [
+          "binary",
           "spec-http"
         ]
       },
@@ -605,6 +636,7 @@
         "value": "no",
         "note": "each `tools/call` runs one statement",
         "sources": [
+          "binary",
           "spec-mcp"
         ]
       }
@@ -642,6 +674,7 @@
         "value": "yes",
         "note": "`query_with_params`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -649,6 +682,7 @@
         "value": "yes",
         "note": "the params builder",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -656,6 +690,7 @@
         "value": "yes",
         "note": "`query(statement, Map)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -663,6 +698,7 @@
         "value": "yes",
         "note": "`QueryParams(statement, map)`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -670,6 +706,7 @@
         "value": "yes",
         "note": "`query(statement, [String: CypherValue])`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -677,6 +714,7 @@
         "value": "yes",
         "note": "the `RUN` message's parameter map",
         "sources": [
+          "binary",
           "spec-bolt"
         ]
       },
@@ -699,21 +737,22 @@
     "result-metadata": {
       "cli": {
         "value": "partial",
-        "note": "the envelope has `columnTypes`, and the plan on `EXPLAIN`; no counters or timings",
+        "note": "the envelope has `columnTypes`, `timings` (elapsed and its phase split) and `planCache`, and the plan on `EXPLAIN`; no counters",
         "sources": [
           "binary"
         ]
       },
       "python": {
         "value": "yes",
-        "note": "`QueryResult` metadata and the result summary",
+        "note": "`QueryResult` (`column_types`, `stats`, `query_type`, `elapsed_ms` and its phase split) and the result summary",
         "sources": [
-          "spec-python"
+          "spec-python",
+          "python-client"
         ]
       },
       "node": {
         "value": "partial",
-        "note": "counters, query type and timings; no per-column type list (each value carries its type)",
+        "note": "counters, query type, elapsed and its phase split; no per-column type list (each value carries its type)",
         "sources": [
           "spec-javascript",
           "node-client"
@@ -721,15 +760,16 @@
       },
       "browser": {
         "value": "yes",
-        "note": "`columnTypes`, `stats`, `elapsed_ms` in the envelope",
+        "note": "`columnTypes`, `stats`, `elapsed_ms` and its phase split, `plan_cache` in the envelope",
         "sources": [
           "wasm"
         ]
       },
       "rust": {
         "value": "yes",
-        "note": "`QueryResult.header`: column types, query type, elapsed and its phase split, counters",
+        "note": "`QueryResult`: `header.column_types`, `header.query_type`, `stats`, `elapsed_ms()` and its phase split, `plan_cache()`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -737,12 +777,13 @@
         "value": "partial",
         "note": "counters, timings and column names; no column-type call (read each value's kind with `relate_value_kind`)",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
       "java": {
         "value": "partial",
-        "note": "query type, namespace, bookmark, notifications and plan; no column types, counters or timings",
+        "note": "query type (a typed `QueryType`), namespace, bookmark, notifications and plan; no column types, counters or timings",
         "sources": [
           "spec-java",
           "jvm-go-swift-clients"
@@ -766,21 +807,22 @@
       },
       "bolt": {
         "value": "yes",
-        "note": "the `SUCCESS` summary: `t_first`, `t_last`, `type`, `stats`",
+        "note": "the `SUCCESS` summaries: `columnTypes`, `t_first`, `t_last`, the phase times, `plan_cache`, `type`, `stats`",
         "sources": [
+          "binary",
           "spec-bolt"
         ]
       },
       "http": {
         "value": "partial",
-        "note": "`counters` and `queryPlan`; no column types or timings in the JSON response",
+        "note": "`counters` on a write, `queryPlan`, `timings` (elapsed and its phase split) and `planCache`; no column types in the JSON response",
         "sources": [
           "binary"
         ]
       },
       "mcp": {
         "value": "yes",
-        "note": "`columnTypes`, `stats`, `elapsed_ms` in the tool result",
+        "note": "`columnTypes`, `stats`, `elapsed_ms` and its phase split, `plan_cache` in the tool result",
         "sources": [
           "binary",
           "spec-mcp"
@@ -799,6 +841,7 @@
         "value": "yes",
         "note": "`QueryResult.notifications`",
         "sources": [
+          "python-client",
           "spec-python"
         ]
       },
@@ -806,6 +849,7 @@
         "value": "yes",
         "note": "`result.notifications`",
         "sources": [
+          "node-client",
           "spec-javascript"
         ]
       },
@@ -821,6 +865,7 @@
         "value": "yes",
         "note": "with the plan, on `EXPLAIN` and `PROFILE`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -828,6 +873,7 @@
         "value": "yes",
         "note": "`relate_result_notifications`",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -835,6 +881,7 @@
         "value": "yes",
         "note": "`getNotifications()`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -842,6 +889,7 @@
         "value": "yes",
         "note": "`Notifications`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -849,13 +897,15 @@
         "value": "yes",
         "note": "`notifications`",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
       "bolt": {
         "value": "yes",
-        "note": "in the ending `SUCCESS` summary when there are any",
+        "note": "in the ending `SUCCESS` summary on `EXPLAIN` and `PROFILE`; a plain run carries none",
         "sources": [
+          "binary",
           "spec-bolt"
         ]
       },
@@ -871,6 +921,7 @@
         "value": "yes",
         "note": "on every call, from the `EXPLAIN` that classifies the statement",
         "sources": [
+          "binary",
           "spec-mcp"
         ]
       }
@@ -895,6 +946,7 @@
         "value": "no",
         "note": "no Arrow call in the client",
         "sources": [
+          "node-client",
           "spec-javascript"
         ]
       },
@@ -916,6 +968,7 @@
         "value": "no",
         "note": "no Arrow call in the client",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -923,6 +976,7 @@
         "value": "no",
         "note": "no Arrow call in the client",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -975,6 +1029,7 @@
         "value": "no",
         "note": "no change-data-capture call in the client",
         "sources": [
+          "python-client",
           "spec-python"
         ]
       },
@@ -996,6 +1051,7 @@
         "value": "yes",
         "note": "`register_cdc_slot`, `cdc_records_after`, `ack_cdc_slot`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -1029,22 +1085,25 @@
       },
       "bolt": {
         "value": "no",
-        "note": "no change-data-capture feed on this surface",
+        "note": "no change-data-capture feed on this surface; `CALL db.cdc.current()` is `ProcedureNotFound`",
         "sources": [
+          "binary",
           "spec-bolt"
         ]
       },
       "http": {
         "value": "no",
-        "note": "no change-data-capture feed on this surface",
+        "note": "no change-data-capture feed on this surface; `CALL db.cdc.current()` is `ProcedureNotFound`",
         "sources": [
+          "binary",
           "spec-http"
         ]
       },
       "mcp": {
         "value": "no",
-        "note": "no change-data-capture feed on this surface",
+        "note": "no change-data-capture feed on this surface; `CALL db.cdc.current()` is `ProcedureNotFound`",
         "sources": [
+          "binary",
           "spec-mcp"
         ]
       }
@@ -1052,21 +1111,21 @@
     "vector-search": {
       "cli": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX`",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`",
         "sources": [
           "binary"
         ]
       },
       "python": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX`",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`",
         "sources": [
           "python-client"
         ]
       },
       "node": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX`",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`",
         "sources": [
           "node-client"
         ]
@@ -1080,40 +1139,41 @@
       },
       "rust": {
         "value": "yes",
-        "note": "the engine crate the other surfaces build on",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`; the engine crate the other surfaces build on",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
       "c": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "c-client",
           "spec-c"
         ]
       },
       "java": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
       "go": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
       "swift": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX` and `SEARCH` run unchanged through the C ABI",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
@@ -1126,7 +1186,7 @@
       },
       "http": {
         "value": "yes",
-        "note": "`CREATE VECTOR INDEX`",
+        "note": "`CREATE VECTOR INDEX` and `SEARCH`",
         "sources": [
           "binary"
         ]
@@ -1142,88 +1202,89 @@
     "full-text": {
       "cli": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX`",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`, with the index's query syntax (`AND`, `NOT`)",
         "sources": [
           "binary"
         ]
       },
       "python": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX`",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`",
         "sources": [
           "python-client"
         ]
       },
       "node": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX`",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`",
         "sources": [
           "node-client"
         ]
       },
       "browser": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` and `db.index.fulltext.queryNodes`",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`",
         "sources": [
           "wasm"
         ]
       },
       "rust": {
         "value": "yes",
-        "note": "the engine crate the other surfaces build on",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`; the engine crate the other surfaces build on",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
       "c": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "c-client",
           "spec-c"
         ]
       },
       "java": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
       "go": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
       "swift": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` runs unchanged through the C ABI",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` through the C ABI",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
       "bolt": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` as statements",
         "sources": [
           "binary"
         ]
       },
       "http": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH`",
         "sources": [
           "binary"
         ]
       },
       "mcp": {
         "value": "yes",
-        "note": "`CREATE FULLTEXT INDEX` as a statement",
+        "note": "`CREATE FULLTEXT INDEX` and full-text `SEARCH` as statements",
         "sources": [
           "binary"
         ]
@@ -1263,6 +1324,7 @@
         "value": "yes",
         "note": "`OpenOptions.load_csv_dir`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -1270,7 +1332,7 @@
         "value": "yes",
         "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
         "sources": [
-          "node-client",
+          "c-client",
           "spec-rust"
         ]
       },
@@ -1278,7 +1340,7 @@
         "value": "yes",
         "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-rust"
         ]
       },
@@ -1286,7 +1348,7 @@
         "value": "yes",
         "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-rust"
         ]
       },
@@ -1294,7 +1356,7 @@
         "value": "yes",
         "note": "`RELATE_LOAD_CSV_DIR`, read by the C ABI's open",
         "sources": [
-          "node-client",
+          "jvm-go-swift-clients",
           "spec-rust"
         ]
       },
@@ -1316,7 +1378,7 @@
       },
       "mcp": {
         "value": "yes",
-        "note": "`RELATE_LOAD_CSV_DIR` for `relate serve`, one store for every served surface",
+        "note": "`RELATE_LOAD_CSV_DIR` for `relate serve`; only through `write_cypher`, which returns no rows (`read_cypher` refuses `LOAD CSV`)",
         "sources": [
           "binary",
           "serve-help"
@@ -1328,6 +1390,7 @@
         "value": "yes",
         "note": "`--load` with an https URL to a `.rl` file",
         "sources": [
+          "binary",
           "cli-json"
         ]
       },
@@ -1335,6 +1398,7 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "python-client",
           "spec-python"
         ]
       },
@@ -1342,6 +1406,7 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "node-client",
           "spec-javascript"
         ]
       },
@@ -1356,6 +1421,7 @@
         "value": "no",
         "note": "`Database::open` takes `:memory:`, a path or `file://`",
         "sources": [
+          "rust-crate",
           "spec-rust"
         ]
       },
@@ -1363,6 +1429,7 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "c-client",
           "spec-c"
         ]
       },
@@ -1370,6 +1437,7 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-java"
         ]
       },
@@ -1377,6 +1445,7 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-go"
         ]
       },
@@ -1384,27 +1453,31 @@
         "value": "no",
         "note": "no open from a URL in the client",
         "sources": [
+          "jvm-go-swift-clients",
           "spec-swift"
         ]
       },
       "bolt": {
         "value": "yes",
-        "note": "`relate serve --load` with an https URL",
+        "note": "`relate serve --database :memory: --load` with an https URL; the loaded store is read-only",
         "sources": [
+          "binary",
           "serve-help"
         ]
       },
       "http": {
         "value": "yes",
-        "note": "`relate serve --load` with an https URL",
+        "note": "`relate serve --database :memory: --load` with an https URL; the loaded store is read-only",
         "sources": [
+          "binary",
           "serve-help"
         ]
       },
       "mcp": {
         "value": "yes",
-        "note": "`relate serve --load` with an https URL",
+        "note": "`relate serve --database :memory: --load` with an https URL; the loaded store is read-only",
         "sources": [
+          "binary",
           "serve-help"
         ]
       }
@@ -1414,6 +1487,7 @@
         "value": "yes",
         "note": "`--agent-mode`, `RELATE_AGENT_MODE`, or a detected agent harness",
         "sources": [
+          "binary",
           "cli-json"
         ]
       },

@@ -33,7 +33,7 @@ const openSection = (i: number) => contains(nav[i]) || !nav.some(contains) && i 
         ))}
         {section.pages.some(langOf) && (
           <li class="nav-langs" role="group" aria-labelledby="nav-langs-title">
-            <h3 class="nav-langs-title" id="nav-langs-title">In your language</h3>
+            <p class="nav-langs-title" id="nav-langs-title">In your language</p>
             {section.pages.filter(langOf).map((p) => (
               <a href={pageUrl(p.id)} aria-current={here(p)} aria-label={p.label} title={p.label}>
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d={LANGUAGE_ICONS[langOf(p)!]} /></svg>

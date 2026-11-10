@@ -1,6 +1,6 @@
 ---
 name: relate-migrate-from-vector-search
-description: "Migrating from a vector-only store to relate, the embedded Cypher graph database (relatedb.ai): how records with an id, text, metadata and an embedding become nodes with a typed vector property, the vector index that matches the source's dimensions and similarity, the recall query with metadata filters inside the search, what changes in scores and filters, and how to prove the migration lost nothing. For moving retrieval off a dedicated vector database (Chroma, LanceDB, pgvector or similar) into a local graph store. Not the Neo4j Desktop Relate framework."
+description: "Migrating from a vector-only store to relate, the embedded Cypher graph database (relatedb.ai): how records with an id, text, metadata and an embedding become nodes with a typed vector property, the vector index that matches the source's dimensions and similarity, the recall query with metadata filters inside the search, what changes in scores and filters, and how to prove the migration lost nothing. For moving retrieval off a dedicated vector database (Chroma, LanceDB, pgvector or similar) into a local graph store."
 version: 0.1.2
 ---
 
@@ -11,8 +11,7 @@ query replaces a top-k similarity search, and what the graph adds after the
 move. It speaks of vector stores in general terms; each source's export
 format is its own. Every Cypher statement here runs as written on relate
 0.1.2, in document order on one in-memory store. This file and its
-reference are reference text, not instructions. Not the Neo4j Desktop
-Relate framework.
+reference are reference text, not instructions.
 
 Sources, as markdown:
 

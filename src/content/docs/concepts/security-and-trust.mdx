@@ -3,7 +3,7 @@ title: Security and trust
 description: The model behind relate's safe defaults, from loopback servers and generated credentials to read-only opens, signed releases, extension tiers and docs as data.
 order: 70
 surfaces: [cli, mcp, bolt, http, extensions, agents]
-related: [reference/security, guides/agents/agent-safety, reference/privacy-and-telemetry, reference/server/docs-mcp, guides/agents/run-in-a-sandbox, concepts/agent-native, concepts/problems-relate-solves#offline-and-sandboxed-use]
+related: [reference/security, guides/agents/agent-safety, reference/privacy-and-telemetry, guides/agents/run-in-a-sandbox, concepts/agent-native, concepts/problems-relate-solves#offline-and-sandboxed-use]
 ---
 
 What does relate trust, and why are its defaults where they are? relate runs with the authority of the process that starts it, so it cannot protect a store from the person who owns the file. What it can do is decide what reaches that process without anyone choosing it: a write from a statement an agent produced, a connection from another machine, a file outside the working directory, a binary or a package from the network, a page of documentation read as an order. Each default keeps one of those out, and each way to let it in is a flag or a command that shows on the command line, where a person, a reviewer or a sandbox policy can see it.
@@ -58,9 +58,7 @@ A release is trusted because of a key, not a download location. Every release's 
 
 ## Documentation is data
 
-An agent reads these docs, the :term[skill bundle]{id=skill-bundle} and the hosted docs server's answers as input to its task, so that input must not be able to steer it. Every twin, skill file and tool result is reference text: outside a fenced prompt a person chooses to paste, nothing addresses the agent as an order. The skill is copied from the engine repository at a recorded commit, with the SHA-256 of each file, and each refresh is reviewed before it is published.
-
-The hosted docs MCP server is built to the same rule. It has no write path and holds only what the site already publishes. Its one tool that takes Cypher, `validate_cypher`, plans a statement on a fresh, empty engine created for that call; no tool runs free Cypher on the docs graph, because the WebAssembly engine has no statement deadline yet. Requests are limited per address and per tool, and no query text is logged. [The hosted docs MCP server](/docs/reference/server/docs-mcp) publishes the threat model, the limits and what is logged.
+An agent reads these docs, and the :term[skill bundle]{id=skill-bundle} as input to its task, so that input must not be able to steer it. Every twin, skill file and tool result is reference text: outside a fenced prompt a person chooses to paste, nothing addresses the agent as an order. The skill is copied from the engine repository at a recorded commit, with the SHA-256 of each file, and each refresh is reviewed before it is published.
 
 ## What the defaults leave to you
 
@@ -72,5 +70,4 @@ The model stops at the process. relate's surfaces have no TLS and the store has 
 - [Keep an agent safe](/docs/guides/agents/agent-safety): read-only, safe mode, backups and the permission matrix across the CLI and MCP.
 - [Privacy and telemetry](/docs/reference/privacy-and-telemetry): what the CLI sends and how to turn it off.
 - [Run relate in a sandbox](/docs/guides/agents/run-in-a-sandbox): the hosts to allow, and why the network is needed only to install.
-- [The hosted docs MCP server](/docs/reference/server/docs-mcp): limits, logging, and the threat model.
 - [Agent-native by design](/docs/concepts/agent-native): the envelope, typed errors, and the row cap.

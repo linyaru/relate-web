@@ -100,8 +100,8 @@ Copy `template.md`.
 | [0020](0020-docs-graph-schema.md) | The docs graph's launch schema, seed format and structural checks | Proposed |
 | [0021](0021-verified-samples-and-release-refresh.md) | Verified language samples, and a release refresh that opens a pull request | Proposed |
 | [0022](0022-shared-example-graph-is-the-team-graph.md) | The docs' shared example graph is the team graph | Proposed |
-| [0023](0023-docs-mcp-worker-shape.md) | The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements | Proposed |
-| [0024](0024-docs-mcp-rate-limits.md) | The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding | Proposed |
+| [0023](0023-docs-mcp-worker-shape.md) | The docs MCP Worker runs the Agents SDK's stateless handler over a seeded WASM engine fenced by canned statements | Withdrawn |
+| [0024](0024-docs-mcp-rate-limits.md) | The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding | Withdrawn |
 | [0025](0025-markdown-negotiation-rules.md) | How the docs answer Accept: text/markdown and ?section= | Proposed |
 | [0026](0026-capability-catalog.md) | The capability catalog: one page's generated section and capabilities.json | Proposed |
 | [0027](0027-compiled-language-samples.md) | Verified samples in Rust, Java, Go, Swift and C | Proposed |
@@ -110,7 +110,7 @@ Copy `template.md`.
 | [0030](0030-glossary-bodies-checks-and-toggletip.md) | Glossary bodies, the §4.11 checks as built, and the toggletip's markup | Proposed |
 | [0031](0031-phase-2-constructs.md) | Phase 2 constructs: the agentic and deeplink directives, a sixth JSX component for the matrix, and a language picker on the tab memory | Proposed |
 | [0032](0032-task-skills-library.md) | Task skills are authored here, listed beside the CLI bundle, installed by name, and re-reviewed when a cited recipe changes | Proposed |
-| [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Proposed |
+| [0033](0033-docs-mcp-phase-2-surface.md) | The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback | Withdrawn |
 | [0034](0034-verify-steps-start-loopback-servers.md) | A verify step may start and stop its own loopback server | Proposed |
 | [0035](0035-interactive-element-framework.md) | Interactive elements are directives with recorded static forms, found by directory and loaded lazily on the page's one engine | Proposed |
 | [0036](0036-graph-view-extras.md) | Graph view extras live in the one graph module and work on every graph view; cell words set their defaults and the static picture | Proposed |
@@ -134,3 +134,4 @@ Copy `template.md`.
 | [0054](0054-replays-mask-timing-values.md) | CLI replays compare output with timing values masked, and pages show a real run's timings | Proposed |
 | [0055](0055-borderless-top-bar-and-cookbook-grid.md) | The top bar is borderless, and the cookbook index is one filterable ruled grid | Proposed |
 | [0056](0056-docs-chrome-and-landing.md) | Docs and recipe pages get their own ruled header and sidebar; the docs landing is a plain site page | Proposed |
+| [0057](0057-hosted-docs-mcp-withdrawn-before-launch.md) | The hosted docs MCP server is withdrawn before launch; the site stays on Cloudflare Pages with its Pages Functions | Proposed |

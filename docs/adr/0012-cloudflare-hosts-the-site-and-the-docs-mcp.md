@@ -69,3 +69,6 @@ is retired at launch as `LAUNCH.md` already lists.
   section vectors. ADR-0029 (evals and usage data): the usage page is
   built from the Worker's log lines through the Workers Observability
   telemetry API.
+- Amended by ADR-0057: the docs MCP Worker is withdrawn before launch.
+  Cloudflare Pages still hosts the site with its Pages Functions; there is
+  no Worker, route or Workers AI binding.

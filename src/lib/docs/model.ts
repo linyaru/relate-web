@@ -105,13 +105,6 @@ export const GENERATED_PAGES: readonly GeneratedPageMeta[] = [
     order: 910,
     surfaces: [],
   },
-  {
-    id: 'reference/server/docs-mcp-usage',
-    title: 'Hosted docs MCP usage',
-    description: 'Calls, refusals, failures and completion rate per tool of the hosted docs MCP server, calls by client family, the period counted, and what is never logged.',
-    order: 20,
-    surfaces: ['mcp', 'agents'],
-  },
 ];
 
 /** The ids of the generated pages. */

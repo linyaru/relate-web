@@ -8,8 +8,6 @@ related: [reference/limitations, guides/operate/sizing-and-memory, guides/operat
 
 Does relate fit the job? It does when the graph belongs to one application, one agent or one tool, lives on one machine, and fits in that machine's memory. relate is an embedded graph database: the engine runs inside your process, the whole graph is held in memory, and Cypher statements run against it with nothing to deploy. When the data must be shared by many writing processes, outgrows one machine, or must stay up through a machine failure, a client/server or clustered database fits better.
 
-Not the Neo4j Desktop Relate framework: that project publishes `@relate/cli` on npm, with a binary also named `relate` (as of 2026-11-07), and is unrelated to this one.
-
 ## The shape of the thing
 
 A relate :term[store]{id=store} is a directory, a single `.rl` file, or `:memory:`. One process opens it and owns it. Inside that process the engine holds the whole graph in memory and answers statements from there; disk is for durability, not for scanning. Every commit goes to the write-ahead log (:term[WAL]{id=wal}) before it applies, and a checkpoint later writes the committed graph back to the store.

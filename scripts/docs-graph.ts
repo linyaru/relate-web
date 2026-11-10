@@ -9,12 +9,10 @@
 // bytes, gzipped bytes and lines (and how much of it is section vectors),
 // replays it on the WASM in public/wasm and prints the time, both for the
 // whole seed and for the seed without its vector statements followed by the
-// vectors as one parameter (the faster path a Worker can take), and for the
-// seed without vectors alone (seedWithoutVectors: what the docs MCP Worker
-// replays while it does not search by vector), checks that
-// the vector index answers a recipe question's precomputed vector, and, when
-// the build has written <out>/graph.cypher, checks that the built seed is
-// byte for byte the one generated here.
+// vectors as one parameter (the faster path), checks that the vector index
+// answers a recipe question's precomputed vector, and, when the build has
+// written <out>/graph.cypher, checks that the built seed is byte for byte the
+// one generated here.
 //
 // With RELATE_BIN set to a relate binary: replays the seed through it
 // (`relate query --database <tmp>/relate-docs.rl`, the script on stdin) and
@@ -42,7 +40,7 @@ import { parseArgs } from 'node:util';
 
 import { loadWasmSync } from '../src/lib/docs/checks/graph.ts';
 import { ROOT } from '../src/lib/docs/content.ts';
-import { decodeVector, docsGraph, FULLTEXT_INDEX, readEmbeddings, seedScript, seedWithoutVectors, VECTOR_INDEX, VECTOR_LOAD_STATEMENT, vectorRows } from '../src/lib/docs/graph.ts';
+import { decodeVector, docsGraph, FULLTEXT_INDEX, readEmbeddings, seedScript, VECTOR_INDEX, VECTOR_LOAD_STATEMENT, vectorRows } from '../src/lib/docs/graph.ts';
 
 const { values: args } = parseArgs({ options: { out: { type: 'string', default: join(ROOT, 'dist/docs') } } });
 const OUT = resolve(args.out!);
@@ -60,7 +58,6 @@ function main(): number {
   const seed = seedScript(graph);
   const seedBytes = Buffer.byteLength(seed);
   const base = seedScript(graph, { vectors: false });
-  if (seedWithoutVectors(seed) !== base) fail('seedWithoutVectors(seed) differs from seedScript(graph, {vectors: false}); the docs MCP Worker would replay a different graph');
   const sections = graph.nodes.filter((n) => n.label === 'Section').length;
   console.log(`seed script: ${kib(seedBytes)}, ${kib(gzipSync(seed, { level: 9 }).length)} gzipped, ${seed.split('\n').length - 1} lines; ${graph.nodes.length} nodes, ${graph.rels.length} relationships`);
   console.log(`  section vectors: ${graph.vectors.size} of ${sections} sections; without them the seed is ${kib(Buffer.byteLength(base))}, ${kib(gzipSync(base, { level: 9 }).length)} gzipped`);
@@ -74,9 +71,9 @@ function main(): number {
     fail(`${rel(built)} differs from the seed generated now; rebuild the site, or the build and this script read different sources`);
   }
 
-  // The WASM replay: the cost a Worker pays on each cold isolate (ADR-0015).
+  // The WASM replay: what loading the docs graph costs in a browser or any WASM host.
   const wasm = loadWasmSync();
-  const replay = (label: string, steps: [string, unknown][], withVectors = true) => {
+  const replay = (label: string, steps: [string, unknown][]) => {
     const db = new wasm.RelateDb();
     try {
       const t0 = performance.now();
@@ -89,8 +86,7 @@ function main(): number {
       }
       const ms = performance.now() - t0;
       let hit = 'no question vector in _data/embeddings.json';
-      if (!withVectors) hit = 'not asked (no vectors loaded)';
-      else if (question) {
+      if (question) {
         const out = JSON.parse(
           db.executeScript(`MATCH (s:Section) SEARCH s IN (VECTOR INDEX ${VECTOR_INDEX} FOR $v LIMIT 1) SCORE AS score RETURN s.id AS id`, JSON.stringify({ v: decodeVector(question.vector) }))[0],
         ) as { error: string | null; rows: { id: string }[] };
@@ -107,8 +103,6 @@ function main(): number {
     [base, null],
     [VECTOR_LOAD_STATEMENT, { rows: vectorRows(graph) }],
   ]);
-  // What the docs MCP Worker replays while it does not search by vector.
-  replay('the seed without vectors alone (seedWithoutVectors)', [[seedWithoutVectors(seed), null]], false);
 
   const bin = process.env.RELATE_BIN;
   if (!bin) {

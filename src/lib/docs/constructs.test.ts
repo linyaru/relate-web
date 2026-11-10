@@ -104,12 +104,12 @@ test('deeplink: the VS Code link carries the entry with its name, URL-encoded', 
 
 test('deeplink: only a read-only server entry can be a link', () => {
   assert.deepEqual(configProblems(ENTRY), []);
-  assert.deepEqual(configProblems({ url: 'https://relatedb.ai/mcp' }), []);
+  assert.deepEqual(configProblems({ url: 'https://mcp.example.com/mcp' }), []);
   assert.match(configProblems({ command: 'relate', args: ['serve', '--mcp', 'stdio'] })[0], /needs "--read-only"/);
   assert.match(configProblems({ mcpServers: { relate: ENTRY } })[0], /whole config file/);
   assert.match(configProblems([1])[0], /not an object/);
   assert.match(configProblems({ ...ENTRY, env: { RELATE_AUTH: 'x' } })[0], /carries `env` or `headers`/);
-  assert.match(configProblems({ url: 'https://relatedb.ai/mcp', headers: { Authorization: 'x' } })[0], /carries `env` or `headers`/);
+  assert.match(configProblems({ url: 'https://mcp.example.com/mcp', headers: { Authorization: 'x' } })[0], /carries `env` or `headers`/);
 });
 
 test('deeplink: the twin keeps the fence and gives the link as text; the page has the button, the JSON and the link', () => {

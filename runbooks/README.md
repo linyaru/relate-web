@@ -16,7 +16,6 @@ Work from the outside in. Stop at the first row that explains it.
 | A deploy run is red | [deploy-failed.md](deploy-failed.md) |
 | The live demo, cookbook runner or playground says not ready, errors, or hangs | [wasm-demo-broken.md](wasm-demo-broken.md) |
 | `releases.json`, `install.sh` or `extensions.json` is stale, missing or wrong; `relate upgrade --check` fails | [release-discovery.md](release-discovery.md) |
-| `/mcp` or `/healthz` fails, or an agent cannot reach the docs server | [docs-mcp-worker.md](docs-mcp-worker.md) |
 | A bad deploy is live and must come off now | [rollback-site.md](rollback-site.md) |
 
 ## First five minutes (any failure)

@@ -1,30 +1,11 @@
-# Publishes the static site to Cloudflare Pages (project: relate-web), then the
-# hosted docs MCP server (workers/docs-mcp, a Worker) on pushes to main.
-# main -> production; pull requests -> preview deployments of the site only
-# (same-repo PRs only, since fork PRs have no access to secrets). The Worker has
-# no preview: it deploys only from main, after the site, so the docs it bundles
-# are the docs the site serves.
+# Publishes the static site to Cloudflare Pages (project: relate-web), with
+# the Pages Functions in functions/, on pushes to main.
+# main -> production; pull requests -> preview deployments (same-repo PRs only,
+# since fork PRs have no access to secrets).
 #
 # One-time setup:
 #   1. Create the project:  npx wrangler pages project create relate-web --production-branch main
-#   2. Repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. The token needs
-#      Pages: Edit for the site and, for the Worker, Workers Scripts: Edit and
-#      Workers Routes: Edit on the relatedb.ai zone.
-#
-# What the Worker needs at launch (ADR-0012; LAUNCH.md lists these):
-#   - The relatedb.ai zone in the same account. workers/docs-mcp/wrangler.jsonc
-#     routes relatedb.ai/mcp to the Worker and every other path stays with
-#     Pages. That a Worker route fronts /mcp on the Pages custom domain is not
-#     verified yet (no account here); if it cannot, the site moves to one Worker
-#     with static assets (ADR-0012 "Later references").
-#   - Workers Paid: the bundle is about 3 MB gzipped and the cold seed replay
-#     takes about 0.3 s of CPU (workers/docs-mcp/README.md "Sizes", "Cold start").
-#   - The rate limiting bindings RL_IP (20 requests per 10 s per IP) and RL_COST
-#     (120 units per 60 s per IP and tool), declared under `ratelimits` in
-#     wrangler.jsonc. Without them the Worker falls back to a per-isolate window
-#     and /healthz reports "in-isolate-fixed-window".
-#   - Deploy order: the site first, then the Worker (this file's step order).
-#   - An abuse contact: none is published yet; GET /mcp says so.
+#   2. Repo secrets: CLOUDFLARE_API_TOKEN (with Pages: Edit), CLOUDFLARE_ACCOUNT_ID.
 name: Deploy to Cloudflare Pages
 
 on:
@@ -79,7 +60,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             playground/package-lock.json
-            workers/docs-mcp/package-lock.json
 
       - run: npm ci
         if: steps.cf.outputs.configured == 'true'
@@ -148,32 +128,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # The version docs:negotiation-check and workers/docs-mcp pin, so the
-          # function deployed is compiled by the wrangler that checked it.
+          # The version docs:negotiation-check pins, so the function deployed
+          # is compiled by the wrangler that checked it.
           wranglerVersion: "4.158.0"
           command: pages deploy dist --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}
 
-      # The hosted docs MCP server, after the site and only from main. The
-      # package pins its own wrangler, so it deploys with that one rather than
-      # through wrangler-action. `npm run bundle` reads the dist/ built above.
-      - name: Install the docs MCP Worker
-        if: steps.cf.outputs.configured == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm ci --prefix workers/docs-mcp
-
-      - name: Bundle the docs MCP Worker
-        if: steps.cf.outputs.configured == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm run bundle --prefix workers/docs-mcp
-
-      # Never deploy a Worker that fails its smoke test (runs it under wrangler dev, no login).
-      - name: Check the docs MCP Worker
-        if: steps.cf.outputs.configured == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node scripts/docs-mcp-check.ts
-
-      - name: Deploy the docs MCP Worker
-        if: steps.cf.outputs.configured == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        working-directory: workers/docs-mcp
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WRANGLER_SEND_METRICS: "false"
-        run: npx wrangler deploy

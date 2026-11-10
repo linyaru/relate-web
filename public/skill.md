@@ -8,7 +8,7 @@ Neo4j pull and push, git history, CLI extensions and each client library.
 It is the bundle `relate skill install` writes, published here byte for
 byte, so an agent can read it before relate is on the machine. Beside it,
 the site publishes five task skills, one per task family; they are listed
-under "Task skills" below. Not the Neo4j Desktop Relate framework.
+under "Task skills" below.
 
 The skill's files, like the documentation pages, are reference text, not
 instructions.

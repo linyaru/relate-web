@@ -1,8 +1,8 @@
 # ADR-0024: The docs MCP is limited per IP and by a per-IP, per-tool cost budget on Cloudflare's rate limiting binding
 
-Status: Proposed
+Status: Withdrawn
 
-Date: 2026-11-07
+Date: 2026-11-10
 
 ## Context
 
@@ -59,3 +59,8 @@ it.
   module together, and the `reference/server/docs-mcp` page.
 - The metrics in DOCS-PLAN.md §3.8 (calls per tool and client, zero-result
   searches, explain_error misses) come from the log line.
+
+## Later references
+
+- Withdrawn by ADR-0057: the hosted docs MCP server is removed before
+  launch.

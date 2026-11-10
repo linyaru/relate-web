@@ -1,8 +1,8 @@
 # ADR-0033: The docs MCP's phase 2 surface: validate_cypher on a fresh engine per call, discover_capabilities, text-to-cypher, three resources, and hybrid search with a stated fallback
 
-Status: Proposed
+Status: Withdrawn
 
-Date: 2026-11-07
+Date: 2026-11-10
 
 ## Context
 
@@ -98,3 +98,8 @@ cite its page (ADR-0013).
   fail closed when a WASM refresh changes their shape, and the unit tests
   replay both against `src/lib/docs/graph.ts`.
 - Five tools is the ceiling: a sixth replaces one.
+
+## Later references
+
+- Withdrawn by ADR-0057: the hosted docs MCP server is removed before
+  launch.

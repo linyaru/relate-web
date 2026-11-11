@@ -136,3 +136,4 @@ Copy `template.md`.
 | [0056](0056-docs-chrome-and-landing.md) | Docs and recipe pages get their own ruled header and sidebar; the docs landing is a plain site page | Proposed |
 | [0057](0057-hosted-docs-mcp-withdrawn-before-launch.md) | The hosted docs MCP server is withdrawn before launch; the site stays on Cloudflare Pages with its Pages Functions | Proposed |
 | [0058](0058-seo-head-and-indexability-switch.md) | One shared page head, JSON-LD per page kind, and a single switch for indexing | Proposed |
+| [0059](0059-cloudflare-deploy-trust-boundary.md) | Cloudflare deploys trust write access only, and the token never shares a job with the build | Proposed |

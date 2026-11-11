@@ -42,6 +42,8 @@ const links = [
           {l.label}{l.icon && <span aria-hidden="true">&nbsp;&#8599;</span>}{l.external && <span class="sr-only"> (opens in new tab)</span>}
         </a>
       ))}
+      {/* On narrow phones the bar has no room for the picker, so it moves into the folded menu. */}
+      <div class="nav-theme"><span>Theme</span><ThemeSwitch /></div>
     </nav>
     <div class="nav-right">
       <ThemeSwitch />

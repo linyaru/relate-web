@@ -22,12 +22,21 @@ test('the setup prompt installs the CLI, then the skill, then asks for the data'
   const p = setupPrompt();
   const cli = p.indexOf(INSTALL_COMMAND);
   const skill = p.indexOf('relate skill install --agent');
-  const data = p.indexOf('Ask me what data to load');
+  const data = p.indexOf('ask me what data to load');
   assert.ok(cli >= 0, 'the prompt has the install.sh command');
   assert.ok(skill > cli, 'the skill is installed after the CLI');
   assert.ok(data > skill, 'the agent asks for the data after the setup');
   assert.match(p, /relate --version/);
   assert.match(p, /relate agent-context/);
+  assert.match(p, /Stop and report any installation failure/);
+});
+
+test('the setup prompt protects an existing store and keeps writes to the requested change', () => {
+  const p = setupPrompt();
+  assert.match(p, /If it already exists, inspect its schema/);
+  assert.match(p, /Never replace or clear existing data without asking/);
+  assert.match(p, /Use write access only for the requested import or changes/);
+  assert.match(p, /bind values as parameters/);
 });
 
 test('the setup prompt keeps the safe defaults and names the agents the CLI accepts', () => {

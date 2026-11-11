@@ -23,11 +23,14 @@ One prompt, `setupPrompt()` in `src/components/docs/install.ts`, is what the her
 and the docs landing copy, what the landing's twin carries in a fenced block, and the install
 page's Agent tab. It is written
 to be pasted unedited, in four numbered steps: install the CLI with `install.sh` (which verifies
-the release) and check that `relate --version` runs; install the skill with
-`relate skill install --agent <name>`, naming the agents the CLI accepts, and run
-`relate agent-context`; ask the user what data to load, then create `./graph.rl`; answer with
-Cypher, opening the store `--read-only` with `--mode envelope` until asked to write. It cites the
-agent-quickstart twin and `llms.txt` as reference text, not instructions.
+the release), stop on a failure, and report the version `relate --version` prints; install the
+skill with `relate skill install --agent <name>`, naming the agents the CLI accepts, read its
+`SKILL.md` and run `relate agent-context`; use `./graph.rl`, and if it exists inspect its schema
+and ask before importing, never replacing or clearing data without asking, otherwise ask what to
+load and the first question, import in a transaction and verify the counts; answer with Cypher
+on `--database ./graph.rl --read-only --mode envelope`, following the skill (schema first,
+parameters, `LIMIT`), and write only for the requested change. It cites the agent-quickstart
+twin and `llms.txt` as reference text, not instructions.
 
 One AGENTS.md block, `agentsMd()`, is what the docs landing's second button copies and what the
 install page and agent-quickstart show. Its install line is `install.sh`, and its check is that

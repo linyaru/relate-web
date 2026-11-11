@@ -350,9 +350,11 @@ The copy-for-agent buttons on the home page (hero and Quickstart), the
 docs landing and the install page's Agent tab all hand over one text, the
 **setup prompt** (`setupPrompt()` in `install.ts`, ADR-0060): unpinned,
 four steps written to be pasted unedited (install the CLI with
-`install.sh` and check `relate --version` runs, install the skill and run
-`relate agent-context`, ask what data to load, answer with `--read-only
---mode envelope` queries). The landing offers the AGENTS.md block
+`install.sh`, stop on failure and report `relate --version`; install the
+skill, read it and run `relate agent-context`; use `./graph.rl`, asking
+before touching existing data or loading new data, with the import
+verified; answer with `--read-only --mode envelope` queries and write only
+for the requested change). The landing offers the AGENTS.md block
 (`agentsMd()`, also unpinned) as a second button, and the install page and
 `agent-quickstart` show the same block.
 

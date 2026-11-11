@@ -90,6 +90,8 @@ export function terms(text: string): string[] {
 }
 
 const distinct = (xs: string[]) => [...new Set(xs)];
+/** `s` as a literal inside a regular expression: every metacharacter escaped. */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const refs = (text: string) => distinct([...text.matchAll(ADR_REF)].map((m) => m[1])).sort();
 
 // ---------------------------------------------------------------------------
@@ -103,7 +105,7 @@ interface CrateCite { src: string; adr: string }
 function memberDirs(src: string): string[] {
   const root = readFileSync(join(src, 'Cargo.toml'), 'utf8');
   const list = (key: string) =>
-    [...(new RegExp(`^${key}\\s*=\\s*\\[([^\\]]*)\\]`, 'm').exec(root)?.[1] ?? '').matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    [...(new RegExp(`^${escapeRe(key)}\\s*=\\s*\\[([^\\]]*)\\]`, 'm').exec(root)?.[1] ?? '').matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   const exclude = new Set(list('exclude'));
   const dirs: string[] = [];
   for (const glob of list('members')) {
@@ -248,7 +250,8 @@ function excerpt(text: string): string {
 const unlink = (s: string) => s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
 
 /** A header field: `- **Status**: x`, `Status: x`, or a `## Status` heading over its first line. */
-function field(md: string, name: string): string | null {
+function field(md: string, label: string): string | null {
+  const name = escapeRe(label);
   const head = md.split('\n').slice(0, 15).join('\n');
   const inline = new RegExp(`^(?:- )?(?:\\*\\*${name}\\*\\*|${name}):\\s*(.+)$`, 'm').exec(head);
   if (inline) return unlink(inline[1]).trim();
@@ -288,7 +291,7 @@ function loadDocs(src: string, crateNames: string[]) {
   const sectioned = new Set([...PINNED, ...ranked.slice(0, MAX_SECTIONED - PINNED.length).map((d) => d.number!)]);
 
   // Longest names first, so `relate-storage` wins over `relate`.
-  const crateRe = new RegExp(`\\b(${[...crateNames].sort((a, b) => b.length - a.length).map((n) => n.replace(/[-]/g, '\\-')).join('|')})\\b`, 'g');
+  const crateRe = new RegExp(`\\b(${[...crateNames].sort((a, b) => b.length - a.length).map(escapeRe).join('|')})\\b`, 'g');
   const chunks: Chunk[] = [];
   for (const d of docs) {
     if (d.adr && !sectioned.has(d.number!)) continue;
@@ -347,7 +350,7 @@ export function codebaseData(src: string): CodebaseData {
   };
 }
 
-const BLOCK = (name: string) => new RegExp(`(^\`\`\`json data=${name}\\n)([\\s\\S]*?)(\\n\`\`\`$)`, 'm');
+const BLOCK = (name: string) => new RegExp(`(^\`\`\`json data=${escapeRe(name)}\\n)([\\s\\S]*?)(\\n\`\`\`$)`, 'm');
 
 /** The recipe's source with each block (and the size in its `<summary>`) replaced. */
 export function withBlocks(source: string, blocks: Record<string, string>): string {
@@ -357,7 +360,7 @@ export function withBlocks(source: string, blocks: Record<string, string>): stri
     const kb = Math.round(Buffer.byteLength(data) / 1024);
     out = out
       .replace(BLOCK(name), (_m, open: string, _old: string, close: string) => `${open}${data}${close}`)
-      .replace(new RegExp(`(<summary><code>${name}</code> \\()\\d+ KB(\\)</summary>)`), `$1${kb} KB$2`);
+      .replace(new RegExp(`(<summary><code>${escapeRe(name)}</code> \\()\\d+ KB(\\)</summary>)`), `$1${kb} KB$2`);
   }
   return out;
 }

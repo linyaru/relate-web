@@ -254,7 +254,7 @@ flowchart LR
 
 A coding agent asks what replaced a design decision, or which modules build on the parser. The paragraph that best matches the question rarely holds the answer; the links between documents and modules do. Text search alone returns the paragraph and stops there.
 
-The [codebase context graph recipe](/cookbook/codebase-context-graph/) loads a snapshot of a real repository, its crates and their dependencies, its README and its design records split into sections, into one graph. IDF-weighted full-text `SEARCH` picks where each question starts, and short, bounded graph hops bring in the rest: supersessions between records, dependencies between crates, and the citations that connect them. Served over MCP with `--read-only`, the same graph is a tool the agent queries while it works ([Connect over MCP](/docs/guides/agents/connect-over-mcp)).
+The [codebase context graph recipe](/cookbook/codebase-context-graph/) loads a real repository, relate's own, into one graph: its crates and their dependencies, its README, and every design record with its status and citations, the most-cited split into sections. IDF-weighted full-text `SEARCH` picks where each question starts, and short, bounded graph hops bring in the rest: supersessions between records, dependencies between crates, and the citations that connect them. Served over MCP with `--read-only`, the same graph is a tool the agent queries while it works ([Connect over MCP](/docs/guides/agents/connect-over-mcp)).
 
 ```mermaid
 flowchart TB

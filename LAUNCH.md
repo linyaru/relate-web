@@ -74,6 +74,7 @@ public). Later: `relatedb.ai` on a more scalable host (CDN / static hosting).
 - [ ] The hosted docs MCP server is withdrawn until it is ready to ship (ADR-0057). The local tag `docs-mcp-shelved` marks the last commit with `workers/docs-mcp/`, its checks, the usage page and its docs pages; bringing it back is a new ADR
 - [ ] Set up hosting, TLS, and DNS for `relatedb.ai` (+ `www` redirect)
 - [ ] `CLOUDFLARE_API_TOKEN` (Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID` set for `deploy-cf.yml`
+- [ ] Deploy trust boundary (ADR-0059): `CLOUDFLARE_API_TOKEN` scoped to Account > Cloudflare Pages > Edit on the one account, with no zone or other permissions; `main` protected by a ruleset (pull request with an approving review, the required `cookbook.yml` check, no force push or deletion); the write-access list reviewed
 - [ ] Replace or retire `deploy-pages.yml` with a deploy for the new host; remove the Pages site and `github-pages` environment
 - [ ] Serve from the domain root: check the `/relate-web/` subpath assumption is gone (the cookbook and playground already use `/cookbook/` and `/playground/`)
 - [ ] Update canonical, `og:url`, `sitemap.xml`, and any hard-coded `github.io` URLs

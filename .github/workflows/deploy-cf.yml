@@ -1,11 +1,23 @@
 # Publishes the static site to Cloudflare Pages (project: relate-web), with
-# the Pages Functions in functions/, on pushes to main.
-# main -> production; pull requests -> preview deployments (same-repo PRs only,
-# since fork PRs have no access to secrets).
+# the Pages Functions in functions/.
+# main -> production; pull requests -> preview deployments.
+#
+# Who can deploy (ADR-0059): only runs started by someone with write access to
+# this repository. Fork pull requests never deploy: GitHub withholds secrets
+# from them, and both jobs also skip them. Never switch this workflow to
+# pull_request_target: that would hand the Cloudflare token to fork code.
+#
+# Two jobs, so the token never shares a runner with code it does not need:
+#   build   no Cloudflare secret. Installs the dependencies (their install
+#           scripts run here), runs the checks, builds dist/, uploads it.
+#   deploy  the only job that reads the token. Installs with --ignore-scripts
+#           (the Pages Functions need github-slugger to bundle), downloads
+#           dist/ and runs the pinned wrangler; no build, no dependency code.
 #
 # One-time setup:
 #   1. Create the project:  npx wrangler pages project create relate-web --production-branch main
-#   2. Repo secrets: CLOUDFLARE_API_TOKEN (with Pages: Edit), CLOUDFLARE_ACCOUNT_ID.
+#   2. Repo secrets: CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit, this
+#      account only, nothing else), CLOUDFLARE_ACCOUNT_ID.
 name: Deploy to Cloudflare Pages
 
 on:
@@ -23,26 +35,34 @@ concurrency:
   group: cf-pages-${{ github.ref }}
   cancel-in-progress: true
 
+# The jobs ask for what they need; nothing else gets a scope.
+permissions: {}
+
+env:
+  # docs:negotiation-check reads it too, so the function deployed is compiled
+  # by the wrangler that checked it.
+  WRANGLER_VERSION: "4.158.0"
+
 jobs:
-  deploy:
+  build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployments: write
+    outputs:
+      configured: ${{ steps.cf.outputs.configured }}
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       # Secrets can't be used in a job-level `if`, so detect them here and gate the rest.
-      # Until Cloudflare is set up, the job skips (green) instead of failing.
+      # Until Cloudflare is set up, the run skips (green) instead of failing.
+      # Only whether they are set reaches this job, never their values.
       - name: Check Cloudflare config
         id: cf
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CONFIGURED: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
+          echo "configured=$CONFIGURED" >> "$GITHUB_OUTPUT"
+          if [ "$CONFIGURED" != true ]; then
             echo "::notice::Skipping Cloudflare deploy: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set."
           fi
 
@@ -51,6 +71,14 @@ jobs:
         if: steps.cf.outputs.configured == 'true'
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      # The deploy job checks out this exact commit for functions/: a pull
+      # request's merge ref moves when main does.
+      - name: Record commit
+        id: sha
+        if: steps.cf.outputs.configured == 'true'
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         if: steps.cf.outputs.configured == 'true'
@@ -60,6 +88,26 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             playground/package-lock.json
+
+      # The release-discovery files come from upstream's release assets, not from
+      # the checked-in seed copies (scripts/fetch-discovery.sh). Pull request
+      # previews keep the seed copies. It runs before `npm ci`, so the upstream
+      # token is gone before any dependency's install script runs.
+      - name: Fetch release-discovery files
+        if: steps.cf.outputs.configured == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
+          HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
+          REQUIRED: ${{ vars.RELATE_DISCOVERY_REQUIRED }}
+        run: |
+          # Until the upstream token is set (the repository is private) there is nothing to
+          # fetch: keep the seed copies. Set the repository variable
+          # RELATE_DISCOVERY_REQUIRED=true at launch so a missing token fails the deploy.
+          if [ "$HAS_UPSTREAM_TOKEN" != true ] && [ "$REQUIRED" != true ]; then
+            echo "::notice::RELATE_UPSTREAM_TOKEN is not set: using the checked-in release-discovery files"
+            exit 0
+          fi
+          bash scripts/fetch-discovery.sh
 
       - run: npm ci
         if: steps.cf.outputs.configured == 'true'
@@ -77,25 +125,6 @@ jobs:
       - name: Check docs
         if: steps.cf.outputs.configured == 'true'
         run: npm run docs:check
-
-      # The release-discovery files come from upstream's release assets, not from
-      # the checked-in seed copies (scripts/fetch-discovery.sh). Pull request
-      # previews keep the seed copies.
-      - name: Fetch release-discovery files
-        if: steps.cf.outputs.configured == 'true' && github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN || github.token }}
-          HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
-          REQUIRED: ${{ vars.RELATE_DISCOVERY_REQUIRED }}
-        run: |
-          # Until the upstream token is set (the repository is private) there is nothing to
-          # fetch: keep the seed copies. Set the repository variable
-          # RELATE_DISCOVERY_REQUIRED=true at launch so a missing token fails the deploy.
-          if [ "$HAS_UPSTREAM_TOKEN" != true ] && [ "$REQUIRED" != true ]; then
-            echo "::notice::RELATE_UPSTREAM_TOKEN is not set: using the checked-in release-discovery files"
-            exit 0
-          fi
-          bash scripts/fetch-discovery.sh
 
       - name: Build site
         if: steps.cf.outputs.configured == 'true'
@@ -122,14 +151,48 @@ jobs:
           test -s dist/releases.json
           test -s dist/extensions.json
 
-      - name: Deploy to Cloudflare Pages
+      # dist/ carries dotfiles (.nojekyll, .well-known/), which upload-artifact
+      # leaves out unless asked.
+      - uses: actions/upload-artifact@v4
         if: steps.cf.outputs.configured == 'true'
-        uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # The version docs:negotiation-check pins, so the function deployed
-          # is compiled by the wrangler that checked it.
-          wranglerVersion: "4.158.0"
-          command: pages deploy dist --project-name=relate-web --branch=${{ github.head_ref || github.ref_name }}
+          name: site-dist
+          path: dist/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
 
+  deploy:
+    needs: build
+    if: needs.build.outputs.configured == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # functions/ and the src/lib/docs module they import, at the commit dist/ was built from.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # wrangler bundles functions/ with esbuild, which resolves github-slugger
+      # from node_modules. --ignore-scripts: no dependency code runs in the job
+      # that holds the token.
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-dist
+          path: dist/
+
+      # The branch name reaches the shell as data, never as script text.
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: npx --yes "wrangler@${WRANGLER_VERSION}" pages deploy dist --project-name=relate-web --branch="$BRANCH"

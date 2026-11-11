@@ -1,7 +1,12 @@
 ---
-// "One database for every agent": agents and code connect through relate to your data. Pixel-art
-// sprites are drawn at build time (src/lib/home/sprites.ts); the hub's dither bar is a canvas.
-import { sprite } from '../lib/home/sprites.ts';
+// "One database for every agent": agents and code connect through relate to your data. Icons are the
+// smooth set in src/lib/home/brand-art.ts; the hub's loading bar is a canvas shimmer.
+import { lux, WORDMARK } from '../lib/home/brand-art.ts';
+const label = (t: string) => `<b class="lb">${t}</b>`;
+const icon: Record<string, string> = {
+  plug: lux('plug'), terminal: lux('terminal'), memory: lux('brain'), code: lux('code-xml'), star: lux('sparkles'), plus: lux('plus'),
+  py: label('PY'), js: label('JS'), rs: label('RS'),
+};
 ---
 <section class="dgw">
 <div class="dgt"><div class="mb-t"><h2 id="h-dgs">One database for every agent.</h2><p class="lede">Every agent, script and app reads and writes the same graph, kept in memory, a directory or one file. No server to run.</p></div></div>
@@ -12,15 +17,15 @@ import { sprite } from '../lib/home/sprites.ts';
         <div class="dcol dl">
           <div class="dgrp"><p class="dlbl">Agent skill &middot; MCP</p>
             <div class="dnd"><span class="dstk"><svg viewBox="-1 -1 26 26" fill="#D97757" fill-rule="evenodd" shape-rendering="crispEdges" aria-hidden="true"><path d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"/></svg></span>Claude Code</div>
-            <div class="dnd"><span class="dstk"><svg viewBox="0 0 20 20" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M7 1h4v1H7z M5 2h10v1H5z M5 3h11v1H5z M4 4h13v1H4z M2 5h16v1H2z M2 6h16v1H2z M1 7h4v1H1z M7 7h11v1H7z M1 8h5v1H1z M7 8h11v1H7z M1 9h5v1H1z M8 9h11v1H8z M1 10h5v1H1z M8 10h11v1H8z M2 11h4v1H2z M7 11h12v1H7z M2 12h3v1H2z M7 12h3v1H7z M15 12h4v1H15z M2 13h16v1H2z M2 14h16v1H2z M3 15h13v1H3z M4 16h11v1H4z M5 17h10v1H5z M9 18h4v1H9z"/></svg></span>Codex</div>
-            <div class="dnd"><span class="dstk"><svg viewBox="0 0 20 20" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M9 1h2v1H9z M7 2h6v1H7z M5 3h10v1H5z M4 4h12v1H4z M2 5h16v1H2z M2 6h2v1H2z M17 6h1v1H17z M2 7h4v1H2z M16 7h2v1H16z M2 8h6v1H2z M16 8h2v1H16z M2 9h7v1H2z M15 9h3v1H15z M2 10h8v1H2z M15 10h3v1H15z M2 11h8v1H2z M14 11h4v1H14z M2 12h8v1H2z M13 12h5v1H13z M2 13h8v1H2z M13 13h5v1H13z M2 14h8v1H2z M12 14h6v1H12z M4 15h6v1H4z M12 15h4v1H12z M5 16h5v1H5z M11 16h4v1H11z M7 17h3v1H7z M11 17h2v1H11z M9 18h2v1H9z"/></svg></span>Cursor</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('plug')} />Any MCP client</div>
+            <div class="dnd"><span class="dstk"><svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M8.086.457a6.105 6.105 0 013.046-.415c1.333.153 2.521.72 3.564 1.7a.117.117 0 00.107.029c1.408-.346 2.762-.224 4.061.366l.063.03.154.076c1.357.703 2.33 1.77 2.918 3.198.278.679.418 1.388.421 2.126a5.655 5.655 0 01-.18 1.631.167.167 0 00.04.155 5.982 5.982 0 011.578 2.891c.385 1.901-.01 3.615-1.183 5.14l-.182.22a6.063 6.063 0 01-2.934 1.851.162.162 0 00-.108.102c-.255.736-.511 1.364-.987 1.992-1.199 1.582-2.962 2.462-4.948 2.451-1.583-.008-2.986-.587-4.21-1.736a.145.145 0 00-.14-.032c-.518.167-1.04.191-1.604.185a5.924 5.924 0 01-2.595-.622 6.058 6.058 0 01-2.146-1.781c-.203-.269-.404-.522-.551-.821a7.74 7.74 0 01-.495-1.283 6.11 6.11 0 01-.017-3.064.166.166 0 00.008-.074.115.115 0 00-.037-.064 5.958 5.958 0 01-1.38-2.202 5.196 5.196 0 01-.333-1.589 6.915 6.915 0 01.188-2.132c.45-1.484 1.309-2.648 2.577-3.493.282-.188.55-.334.802-.438.286-.12.573-.22.861-.304a.129.129 0 00.087-.087A6.016 6.016 0 015.635 2.31C6.315 1.464 7.132.846 8.086.457zm-.804 7.85a.848.848 0 00-1.473.842l1.694 2.965-1.688 2.848a.849.849 0 001.46.864l1.94-3.272a.849.849 0 00.007-.854l-1.94-3.393zm5.446 6.24a.849.849 0 000 1.695h4.848a.849.849 0 000-1.696h-4.848z"/></svg></span>Codex</div>
+            <div class="dnd"><span class="dstk"><svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z"/></svg></span>Cursor</div>
+            <div class="dnd"><span class="dstk" set:html={icon['plug']} />Any MCP client</div>
           </div>
           <div class="dgrp"><p class="dlbl">CLI &middot; Libraries</p>
-            <div class="dnd"><span class="dstk" set:html={sprite('terminal')} />Shell</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('py')} />Python</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('js')} />JavaScript</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('rs')} />Rust</div>
+            <div class="dnd"><span class="dstk" set:html={icon['terminal']} />Shell</div>
+            <div class="dnd"><span class="dstk" set:html={icon['py']} />Python</div>
+            <div class="dnd"><span class="dstk" set:html={icon['js']} />JavaScript</div>
+            <div class="dnd"><span class="dstk" set:html={icon['rs']} />Rust</div>
           </div>
         </div>
         <div class="dlk dl"><span>Cypher</span></div>
@@ -28,17 +33,17 @@ import { sprite } from '../lib/home/sprites.ts';
           <span class="hk">Embedded library</span>
           <div class="mid"><span class="hs">Stores data</span>
           <div class="dchips"><span>in memory</span><span>a directory</span><span>one file</span></div></div>
-          <div class="hbot"><span class="htag"><svg viewBox="15.2 0 34.3 10" aria-hidden="true"><use href="/lockup.svg#lockup" width="49.5" height="10" /></svg></span>
+          <div class="hbot"><span class="htag"><Fragment set:html={WORDMARK.replace('class="wm2"', 'class="htag-mark"')} /></span>
           <canvas id="dither" aria-hidden="true"></canvas></div>
         </div>
         </div>
         <div class="dlk dr"><span>Reads and writes</span></div>
         <div class="dcol dr">
           <div class="dgrp"><p class="dlbl">Your data</p>
-            <div class="dnd"><span class="dstk" set:html={sprite('memory')} />Agent memory</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('code')} />Codebase</div>
-            <div class="dnd"><span class="dstk" set:html={sprite('star')} />Recommendations</div>
-            <div class="dnd more"><span class="dstk" set:html={sprite('plus')} />Your own data</div>
+            <div class="dnd"><span class="dstk" set:html={icon['memory']} />Agent memory</div>
+            <div class="dnd"><span class="dstk" set:html={icon['code']} />Codebase</div>
+            <div class="dnd"><span class="dstk" set:html={icon['star']} />Recommendations</div>
+            <div class="dnd more"><span class="dstk" set:html={icon['plus']} />Your own data</div>
           </div>
         </div>
       </div>
@@ -71,7 +76,12 @@ import { sprite } from '../lib/home/sprites.ts';
     background: var(--win); border: 1px solid var(--line); color: var(--ink); font: 500 15px/1 var(--font); box-shadow: var(--ui-shadow);
   }
   .dstk { display: flex; flex: none; width: 20px; height: 20px; }
-  .dstk :global(svg) { width: 20px; height: 20px; image-rendering: pixelated; }
+  .dstk :global(svg) { width: 20px; height: 20px; }
+  .dstk :global(svg.lux) { color: var(--ink); }
+  .dstk :global(.lb) {
+    display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+    border: 1px solid var(--line-strong); border-radius: 5px; font: 600 10px/1 var(--mono); letter-spacing: .02em; color: var(--ink);
+  }
   .dnd.more { border: 2px solid var(--ink-muted); }
   .dnd.more .dstk { filter: grayscale(1); }
   .dstk :global([fill='#181414']) { fill: var(--ink); }
@@ -104,7 +114,7 @@ import { sprite } from '../lib/home/sprites.ts';
   .dchips span { padding: 5px 8px; border: 1px solid var(--line); font: 500 11px/1 var(--mono); color: var(--ink); }
   .hbot { display: flex; flex-direction: column; gap: 12px; }
   .htag { display: block; height: 16px; }
-  .htag svg { height: 16px; width: auto; color: var(--ink); }
+  .htag :global(svg) { height: 16px; width: auto; color: var(--ink); }
   .dhub canvas { display: block; width: 100%; height: 28px; }
 
   .dfc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -149,14 +159,12 @@ import { sprite } from '../lib/home/sprites.ts';
 </style>
 
 <script>
-  // The hub's dither bar: brand-colour pixels in a Bayer pattern, with a soft front sweeping along it.
+  // The hub's loading bar: a tinted brand-teal bar with a soft shimmer sweeping across it, looping.
   const cv = document.getElementById('dither') as HTMLCanvasElement | null;
   const ctx = cv?.getContext('2d');
   if (cv && ctx) {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const C = 4;
-    const bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 5, 13, 7]].map((r) => r.map((v) => v / 16));
-    let W = 0, H = 0, cols = 0, rows = 0;
+    let W = 0, H = 0;
     let visible = true;
     let running = false;
     const size = () => {
@@ -166,19 +174,18 @@ import { sprite } from '../lib/home/sprites.ts';
       cv.width = W * dpr;
       cv.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.floor(W / C);
-      rows = Math.floor(H / C);
     };
     const draw = (t: number) => {
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = getComputedStyle(cv).getPropertyValue('--brand').trim() || '#0A6190';
-      const head = ((t / 1000) * 0.35) % 1.35;
-      for (let x = 0; x < cols; x++) {
-        const d = head - x / cols;
-        let lvl = d < 0 ? 0 : Math.max(0.12, 1 - d * 1.6);
-        if (d > 1) lvl = 0.12;
-        for (let y = 0; y < rows; y++) if (lvl > bayer[y % 4][x % 4] + 0.02) ctx.fillRect(x * C, y * C, C, C);
-      }
+      ctx.fillStyle = 'rgba(143,227,232,.11)';
+      ctx.fillRect(0, 0, W, H);
+      const p = ((t / 1000) / 1.9) % 1, sw = W * 0.55, x = -sw + (W + sw) * p;
+      const g = ctx.createLinearGradient(x, 0, x + sw, 0);
+      g.addColorStop(0, 'rgba(143,227,232,0)');
+      g.addColorStop(0.5, 'rgba(190,243,246,.8)');
+      g.addColorStop(1, 'rgba(143,227,232,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
     };
     const frame = (now: number) => {
       if (!running) return;
@@ -190,13 +197,13 @@ import { sprite } from '../lib/home/sprites.ts';
       running = true;
       requestAnimationFrame(frame);
     };
-    new ResizeObserver(() => { size(); if (reduce) draw(2400); }).observe(cv);
+    new ResizeObserver(() => { size(); if (reduce) draw(1000); }).observe(cv);
     new IntersectionObserver((entries) => {
       visible = entries[0].isIntersecting;
       if (visible) start(); else running = false;
     }).observe(cv);
     document.addEventListener('visibilitychange', () => { if (document.hidden) running = false; else start(); });
     size();
-    if (reduce) draw(2400); else start();
+    if (reduce) draw(1000); else start();
   }
 </script>

@@ -4,7 +4,8 @@
 // readable without JavaScript; the script draws the graph from that text (a small pattern parser
 // and a layered layout, nothing from the engine runs here) and plays the follow-up statements.
 // Every statement was run on the site's WASM build (see src/lib/home/demo-data.ts).
-import { PRESETS, presetIcon, hlEditor } from '../lib/home/demo-data.ts';
+import { lux } from '../lib/home/brand-art.ts';
+import { PRESETS, hlEditor } from '../lib/home/demo-data.ts';
 
 const first = PRESETS[0];
 const text = first.statements.join('\n');
@@ -19,7 +20,7 @@ const text = first.statements.join('\n');
     <div class="lg-bar">
       <div class="lg-tabs" id="lg-tabs" role="group" aria-label="Examples">
         {PRESETS.map((p, i) => (
-          <button type="button" aria-pressed={i === 0 ? 'true' : 'false'} data-i={i}><span set:html={presetIcon(p.id)} /><span>{p.title}</span></button>
+          <button type="button" aria-pressed={i === 0 ? 'true' : 'false'} data-i={i}><span set:html={lux(({ mem: 'network', code: 'code-xml', recs: 'book-open' } as Record<string, string>)[p.id] ?? 'sparkles', 18)} /><span>{p.title}</span></button>
         ))}
       </div>
       <span class="lg-file" translate="no">agent-memory.rl</span>
@@ -53,7 +54,7 @@ const text = first.statements.join('\n');
   .lg-tabs button:hover { color: var(--ink); }
   .lg-tabs button[aria-pressed="true"] { background: var(--surface-0); color: var(--ink); }
   .lg-tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-  .lg-px { display: block; width: auto; height: 16px; }
+  .lg-px, button :global(svg.lux) { display: block; width: 18px; height: 18px; }
   .lg-file { flex: none; font: 400 12px/16px var(--mono); color: var(--ink-muted); }
 
   .lg-ew { display: flex; flex-direction: column; min-width: 0; margin: 16px; border: 1px solid var(--line); background: var(--term-bg); }

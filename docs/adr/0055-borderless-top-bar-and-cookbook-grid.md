@@ -44,3 +44,7 @@ Copy stays what this repository states; the design's placeholder wording is not 
 - ADR-0044's bar decision is superseded in part; its footer and theme decisions are not.
 - The design's "Share a recipe" card and the live GitHub star count are not built: both need
   the public repository.
+
+## Later references
+
+- The "Share a recipe" card is now built as the last tile of the cookbook grid, linking to the public repository; it hides while a filter is active.

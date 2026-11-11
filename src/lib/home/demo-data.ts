@@ -1,3 +1,4 @@
+import { lux } from './brand-art.ts';
 // Data and small renderers for the home page's "Run a query on connected data" (Demo.astro) and
 // "One statement at a time" (LiveGraph.astro) sections. Shared by the build (the static first
 // state) and the browser (the scripted playback), so it stays free of Node imports and erasable.
@@ -131,5 +132,5 @@ const PRESET_ICONS: Record<Preset['id'], string[]> = {
   recs: ['.######...', '.#....##..', '.#....#.#.', '.#....####', '.#.......#', '.#.#####.#', '.#.......#', '.#.#####.#', '.#.......#', '.#.###...#', '.#.......#', '.#########'],
 };
 
-export const scenarioIcon = (k: Scenario['icon']): string => grid(SCENARIO_ICONS[k], 'dmo-px', 20);
+export const scenarioIcon = (k: Scenario['icon']): string => lux({ brain: 'brain', code: 'code-xml', sparkles: 'sparkles' }[k], 20);
 export const presetIcon = (k: Preset['id']): string => grid(PRESET_ICONS[k], 'lg-px', 16);

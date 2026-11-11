@@ -25,7 +25,6 @@ const first = SCENARIOS[0];
       ))}
     </div>
     <div class="dmo-c" id="dmo-c" data-sc={first.id}>
-      <div class="dmo-hex" id="dmo-hex" aria-hidden="true"></div>
       <div class="dmo-t">
         <div class="dmo-bar"><span id="dmo-title" translate="no">{first.db} <em>ready</em></span></div>
         <div class="dmo-body" id="dmo-out" aria-live="polite" translate="no" set:html={scenarioLines(first).join('')} />
@@ -56,12 +55,6 @@ const first = SCENARIOS[0];
   /* The block is brand blue; each scenario shades its tiles from a different mix of the brand tokens. */
   .dmo-c { --bg: var(--brand); --t0: var(--brand-hover); --t1: var(--brand-line); --t2: var(--brand-soft); --t3: var(--brand-line); --t4: var(--brand-soft);
     position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: stretch; min-width: 0; padding: 64px 72px; background: var(--bg); transition: background-color .6s; }
-  .dmo-hex { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-  .dmo-hex svg { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity .6s ease; }
-  .dmo-c[data-sc="memory"] .dmo-hex [data-l="memory"], .dmo-c[data-sc="code"] .dmo-hex [data-l="code"], .dmo-c[data-sc="recs"] .dmo-hex [data-l="recs"] { opacity: 1; }
-  .dmo-hex [data-l="memory"] { --t0: var(--brand-hover); --t1: var(--brand-line); --t2: var(--brand-soft); --t3: var(--brand-line); --t4: var(--brand-soft); }
-  .dmo-hex [data-l="code"] { --t0: var(--brand-line); --t1: var(--brand-hover); --t2: var(--brand-line); --t3: var(--brand-soft); --t4: var(--brand-hover); }
-  .dmo-hex [data-l="recs"] { --t0: var(--brand-soft); --t1: var(--brand-line); --t2: var(--brand-hover); --t3: var(--brand-hover); --t4: var(--brand-line); }
 
   .dmo-t { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--term-bg); color: var(--term-ink); box-shadow: 4px 4px 0 rgba(0, 0, 0, .24), 8px 8px 0 rgba(0, 0, 0, .12); }
   .dmo-bar { display: flex; align-items: center; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--term-bg); font: 400 12px/16px var(--mono); color: var(--ink-muted); }
@@ -95,43 +88,26 @@ const first = SCENARIOS[0];
     .dmo-body .res td, .dmo-body .res th { padding-right: 10px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dmo-c, .dmo-hex svg, .dmo-card { transition: none; }
+    .dmo-c, .dmo-card { transition: none; }
     .dmo-body .tl.fade { animation: none; }
   }
 </style>
 
 <script>
   import { SCENARIOS, scenarioLines, esc, type Scenario } from '../lib/home/demo-data.ts';
-  import { hexLayer, type HexVariant } from '../lib/home/hexfield.ts';
 
   const box = document.getElementById('dmo-box');
   const scen = document.getElementById('dmo-scen');
   const out = document.getElementById('dmo-out');
   const title = document.getElementById('dmo-title');
   const block = document.getElementById('dmo-c');
-  const hex = document.getElementById('dmo-hex');
-  if (box && scen && out && title && block && hex) {
+  if (box && scen && out && title && block) {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cards = [...scen.querySelectorAll<HTMLButtonElement>('.dmo-card')];
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const wait = (ms: number) => (reduce ? Promise.resolve() : sleep(ms));
     let run = 0;
 
-    // The hex tiles: one pre-drawn layer per scenario, crossfaded; redrawn when the block resizes.
-    const VARIANTS: Record<Scenario['id'], HexVariant> = {
-      memory: { anchor: 'br', reach: 0.78, radius: 46, squash: 1.15 },
-      code: { anchor: 'tl', reach: 0.72, radius: 38, squash: 1.3 },
-      recs: { anchor: 'bl', reach: 0.8, radius: 54, squash: 1 },
-    };
-    let lw = 0, lh = 0;
-    const drawHex = () => {
-      const w = hex.clientWidth, h = hex.clientHeight;
-      if (!w || !h) return;
-      lw = w; lh = h;
-      hex.innerHTML = SCENARIOS.map((s) => `<svg data-l="${s.id}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${hexLayer(w, h, VARIANTS[s.id])}</svg>`).join('');
-    };
-    new ResizeObserver(() => { if (hex.clientWidth !== lw || hex.clientHeight !== lh) requestAnimationFrame(drawHex); }).observe(hex);
-    drawHex();
 
     const ask = async (s: Scenario) => {
       const id = ++run;

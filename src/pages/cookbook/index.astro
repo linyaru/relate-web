@@ -63,6 +63,14 @@ const levels = ['Beginner', 'Intermediate', 'Advanced'].filter((l) => recipes.so
         </li>
       );
     })}
+    <li class="cb-add-li" id="cb-add">
+      <div class="cb-card cb-add">
+        <svg class="cb-plus" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+        <span class="cb-title">Share a recipe</span>
+        <span class="cb-sum">Found a pattern that works for your agent? Add it to the cookbook.</span>
+        <a class="cb-add-btn" href="https://github.com/relatedb/relate-web" target="_blank" rel="noopener">Add a recipe<span aria-hidden="true">&nbsp;&#8599;</span><span class="sr-only"> (opens in new tab)</span></a>
+      </div>
+    </li>
   </ul>
   <p class="cb-empty" id="cb-empty" hidden>No recipes match. Try another word or category.</p>
 
@@ -76,7 +84,8 @@ const levels = ['Beginner', 'Intermediate', 'Advanced'].filter((l) => recipes.so
   const query = $<HTMLInputElement>('cb-query');
   const count = $('cb-count');
   const empty = $('cb-empty');
-  const items = [...document.querySelectorAll<HTMLElement>('#cb-grid > li')];
+  const items = [...document.querySelectorAll<HTMLElement>('#cb-grid > li[data-category]')];
+  const add = $('cb-add');
 
   function apply() {
     const q = query.value.trim().toLowerCase();
@@ -92,6 +101,7 @@ const levels = ['Beginner', 'Intermediate', 'Advanced'].filter((l) => recipes.so
     const filtered = Boolean(q || category.value || level.value);
     count.textContent = filtered ? `${shown} ${shown === 1 ? 'recipe' : 'recipes'}` : 'All recipes';
     empty.hidden = shown > 0;
+    add.hidden = filtered;
   }
   for (const el of [category, level]) el.addEventListener('change', apply);
   query.addEventListener('input', apply);

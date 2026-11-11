@@ -1,5 +1,6 @@
 ---
 import ThemeSwitch from './ThemeSwitch.astro';
+import { WORDMARK } from '../lib/home/brand-art.ts';
 // Site-wide top bar: lockup, links, the theme picker, GitHub and the call to action. Used by every
 // page (home and sections) so navigation stays consistent. The footer has a theme picker too.
 interface Props {
@@ -33,7 +34,7 @@ const links = [
 <header class="nav" id="top">
   <div class="nav-in">
     <a class="lockup" href="/" aria-label="relate, home" translate="no">
-      <svg class="lockup-mark" viewBox="0 0 49.5 10" aria-hidden="true"><use href="/lockup.svg#lockup" width="49.5" height="10" /></svg>
+      <Fragment set:html={WORDMARK.replace('class="wm2"', 'class="lockup-mark"')} />
     </a>
     <nav class="nav-links" id="topNav" aria-label="Main">
       {links.map((l) => (

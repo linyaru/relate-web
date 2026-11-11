@@ -34,7 +34,7 @@ publish a preview can publish production.
 1. Deploys run only for pushes and dispatches on this repository and for
    pull requests whose head branch is in it. The workflow never uses
    `pull_request_target`, and fork pull requests never get a preview.
-2. The workflow is two jobs. The build job holds no Cloudflare secret: it
+2. The build and the deploy are separate jobs. The build job holds no Cloudflare secret: it
    installs, checks, builds and uploads `dist/`. The deploy job is the only
    one that reads the token; it installs the root dependencies with install
    scripts off (the Pages Functions need one of them to bundle), takes
@@ -43,7 +43,12 @@ publish a preview can publish production.
 4. Least privilege in the workflow: no default token scopes, checkout
    credentials not kept on disk, and the branch name passed to the shell as
    data.
-5. The token is scoped to Cloudflare Pages edit on the one account, and
+5. A third job, on pull requests only, posts the preview's URLs as one
+   pull request comment and edits it on later pushes. It holds no secret,
+   checks out nothing and has only the scope to write pull request
+   comments; it takes the URLs from the deploy job only when they are on
+   the project's `pages.dev` host.
+6. The token is scoped to Cloudflare Pages edit on the one account, and
    `main` requires a reviewed pull request. Both are settings outside the
    repository, named here so the boundary in 1 holds.
 
@@ -62,11 +67,19 @@ publish a preview can publish production.
   environments.** Rejected: Cloudflare Pages tokens cannot be limited by
   branch, so the preview token could still publish production.
 
+- **Cloudflare's Git integration, which builds and comments on pull
+  requests itself.** Rejected: it builds on Cloudflare with no access to
+  the checks this workflow runs first, and a direct-upload project cannot
+  switch to it.
+- **A marketplace action for the preview comment.** Rejected: one more
+  third-party dependency with a write scope, for a few lines of `gh`.
+
 ## Consequences
 
 - A dependency's install script no longer runs on a runner that holds the
   Cloudflare or upstream token.
-- A deploy is one more job and an artifact upload, about a minute longer.
+- A deploy is two more jobs and an artifact upload, about a minute longer.
+- A preview's link is on its pull request; nobody looks it up in the run log.
 - The trust boundary is the list of people with write access and the
   protection on `main`; both are reviewed as part of launch.
-- `runbooks/deploy-failed.md` and `AGENTS.md` describe the two jobs.
+- `runbooks/deploy-failed.md` and `AGENTS.md` describe the jobs.

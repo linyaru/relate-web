@@ -1,8 +1,8 @@
 ---
-title: Context graph for a codebase
-summary: "Answer multi-hop questions about a codebase: IDF-weighted full-text search finds where to start, and bounded graph hops follow supersessions, dependencies, and citations."
+title: Answer codebase questions text search can't
+summary: Build a graph of a codebase's packages and design decisions, use text search to find a starting point, and follow short links to the answer. Questions like "was this decision replaced?" or "what builds on the parser?" are answered by the links between documents, not by the paragraph that matches the words.
 level: Advanced
-category: Search and retrieval
+category: Code and dependencies
 features: [FULLTEXT INDEX, SEARCH, IDF weighting, CALL subqueries, UNION, quantified path patterns, EXISTS subqueries, COUNT subqueries, MERGE … ON CREATE SET, FOREACH]
 browser: full
 dataset: Relate at commit 14ab418: 26 crates and their 76 internal dependencies, the README and 40 ADRs split into 277 sections (normalized terms and a 160-character excerpt each), and 3 supersessions (203 KB)
@@ -10,7 +10,7 @@ source: Relate repository at commit 14ab418 (README.md, every crate's Cargo.toml
 license: Apache-2.0
 ---
 
-# Context graph for a codebase
+# Answer codebase questions text search can't
 
 *An agent working on a codebase asks what replaced a design decision, or
 which crates build on the parser. The paragraph that matches the question

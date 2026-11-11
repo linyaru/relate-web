@@ -214,7 +214,7 @@ Three things to notice:
 - With the pre-filter on, the notes outside session 3 grey out and the search still returns `k` notes, all from session 3: the filter runs before the ranking and the `LIMIT`.
 - The `hash-384` vectors have length 1, so cosine and euclidean rank the notes in the same order and only the scores differ. For unit vectors the squared distance is `2 - 2 * cosine`, and both scores fall as it grows.
 
-A question can only be searched against vectors from the model that embeds it, so a sentence of your own cannot join these notes. The [Query the relate docs](/cookbook/query-the-relate-docs/#ask-your-own-question) recipe searches docs sections embedded with the bge-small-en-v1.5 model, and in a browser it can download that model, embed a question you type, and search with it.
+A question can only be searched against vectors from the model that embeds it, so a sentence of your own cannot join these notes. The recipe [Turn a question into the relate docs you need](/cookbook/query-the-relate-docs/#ask-your-own-question) searches docs sections embedded with the bge-small-en-v1.5 model, and in a browser it can download that model, embed a question you type, and search with it.
 
 ## Read the score
 

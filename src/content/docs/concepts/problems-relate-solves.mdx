@@ -63,9 +63,9 @@ flowchart LR
 - **Capability:** A durable store the agent's process opens itself, with uniqueness constraints and `MERGE` for one node per entity, `SUPERSEDES` chains for corrections, and vector `SEARCH` for recall.
 - **Surfaces:** `python`, `node`, `cli`, `mcp`, `agents`, `cypher`
 - **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory), [Give an agent a memory](/docs/get-started/agent-memory), [Use relate with LangGraph](/docs/guides/integrations/langgraph), [Use relate with the Claude Agent SDK](/docs/guides/integrations/claude-agent-sdk), [Use relate with LangChain](/docs/guides/integrations/langchain)
-- **Recipes:** [Long-term memory for an agent](/cookbook/agent-memory/)
+- **Recipes:** [Pick up where the last session left off](/cookbook/agent-memory/)
 - **Reference:** [Search](/docs/reference/cypher/search), [Storage formats](/docs/reference/storage/formats)
-- **Verified by:** cell `recall` of the recipe [Long-term memory for an agent](/cookbook/agent-memory/#cell-recall), replayed against its recorded result on every build
+- **Verified by:** cell `recall` of the recipe [Pick up where the last session left off](/cookbook/agent-memory/#cell-recall), replayed against its recorded result on every build
 
 ## Tool-call provenance
 
@@ -96,9 +96,9 @@ flowchart TB
 - **Capability:** Each tool call recorded as a node in the same graph, by the same statement as the call, linked to every node it wrote or returned and guarded by `NODE KEY` and relationship property constraints.
 - **Surfaces:** `cypher`, `agents`
 - **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory)
-- **Recipes:** [Tool-call provenance for an agent](/cookbook/tool-call-provenance/)
+- **Recipes:** [Audit where an agent's memories came from](/cookbook/tool-call-provenance/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview)
-- **Verified by:** cell `lineage` of the recipe [Tool-call provenance for an agent](/cookbook/tool-call-provenance/#cell-lineage), replayed against its recorded result on every build
+- **Verified by:** cell `lineage` of the recipe [Audit where an agent's memories came from](/cookbook/tool-call-provenance/#cell-lineage), replayed against its recorded result on every build
 
 ## Agent trajectory timeline
 
@@ -125,9 +125,9 @@ flowchart LR
 - **Problem:** Log every step an agent takes and read the last few, the page before them, and everything since a cutoff, in the right order every time.
 - **Capability:** Steps on a timestamped relationship whose integer sort key relationship property type and existence constraints enforce, read newest first with `ORDER BY`, `LIMIT` and `SKIP`.
 - **Surfaces:** `cypher`, `agents`
-- **Recipes:** [Agent trajectory timeline](/cookbook/agent-trajectory-timeline/)
+- **Recipes:** [Let an agent look back at its own steps](/cookbook/agent-trajectory-timeline/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview)
-- **Verified by:** cell `latest` of the recipe [Agent trajectory timeline](/cookbook/agent-trajectory-timeline/#cell-latest), replayed against its recorded result on every build
+- **Verified by:** cell `latest` of the recipe [Let an agent look back at its own steps](/cookbook/agent-trajectory-timeline/#cell-latest), replayed against its recorded result on every build
 
 ## Bi-temporal facts
 
@@ -156,9 +156,9 @@ flowchart LR
 - **Capability:** Two time ranges on every fact, valid time and record time, written with `datetime()` and `MERGE` so nothing is deleted, and queried with chained comparisons.
 - **Surfaces:** `cypher`, `agents`
 - **Guides:** [Model agent memory](/docs/guides/agents/model-agent-memory)
-- **Recipes:** [Bi-temporal decisions](/cookbook/bitemporal-decisions/)
+- **Recipes:** [Know what an agent believed, and when](/cookbook/bitemporal-decisions/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Types and values (`#temporal-types`)](/docs/reference/cypher/types-and-values#temporal-types)
-- **Verified by:** cell `as-of` of the recipe [Bi-temporal decisions](/cookbook/bitemporal-decisions/#cell-as-of), replayed against its recorded result on every build
+- **Verified by:** cell `as-of` of the recipe [Know what an agent believed, and when](/cookbook/bitemporal-decisions/#cell-as-of), replayed against its recorded result on every build
 
 ## Geospatial memory
 
@@ -185,9 +185,9 @@ flowchart LR
 - **Capability:** WGS-84 points stored as properties, distances in metres with `point.distance`, map boxes with `point.withinBBox`, and a `POINT` index, in the same graph as the rest of the memory.
 - **Surfaces:** `cypher`, `agents`
 - **Guides:** [Geospatial queries](/docs/guides/cypher/geospatial)
-- **Recipes:** [Nearby places for an agent](/cookbook/nearby-places/)
+- **Recipes:** [Answer "what's nearby?" from memory](/cookbook/nearby-places/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Functions (`#spatial-functions`)](/docs/reference/cypher/functions#spatial-functions)
-- **Verified by:** cell `within` of the recipe [Nearby places for an agent](/cookbook/nearby-places/#cell-within), replayed against its recorded result on every build
+- **Verified by:** cell `within` of the recipe [Answer "what's nearby?" from memory](/cookbook/nearby-places/#cell-within), replayed against its recorded result on every build
 
 ## Hybrid retrieval for RAG
 
@@ -213,9 +213,9 @@ flowchart LR
 - **Capability:** Vector and full-text indexes queried with the `SEARCH` clause, fused by reciprocal rank in one Cypher statement, with a graph hop from each hit to its related nodes.
 - **Surfaces:** `cypher`, `python`, `node`, `agents`
 - **Guides:** [Search by vector similarity](/docs/guides/cypher/vector-search), [Full-text and hybrid search](/docs/guides/cypher/full-text-and-hybrid-search), [Migrate from a vector store](/docs/guides/migrate/from-a-vector-store), [Use relate with LlamaIndex](/docs/guides/integrations/llamaindex)
-- **Recipes:** [Hybrid recall: vector + full-text + RRF](/cookbook/hybrid-recall/), [Context graph for a codebase](/cookbook/codebase-context-graph/)
+- **Recipes:** [Find a note, then what was decided since](/cookbook/hybrid-recall/), [Answer codebase questions text search can't](/cookbook/codebase-context-graph/)
 - **Reference:** [Search](/docs/reference/cypher/search)
-- **Verified by:** cell `fuse-vector` of the recipe [Hybrid recall: vector + full-text + RRF](/cookbook/hybrid-recall/#cell-fuse-vector), replayed against its recorded result on every build
+- **Verified by:** cell `fuse-vector` of the recipe [Find a note, then what was decided since](/cookbook/hybrid-recall/#cell-fuse-vector), replayed against its recorded result on every build
 
 ## Entity resolution
 
@@ -246,9 +246,9 @@ flowchart LR
 - **Capability:** Normalized keys, bigram similarity and IDF-weighted scores computed in Cypher over records, entities and tokens, with `SAME_AS` and `POSSIBLE_MATCH` relationships for the decisions.
 - **Surfaces:** `cypher`, `cli`
 - **Guides:** [Import a CSV](/docs/guides/cypher/import-csv)
-- **Recipes:** [Entity resolution in pure Cypher](/cookbook/entity-resolution/)
+- **Recipes:** [Merge duplicate customers across systems](/cookbook/entity-resolution/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview)
-- **Verified by:** cell `score` of the recipe [Entity resolution in pure Cypher](/cookbook/entity-resolution/#cell-score), replayed against its recorded result on every build
+- **Verified by:** cell `score` of the recipe [Merge duplicate customers across systems](/cookbook/entity-resolution/#cell-score), replayed against its recorded result on every build
 
 ## Codebase context graph
 
@@ -279,9 +279,9 @@ flowchart TB
 - **Capability:** Crates, design records and their sections as one graph, IDF-weighted full-text `SEARCH` to find where to start, and bounded quantified path patterns to follow the links.
 - **Surfaces:** `cypher`, `agents`, `mcp`
 - **Guides:** [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Import git history with git-to-graph](/docs/guides/extensions/git-to-graph), [Import a directory tree with fs-to-graph](/docs/guides/extensions/fs-to-graph)
-- **Recipes:** [Context graph for a codebase](/cookbook/codebase-context-graph/)
+- **Recipes:** [Answer codebase questions text search can't](/cookbook/codebase-context-graph/)
 - **Reference:** [Search](/docs/reference/cypher/search), [Patterns (`#quantified-path-patterns`)](/docs/reference/cypher/patterns#quantified-path-patterns)
-- **Verified by:** cell `storage` of the recipe [Context graph for a codebase](/cookbook/codebase-context-graph/#cell-storage), replayed against its recorded result on every build
+- **Verified by:** cell `storage` of the recipe [Answer codebase questions text search can't](/cookbook/codebase-context-graph/#cell-storage), replayed against its recorded result on every build
 
 ## Dependency analysis
 
@@ -307,9 +307,9 @@ flowchart LR
 - **Capability:** Resolved dependency graphs as nodes and relationships, quantified path patterns and `SHORTEST` for reachability and chains, and `COUNT` and `EXISTS` subqueries for blast radius.
 - **Surfaces:** `cypher`, `cli`
 - **Guides:** [Script the CLI](/docs/guides/cli/scripting), [Use relate in CI](/docs/guides/agents/use-in-ci)
-- **Recipes:** [Dependency blast radius](/cookbook/dependency-blast-radius/)
+- **Recipes:** [Trace how vulnerabilities reach your app](/cookbook/dependency-blast-radius/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview), [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors), [Patterns (`#quantified-path-patterns`)](/docs/reference/cypher/patterns#quantified-path-patterns), [Composing clauses (`#subquery-expressions`)](/docs/reference/cypher/composing-clauses#subquery-expressions)
-- **Verified by:** cell `reachable` of the recipe [Dependency blast radius](/cookbook/dependency-blast-radius/#cell-reachable), replayed against its recorded result on every build
+- **Verified by:** cell `reachable` of the recipe [Trace how vulnerabilities reach your app](/cookbook/dependency-blast-radius/#cell-reachable), replayed against its recorded result on every build
 
 ## Text-to-Cypher
 
@@ -321,7 +321,7 @@ relate supplies each from the engine itself. `CALL db.schema.nodeTypeProperties(
 - **Capability:** The schema as data from the `db.schema` procedures and the MCP `get_schema` tool, `EXPLAIN` to plan a statement without running it, and read-only opens that refuse writes.
 - **Surfaces:** `cypher`, `mcp`, `cli`, `agents`
 - **Guides:** [Turn questions into Cypher with an LLM](/docs/guides/agents/text-to-cypher), [Tune a query](/docs/guides/cypher/tune-a-query), [Connect over MCP](/docs/guides/agents/connect-over-mcp), [Use relate with the OpenAI Agents SDK](/docs/guides/integrations/openai-agents-sdk), [Use relate with Mastra](/docs/guides/integrations/mastra)
-- **Recipes:** [Context graph for a codebase](/cookbook/codebase-context-graph/)
+- **Recipes:** [Answer codebase questions text search can't](/cookbook/codebase-context-graph/)
 - **Reference:** [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j), [Cypher overview](/docs/reference/cypher/overview), [Errors](/docs/reference/errors), [Schema clauses (`#schema-procedures`)](/docs/reference/cypher/schema-clauses#schema-procedures), [Procedures (`#schema-procedures`)](/docs/reference/cypher/procedures#schema-procedures), [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile)
 - **Verified by:** cell `schema` on [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j#cell-schema), replayed against its recorded result by the docs checks on every pull request
 
@@ -387,9 +387,9 @@ A directory store created with `--snapshot-format json` writes its checkpoint as
 - **Capability:** A directory store whose checkpoint writes the graph as text, one `graph.json` with the `json` codec or one note per node with `markdown`, and `MERGE` writes that replay to no change.
 - **Surfaces:** `cli`, `agents`
 - **Guides:** [Keep a diffable memory in the repo](/docs/guides/agents/diffable-memory), [Choose a store layout](/docs/guides/storage/choose-a-store-layout), [Open a store as an Obsidian vault](/docs/guides/storage/obsidian-vault)
-- **Recipes:** [Bi-temporal decisions](/cookbook/bitemporal-decisions/)
+- **Recipes:** [Know what an agent believed, and when](/cookbook/bitemporal-decisions/)
 - **Reference:** [Storage formats (`#codecs`)](/docs/reference/storage/formats#codecs), [WAL and checkpoints](/docs/reference/storage/wal-and-checkpoints)
-- **Verified by:** cell `retry` of the recipe [Bi-temporal decisions](/cookbook/bitemporal-decisions/#cell-retry), replayed against its recorded result on every build
+- **Verified by:** cell `retry` of the recipe [Know what an agent believed, and when](/cookbook/bitemporal-decisions/#cell-retry), replayed against its recorded result on every build
 
 ## Schema as files
 
@@ -414,9 +414,9 @@ With no `--database`, a statement runs against an in-memory store that is gone w
 - **Capability:** The in-memory store, the default, gone when the process exits; `--load` to read a fixture store into memory; envelope output and typed exit codes for the script that checks it.
 - **Surfaces:** `cli`, `python`, `node`
 - **Guides:** [Script the CLI](/docs/guides/cli/scripting), [Choose a store layout (`#start-in-memory`)](/docs/guides/storage/choose-a-store-layout#start-in-memory), [Embed relate in a Python app](/docs/get-started/python), [Use relate in CI](/docs/guides/agents/use-in-ci)
-- **Recipes:** [Dependency blast radius](/cookbook/dependency-blast-radius/), [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/)
+- **Recipes:** [Trace how vulnerabilities reach your app](/cookbook/dependency-blast-radius/), [Catch a migration that quietly loses data](/cookbook/migration-rehearsal/)
 - **Reference:** [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors), [CLI flags](/docs/reference/cli/flags)
-- **Verified by:** cell `gate` of the recipe [Dependency blast radius](/cookbook/dependency-blast-radius/#cell-gate), replayed against its recorded result on every build
+- **Verified by:** cell `gate` of the recipe [Trace how vulnerabilities reach your app](/cookbook/dependency-blast-radius/#cell-gate), replayed against its recorded result on every build
 
 ## Migration rehearsal
 
@@ -428,9 +428,9 @@ The [migration rehearsal recipe](/cookbook/migration-rehearsal/) fingerprints th
 - **Capability:** A fingerprint of the graph taken in Cypher before the migration, probes that compare it afterwards, and `relate clone` or `--load` to run the migration on a copy.
 - **Surfaces:** `cypher`, `cli`
 - **Guides:** [Back up and restore a store](/docs/guides/storage/backup-and-restore), [Keep an agent safe (`#back-up-before-a-write`)](/docs/guides/agents/agent-safety#back-up-before-a-write), [Migrate from Neo4j](/docs/guides/migrate/from-neo4j)
-- **Recipes:** [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/)
+- **Recipes:** [Catch a migration that quietly loses data](/cookbook/migration-rehearsal/)
 - **Reference:** [Cypher overview](/docs/reference/cypher/overview), [relate clone](/docs/reference/cli/clone)
-- **Verified by:** cell `verdict` of the recipe [Rehearse a migration against a golden graph](/cookbook/migration-rehearsal/#cell-verdict), replayed against its recorded result on every build
+- **Verified by:** cell `verdict` of the recipe [Catch a migration that quietly loses data](/cookbook/migration-rehearsal/#cell-verdict), replayed against its recorded result on every build
 
 ## Neo4j subgraph mirror
 

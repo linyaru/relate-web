@@ -1,6 +1,6 @@
 ---
-title: Long-term memory for an agent
-summary: One session writes facts and decisions from a chat into a graph; a later session recalls them, with newer decisions superseding older ones and the history kept.
+title: Pick up where the last session left off
+summary: Turn chat messages into facts and decisions in a graph, and let a later session recall them from a blank prompt. When a decision changes, the new one replaces the old one but keeps its history, so the agent knows both what's true now and what it used to be.
 level: Intermediate
 category: Agent memory
 features: [uniqueness constraints, MERGE, UNWIND, multi-label patterns, CALL subqueries, COLLECT subqueries, COUNT subqueries, quantified path patterns, datetime()]
@@ -10,7 +10,7 @@ source: Hand-written stand-ins for the LLM extraction step, from the examples pr
 license: Apache-2.0
 ---
 
-# Long-term memory for an agent
+# Pick up where the last session left off
 
 *An agent turns each chat message into entities, facts, and decisions, writes
 them to a graph, and exits. A later session starts with an empty prompt and

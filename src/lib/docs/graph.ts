@@ -1153,7 +1153,7 @@ RETURN s.id AS id, s.page AS page, s.anchor AS anchor, s.heading AS heading, s.u
        vector_rank, fulltext_rank, rrf`;
 
 /**
- * The cookbook recipe "Query the relate docs" loads a subset of this graph
+ * The cookbook recipe `query-the-relate-docs` loads a subset of this graph
  * from its `docs` data block, written by scripts/docs-recipe-data.ts and
  * compared with the graph by docs:check (checks/embeddings.ts). The subset
  * rule: the whole graph's structure without vectors, as far as the recipe's

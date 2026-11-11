@@ -18,37 +18,37 @@ ships (`public/wasm/`) and fails if a result drifts from what the file records
 
 | Recipe | What it does | Level | Runs in the browser |
 |---|---|---|---|
-| [Agent trajectory timeline](agent-trajectory-timeline.md) | Log every tool call an agent makes as a timestamped step, then read the last N, the next page, and everything since a cutoff, with constraints that keep newest-first reads correct. | Intermediate | Fully |
-| [Bi-temporal decisions](bitemporal-decisions.md) | A decision log with two time axes answers both "what was true on this date?" and "what did the agent believe on this date?", through late corrections, a rejection, and a planned change. | Intermediate | Fully |
-| [Long-term memory for an agent](agent-memory.md) | One session writes facts and decisions from a chat into a graph; a later session recalls them, with newer decisions superseding older ones and the history kept. | Intermediate | Cypher steps |
-| [Tool-call provenance for an agent](tool-call-provenance.md) | Record every memory tool call an agent makes in the graph it touched, then audit which call wrote a fact, who read it since, and what the failed calls left behind. | Advanced | Fully |
+| [Audit where an agent's memories came from](tool-call-provenance.md) | Write every memory tool call into the same graph as the memory, linked to everything it wrote or read. When a memory looks wrong, you can find the call that wrote it, who has read it since, what failed calls left behind, and what each tool costs. | Advanced | Fully |
+| [Know what an agent believed, and when](bitemporal-decisions.md) | Keep a bi-temporal decision log that records both when a decision was true and when the agent learned it, through late corrections, rejections, and planned changes. You can explain a past decision by what the agent knew at the time, not by what turned out to be true later. | Intermediate | Fully |
+| [Let an agent look back at its own steps](agent-trajectory-timeline.md) | Record each tool call as a step on a session timeline, and read back the latest steps, earlier pages, or everything since a given time. The agent can check what it already tried before acting again, and a supervisor can track token use and the newest steps across every session. | Intermediate | Fully |
+| [Pick up where the last session left off](agent-memory.md) | Turn chat messages into facts and decisions in a graph, and let a later session recall them from a blank prompt. When a decision changes, the new one replaces the old one but keeps its history, so the agent knows both what's true now and what it used to be. | Intermediate | Cypher steps |
 
-### Search and retrieval
-
-| Recipe | What it does | Level | Runs in the browser |
-|---|---|---|---|
-| [Context graph for a codebase](codebase-context-graph.md) | Answer multi-hop questions about a codebase: IDF-weighted full-text search finds where to start, and bounded graph hops follow supersessions, dependencies, and citations. | Advanced | Fully |
-| [Hybrid recall: vector + full-text + RRF](hybrid-recall.md) | Fuse vector and full-text SEARCH by reciprocal rank in one Cypher statement, then hop from each recalled note to its topic's latest decision. | Advanced | Fully |
-| [Query the relate docs](query-the-relate-docs.md) | Find entry points in the relate docs graph with vector SEARCH, then let the graph expand them into context, scope the search by a traversal, and reach the capability and its worked example. | Intermediate | Fully |
-
-### Data quality
+### Search with context
 
 | Recipe | What it does | Level | Runs in the browser |
 |---|---|---|---|
-| [Entity resolution in pure Cypher](entity-resolution.md) | Resolve two messy customer exports into companies with normalized keys, bigram typo matching, IDF-weighted scores, and a human review queue, all in Cypher. | Intermediate | Fully |
-| [Rehearse a migration against a golden graph](migration-rehearsal.md) | Fingerprint a graph before a migration runs, declare what the migration may change, and catch a bug that node counts and intended-change checks both miss. | Advanced | Fully |
+| [Find a note, then what was decided since](hybrid-recall.md) | Combine vector and keyword search (hybrid search) in one Cypher query, then follow each matching note to the latest decision on its topic. The best-matching note can be out of date: here it says Auth0, and the follow-up step shows the team later chose Okta. | Advanced | Fully |
+| [Turn a question into the Relate docs you need](query-the-relate-docs.md) | Search the Relate docs, loaded as a graph, then follow links from each matching section to the pages to read first, the terms to know, and a worked example. The graph also narrows the search to the right pages, so a word with two meanings doesn't send the agent to the wrong one. | Intermediate | Fully |
 
-### Graph analytics
-
-| Recipe | What it does | Level | Runs in the browser |
-|---|---|---|---|
-| [Dependency blast radius](dependency-blast-radius.md) | Trace every known advisory three packages can reach, measure what disappears when a dependency is dropped, and turn the answer into a CI gate. | Advanced | Fully |
-
-### Geospatial
+### Data wrangling
 
 | Recipe | What it does | Level | Runs in the browser |
 |---|---|---|---|
-| [Nearby places for an agent](nearby-places.md) | A geo-aware memory tool that answers radius, nearest-k, map-box, and recent-visit questions over 80 remembered places. | Beginner | Fully |
+| [Catch a migration that quietly loses data](migration-rehearsal.md) | Fingerprint a graph before a migration, declare what the migration may change, and compare afterward. Node counts and intended-change checks can all pass while data is destroyed; here the fingerprint catches 352 lost city links and restores them. | Advanced | Fully |
+| [Merge duplicate customers across systems](entity-resolution.md) | Match a CRM export and a billing export that spell the same companies differently, typos included, and resolve 396 records into 211 companies, with a short list of doubtful pairs for a person to review. It's entity resolution entirely inside the database, with no fuzzy-matching library, and it finds 216 of 218 duplicate pairs with no false merges. | Intermediate | Fully |
+
+### Code and dependencies
+
+| Recipe | What it does | Level | Runs in the browser |
+|---|---|---|---|
+| [Answer codebase questions text search can't](codebase-context-graph.md) | Build a graph of a codebase's packages and design decisions, use text search to find a starting point, and follow short links to the answer. Questions like "was this decision replaced?" or "what builds on the parser?" are answered by the links between documents, not by the paragraph that matches the words. | Advanced | Fully |
+| [Trace how vulnerabilities reach your app](dependency-blast-radius.md) | Load the full dependency graphs of three real packages, and find which known vulnerabilities each one can reach, through which chain, and what disappears if you drop a dependency. A lockfile lists what you install but not why; the graph shows why, and turns the answer into a CI check. | Advanced | Fully |
+
+### Maps and places
+
+| Recipe | What it does | Level | Runs in the browser |
+|---|---|---|---|
+| [Answer "what's nearby?" from memory](nearby-places.md) | Store the places a travel assistant's users mention and its agents visit, and turn them into five small location tools: within 2 km, nearest, inside a map area, and recently visited nearby. The agent answers location questions from its own memory, with distances in meters. | Beginner | Fully |
 
 <!-- cookbook-index:end -->
 
@@ -104,9 +104,9 @@ plain, `"quoted"`, or a flow list `[a, b]`. No nesting, no comments.
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `title` | yes | Page title; must equal the first `# ` heading |
-| `summary` | yes | One sentence (≤ 200 characters) naming the outcome, shown in the index |
+| `summary` | yes | One or two sentences (≤ 350 characters): the outcome, then what makes it work; shown in the index and on the cards |
 | `level` | yes | `Beginner`, `Intermediate`, or `Advanced` |
-| `category` | yes | `Agent memory`, `Search and retrieval`, `Data quality`, `Graph analytics`, or `Geospatial` |
+| `category` | yes | `Agent memory`, `Search with context`, `Data wrangling`, `Code and dependencies`, or `Maps and places` |
 | `features` | yes | List of the Cypher features the recipe teaches |
 | `browser` | yes | `full`: every step runs in the page. `partial`: some steps (Python, an LLM call) are shown as code only |
 | `dataset` | with a dataset | What the data holds, and its size |

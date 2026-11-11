@@ -1,8 +1,8 @@
 ---
-title: Dependency blast radius
-summary: Trace every known advisory three packages can reach, measure what disappears when a dependency is dropped, and turn the answer into a CI gate.
+title: Trace how vulnerabilities reach your app
+summary: Load the full dependency graphs of three real packages, and find which known vulnerabilities each one can reach, through which chain, and what disappears if you drop a dependency. A lockfile lists what you install but not why; the graph shows why, and turns the answer into a CI check.
 level: Advanced
-category: Graph analytics
+category: Code and dependencies
 features: [UNWIND $rows, MERGE, quantified path patterns, QPP inline predicates, SHORTEST, EXISTS {}, COUNT {}, CALL subqueries, list comprehensions, pattern comprehensions]
 browser: full
 dataset: Resolved dependency graphs of three packages with their advisories; 89 versions, 148 dependency edges, 38 advisories (23 KB)
@@ -10,7 +10,7 @@ source: deps.dev API v3 responses for npm/express@4.18.2, npm/jsonwebtoken@8.5.1
 license: CC BY 4.0
 ---
 
-# Dependency blast radius
+# Trace how vulnerabilities reach your app
 
 *A lockfile lists what you install, not why. Load the resolved dependency
 graphs of three packages, and a handful of queries answer the questions a

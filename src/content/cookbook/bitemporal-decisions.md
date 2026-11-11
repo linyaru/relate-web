@@ -1,6 +1,6 @@
 ---
-title: Bi-temporal decisions
-summary: A decision log with two time axes answers both "what was true on this date?" and "what did the agent believe on this date?", through late corrections, a rejection, and a planned change.
+title: Know what an agent believed, and when
+summary: Keep a bi-temporal decision log that records both when a decision was true and when the agent learned it, through late corrections, rejections, and planned changes. You can explain a past decision by what the agent knew at the time, not by what turned out to be true later.
 level: Intermediate
 category: Agent memory
 features: [bi-temporal modeling, datetime(), date(), duration.inDays, MERGE … ON CREATE SET, FOREACH, COLLECT subqueries, chained comparisons, FULLTEXT INDEX, SEARCH, quantified path patterns, uniqueness constraints]
@@ -10,7 +10,7 @@ source: Synthetic; the orders story (postgres, then mysql learned late, then a r
 license: Apache-2.0
 ---
 
-# Bi-temporal decisions
+# Know what an agent believed, and when
 
 *An agent keeps a log of decisions about the services it runs. Some news
 arrives late, a reviewer rejects one decision, and one change is planned

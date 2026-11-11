@@ -1,6 +1,6 @@
 ---
-title: Agent trajectory timeline
-summary: Log every tool call an agent makes as a timestamped step, then read the last N, the next page, and everything since a cutoff, with constraints that keep newest-first reads correct.
+title: Let an agent look back at its own steps
+summary: Record each tool call as a step on a session timeline, and read back the latest steps, earlier pages, or everything since a given time. The agent can check what it already tried before acting again, and a supervisor can track token use and the newest steps across every session.
 level: Intermediate
 category: Agent memory
 features: [relationship property type constraints, relationship property existence constraints, SHOW CONSTRAINTS, MERGE, "ORDER BY … LIMIT", SKIP, LET, FILTER, epochMillis, datetime.fromEpochMillis, DROP CONSTRAINT]
@@ -10,7 +10,7 @@ source: Synthetic, generated with a fixed seed by the examples project's 11-traj
 license: Apache-2.0
 ---
 
-# Agent trajectory timeline
+# Let an agent look back at its own steps
 
 *An agent runtime appends one step per tool call to a session's timeline.
 On every turn it asks for the last few steps, the page before those, and

@@ -13,8 +13,8 @@
 //   embeddings-vector    a vector that does not decode to 384 finite floats
 //   embeddings-query     a recipe question (RECIPE_QUESTIONS) with no vector or
 //                        a stale one, or a query vector no question uses
-//   embeddings-recipe    the `docs` data block of the cookbook recipe "Query
-//                        the relate docs" differs from the subset the graph
+//   embeddings-recipe    the `docs` data block of the cookbook recipe
+//                        query-the-relate-docs differs from the subset the graph
 //                        gives now (recipeData), or the subset cannot be built
 //
 // Every rule is an error: a stale vector leaves its section out of the seed's
@@ -163,7 +163,7 @@ export function checkEmbeddings(site: EmbeddingsSite, report: Report, options: E
   const recipeFile = relative(ROOT, RECIPE_FILE);
   const source = options.recipe !== undefined ? options.recipe : existsSync(RECIPE_FILE) ? readFileSync(RECIPE_FILE, 'utf8') : null;
   if (source === null) {
-    emit('embeddings-recipe', recipeFile, 'the cookbook recipe "Query the relate docs" is missing');
+    emit('embeddings-recipe', recipeFile, 'the cookbook recipe `query-the-relate-docs` is missing');
     return stats;
   }
   let want: string;

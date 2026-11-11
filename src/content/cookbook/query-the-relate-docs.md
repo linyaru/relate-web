@@ -1,8 +1,8 @@
 ---
-title: Query the relate docs
-summary: Find entry points in the relate docs graph with vector SEARCH, then let the graph expand them into context, scope the search by a traversal, and reach the capability and its worked example.
+title: Turn a question into the Relate docs you need
+summary: Search the Relate docs, loaded as a graph, then follow links from each matching section to the pages to read first, the terms to know, and a worked example. The graph also narrows the search to the right pages, so a word with two meanings doesn't send the agent to the wrong one.
 level: Intermediate
-category: Search and retrieval
+category: Search with context
 features: [SEARCH, VECTOR INDEX, FULLTEXT INDEX, vector search filter, quantified path pattern, COLLECT subquery, COUNT subquery, label expression, vector()]
 browser: full
 dataset: The relate docs graph's pages, glossary terms, surfaces, capabilities, problems and recipes with the relationships the steps read, every section of five pages with its 384-dimension bge-small-en-v1.5 embedding, and 2 embedded questions (about 373 KB)
@@ -10,7 +10,7 @@ source: The relate docs graph (https://relatedb.ai/docs/graph.cypher); section t
 license: Apache-2.0
 ---
 
-# Query the relate docs
+# Turn a question into the Relate docs you need
 
 *The relate documentation is published as a relate graph: pages and their
 sections, the links and prerequisites between pages, the glossary terms each
@@ -446,11 +446,11 @@ ORDER BY hits DESC, capability LIMIT 3
 ```
 
 ```table
-| capability                  | hits | problem                                                                                                           | demonstrated_by                                 | verified_by                                               |
-|-----------------------------|------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|-----------------------------------------------------------|
-| "Graph queries over MCP"    | 5    | "Give a coding agent or an agent framework a graph it can query through MCP, without letting it change the data." | []                                              | ["Use relate with the Claude Agent SDK (options)"]        |
-| "Migration rehearsal"       | 3    | "Check that a data migration changed only what it was meant to, before it runs on the real graph."                | ["Rehearse a migration against a golden graph"] | ["Rehearse a migration against a golden graph (verdict)"] |
-| "Offline and sandboxed use" | 3    | "Run a graph database where an agent works isolated, with no network after setup and nothing sent anywhere."      | []                                              | ["Run relate in a sandbox (step-1)"]                      |
+| capability                  | hits | problem                                                                                                           | demonstrated_by                               | verified_by                                             |
+|-----------------------------|------|-------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------|
+| "Graph queries over MCP"    | 5    | "Give a coding agent or an agent framework a graph it can query through MCP, without letting it change the data." | []                                            | ["Use relate with the Claude Agent SDK (options)"]      |
+| "Migration rehearsal"       | 3    | "Check that a data migration changed only what it was meant to, before it runs on the real graph."                | ["Catch a migration that quietly loses data"] | ["Catch a migration that quietly loses data (verdict)"] |
+| "Offline and sandboxed use" | 3    | "Run a graph database where an agent works isolated, with no network after setup and nothing sent anywhere."      | []                                            | ["Run relate in a sandbox (step-1)"]                    |
 3 rows
 ```
 
@@ -719,17 +719,17 @@ relate --load https://relatedb.ai/docs/relate-docs.rl --read-only --mode envelop
     {"id":"tool-call-provenance","title":"Tool-call provenance","url":"https://relatedb.ai/docs/concepts/problems-relate-solves/#tool-call-provenance","cites":["guides/agents/model-agent-memory","reference/cypher/overview"],"solves":[{"id":"tool-call-provenance#intent-1","kind":"intent","text":"audit what my agent wrote to memory"},{"id":"tool-call-provenance#intent-2","kind":"intent","text":"trace which tool call created this fact"},{"id":"tool-call-provenance#intent-3","kind":"intent","text":"provenance for agent tool calls"},{"id":"tool-call-provenance#intent-4","kind":"intent","text":"log agent tool calls in the graph they touched"},{"id":"tool-call-provenance#intent-5","kind":"intent","text":"lineage of a fact in agent memory"},{"id":"tool-call-provenance#problem","kind":"problem","text":"Find out which tool call wrote a fact in an agent's memory, which calls read it since, and what failed calls left behind."}],"verified_by":[{"label":"CookbookRecipe","id":"tool-call-provenance","cell":"lineage"}]}
   ],
   "recipes": [
-    {"id":"agent-memory","title":"Long-term memory for an agent","url":"https://relatedb.ai/cookbook/agent-memory/","demonstrates":["agent-memory"]},
-    {"id":"agent-trajectory-timeline","title":"Agent trajectory timeline","url":"https://relatedb.ai/cookbook/agent-trajectory-timeline/","demonstrates":["agent-trajectory-timeline"]},
-    {"id":"bitemporal-decisions","title":"Bi-temporal decisions","url":"https://relatedb.ai/cookbook/bitemporal-decisions/","demonstrates":["bi-temporal-facts","diffable-memory"]},
-    {"id":"codebase-context-graph","title":"Context graph for a codebase","url":"https://relatedb.ai/cookbook/codebase-context-graph/","demonstrates":["codebase-context-graph","hybrid-retrieval-for-rag","text-to-cypher"]},
-    {"id":"dependency-blast-radius","title":"Dependency blast radius","url":"https://relatedb.ai/cookbook/dependency-blast-radius/","demonstrates":["dependency-analysis","fresh-graph-per-test-run"]},
-    {"id":"entity-resolution","title":"Entity resolution in pure Cypher","url":"https://relatedb.ai/cookbook/entity-resolution/","demonstrates":["entity-resolution"]},
-    {"id":"hybrid-recall","title":"Hybrid recall: vector + full-text + RRF","url":"https://relatedb.ai/cookbook/hybrid-recall/","demonstrates":["hybrid-retrieval-for-rag"]},
-    {"id":"migration-rehearsal","title":"Rehearse a migration against a golden graph","url":"https://relatedb.ai/cookbook/migration-rehearsal/","demonstrates":["fresh-graph-per-test-run","migration-rehearsal"]},
-    {"id":"nearby-places","title":"Nearby places for an agent","url":"https://relatedb.ai/cookbook/nearby-places/","demonstrates":["geospatial-memory"]},
-    {"id":"query-the-relate-docs","title":"Query the relate docs","url":"https://relatedb.ai/cookbook/query-the-relate-docs/","demonstrates":[]},
-    {"id":"tool-call-provenance","title":"Tool-call provenance for an agent","url":"https://relatedb.ai/cookbook/tool-call-provenance/","demonstrates":["tool-call-provenance"]}
+    {"id":"agent-memory","title":"Pick up where the last session left off","url":"https://relatedb.ai/cookbook/agent-memory/","demonstrates":["agent-memory"]},
+    {"id":"agent-trajectory-timeline","title":"Let an agent look back at its own steps","url":"https://relatedb.ai/cookbook/agent-trajectory-timeline/","demonstrates":["agent-trajectory-timeline"]},
+    {"id":"bitemporal-decisions","title":"Know what an agent believed, and when","url":"https://relatedb.ai/cookbook/bitemporal-decisions/","demonstrates":["bi-temporal-facts","diffable-memory"]},
+    {"id":"codebase-context-graph","title":"Answer codebase questions text search can't","url":"https://relatedb.ai/cookbook/codebase-context-graph/","demonstrates":["codebase-context-graph","hybrid-retrieval-for-rag","text-to-cypher"]},
+    {"id":"dependency-blast-radius","title":"Trace how vulnerabilities reach your app","url":"https://relatedb.ai/cookbook/dependency-blast-radius/","demonstrates":["dependency-analysis","fresh-graph-per-test-run"]},
+    {"id":"entity-resolution","title":"Merge duplicate customers across systems","url":"https://relatedb.ai/cookbook/entity-resolution/","demonstrates":["entity-resolution"]},
+    {"id":"hybrid-recall","title":"Find a note, then what was decided since","url":"https://relatedb.ai/cookbook/hybrid-recall/","demonstrates":["hybrid-retrieval-for-rag"]},
+    {"id":"migration-rehearsal","title":"Catch a migration that quietly loses data","url":"https://relatedb.ai/cookbook/migration-rehearsal/","demonstrates":["fresh-graph-per-test-run","migration-rehearsal"]},
+    {"id":"nearby-places","title":"Answer \"what's nearby?\" from memory","url":"https://relatedb.ai/cookbook/nearby-places/","demonstrates":["geospatial-memory"]},
+    {"id":"query-the-relate-docs","title":"Turn a question into the Relate docs you need","url":"https://relatedb.ai/cookbook/query-the-relate-docs/","demonstrates":[]},
+    {"id":"tool-call-provenance","title":"Audit where an agent's memories came from","url":"https://relatedb.ai/cookbook/tool-call-provenance/","demonstrates":["tool-call-provenance"]}
   ],
   "sections": [
     {"id":"guides/agents/agent-safety#","page":"guides/agents/agent-safety","heading":"Keep an agent safe","position":1,"url":"https://relatedb.ai/docs/guides/agents/agent-safety/","text":"This guide shows you how to limit what an agent can do to your data through relate: open stores read-only, turn on [safe mode](https://relatedb.ai/docs/reference/glossary/#safe-mode), back up before a write, check destructive statements, retry only what is retryable, and keep file and network access narrow. Each control is a flag or an environment variable on the command the agent runs, and the [permission matrix](#permission-matrix) shows which ones the CLI and the …","e":[-0.0406,0.008,-0.0256,-0.0433,-0.0038,-0.0339,0.0768,-0.0141,0.0283,-0.0199,0.0159,0.0232,0.04,0.0656,-0.0078,0.0077,0.0127,0.0523,-0.0298,0.0048,-0.015,0.0088,-0.0174,-0.0124,-0.0481,0.0412,0.0008,-0.0548,-0.0305,-0.1566,-0.0376,-0.0026,-0.0283,0.0317,0.0367,0.0252,0.0023,-0.0364,0.0067,-0.0457,0.0108,0.0314,0.0441,0.0144,-0.0024,-0.0207,0.0392,0.0062,0.0775,-0.0506,0.0167,0.0019,0.0034,0.0646,0.0156,0.0236,0.0187,0.0469,-0.0182,0.0423,0.0168,0.0582,-0.0748,0.0856,0.0438,0.0586,-0.0713,0.0045,0.0057,0.0359,-0.0068,-0.0074,-0.0548,0.014,0.045,-0.0079,0.0046,-0.0082,0.0587,-0.0096,-0.0417,-0.0114,0.0263,0.0281,-0.0379,-0.0494,0.0474,0.0069,0.0299,0.0061,-0.0576,-0.0208,0.089,-0.0406,-0.0244,-0.0381,0.0289,0.0324,-0.0499,0.3657,-0.0223,-0.0164,-0.0512,0.0646,-0.0057,-0.0193,0.0623,0.043,0.009,0.0464,-0.0126,-0.0013,0.0048,-0.0503,0.0435,-0.0032,-0.0348,0.0132,-0.0201,-0.0705,-0.0206,0.0168,0.0204,0.0304,0.0235,0.0268,0.0718,0.0594,-0.009,0.0596,-0.0121,-0.0262,-0.0343,0.0279,0.0552,-0.0024,-0.0381,-0.0001,0.0535,-0.0346,-0.0075,0.0184,0.0611,-0.0325,0.0202,0.114,-0.031,0.0174,-0.0356,-0.0311,-0.0403,0.0334,0.0033,-0.0427,-0.0107,-0.0047,0.0553,-0.0288,-0.0566,-0.0089,0.0214,-0.0432,-0.0455,0.0531,0.0106,-0.048,-0.0234,0.0747,0.0199,-0.0133,0.0231,-0.015,-0.0056,-0.067,-0.0086,-0.0236,-0.0369,0.0573,-0.012,-0.0431,-0.0719,-0.0186,-0.0394,0.0231,-0.0267,0.0036,-0.0639,-0.0354,0.0381,-0.0444,-0.02,-0.0125,-0.0595,0.005,-0.067,0.0399,-0.016,0.0484,-0.0699,-0.0339,0.0399,0.0123,-0.0574,0.0512,-0.0138,0.0247,0.0144,-0.059,-0.0189,-0.0059,-0.0542,-0.012,-0.0327,-0.031,-0.0793,0.0012,0.0059,0.0571,-0.0159,0.0085,0.0426,0.0548,-0.025,-0.3481,-0.0337,-0.0972,0.018,-0.0283,-0.05,0.026,-0.0354,-0.0953,0.0159,0.072,-0.05,-0.0547,-0.0227,0.0004,0.0206,0.038,0.0036,-0.0299,0.0319,0.0374,-0.0728,-0.0332,-0.0582,0.0365,0.0528,0.1222,-0.0692,0.0687,-0.0217,-0.0061,0.0111,-0.0816,-0.1017,0.0167,-0.0221,-0.0976,0.0206,0.0076,-0.0402,0.0453,0.0202,-0.0047,-0.0197,0.0003,-0.0326,0.0015,0.0585,-0.0266,-0.0323,-0.0188,0.0416,-0.0589,0.0874,0.0144,0.0039,0.0211,0.0097,-0.0027,0.002,0.0472,-0.0292,-0.0184,-0.0415,0.09,-0.0533,0.0434,-0.0101,0.0553,0.0286,-0.0209,0.0549,-0.0543,-0.0272,-0.0115,-0.0335,-0.0714,-0.0057,-0.0461,0.0226,0.0491,0.0086,0.0184,-0.0032,0.0621,-0.0161,0.0475,0.0271,0.0991,0.0096,0.0098,-0.0154,-0.0295,0.0282,0.0371,-0.0267,-0.2416,-0.0002,0.0216,0.0269,0.0096,-0.0037,0.0609,-0.0122,-0.0923,-0.0506,0.0223,0.0712,-0.0001,0.0376,0.0048,0.0276,0.0538,-0.0039,0.0413,-0.0525,0.0106,-0.0123,0.2012,0.0696,0.0415,0.0112,0.0455,0.0156,-0.0654,-0.0167,0.0645,-0.0615,0.0435,-0.052,0.0556,-0.0263,-0.0092,0.0494,0.0994,-0.04,-0.0276,0.0683,-0.0635,0.0034,0.058,-0.0127,-0.0826,0.0114,-0.0024,-0.0009,-0.0236,-0.0244,-0.028,-0.0435,-0.0075,0.0365,0.0238,0.0202,0.0291,0.0174,0.0159,0.0216,0.0461,0.0506,0.0113]},

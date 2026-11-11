@@ -7,7 +7,7 @@ surfaces: [cypher, mcp, agents]
 related: [cookbook/query-the-relate-docs, guides/agents/connect-over-mcp, concepts/problems-relate-solves]
 ---
 
-The relate documentation is also published as a graph. Every page, heading, code example, glossary term, CLI command and flag, cookbook recipe, capability and problem is a :term[node]{id=node}, and the links between pages, the prerequisites, the terms a page uses and the flags it documents are :term[relationships]{id=relationship}. The build writes the graph from the same files as the pages, so it says what the pages say, at the version in the page header. It ships as a Cypher seed script, as JSON and, from launch, as a relate :term[store]{id=store}; the cookbook recipe [Query the relate docs](/cookbook/query-the-relate-docs/) searches it. The view on this page draws its pages, grouped by section, below the tables of its labels and relationship types.
+The relate documentation is also published as a graph. Every page, heading, code example, glossary term, CLI command and flag, cookbook recipe, capability and problem is a :term[node]{id=node}, and the links between pages, the prerequisites, the terms a page uses and the flags it documents are :term[relationships]{id=relationship}. The build writes the graph from the same files as the pages, so it says what the pages say, at the version in the page header. It ships as a Cypher seed script, as JSON and, from launch, as a relate :term[store]{id=store}; the cookbook recipe [Turn a question into the relate docs you need](/cookbook/query-the-relate-docs/) searches it. The view on this page draws its pages, grouped by section, below the tables of its labels and relationship types.
 
 ## Synopsis
 
@@ -86,7 +86,7 @@ The view draws each published page as a node, one cluster and one color per sect
 | Reader | How it loads the graph | What it offers |
 | --- | --- | --- |
 | relate's own [MCP server](/docs/reference/server/mcp), on the reader's machine | `--load` of `relate-docs.rl` into an in-memory store | `read_cypher` and `get_schema` over the whole graph; `write_cypher` is not listed on a read-only store |
-| The recipe [Query the relate docs](/cookbook/query-the-relate-docs/) | The graph's pages, terms, capabilities and recipes with the sections of five pages and their vectors, in the recipe's data block, run in the browser | Vector search over the sections, then traversals that expand the hits into context, scope the search and reach the capability behind the answer, step by step |
+| The recipe [Turn a question into the relate docs you need](/cookbook/query-the-relate-docs/) | The graph's pages, terms, capabilities and recipes with the sections of five pages and their vectors, in the recipe's data block, run in the browser | Vector search over the sections, then traversals that expand the hits into context, scope the search and reach the capability behind the answer, step by step |
 
 The local form serves the docs graph to an MCP host over stdio. The URL is a launch-day target:
 
@@ -134,6 +134,6 @@ RETURN [n IN nodes(path) | n.id] AS chain ORDER BY length(path) DESC
 
 ## See also
 
-- [Query the relate docs](/cookbook/query-the-relate-docs/): vector search and graph traversals over a part of this graph, in the browser.
+- [Turn a question into the relate docs you need](/cookbook/query-the-relate-docs/): vector search and graph traversals over a part of this graph, in the browser.
 - [MCP server](/docs/reference/server/mcp): relate's own server, which the local form runs.
 - [The capability catalog](/docs/concepts/problems-relate-solves): the source of the `Capability` and `Problem` nodes.

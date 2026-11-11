@@ -1,6 +1,6 @@
 ---
-title: Tool-call provenance for an agent
-summary: Record every memory tool call an agent makes in the graph it touched, then audit which call wrote a fact, who read it since, and what the failed calls left behind.
+title: Audit where an agent's memories came from
+summary: Write every memory tool call into the same graph as the memory, linked to everything it wrote or read. When a memory looks wrong, you can find the call that wrote it, who has read it since, what failed calls left behind, and what each tool costs.
 level: Advanced
 category: Agent memory
 features: [NODE KEY constraints, relationship property constraints, CALL subqueries, collect(), reduce(), FOREACH with MERGE, COLLECT subqueries, COUNT subqueries, SHOW CONSTRAINTS]
@@ -10,7 +10,7 @@ source: The scripted plan of the examples project's 20-tool-call-provenance (dat
 license: Apache-2.0
 ---
 
-# Tool-call provenance for an agent
+# Audit where an agent's memories came from
 
 *A memory agent reads and writes its graph through two tools. Every call it
 makes becomes a `ToolCall` node in that same graph, written by the same

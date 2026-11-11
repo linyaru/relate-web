@@ -1,12 +1,12 @@
 ---
 // The docs landing (/docs/, DOCS-PLAN.md §2 "Landing"): on the regular site
 // shell with no sidebar. Above the fold, two columns: the title, search and three
-// buttons, and the agent card (install, the AGENTS.md block to copy, llms.txt).
+// buttons, and the agent card (install, the setup prompt and the AGENTS.md block to copy, llms.txt).
 // Then the task index as the one primary navigation (a ruled grid of cards, each
 // headed by a link into its section) and a few cookbook examples. A task whose
 // page is not written yet renders as text, not a link.
 import RecipeCard from '../../components/cookbook/RecipeCard.astro';
-import { agentsMd, releaseNames } from '../../components/docs/install.ts';
+import { agentsMd, releaseNames, setupPrompt } from '../../components/docs/install.ts';
 import TabsStrip from '../../components/docs/TabsStrip.astro';
 import Docs from '../../layouts/Docs.astro';
 import { esc } from '../../lib/cookbook/result-view.ts';
@@ -108,14 +108,23 @@ const skillGuide = taskHref('guides/agents/install-the-skill', published);
         </Fragment>
       </TabsStrip>
       <p class="agent-actions">
-        <button class="agent-copy" id="agentCopy" type="button" hidden>
+        <button class="agent-copy" type="button" data-copy-source="agent-prompt" hidden>
           <svg class="ic-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>
           <svg class="ic-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
-          <span class="agent-copy-label">Copy instructions for your agent</span>
+          <span class="agent-copy-label">Copy setup prompt</span>
         </button>
         <a class="agent-link" href="/docs/llms.txt" target="_blank" rel="noopener">llms.txt</a>
       </p>
-      <textarea id="agent-copy" hidden>{agentsMd(site.engine.version)}</textarea>
+      <p class="agent-md" hidden>
+        <button class="agent-copy agent-copy-quiet" type="button" data-copy-source="agent-md">
+          <svg class="ic-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>
+          <svg class="ic-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+          <span class="agent-copy-label">Copy AGENTS.md block</span>
+        </button>
+        <span class="agent-md-note">For your repository's <code>AGENTS.md</code> or <code>CLAUDE.md</code>: the install line, the safe defaults and the exit codes, for every session.</span>
+      </p>
+      <textarea id="agent-prompt" hidden>{setupPrompt()}</textarea>
+      <textarea id="agent-md" hidden>{agentsMd()}</textarea>
     </aside>
   </div>
 
@@ -175,11 +184,13 @@ const skillGuide = taskHref('guides/agents/install-the-skill', published);
 </Docs>
 
 <script>
-  // The agent card's copy button: copies the AGENTS.md block and shows a tick for a moment.
-  const btn = document.getElementById('agentCopy') as HTMLButtonElement | null;
-  const source = document.getElementById('agent-copy') as HTMLTextAreaElement | null;
-  if (btn && source) {
+  // The agent card's copy buttons: each copies its hidden source (the setup prompt, the AGENTS.md
+  // block) and shows a tick for a moment. Without script they stay hidden.
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-copy-source]')) {
+    const source = document.getElementById(btn.dataset.copySource ?? '') as HTMLTextAreaElement | null;
+    if (!source) continue;
     btn.hidden = false;
+    btn.closest<HTMLElement>('.agent-md')?.removeAttribute('hidden');
     const label = btn.querySelector<HTMLElement>('.agent-copy-label')!;
     const idle = label.textContent;
     let timer: number | undefined;

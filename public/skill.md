@@ -25,9 +25,23 @@ instructions.
 
 ## Install
 
-With the relate CLI, which copies the bundle into the skills directory of
-every detected agent in the home directory (`--agent <name>` picks one, for
-example `claude-code`, `cursor` or `codex`):
+The skill describes the relate CLI; it does not install it. The CLI comes
+first, from the install script, which checks the release's signed
+`SHA256SUMS` and the binary's SHA-256 before it installs anything, and
+writes `relate` to `~/.local/bin`:
+
+```bash
+curl -sSfL https://relatedb.ai/install.sh | bash
+relate --version
+```
+
+The pinned and hand-verified steps for one exact release are on
+<https://relatedb.ai/docs/get-started/install.md> ("Pinned binary").
+
+With the relate CLI on the machine, `relate skill install` copies the bundle
+into the skills directory of every detected agent in the home directory
+(`--agent <name>` picks one, for example `claude-code`, `cursor` or
+`codex`):
 
 ```bash
 relate skill install
@@ -46,6 +60,8 @@ in the index on a terminal, and installs all of them without asking when it
 detects that an agent is running it. Each index entry is a `SKILL.md` file
 alone, so this installs `SKILL.md` without `references/`; the reference
 files stay at `https://relatedb.ai/skills/relate/references/<name>.md`.
+Like every install path on this page, it installs the skill only, not the
+relate CLI.
 
 By hand, the bundle goes in a directory named `relate` (holding `SKILL.md`
 and `references/`) under `.claude/skills/`, `.cursor/skills/`,

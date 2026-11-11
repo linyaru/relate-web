@@ -1,13 +1,15 @@
 ---
 // Home hero: headline, the two calls to action, and the install panel (tabs, one command, copy,
 // "Copy for agent"). The version comes from the docs' engine data, so it tracks the release.
-// Commands are the ones the docs verify (get-started/*); the agent briefing is /skill.md.
+// Commands are the ones the docs verify (get-started/*); "Copy for agent" copies the setup prompt
+// every copy-for-agent button shares (setupPrompt, ADR-0060).
 import { HERO_MASCOT } from '../lib/home/brand-art.ts';
+import { setupPrompt } from './docs/install.ts';
 import engine from '../content/docs/_data/engine.json';
 
 const version = `v${engine.version}`;
 const SITE = 'https://relatedb.ai';
-const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
+const PROMPT = setupPrompt();
 const SECURITY = 'The install script verifies release signatures and SHA256 checksums.';
 
 interface Tab { id: string; label: string; cmd?: string; note: string; more?: { label: string; href: string }[] }

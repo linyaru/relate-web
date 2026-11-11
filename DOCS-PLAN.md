@@ -297,6 +297,12 @@ bundle**, so an agent can get it before the binary exists on the machine:
 
 ### 3.4 Install blocks that an agent can paste
 
+> **Changed by ADR-0060.** The install page's Agent tab is now the setup
+> prompt (below), not the pinned prompt shown here; the install page has no
+> Pinned binary tab (the pinned steps live on `agent-quickstart`); and the
+> AGENTS.md block installs with `install.sh` and names no version. The
+> pinned prompt below is kept as the record of the original plan.
+
 Every install block gets three tabs: **CLI**, **Package** (per language) and
 **Agent**. The Agent tab is a prompt, not a command:
 
@@ -339,6 +345,16 @@ host has a deeplink or a one-liner:
 The home page's `cli | agentic` toggle is the ancestor of this; the docs
 version is the three-tab install block plus the `<Agentic>` component on
 tutorial steps.
+
+The copy-for-agent buttons on the home page (hero and Quickstart), the
+docs landing and the install page's Agent tab all hand over one text, the
+**setup prompt** (`setupPrompt()` in `install.ts`, ADR-0060): unpinned,
+four steps written to be pasted unedited (install the CLI with
+`install.sh` and check `relate --version` runs, install the skill and run
+`relate agent-context`, ask what data to load, answer with `--read-only
+--mode envelope` queries). The landing offers the AGENTS.md block
+(`agentsMd()`, also unpinned) as a second button, and the install page and
+`agent-quickstart` show the same block.
 
 ### 3.5 Going further: the docs are a graph, and relate is the reader
 

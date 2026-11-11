@@ -177,6 +177,10 @@ import { unified } from 'unified';
 import { parse as parseYaml } from 'yaml';
 
 import { COMPONENT_ANCHORS, COMPONENT_TWINS } from '../src/components/docs/registry.ts';
+import { agentsMd, setupPrompt } from '../src/components/docs/install.ts';
+
+/** Fences that pin no version by decision (ADR-0060 amends ADR-0013 §1 for them alone): the setup prompt and the AGENTS.md block, byte for byte. */
+const UNPINNED_BY_DESIGN = new Set([setupPrompt().trimEnd(), agentsMd().trimEnd()]);
 import {
   DOCS_RENDER_COMMAND,
   diagramDescription,
@@ -865,7 +869,8 @@ function trustFence(lang: string, value: string, file: string, line: number | nu
       report(file, line, 'error', 'trust-read-only', `${where} markdown block opens a store without \`--read-only\`: "${cmd.trim().slice(0, 60)}" (ADR-0013)`);
     }
   }
-  if (PROMPT_LANGS.has(l) && /\binstall\b/i.test(value) && /\brelate\b/i.test(value) && INSTALLS.test(value) && !ignore.has('trust-pin')) {
+  // The setup prompt and the AGENTS.md block skip trust-pin only as they stand; any other text, or an edit to them, is checked in full.
+  if (PROMPT_LANGS.has(l) && /\binstall\b/i.test(value) && /\brelate\b/i.test(value) && INSTALLS.test(value) && !ignore.has('trust-pin') && !UNPINNED_BY_DESIGN.has(value.trimEnd())) {
     const versions = [...new Set(value.match(SEMVER) ?? [])];
     if (!versions.length) {
       report(file, line, 'error', 'trust-pin', `${where} pasted install prompt pins no version; pin ${site.engine.version} (ADR-0013)`);

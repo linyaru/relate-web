@@ -1,7 +1,7 @@
 ---
 title: Install relate
 label: Install
-description: Install the relate CLI on macOS, Linux or Windows, add a client package for your language, or give an agent a pinned, verified install prompt.
+description: Install the relate CLI on macOS, Linux or Windows, add a client package for your language, or give an agent a setup prompt.
 order: 10
 surfaces: [cli, python, node, browser, rust, java, go, swift, agents]
 related: [get-started/agent-quickstart, reference/errors]
@@ -16,7 +16,7 @@ By the end of this page, `relate` is on your `PATH`, checked against the release
 
 ## Install
 
-Pick the tab that matches how you'll use relate. **CLI** is the one-line install. **Package** adds relate to an app. **Agent** is a prompt you paste into an agent, and **Pinned binary** installs one exact release with each check done by hand.
+Pick the tab that matches how you'll use relate. **CLI** is the one-line install. **Package** adds relate to an app. **Agent** is a prompt you paste into an agent: the same prompt the home page and the docs landing copy.
 
 <Install part="tabs" />
 
@@ -24,7 +24,7 @@ The CLI and every client package run the same engine, so a statement means the s
 
 ## Add to your AGENTS.md
 
-Agent harnesses read a repository's `AGENTS.md` or `CLAUDE.md` before anything else. This block tells an agent which version the repository uses, how to check it, and the safe defaults: machine output with `--mode envelope`, stores opened `--read-only` until it is asked to write, and the exit codes to branch on.
+Agent harnesses read a repository's `AGENTS.md` or `CLAUDE.md` before anything else. This block, the one the docs landing copies, tells an agent how to install relate and check it, and the safe defaults: machine output with `--mode envelope`, stores opened `--read-only` until it is asked to write, and the exit codes to branch on.
 
 <Install part="agents-md" />
 
@@ -42,20 +42,17 @@ relate upgrade --check
 relate upgrade
 ```
 
-A repository that pins a version in its `AGENTS.md` moves the pin in the same change that upgrades. A store written by an older release migrates on its first writable open; [Upgrade a store](/docs/guides/operate/upgrade-a-store) covers the backup to take first.
+A store written by an older release migrates on its first writable open; [Upgrade a store](/docs/guides/operate/upgrade-a-store) covers the backup to take first.
 
 ## Verify
 
-Check the version:
+Check that the binary runs:
 
 ```bash verify
 relate --version
 ```
 
-```text
-Relate v0.1.2
-License: Apache 2.0 (binary)
-```
+It prints `Relate v` and the installed version, then the license line.
 
 Then run one statement. A person reads the answer as a table; an agent asks for the :term[envelope]{id=envelope}, the JSON form it parses, and checks the :term[exit code]{id=exit-code}:
 
@@ -86,7 +83,7 @@ echo "exit=$?"
 exit=0
 ```
 
-Notice that the envelope lists the columns and their types, and `truncated` says whether rows were cut. The envelope's exact bytes are what the Agent prompt tells an agent to expect, and exit code 0 means its rows are the answer.
+Notice that the envelope lists the columns and their types, and `truncated` says whether rows were cut. Exit code 0 means its rows are the answer.
 :::
 ::::
 

@@ -258,13 +258,15 @@ export interface LandingTwinContext {
   versionLine: string;
   /** `YYYY-MM-DD`: when the landing page last changed. */
   lastUpdated: string;
+  /** The setup prompt from install.ts (`setupPrompt`, ADR-0060): what the landing's and the home page's copy-for-agent buttons copy. */
+  setupPrompt: string;
   /** The AGENTS.md block from install.ts (one block on install, agent-quickstart and the landing; DOCS-PLAN.md §3.4). */
   agentsMd: string;
   /** The page order llms.txt uses; the task index follows it (`orderedTasks`). */
   order?: readonly string[];
 }
 
-/** The landing's twin (/docs/index.md): the twin frontmatter, the task index with links to published pages, and the AGENTS.md block. */
+/** The landing's twin (/docs/index.md): the twin frontmatter, the task index with links to published pages, the setup prompt and the AGENTS.md block. */
 export function landingTwin(published: Set<string>, ctx: LandingTwinContext): string {
   const { origin } = ctx;
   const link = (t: Task) => {
@@ -296,6 +298,7 @@ export function landingTwin(published: Set<string>, ctx: LandingTwinContext): st
   for (const g of orderedTasks(ctx.order ?? [])) {
     lines.push(`## ${g.id}`, '', ...g.tasks.map((t) => `- ${link(t)}`), '');
   }
+  lines.push('## Set up relate with an agent', '', 'The prompt the landing page copies for a coding agent:', '', '```text', ctx.setupPrompt.trimEnd(), '```', '');
   lines.push('## Add relate to your AGENTS.md', '', '```markdown', ctx.agentsMd.trimEnd(), '```', '');
   return lines.join('\n');
 }

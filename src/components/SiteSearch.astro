@@ -1,0 +1,71 @@
+---
+// Site-wide search overlay, opened with ⌘K or Ctrl+K (or "/") on any page. Pages whose header has
+// its own search input (docs, recipes) focus that instead. Results come from the same Pagefind
+// index as the docs search (src/scripts/search.ts); hidden until the script runs.
+---
+<div class="ss" id="siteSearch" role="dialog" aria-modal="true" aria-label="Search the docs and cookbook" hidden>
+  <div class="ss-panel" data-search-overlay>
+    <input id="siteSearchInput" type="search" placeholder="Search docs and recipes" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="siteSearchResults" aria-autocomplete="list" aria-label="Search the docs and cookbook" />
+    <div class="ss-results search-results" id="siteSearchResults" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+</div>
+
+<style>
+  .ss { position: fixed; inset: 0; z-index: 100; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; background: color-mix(in srgb, var(--surface-0) 70%, transparent); backdrop-filter: blur(4px); }
+  .ss[hidden] { display: none; }
+  .ss-panel { width: min(560px, 100%); padding: 8px; background: var(--surface-1); border: 1px solid var(--line-strong); box-shadow: var(--shadow-overlay); }
+  .ss-panel input { width: 100%; height: 44px; padding: 0 14px; font: 400 16px var(--font); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); }
+  .ss-panel input:focus { outline: none; border-color: var(--ink); }
+  .ss-results { margin-top: 6px; max-height: 60vh; overflow-y: auto; }
+  .ss-results :global(a.search-hit) { display: block; padding: 8px 10px; color: var(--ink); text-decoration: none; }
+  .ss-results :global(a.search-hit:hover), .ss-results :global(a.search-hit:focus) { background: var(--surface-2); outline: none; }
+  .ss-results :global(.hit-title) { display: block; font-weight: 600; font-size: 14px; }
+  .ss-results :global(.hit-excerpt) { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--ink-muted); }
+  .ss-results :global(.hit-excerpt mark) { background: var(--highlight); color: var(--on-highlight); }
+  .ss-results :global(.search-note) { margin: 0; padding: 8px 10px; font-size: 13px; color: var(--ink-muted); }
+</style>
+
+<script>
+  import { bindSearch } from '../scripts/search.ts';
+
+  const overlay = document.getElementById('siteSearch');
+  const oInput = document.getElementById('siteSearchInput') as HTMLInputElement | null;
+  const oResults = document.getElementById('siteSearchResults');
+  const oPanel = overlay?.querySelector<HTMLElement>('[data-search-overlay]');
+  if (overlay && oInput && oResults && oPanel) {
+    bindSearch(oPanel, oInput, oResults);
+    let opener: HTMLElement | null = null;
+    const close = () => {
+      overlay.hidden = true;
+      oInput.value = '';
+      oResults.hidden = true;
+      oResults.innerHTML = '';
+      opener?.focus();
+    };
+    const open = () => {
+      opener = document.activeElement as HTMLElement | null;
+      overlay.hidden = false;
+      oInput.focus();
+      oInput.select();
+    };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    // bindSearch clears the field on Escape; this also closes the overlay.
+    overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    // Follow a result: close first so the next page does not restore it from the back button.
+    oResults.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('a')) overlay.hidden = true; });
+
+    document.addEventListener('keydown', (e) => {
+      const el = e.target as HTMLElement;
+      const typing = el.closest('input, textarea, select, [contenteditable]');
+      const combo = e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey);
+      if (!combo && !(e.key === '/' && !typing && !e.metaKey && !e.ctrlKey)) return;
+      e.preventDefault();
+      if (!overlay.hidden) return oInput.select();
+      const inline = document.getElementById('docsSearch') as HTMLInputElement | null;
+      if (inline && inline.offsetParent) {
+        inline.focus();
+        inline.select();
+      } else open();
+    });
+  }
+</script>

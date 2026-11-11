@@ -8,10 +8,10 @@ import { sprite } from '../lib/home/sprites.ts';
 const SITE = 'https://relatedb.ai';
 const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
 const steps = [
-  { h: 'Install the agent skill', p: 'One command, for the agents you already use.', tag: 'agent skill', say: 'Installing the agent skill' },
-  { h: 'Pick a storage format', p: 'In memory, a directory, or one .rl file.', tag: 'memory / directory / .rl', say: 'Picking a storage format' },
-  { h: 'Create data', p: 'Write Cypher, load a CSV, or mirror from Aura.', tag: 'Cypher / CSV / Aura', say: 'Adding your data' },
-  { h: 'Query it', p: 'Tables for you, JSON for your agent.', tag: 'table / JSON', say: 'Running your query' },
+  { h: 'Install the agent skill', p: 'One command, for the agents you already use.', tag: 'agent skill', href: '/docs/guides/agents/install-the-skill/', say: 'Installing the agent skill' },
+  { h: 'Pick a storage format', p: 'In memory, a directory, or one .rl file.', tag: 'memory / directory / .rl', href: '/docs/guides/storage/choose-a-store-layout/', say: 'Picking a storage format' },
+  { h: 'Create data', p: 'Write Cypher, load a CSV, or mirror from Aura.', tag: 'Cypher / CSV / Aura', href: '/docs/get-started/first-graph/', say: 'Adding your data' },
+  { h: 'Query it', p: 'Tables for you, JSON for your agent.', tag: 'table / JSON', href: '/docs/guides/cli/output-formats/', say: 'Running your query' },
 ];
 
 // A pixel-art hexagon built from square pixels on a P grid.
@@ -82,7 +82,7 @@ const robot = sprite('robot');
           <li>
             <button class="qhit" type="button" data-step={i} aria-label={`Replay from step ${i + 1}: ${s.h}`}></button>
             <i class="qsq" aria-hidden="true" set:html={marker} />
-            <div><h3>{s.h}</h3><p>{s.p}</p></div>
+            <div><h3>{s.h}</h3><p>{s.p}</p><a class="qdoc" href={s.href}>Read the guide<span aria-hidden="true">&nbsp;&rarr;</span><span class="sr-only"> for {s.h.toLowerCase()}</span></a></div>
             <span class="qtag" translate="no">{s.tag}</span>
           </li>
         ))}
@@ -138,6 +138,10 @@ const robot = sprite('robot');
   .qrows h3 { margin: 0; font: 500 18px/26px var(--font); letter-spacing: -.01em; color: var(--ink); }
   .qrows p { margin: 2px 0 0; font-size: 14px; line-height: 22px; color: var(--ink-muted); }
   .qrows li > div { grid-column: 2; grid-row: 1; }
+  /* Above the row's replay button (z-index 1), so the link goes to the docs and the rest of the row replays. */
+  .qdoc { position: relative; z-index: 2; display: inline-block; margin-top: 6px; font: 500 13px/20px var(--font); color: var(--brand); text-decoration: none; }
+  .qdoc:hover { text-decoration: underline; }
+  .qdoc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .qtag {
     grid-column: 2; grid-row: 2; justify-self: start; max-width: 100%; padding: 2px 7px; border: 1px solid var(--line);
     font: 400 11px/1.4 var(--mono); color: var(--ink-muted);

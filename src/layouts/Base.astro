@@ -4,6 +4,7 @@
 // Header and Footer components and base.css.
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import SiteSearch from '../components/SiteSearch.astro';
 import SeoHead from '../components/SeoHead.astro';
 import type { JsonLd } from '../lib/seo.ts';
 import '../styles/base.css';
@@ -55,5 +56,6 @@ const notFound = Astro.url.pathname.replace(/\/$/, '') === '/404';
       <slot />
     </main>
     <Footer />
+    <SiteSearch />
   </body>
 </html>

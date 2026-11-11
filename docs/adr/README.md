@@ -138,3 +138,4 @@ Copy `template.md`.
 | [0058](0058-seo-head-and-indexability-switch.md) | One shared page head, JSON-LD per page kind, and a single switch for indexing | Proposed |
 | [0059](0059-cloudflare-deploy-trust-boundary.md) | Cloudflare deploys trust write access only, and the token never shares a job with the build | Proposed |
 | [0060](0060-one-setup-prompt-for-copy-for-agent-buttons.md) | One unpinned setup prompt and one unpinned AGENTS.md block for every surface that hands an agent relate | Proposed |
+| [0061](0061-required-check-runs-as-parallel-jobs.md) | The required check runs as parallel jobs, with the browser run in shares | Proposed |

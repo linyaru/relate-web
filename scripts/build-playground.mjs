@@ -2,7 +2,8 @@
 // The playground is a separate Vite app that takes about three minutes; `astro build` empties dist, so
 // without this every site build paid for it again. Inputs: the playground package (minus node_modules),
 // the cookbook modules it imports from src/lib/cookbook, and the engine's type declarations.
-// `--force` rebuilds. The cache lives in node_modules/.cache/relate-playground (not committed).
+// `--force` rebuilds; `--key` prints the inputs' key and exits (CI keys its cache of the build on it).
+// The cache lives in node_modules/.cache/relate-playground (not committed).
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -35,6 +36,10 @@ hash.update(process.version);
 for (const f of inputs) hash.update(relative(ROOT, f)).update('\0').update(readFileSync(f)).update('\0');
 const key = hash.digest('hex').slice(0, 16);
 const cached = join(CACHE, key);
+if (process.argv.includes('--key')) {
+  console.log(key);
+  process.exit(0);
+}
 
 rmSync(OUT, { recursive: true, force: true });
 if (!force && existsSync(join(cached, 'index.html'))) {

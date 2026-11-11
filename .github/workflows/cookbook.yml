@@ -17,8 +17,12 @@
 # Replaying CLI recordings and language samples needs a relate binary or the
 # clients, so those run weekly in docs-cli-check.yml and docs-samples.yml.
 #
-# There is no paths filter, so the job always reports and can be a required
-# status check on main. It takes well under a minute.
+# The work runs as parallel jobs (ADR-0061): `source` (the checks that need
+# no build) beside `build`, which uploads dist/; then `built` and four
+# `browser` shares of the headless Chrome run (BROWSER_SHARD), each on the
+# uploaded dist/. The last job, `check`, passes only when every other job
+# passed: it is the one status to require. There is no paths filter, so it
+# always reports. `npm run ci` runs the same steps one after another.
 #
 # A failure in "Check recipes" prints each recipe's recorded and actual
 # result. If the engine changed on purpose (a public/wasm refresh), run
@@ -40,11 +44,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Everything that reads only the sources: the unit tests, the decision
+  # records, the docs and recipe checks, the prose lint and the site's types.
+  source:
     runs-on: ubuntu-latest
-    # The whole suite: unit tests, the docs checks, the build, the Worker
-    # bundle and the headless Chrome run over every page and element.
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       # Full history: each docs page's "Updated" date is its file's last commit.
       - uses: actions/checkout@v4
@@ -55,15 +59,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            playground/package-lock.json
 
       - run: npm ci
-
-      # The playground is its own package (playground/package.json).
-      - name: Install playground
-        run: npm ci --prefix playground
 
       - name: Unit tests
         run: |
@@ -92,17 +89,136 @@ jobs:
       - name: Type check
         run: npm run check
 
+  # The playground's types and the site build. The playground's packages and
+  # its Vite build (about four minutes, most of it terser) are cached: the
+  # packages on the playground lockfile, the build on the key
+  # scripts/build-playground.mjs computes from its inputs.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Full history: each docs page's "Updated" date is its file's last commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        id: node
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore playground packages
+        id: playground-modules
+        uses: actions/cache@v4
+        with:
+          path: playground/node_modules
+          key: playground-modules-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('playground/package-lock.json') }}
+
+      # The playground is its own package (playground/package.json).
+      - name: Install playground
+        if: steps.playground-modules.outputs.cache-hit != 'true'
+        run: npm ci --prefix playground
+
       - name: Type check playground
         run: npm run check:playground
+
+      # After `npm ci`, which empties node_modules/ (the cache lives under it).
+      - name: Key the playground build
+        id: playground-key
+        run: echo "key=$(node scripts/build-playground.mjs --key)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore playground build
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/relate-playground
+          key: playground-build-${{ runner.os }}-${{ steps.playground-key.outputs.key }}
 
       - name: Build site
         run: npm run build
 
+      # dist/ carries dotfiles (.nojekyll, .well-known/), which upload-artifact
+      # leaves out unless asked.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cookbook-dist
+          path: dist/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # docs:check --built on the uploaded build.
+  built:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cookbook-dist
+          path: dist/
+
       - name: Check built docs
         run: npm run docs:check -- --built
 
-      # In headless Chrome (preinstalled on the runner) on the built site:
-      # every recipe's steps run, the page controls on one recipe, the
-      # playground's sample data, and the cookbook -> playground hand-off.
+  # In headless Chrome (preinstalled on the runner) on the built site, in
+  # four shares (scripts/cookbook-browser.ts deals its checks round-robin):
+  # every recipe's steps run, the page controls on one recipe, the
+  # playground's sample data, the cookbook -> playground hand-off, the docs
+  # pages' cells and every interactive element's cases.
+  browser:
+    needs: build
+    name: browser (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cookbook-dist
+          path: dist/
+
       - name: Run the cookbook and playground in the browser
+        env:
+          BROWSER_SHARD: ${{ matrix.shard }}/4
         run: npm run cookbook:browser
+
+  # The one status to require: every job above passed (a skipped or
+  # cancelled job fails it too).
+  check:
+    if: always()
+    needs: [source, build, built, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null

@@ -68,6 +68,8 @@
 // Chrome over the DevTools protocol with Node's own WebSocket: no
 // dependencies. COOKBOOK_ONLY=<slug>[,<slug>…] limits the recipes;
 // ELEMENT_ONLY=<element>[,…] limits the element case files (a dev loop, not CI).
+// BROWSER_SHARD=<k>/<n> runs the k-th of n shares of the browser checks (the
+// built-files checks run in every share): CI runs the shares as parallel jobs.
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
@@ -96,6 +98,34 @@ const CONTROLS_RECIPE = 'nearby-places';
 // The step link the hand-off check opens: a step that takes parameters.
 const HANDOFF_STEP = { slug: 'nearby-places', cell: 'within' };
 const RUN_TIMEOUT_MS = 180_000;
+
+/**
+ * BROWSER_SHARD=<k>/<n> (1-based): this run takes every n-th unit of work,
+ * starting at the k-th. A unit is one check in its own tab (or the few that
+ * must share a profile, such as a choice and the new tab that remembers it);
+ * units are numbered in the run's fixed order, which depends only on dist/
+ * and the case files, so the n shares together run each unit exactly once.
+ */
+const SHARD = (() => {
+  const raw = process.env.BROWSER_SHARD;
+  if (!raw) return { index: 0, of: 1 };
+  const m = /^(\d+)\/(\d+)$/.exec(raw.trim());
+  const k = m ? Number(m[1]) : 0;
+  const n = m ? Number(m[2]) : 0;
+  if (!m || n < 1 || k < 1 || k > n) {
+    console.error(`cookbook-browser: BROWSER_SHARD is ${raw}; expected <k>/<n> with 1 <= k <= n`);
+    process.exit(2);
+  }
+  return { index: k - 1, of: n };
+})();
+let units = 0;
+let unitsRun = 0;
+/** Whether this shard runs the next unit of work. Call it once per unit, in the same order whatever the results. */
+function mine(): boolean {
+  const yes = units++ % SHARD.of === SHARD.index;
+  if (yes) unitsRun++;
+  return yes;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -1179,6 +1209,17 @@ async function checkElements(builtDocs: string[], builtRecipes: BuiltPage[]) {
 /** One case file at one placement: the static form without scripts, laziness, the cases, then the first case at 390 px and under reduced motion. */
 async function runElementCases(file: BrowserCases, path: string) {
   const label = path.slice(1, -1);
+  if (mine()) await elementStaticAndLazy(file, path, label);
+  for (const c of file.cases) if (mine()) await runCase(`${file.element}: ${c.name}`, label, path, c.scenario);
+  const first = file.cases[0];
+  if (first) {
+    if (mine()) await runCase(`${file.element}: ${first.name} (390 px)`, label, path, first.scenario, { viewport: PHONE }, elementFits(file.element));
+    if (mine()) await runCase(`${file.element}: ${first.name} (reduced motion)`, label, path, first.scenario, { reducedMotion: true }, elementStill(file.element));
+  }
+}
+
+/** An element's static form without scripts (at 1400 and 390 px), then that its module waits until it is in reach. */
+async function elementStaticAndLazy(file: BrowserCases, path: string, label: string) {
   elementsRun++;
   for (const [width, open] of [[1400, { scripts: false }], [390, { scripts: false, viewport: PHONE }]] as const) {
     const off = await openPage(chrome.http, `${site.url}${path}`, open);
@@ -1193,12 +1234,6 @@ async function runElementCases(file: BrowserCases, path: string) {
     }
   }
   await check(`${file.element}: lazy`, label, path, elementLazy(file.element));
-  for (const c of file.cases) await runCase(`${file.element}: ${c.name}`, label, path, c.scenario);
-  const first = file.cases[0];
-  if (first) {
-    await runCase(`${file.element}: ${first.name} (390 px)`, label, path, first.scenario, { viewport: PHONE }, elementFits(file.element));
-    await runCase(`${file.element}: ${first.name} (reduced motion)`, label, path, first.scenario, { reducedMotion: true }, elementStill(file.element));
-  }
 }
 
 /** A phone's viewport (CSS px), for the element checks at phone width. */
@@ -1245,8 +1280,11 @@ async function checkLoadedScripts(builtDocs: string[], builtRecipes: BuiltPage[]
   const without = docs.find((p) => !withRuntime.includes(p));
   const measured = [...withRuntime, ...(without ? [without] : []), ...builtRecipes];
   let largest = { page: '', bytes: 0 };
+  let ran = 0;
   const before = problems.length;
   for (const { file, path } of measured) {
+    if (!mine()) continue;
+    ran++;
     const label = path.slice(1, -1);
     const counted = eagerScripts(readFileSync(file, 'utf8'), path, read);
     const eager = new Set(counted.files.map((f) => f.path));
@@ -1268,7 +1306,7 @@ async function checkLoadedScripts(builtDocs: string[], builtRecipes: BuiltPage[]
       await tab.close();
     }
   }
-  console.log(`${problems.length > before ? '✖' : '✔'} docs and cookbook · script budget, measured on ${measured.length} page(s): the largest loads ${kb(largest.bytes)} before any interaction (${largest.page})`);
+  if (ran) console.log(`${problems.length > before ? '✖' : '✔'} docs and cookbook · script budget, measured on ${ran === measured.length ? '' : `${ran} of `}${measured.length} page(s): the largest loads ${kb(largest.bytes)} before any interaction (${largest.page})`);
 }
 
 const recipePage = (slug: string) => `/cookbook/${slug}/`;
@@ -1276,21 +1314,21 @@ const playgroundLink = (slug: string, cell: string | null = null) =>
   `/playground/#recipe=${encodeURIComponent(slug)}${cell ? `&cell=${encodeURIComponent(cell)}` : ''}`;
 
 try {
-  for (const slug of slugs) await check('run all', slug, recipePage(slug), RUN_ALL);
-  for (const slug of slugs) await check('graph view', slug, recipePage(slug), GRAPH);
-  if (slugs.includes(CONTROLS_RECIPE)) await check('controls', CONTROLS_RECIPE, recipePage(CONTROLS_RECIPE), CONTROLS);
-  await check('sample data', 'playground', '/playground/', PLAYGROUND);
-  await checkExpand();
+  for (const slug of slugs) if (mine()) await check('run all', slug, recipePage(slug), RUN_ALL);
+  for (const slug of slugs) if (mine()) await check('graph view', slug, recipePage(slug), GRAPH);
+  if (slugs.includes(CONTROLS_RECIPE) && mine()) await check('controls', CONTROLS_RECIPE, recipePage(CONTROLS_RECIPE), CONTROLS);
+  if (mine()) await check('sample data', 'playground', '/playground/', PLAYGROUND);
+  if (mine()) await checkExpand();
   for (const slug of slugs) {
     const json = published.get(slug);
-    if (!json) continue;
+    if (!json || !mine()) continue;
     const samples = json.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
     const expect = { replayed: json.cells.length, title: json.title, editorStart: null, paramsPath: null, samples, runSample: null };
     await check('hand-off (whole recipe)', slug, playgroundLink(slug), handoff(expect));
   }
   const step = published.get(HANDOFF_STEP.slug);
   const index = step?.cells.findIndex((c) => c.id === HANDOFF_STEP.cell) ?? -1;
-  if (step && index >= 0) {
+  if (step && index >= 0 && mine()) {
     const cell = step.cells[index];
     const samples = step.cells.filter((c) => !c.setup).map((c) => c.title ?? c.id);
     const expect = {
@@ -1306,11 +1344,11 @@ try {
 
   // Docs: one case per element type (DOCS-PLAN.md §8 item 4).
   if (docsPages.length === 0) console.log('- docs: no built docs page has cells yet; the docs cell cases are skipped (DOCS_EXAMPLES=1 npm run build adds the example page)');
-  for (const page of docsPages) await checkDocsRun(page);
+  for (const page of docsPages) if (mine()) await checkDocsRun(page);
   const tabbed = existsSync(docsDir)
     ? filesUnder(docsDir).filter((f) => f.endsWith('/index.html')).sort().find((f) => /<div class="tabs\b[^"]*"[^>]*\sdata-tabs[\s>]/.test(readFileSync(f, 'utf8')))
     : undefined;
-  if (tabbed) {
+  if (tabbed && mine()) {
     const path = `/docs/${tabbed.slice(docsDir.length + 1, -'index.html'.length)}`;
     await check('a tab set switches', path.slice(1, -1), path, DOCS_TABS);
   }
@@ -1331,6 +1369,8 @@ try {
       console.log(`- docs: no built docs page has ${marker}; "${name}" is skipped (DOCS_EXAMPLES=1 npm run build adds the example page)`);
       continue;
     }
+    // One unit: the later scenarios read what the first left in the profile.
+    if (!mine()) continue;
     for (const [i, scenario] of scenarios.entries()) await check(i ? `${name} (a new tab)` : name, path.slice(1, -1), path, scenario);
   }
   const builtRecipes = slugs
@@ -1339,10 +1379,13 @@ try {
   await checkElements(builtDocs, builtRecipes);
   await checkLoadedScripts(builtDocs, builtRecipes);
   const graphPage = docsPages.find((p) => /data-graph-nodes="1"/.test(p.html));
-  if (graphPage) await checkDocsGraph(graphPage);
+  if (graphPage) {
+    if (mine()) await checkDocsGraph(graphPage);
+  }
   else if (docsPages.length) console.log('- docs: no docs page has a one-node graph result; the expansion case is skipped');
-  await checkToggletip();
+  if (mine()) await checkToggletip();
   for (const page of docsPages) {
+    if (!mine()) continue;
     const twin = readFileSync(join(docsDir, `${page.id}.md`), 'utf8');
     const { title, cells } = twinCells(twin);
     const docsLink = (cell: string | null = null) =>
@@ -1366,6 +1409,10 @@ try {
 if (problems.length) {
   console.error(`\n${problems.length} browser problem(s):\n  ${problems.join('\n  ')}`);
   process.exit(1);
+}
+if (SHARD.of > 1) {
+  console.log(`cookbook-browser: shard ${SHARD.index + 1}/${SHARD.of} passed its ${unitsRun} of ${units} unit(s), ${elementsRun} of them an interactive element's static form`);
+  process.exit(0);
 }
 console.log(
   `cookbook-browser: ${slugs.length} recipes run in the browser and match their recordings; ` +

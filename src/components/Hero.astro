@@ -27,6 +27,11 @@ const tabs: Tab[] = [
   },
 ];
 const first = tabs[0];
+
+// The hackathon banner stays hidden until this instant (4AM UTC, 12 November 2026). A static build
+// can predate it, so the banner ships hidden and a script reveals it once the time has passed.
+const ANN_FROM = '2026-11-12T04:00:00Z';
+const annLive = Date.now() >= Date.parse(ANN_FROM);
 ---
 <section class="hero" aria-labelledby="h-hero" data-hero data-version={version} data-tabs={JSON.stringify(tabs)} data-prompt={PROMPT}>
   <div class="hero-in">
@@ -68,7 +73,7 @@ const first = tabs[0];
     </div>
 
     <!-- The hackathon banner runs one month; remove it then. relate.devpost.com goes live with the hackathon. -->
-    <div class="ann">
+    <div class="ann" id="hack-ann" data-from={ANN_FROM} hidden={!annLive}>
       <span class="ann-t">Relate Hackathon</span>
       <span class="ann-x">Build something with Relate</span>
       <a class="ann-b" href="https://relate.devpost.com" target="_blank" rel="noopener" aria-label="Join the Relate Hackathon (opens in new tab)">Join<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
@@ -76,10 +81,21 @@ const first = tabs[0];
   </div>
 </section>
 
+<script is:inline>
+  (function () {
+    var el = document.getElementById('hack-ann');
+    if (!el || !el.hidden) return;
+    var wait = Date.parse(el.dataset.from) - Date.now();
+    if (wait <= 0) el.hidden = false;
+    else if (wait < 2147483647) setTimeout(function () { el.hidden = false; }, wait);
+  })();
+</script>
+
 <style>
   .hero { position: relative; padding: 72px 24px 56px; text-align: center; overflow: hidden; }
   .hero-in { position: relative; max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
 
+  .ann[hidden] { display: none; }
   .ann {
     display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 40px 0 0; padding: 4px;
     border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-1);

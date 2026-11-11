@@ -9,7 +9,7 @@ export const SITE_NAME = 'relate';
 export const SITE_TAGLINE = 'The embedded graph database for AI agents.';
 /** The default social card (1200×630, `public/og/default.png`). */
 export const OG_IMAGE = '/og/default.png';
-export const OG_IMAGE_ALT = 'relate: Agents that remember. The embedded graph database for AI agents.';
+export const OG_IMAGE_ALT = 'The relate logomark above the word Relate, white on blue.';
 export const GITHUB_URL = 'https://github.com/relatedb/relate';
 
 /**

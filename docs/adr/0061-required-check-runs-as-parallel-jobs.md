@@ -1,4 +1,4 @@
-# ADR-0060: The required check runs as parallel jobs, with the browser run in shares
+# ADR-0061: The required check runs as parallel jobs, with the browser run in shares
 
 Status: Proposed
 

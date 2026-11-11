@@ -249,7 +249,7 @@ export interface Prepared {
  * condition's files, in the places the agents read them:
  *   none       nothing
  *   agents-md  AGENTS.md and CLAUDE.md, both the AGENTS.md block of
- *              src/components/docs/install.ts pinned to `version`
+ *              src/components/docs/install.ts (it names no version, ADR-0060)
  *   skill      the published skill bundle (public/skills/relate/) under
  *              .agents/skills/relate/ and .claude/skills/relate/
  * Each one is also named in the environment, for a wrapper whose agent reads
@@ -266,7 +266,7 @@ export async function prepare(task: Task, condition: Condition, runDir: string, 
   const env: Record<string, string> = {};
   if (condition === 'agents-md') {
     const { agentsMd } = await import('../../src/components/docs/install.ts');
-    const md = `${agentsMd(version)}\n`;
+    const md = `${agentsMd()}\n`;
     writeFileSync(join(workdir, 'AGENTS.md'), md);
     writeFileSync(join(workdir, 'CLAUDE.md'), md);
     env.DOCS_EVALS_AGENTS_MD = join(workdir, 'AGENTS.md');

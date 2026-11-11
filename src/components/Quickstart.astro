@@ -1,9 +1,10 @@
 ---
 // Home "Quickstart": four steps that tick off in turn beside a prompt to paste into an agent.
-// The steps, the status label and the copy button are the only script. Commands and the agent briefing (/skill.md) are the
-// verified ones from the docs (get-started/agent-quickstart).
-const SITE = 'https://relatedb.ai';
-const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
+// The steps, the status label and the copy button are the only script. The prompt is the setup prompt every
+// copy-for-agent button shares (setupPrompt, ADR-0060); its commands are the docs' (get-started/agent-quickstart).
+import { setupPrompt } from './docs/install.ts';
+
+const PROMPT = setupPrompt();
 const steps = [
   { h: 'Install the agent skill', p: 'One command, for the agents you already use.', tag: 'agent skill', say: 'Installing the agent skill' },
   { h: 'Pick a storage format', p: 'In memory, a directory, or one .rl file.', tag: 'memory / directory / .rl', say: 'Picking a storage format' },
@@ -40,7 +41,7 @@ const marker =
         </div>
         <div class="qpanel">
           <div class="qpbody">
-            <p class="qp-t" id="qp-text" translate="no">Set up relate for me. Read <b>{SITE}/skill.md</b>, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.</p>
+            <p class="qp-t" id="qp-text" translate="no" tabindex="0" role="region" aria-label="Setup prompt (scrolls)">{PROMPT}</p>
             <button class="qcopy" type="button" id="qp-copy" aria-label="Copy prompt" data-prompt={PROMPT}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"></path></svg>
             </button>
@@ -120,8 +121,15 @@ const marker =
   :global(:root:not([data-theme='light'])) .qpanel { background: var(--surface-1); }
   @media (prefers-color-scheme: light) { :global(:root:not([data-theme='dark'])) .qpanel { background: #fff; } }
   .qpbody { position: relative; min-height: 200px; padding: 24px 64px 24px 24px; background: transparent; border: 1px solid var(--line); }
-  .qp-t { margin: 0; font: 400 14px/24px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
-  .qp-t b { font-weight: 500; color: var(--ink); }
+  /* The prompt shows its first seven lines and scrolls for the rest; the fade says there is more until the end is reached. */
+  .qp-t {
+    margin: 0; max-height: 154px; overflow-y: auto; overscroll-behavior: contain;
+    font: 400 13px/22px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; white-space: pre-line;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  }
+  .qp-t.end { -webkit-mask-image: none; mask-image: none; }
+  .qp-t:focus-visible { outline: 2px solid var(--focus, var(--ink)); outline-offset: 4px; }
   .qcopy {
     position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
     background: var(--surface-1); border: 1px solid var(--line); color: var(--ink-muted); cursor: pointer;
@@ -206,6 +214,11 @@ const marker =
       clearTimeout(fb);
       fb = setTimeout(() => { live.textContent = ''; }, 2500);
     };
+    // Drop the prompt's fade once it is scrolled to the end (or when it fits without scrolling).
+    const text = box.querySelector<HTMLElement>('#qp-text')!;
+    const atEnd = () => text.classList.toggle('end', text.scrollTop + text.clientHeight >= text.scrollHeight - 2);
+    text.addEventListener('scroll', atEnd, { passive: true });
+    atEnd();
     const agent = box.querySelector<HTMLButtonElement>('#qp-agent')!;
     const label = agent.querySelector<HTMLElement>('.qfa-t')!;
     for (const b of [box.querySelector<HTMLButtonElement>('#qp-copy')!, agent]) {

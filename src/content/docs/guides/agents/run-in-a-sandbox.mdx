@@ -35,7 +35,7 @@ Install at image or setup time, while the sandbox still has egress:
 curl -sSfL https://relatedb.ai/install.sh | bash
 ```
 
-The script checks the release's signature, its signed version line and the binary's SHA-256 before it installs the latest release to `$HOME/.local/bin`. For an exact version, the Pinned binary steps on the [install page](/docs/get-started/install) make the same checks. If `$HOME/.local/bin` is not on the agent's `PATH`, add it, or call the binary by its absolute path.
+The script checks the release's signature, its signed version line and the binary's SHA-256 before it installs the latest release to `$HOME/.local/bin`. For an exact version, the [pinned install steps](/docs/get-started/agent-quickstart#install-a-pinned-relate) make the same checks. If `$HOME/.local/bin` is not on the agent's `PATH`, add it, or call the binary by its absolute path.
 
 :::note[The agent build]
 Release binaries are the `full` build. The `agent` build, built from source with `cargo build -p relate-cli --no-default-features --features agent`, leaves out `serve`, `upgrade` and usage metrics, and keeps statements, `--load` from a URL, `--fetch-params`, the skill and `agent-context`.

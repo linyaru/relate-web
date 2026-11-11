@@ -115,7 +115,7 @@ disabled (DO_NOT_TRACK)
 
 ## Add the workflow
 
-The workflow installs relate 0.1.2 with the three checks `install.sh` makes, from the Pinned binary steps of [Install relate](/docs/get-started/install): the signature on `SHA256SUMS` against the release signing key, the signed first line naming the release, and the binary's SHA-256. Releases up to and including 0.16.1 were published under the project's earlier name, so their assets, signer and manifest header say `cypherlite`; from 0.1.0 on they say `relate`, with the same key ([Security](/docs/reference/security#release-signing-key)). The gate's `.data` filter needs 0.1.0 or later, where `--json` wraps the rows in `data`. The release URLs are launch-day targets.
+The workflow installs relate 0.1.2 with the three checks `install.sh` makes, from the [pinned install steps](/docs/get-started/agent-quickstart#install-a-pinned-relate): the signature on `SHA256SUMS` against the release signing key, the signed first line naming the release, and the binary's SHA-256. Releases up to and including 0.16.1 were published under the project's earlier name, so their assets, signer and manifest header say `cypherlite`; from 0.1.0 on they say `relate`, with the same key ([Security](/docs/reference/security#release-signing-key)). The gate's `.data` filter needs 0.1.0 or later, where `--json` wraps the rows in `data`. The release URLs are launch-day targets.
 
 ```yaml title=".github/workflows/graph-check.yml"
 name: Graph check
@@ -214,7 +214,7 @@ License: Apache 2.0 (binary)
 
 | What you see | Cause | Remedy |
 | --- | --- | --- |
-| The verify step fails at `ssh-keygen -Y verify`, with no `Good "relate-release" signature` line | The downloaded `SHA256SUMS` or its signature is not the release's, or a value in `env` does not match the release | Check the three `RELATE_` values against the Pinned binary steps; never skip the check |
+| The verify step fails at `ssh-keygen -Y verify`, with no `Good "relate-release" signature` line | The downloaded `SHA256SUMS` or its signature is not the release's, or a value in `env` does not match the release | Check the three `RELATE_` values against the pinned install steps; never skip the check |
 | The verify step fails at `test` or `sha256sum -c -` | The manifest names another release, or the binary does not match its line | Delete the cache entry for the key and run again; a second failure means the download is not the release |
 | `Failed to open Relate: storage error: database not found: <path>`, exit code 1 | The store path is wrong, or the file was not checked out (Git LFS without `lfs: true` on the checkout) | Fix the `--database` path |
 | `semantic error: …` or `syntax error: …`, exit code 6 | `gate.cypher` does not parse or plan, or it writes on a read-only store | Run it locally with the same flags; the message names the problem |
@@ -225,7 +225,7 @@ License: Apache 2.0 (binary)
 
 - [Fresh graph per test run](/docs/concepts/problems-relate-solves#fresh-graph-per-test-run) and [Dependency analysis](/docs/concepts/problems-relate-solves#dependency-analysis) in the capability catalog.
 - [Trace how vulnerabilities reach your app](/cookbook/dependency-blast-radius/): the gate on real dependency graphs, with its data.
-- [Install relate](/docs/get-started/install): the Pinned binary steps.
+- [Connect your agent to relate](/docs/get-started/agent-quickstart#install-a-pinned-relate): the pinned install steps.
 - [Security](/docs/reference/security): the signing key, its fingerprint, and what each check proves.
 - [Exit codes and errors](/docs/reference/cli/exit-codes-and-errors): every exit code and the error object.
 - [Agent mode](/docs/reference/cli/agent-mode): the defaults a harness variable changes.

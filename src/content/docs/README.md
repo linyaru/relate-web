@@ -266,7 +266,7 @@ sixth by ADR-0031):
 
 | Component | Renders |
 | --- | --- |
-| `<Install />` | The install block: CLI, Package and Agent tabs, the Pinned binary tab and the `AGENTS.md` block (DOCS-PLAN.md §3.4) |
+| `<Install />` | The install block: CLI, Package and Agent (the setup prompt) tabs and the `AGENTS.md` block; `part="pinned"` renders the pinned install steps alone (DOCS-PLAN.md §3.4, ADR-0060) |
 | `<Errors />` | The errors table, generated from `_data/errors.json` |
 | `<ExitCodes />` | The CLI exit codes from `_data/cli.json`, one row at `#exit-<n>`, with error kinds and retry advice from `_data/errors.json` |
 | `<Flags />` | The CLI flags from `_data/cli.json`; `command="query"` or `command="<command>"` narrows it; each row at the flag's id |

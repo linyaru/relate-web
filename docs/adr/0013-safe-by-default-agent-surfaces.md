@@ -126,3 +126,9 @@ and structurally query-free telemetry.
 - ADR-0031 (phase 2 constructs): a host deeplink is generated from the
   JSON shown beside it, needs `--read-only` on a command entry, and
   refuses `env` and `headers`.
+- Amended by ADR-0060 (one setup prompt): the setup prompt (the home
+  page's and the docs landing's copy-for-agent buttons, and the install
+  page's Agent tab) and the AGENTS.md block install with `install.sh` and
+  pin no version, and the install page has no Pinned binary tab; the
+  pinned steps stay on agent-quickstart, and decision 1's pin applies to
+  every other pasted install prompt.

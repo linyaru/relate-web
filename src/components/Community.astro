@@ -1,13 +1,11 @@
 ---
-// Home "Community": six pixel characters joined in a loop by labelled lines. A signal travels the
+// Home "Community": six icon nodes joined in a loop by labelled lines. A signal travels the
 // loop, each character hops as it arrives, and each can be dragged and springs back.
+import { lux } from '../lib/home/brand-art.ts';
+
 const nodes: [string, string][] = [
-  ['you', 'M6 1h4v1h-4zM5 2h1v1h-1zM10 2h1v1h-1zM5 3h1v1h-1zM10 3h1v1h-1zM5 4h1v1h-1zM10 4h1v1h-1zM6 5h4v1h-4zM4 7h8v1h-8zM2 8h3v1h-3zM11 8h3v1h-3zM2 9h1v1h-1zM13 9h1v1h-1zM2 10h12v1h-12z'],
-  ['question', 'M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM2 3h1v1h-1zM4 3h8v1h-8zM13 3h1v1h-1zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM4 5h6v1h-6zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h12v1h-12zM3 8h2v1h-2zM3 9h1v1h-1z'],
-  ['answer', 'M5 1h6v1h-6zM4 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM12 4h1v1h-1zM3 5h1v1h-1zM12 5h1v1h-1zM3 6h1v1h-1zM12 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM5 8h1v1h-1zM10 8h1v1h-1zM5 9h6v1h-6zM5 10h1v1h-1zM10 10h1v1h-1zM5 11h6v1h-6zM6 12h4v1h-4z'],
-  ['recipe', 'M3 1h7v1h-7zM3 2h1v1h-1zM9 2h2v1h-2zM3 3h1v1h-1zM9 3h1v1h-1zM11 3h1v1h-1zM3 4h1v1h-1zM9 4h4v1h-4zM3 5h1v1h-1zM12 5h1v1h-1zM3 6h1v1h-1zM5 6h6v1h-6zM12 6h1v1h-1zM3 7h1v1h-1zM12 7h1v1h-1zM3 8h1v1h-1zM5 8h6v1h-6zM12 8h1v1h-1zM3 9h1v1h-1zM12 9h1v1h-1zM3 10h1v1h-1zM12 10h1v1h-1zM3 11h10v1h-10z'],
-  ['agent', 'M7 0h2v1h-2zM7 1h2v1h-2zM2 2h12v1h-12zM2 3h1v1h-1zM13 3h1v1h-1zM1 4h2v1h-2zM4 4h3v1h-3zM9 4h3v1h-3zM13 4h2v1h-2zM1 5h2v1h-2zM4 5h3v1h-3zM9 5h3v1h-3zM13 5h2v1h-2zM1 6h2v1h-2zM13 6h2v1h-2zM2 7h1v1h-1zM5 7h6v1h-6zM13 7h1v1h-1zM2 8h1v1h-1zM13 8h1v1h-1zM2 9h12v1h-12zM4 10h1v1h-1zM11 10h1v1h-1zM4 11h8v1h-8z'],
-  ['idea', 'M7 1h2v1h-2zM6 2h1v1h-1zM9 2h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM2 4h5v1h-5zM9 4h5v1h-5zM2 5h1v1h-1zM13 5h1v1h-1zM3 6h1v1h-1zM12 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM7 8h2v1h-2zM11 8h1v1h-1zM3 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM12 9h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM10 10h1v1h-1zM12 10h1v1h-1zM3 11h2v1h-2zM11 11h2v1h-2z'],
+  ['you', 'user'], ['question', 'message-circle-question'], ['answer', 'circle-check'],
+  ['recipe', 'book-open'], ['agent', 'bot'], ['idea', 'lightbulb'],
 ];
 const edges = ['ASKS', 'GETS', 'BECOMES', 'HELPS', 'SPARKS', 'LEADS TO'];
 const label: Record<string, string> = { you: 'you', question: 'question', answer: 'answer', recipe: 'recipe', agent: 'agent', idea: 'idea' };
@@ -17,8 +15,8 @@ const label: Record<string, string> = { you: 'you', question: 'question', answer
     <div class="cm">
       <div class="cg" aria-hidden="true">
         <svg class="cg-l" focusable="false"></svg>
-        {nodes.map(([k, d]) => (
-          <span class="cgn" data-l={label[k]}><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d={d} /></svg></span>
+        {nodes.map(([k, ic]) => (
+          <span class="cgn" data-l={label[k]}><Fragment set:html={lux(ic, 34, 1.6)} /></span>
         ))}
         {edges.map((e) => <span class="eg">{e}</span>)}
         <i class="cg-d"></i>
@@ -62,7 +60,7 @@ const label: Record<string, string> = { you: 'you', question: 'question', answer
   }
   .cgn.drag { cursor: grabbing; }
   .cgn.lit { background: var(--surface-3); border: 2px solid var(--ink); transition-duration: .08s; }
-  .cgn svg { width: 36px; height: 36px; flex: none; image-rendering: pixelated; }
+  .cgn :global(svg) { width: 34px; height: 34px; flex: none; color: var(--ink); filter: none; }
   .cgn::after {
     content: attr(data-l); position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); padding: 2px 6px;
     background: var(--surface-0); font: 500 11px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap;
@@ -78,7 +76,7 @@ const label: Record<string, string> = { you: 'you', question: 'question', answer
     .cg { height: 440px; }
     .com-t { margin-top: 48px; }
   }
-  @media (max-width: 520px) { .cgn svg { width: 28px; height: 28px; } }
+  @media (max-width: 520px) { .cgn :global(svg) { width: 28px; height: 28px; } }
 </style>
 
 <script>

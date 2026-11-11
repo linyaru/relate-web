@@ -2,19 +2,18 @@
 // Home "Why relate" chapters: a sticky chapter list beside three blocks (Built for agents,
 // Memory with structure, Zero to querying). The languages hub is drawn at build time; the only
 // script is the chapter list's scroll tracking and the lifeline animation.
-import { MASCOT_INNER } from '../lib/home/mascot.ts';
+import { MASCOT, lux } from '../lib/home/brand-art.ts';
+import { LANG_LOGOS } from '../lib/home/lang-logos.ts';
 
-const px = (d: string, vb: string, size: number, cls = '') =>
-  `<svg ${cls ? `class="${cls}" ` : ''}viewBox="${vb}" ${cls ? 'height' : 'width'}="${size}"${cls ? '' : ` height="${size}"`} shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
 const ways = [
-  { icon: px('M7 0h2v1h-2zM7 1h2v1h-2zM2 2h12v1h-12zM2 3h1v1h-1zM13 3h1v1h-1zM1 4h2v1h-2zM4 4h3v1h-3zM9 4h3v1h-3zM13 4h2v1h-2zM1 5h2v1h-2zM4 5h3v1h-3zM9 5h3v1h-3zM13 5h2v1h-2zM1 6h2v1h-2zM13 6h2v1h-2zM2 7h1v1h-1zM5 7h6v1h-6zM13 7h1v1h-1zM2 8h1v1h-1zM13 8h1v1h-1zM2 9h12v1h-12zM4 10h1v1h-1zM11 10h1v1h-1zM4 11h8v1h-8z', '0 0 16 16', 48), h: 'Agent skill', p: 'Teaches your coding agent to write Cypher for relate.' },
-  { icon: px('M5 0h1v1h-1zM7 0h2v1h-2zM10 0h1v1h-1zM5 1h1v1h-1zM7 1h2v1h-2zM10 1h1v1h-1zM3 2h10v1h-10zM3 3h1v1h-1zM12 3h1v1h-1zM1 4h3v1h-3zM12 4h3v1h-3zM3 5h1v1h-1zM6 5h4v1h-4zM12 5h1v1h-1zM1 6h3v1h-3zM6 6h1v1h-1zM9 6h1v1h-1zM12 6h3v1h-3zM1 7h3v1h-3zM6 7h1v1h-1zM9 7h1v1h-1zM12 7h3v1h-3zM3 8h1v1h-1zM6 8h4v1h-4zM12 8h1v1h-1zM1 9h3v1h-3zM12 9h3v1h-3zM3 10h1v1h-1zM12 10h1v1h-1zM3 11h10v1h-10zM5 12h1v1h-1zM7 12h2v1h-2zM10 12h1v1h-1zM5 13h1v1h-1zM7 13h2v1h-2zM10 13h1v1h-1z', '0 0 16 16', 48), h: 'MCP endpoint', p: 'Lets agents that speak MCP connect without glue code.' },
-  { icon: px('M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM2 3h1v1h-1zM4 3h3v1h-3zM13 3h1v1h-1zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM4 5h5v1h-5zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM13 7h1v1h-1zM2 8h12v1h-12zM1 9h2v1h-2zM13 9h2v1h-2zM0 10h16v1h-16zM0 11h1v1h-1zM15 11h1v1h-1zM0 12h16v1h-16z', '0 0 16 16', 48), h: 'Command line', p: 'Create, load and query a database right from the shell.' },
-  { icon: px('M1 1h6v1h-6zM1 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM6 3h8v1h-8zM1 4h1v1h-1zM14 4h1v1h-1zM1 5h1v1h-1zM14 5h1v1h-1zM1 6h1v1h-1zM14 6h1v1h-1zM1 7h1v1h-1zM14 7h1v1h-1zM1 8h1v1h-1zM14 8h1v1h-1zM1 9h1v1h-1zM14 9h1v1h-1zM1 10h14v1h-14z', '0 0 16 16', 48), h: 'Libraries', p: 'Embed relate in your own application, in your language.' },
+  { icon: lux('wand-sparkles', 40, 1.5), h: 'Agent skill', p: 'Teaches your coding agent to write Cypher for relate.' },
+  { icon: lux('plug', 40, 1.5), h: 'MCP endpoint', p: 'Lets agents that speak MCP connect without glue code.' },
+  { icon: lux('terminal', 40, 1.5), h: 'Command line', p: 'Create, load and query a database right from the shell.' },
+  { icon: lux('package', 40, 1.5), h: 'Libraries', p: 'Embed relate in your own application, in your language.' },
 ];
 const fx = [
-  { icon: px('M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM0 4h1v1h-1zM9 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM9 5h1v1h-1zM0 6h1v1h-1zM9 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM9 7h1v1h-1zM0 8h1v1h-1zM9 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1z', '0 0 10 10', 28, 'fxi'), h: 'Facts, not loose text', p: 'Decisions, people and documents become facts you can query.' },
-  { icon: px('M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM10 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM1 3h1v1h-1zM11 3h1v1h-1zM1 4h1v1h-1zM11 4h1v1h-1zM2 5h1v1h-1zM10 5h1v1h-1zM3 6h1v1h-1zM9 6h1v1h-1zM4 7h1v1h-1zM8 7h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1z', '0 0 13 11', 28, 'fxi'), h: 'Relationships and similarity together', p: 'One Cypher statement can combine both.' },
+  { icon: lux('file-text', 28, 1.6).replace('class="ic lux"', 'class="fxi"'), h: 'Facts, not loose text', p: 'Decisions, people and documents become facts you can query.' },
+  { icon: lux('network', 28, 1.6).replace('class="ic lux"', 'class="fxi"'), h: 'Relationships and similarity together', p: 'One Cypher statement can combine both.' },
 ];
 const chapters = [
   { id: 'how', label: 'Built for agents' },
@@ -29,42 +28,21 @@ const rows: { rv: boolean; items: [string, 'n' | 'r'][] }[] = [
   { rv: false, items: [['OWNS','r'],['Page Pricing','n'],['DEPENDS_ON','r'],['Launch Q3','n'],['DECIDED','r'],['Person Maya','n'],['PART_OF','r'],['Topic Pricing','n'],['AFFECTS','r']] },
 ];
 
-// The languages hub: eight pixel badges wired to the relate mark.
-const G: Record<string, string> = { R:'110101110101101', S:'011100010001110', P:'110101110100100', Y:'101101010010010', J:'001001001101010', W:'101101111111010', F:'111100110100100', A:'010101111101101', G:'011100101101011', O:'010101101101010', V:'101101101101010', C:'011100100100011' };
-const L: [string, string, string, number, number][] = [
-  ['Rust','RS','#F96746',200,50],['Python','PY','#6A82FF',320,50],['JavaScript','JS','#F6C244',460,140],['WebAssembly','WA','#8FE3E8',460,260],
-  ['Go','GO','#4C99A4',320,340],['Java','JV','#D43300',200,340],['Swift','SF','#FF8E6A',60,260],['C','C','#B7BAC2',60,140],
+// The languages hub: eight full-colour language logos on neutral tiles, wired to the relate mark by
+// elbow routes with a pulse that flows towards it.
+const L: [string, string, number, number][] = [
+  ['rs', 'RS', 200, 50], ['py', 'PY', 320, 50], ['js', 'JS', 460, 140], ['wa', 'WA', 460, 260],
+  ['go', 'GO', 320, 340], ['jv', 'JV', 200, 340], ['sf', 'SF', 60, 260], ['c', 'C', 60, 140],
 ];
-const badge = (t: string, c: string) => {
-  const w = t.length * 4 - 1, x0 = Math.floor((12 - w) / 2);
-  let g = '';
-  for (let i = 0; i < t.length; i++) { const b = G[t[i]]; for (let k = 0; k < 15; k++) if (b[k] === '1') g += `M${x0 + i * 4 + (k % 3)} ${3 + Math.floor(k / 3)}h1v1h-1z`; }
-  return `<path fill="rgba(0,0,0,.5)" d="M1 1h12v12h-12z"/><path fill="${c}" d="M0 0h12v12h-12z"/><path fill="rgba(0,0,0,.22)" d="M0 11h12v1h-12zM11 0h1v12h-1z"/><path fill="rgba(255,255,255,.35)" d="M0 0h11v1h-11zM0 0h1v11h-1z"/><path fill="#0E1114" d="${g}"/>`;
-};
-const T = ['M200 76V106L236 142V150','M320 76V106L284 142V150','M436 140H400L364 176H310','M436 260H400L364 224H310','M320 316V294L284 258V250','M200 316V294L236 258V250','M84 260H120L156 224H210','M84 140H120L156 176H210'];
-function pix(d: string): [number, number][] {
-  const pts: [number, number][] = [];
-  let cx = 0, cy = 0;
-  for (const m of d.matchAll(/([MHVL])(-?\d+)(?: (-?\d+))?/g)) {
-    const a1 = +m[2], a2 = +m[3];
-    if (m[1] === 'M') { cx = a1; cy = a2; } else if (m[1] === 'H') cx = a1; else if (m[1] === 'V') cy = a1; else { cx = a1; cy = a2; }
-    pts.push([cx, cy]);
-  }
-  const out: [number, number][] = [];
-  let last = '';
-  for (let i = 0; i < pts.length - 1; i++) {
-    const A = pts[i], B = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(B[0] - A[0], B[1] - A[1]) / 4));
-    for (let k = 0; k <= n; k++) {
-      const x = Math.floor((A[0] + ((B[0] - A[0]) * k) / n) / 4) * 4, y = Math.floor((A[1] + ((B[1] - A[1]) * k) / n) / 4) * 4, key = `${x},${y}`;
-      if (key !== last) { out.push([x, y]); last = key; }
-    }
-  }
-  return out;
-}
+const T = ['M200 76V106L232 138V172', 'M320 76V106L288 138V172', 'M436 140H400L364 176H290', 'M436 260H400L364 224H296', 'M320 316V294L288 262V226', 'M200 316V294L232 262V226', 'M84 260H120L156 224H222', 'M84 140H120L156 176H230'];
+const TS = 56;
 let hub = '';
-for (const d of T) { const p = pix(d); p.forEach((q, i) => { hub += `<rect class="lpx" x="${q[0]}" y="${q[1]}" width="4" height="4" style="animation-delay:${((i / p.length) * 1.8).toFixed(2)}s"/>`; }); }
-hub += `<svg x="208" y="156" width="104" height="91" viewBox="0 0 16 14" shape-rendering="crispEdges">${MASCOT_INNER}</svg>`;
-for (const l of L) hub += `<g transform="translate(${l[3] - 21} ${l[4] - 21}) scale(3.5)">${badge(l[1], l[2])}</g>`;
+T.forEach((d, i) => { hub += `<path class="hb-l" d="${d}"/><path class="hb-f" pathLength="100" d="${d}" style="animation-delay:${(i * 0.22).toFixed(2)}s"/>`; });
+hub += `<g transform="translate(205 150) scale(.19)">${MASCOT}</g>`;
+for (const [k, code, x, y] of L) {
+  const g = LANG_LOGOS[k], vb = g.vb, m = code === 'GO' ? 46 : 34, sc = Math.min(m / vb[2], m / vb[3]), w = vb[2] * sc, h = vb[3] * sc;
+  hub += `<g class="hb-g" role="img" aria-label="${g.n}"><title>${g.n}</title><rect class="hb-b" x="${x - TS / 2}" y="${y - TS / 2}" width="${TS}" height="${TS}" rx="10"/><svg x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" viewBox="${vb.join(' ')}" aria-hidden="true">${g.i}</svg></g>`;
+}
 const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label="relate is available in Rust, Python, JavaScript, WebAssembly, Go, Java, Swift and C">${hub}</svg>`;
 ---
 <div class="chapters" id="chapters">
@@ -82,7 +60,7 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
         <p class="lede">relate is a library inside your application. Your agent writes Cypher and relate answers with the results. Use the interface that fits your build.</p>
       </div>
       <div class="ways">
-        {ways.map((w) => <div><span class="ic" set:html={w.icon} /><h3>{w.h}</h3><p>{w.p}</p></div>)}
+        {ways.map((w) => <div><span class="wic" set:html={w.icon} /><h3>{w.h}</h3><p>{w.p}</p></div>)}
       </div>
       <div class="duo">
         <div>
@@ -166,17 +144,21 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
   /* Built for agents */
   #how .mb-t { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 64px; align-items: center; padding: 72px 40px; }
   .ways { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-  .ways > div { padding: 56px 40px 64px; border-left: 1px solid var(--line); }
-  .ways > div:first-child { border-left: 0; }
-  .ways :global(.ic) { display: block; width: 48px; height: 48px; margin-bottom: 40px; color: var(--ink); }
+  .ways > div { padding: 56px 40px 64px; }
+  .ways :global(.wic) { display: block; width: 40px; height: 40px; margin-bottom: 40px; color: var(--ink); }
+  .ways :global(svg.lux) { display: block; flex: none; filter: none; color: var(--ink); }
   .ways p, .duo p { margin: 10px 0 0; color: var(--ink-muted); font-size: 15px; line-height: 24px; }
   .duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
   .duo > div { padding: 56px 40px 64px; }
   .duo > div + div { border-left: 1px solid var(--line); }
   .lvis { margin-top: 32px; }
   .lvis :global(svg.hubsvg) { display: block; width: 100%; height: auto; }
-  .lvis :global(.lpx) { fill: var(--line-strong); shape-rendering: crispEdges; animation: lpx 1.8s steps(1) infinite; }
-  @keyframes lpx { 0%, 22% { fill: #F96746; } 23%, 100% { fill: var(--line-strong); } }
+  .lvis :global(.hb-l) { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .lvis :global(.hb-f) { fill: none; stroke: #F96746; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 14 100; stroke-dashoffset: 14; animation: hbflow 2.2s linear infinite; }
+  @keyframes hbflow { 0% { stroke-dashoffset: 14; } 70%, 100% { stroke-dashoffset: -100; } }
+  .lvis :global(.hb-b) { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.25; }
+  :global(:root[data-theme="light"]) .lvis :global([aria-label^="Rust"] path) { fill: #181414; }
+  @media (prefers-color-scheme: light) { :global(:root:not([data-theme="dark"])) .lvis :global([aria-label^="Rust"] path) { fill: #181414; } }
   .life { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 32px; padding: 20px; border: 1px solid var(--line); background: var(--surface-0); font: 400 12px/16px var(--mono); color: var(--ink-muted); }
   .lh { display: flex; justify-content: space-between; margin: 16px 0 0; font: 500 11px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
   .lh:first-child { margin-top: 0; }
@@ -209,7 +191,7 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
   .code .s { color: var(--sh, var(--ink)); }
   .fx-t .lede { margin-top: 20px; }
   .fx-p { display: grid; gap: 32px; margin-top: 48px; }
-  .fx-p :global(.fxi) { display: block; width: auto; height: 28px; margin: 0 0 16px; color: var(--ink); }
+  .fx-p :global(.fxi) { display: block; box-sizing: content-box; width: 22px; height: 22px; padding: 11px; margin: 0 0 20px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); color: var(--ink); }
   .fx-p h3 { font: 600 16px/24px var(--font); letter-spacing: -.01em; margin: 0 0 6px; }
   .fx-p p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 22px; }
 
@@ -242,7 +224,6 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
     .ways { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ways > div { padding: 32px 24px 40px; border-top: 1px solid var(--line); }
     .ways > div:nth-child(-n+2) { border-top: 0; }
-    .ways > div:nth-child(odd) { border-left: 0; }
     .duo { grid-template-columns: minmax(0, 1fr); }
     .duo > div { padding: 32px 24px 40px; }
     .duo > div + div { border-left: 0; border-top: 1px solid var(--line); }
@@ -258,7 +239,7 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
     .ways > div:first-child { border-top: 0 !important; }
     .cq { width: calc(100% - 32px); }
   }
-  @media (prefers-reduced-motion: reduce) { .chip-tr, .lvis :global(.lpx) { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .chip-tr { animation: none; } .lvis :global(.hb-f) { animation: none; opacity: 0; } }
 </style>
 
 <script>

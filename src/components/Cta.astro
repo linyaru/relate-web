@@ -1,12 +1,7 @@
 ---
-// Home closing band: the call to action beside the relate arch, which leaves three fading echoes.
-// The arch is drawn at build time from the same pixel cells the footer's play area uses.
-const TONE = {
-  hl: 'M3 0h6v1h-6zM2 1h1v1h-1zM1 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h1v1h-1zM8 8h1v1h-1zM0 9h1v1h-1zM8 9h1v1h-1z',
-  md: 'M3 1h6v1h-6zM2 2h3v1h-3zM7 2h3v1h-3zM2 3h2v1h-2zM8 3h2v1h-2zM2 4h1v1h-1zM9 4h1v1h-1zM2 5h1v1h-1zM9 5h1v1h-1zM2 6h1v1h-1zM9 6h1v1h-1zM1 7h2v1h-2zM9 7h2v1h-2zM1 8h2v1h-2zM9 8h2v1h-2z',
-  sh: 'M9 1h1v1h-1zM5 2h2v1h-2zM10 2h1v1h-1zM4 3h1v1h-1zM10 3h1v1h-1zM3 4h1v1h-1zM10 4h1v1h-1zM3 5h1v1h-1zM10 5h1v1h-1zM3 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM11 8h1v1h-1zM1 9h3v1h-3zM9 9h3v1h-3z',
-};
-const arch = Object.values(TONE).join('');
+// Home closing band: the call to action beside the Archie arch, which leaves three fading echoes.
+import { CTA_MARK } from '../lib/home/brand-art.ts';
+const mark = CTA_MARK.replace(' id="cta-mk"', '').replace('class="cta-mk"', '');
 ---
 <section class="cta" aria-labelledby="h-cta">
   <div class="cta-box">
@@ -19,16 +14,16 @@ const arch = Object.values(TONE).join('');
       </div>
     </div>
     <div class="cta-art" aria-hidden="true">
-      <svg viewBox="0 0 12 10" shape-rendering="crispEdges" focusable="false"><path d={arch} /></svg>
+      <Fragment set:html={mark} />
       {[0, 1, 2].map((i) => (
-        <svg class="cta-echo" viewBox="0 0 12 10" shape-rendering="crispEdges" focusable="false" style={`animation-delay:${-i * 2}s;--k:${i}`}><path d={arch} /></svg>
+        <Fragment set:html={mark.replace('<svg ', `<svg class="cta-echo" style="animation-delay:${-i * 2}s;--k:${i}" `)} />
       ))}
     </div>
   </div>
 </section>
 
 <style>
-  .cta { margin-top: 96px; background: var(--sp-hib, #F96746); color: #17171B; overflow: hidden; }
+  .cta { margin-top: 96px; background: #8FE3E8; color: #101013; overflow: hidden; }
   .cta-box {
     position: relative; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 0; align-items: stretch;
     max-width: var(--page-w); margin: 0 auto; padding: 0 24px;
@@ -47,8 +42,9 @@ const arch = Object.values(TONE).join('');
   .btn-line:hover { background: rgba(23, 23, 27, .2); }
   .btn:focus-visible { outline: 2px solid #17171B; outline-offset: 2px; }
   .cta-art { position: relative; align-self: end; justify-self: end; width: min(100%, 380px); margin: 0 56px -1px 0; z-index: 0; }
-  .cta-art svg { display: block; width: 100%; height: auto; fill: #17171B; }
-  .cta-art .cta-echo { position: absolute; left: 0; bottom: 0; opacity: 0; animation: ctaecho 6s linear infinite; }
+  .cta-art :global(svg) { display: block; width: 100%; height: auto; }
+  .cta-art :global(path) { fill: #101013; }
+  .cta-art :global(.cta-echo) { position: absolute; left: 0; bottom: 0; opacity: 0; animation: ctaecho 6s linear infinite; }
   @keyframes ctaecho { 0% { transform: translateX(0); opacity: .5; } 100% { transform: translateX(-320px); opacity: 0; } }
   @media (max-width: 900px) {
     .cta { margin-top: 72px; }
@@ -58,6 +54,6 @@ const arch = Object.values(TONE).join('');
     @keyframes ctaecho { 0% { transform: translateX(0); opacity: .5; } 100% { transform: translateX(-160px); opacity: 0; } }
   }
   @media (prefers-reduced-motion: reduce) {
-    .cta-art .cta-echo { animation: none; opacity: calc(.24 - var(--k) * .05); transform: translateX(calc(var(--k) * -110px - 110px)); }
+    .cta-art :global(.cta-echo) { animation: none; opacity: calc(.24 - var(--k) * .05); transform: translateX(calc(var(--k) * -110px - 110px)); }
   }
 </style>

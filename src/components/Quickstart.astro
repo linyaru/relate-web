@@ -1,10 +1,7 @@
 ---
 // Home "Quickstart": four steps that tick off in turn beside a prompt to paste into an agent.
-// The pixel-hex field behind the prompt is drawn at build time; the steps, the speech bubble and
-// the copy button are the only script. Commands and the agent briefing (/skill.md) are the
+// The steps, the status label and the copy button are the only script. Commands and the agent briefing (/skill.md) are the
 // verified ones from the docs (get-started/agent-quickstart).
-import { sprite } from '../lib/home/sprites.ts';
-
 const SITE = 'https://relatedb.ai';
 const PROMPT = `Set up relate for me. Read ${SITE}/skill.md, install the relate agent skill, create a database, add my data, and answer my questions by writing Cypher queries.`;
 const steps = [
@@ -14,61 +11,11 @@ const steps = [
   { h: 'Query it', p: 'Tables for you, JSON for your agent.', tag: 'table / JSON', say: 'Running your query' },
 ];
 
-// A pixel-art hexagon built from square pixels on a P grid.
-function pxhex(cx: number, cy: number, rad: number, P: number, n: number): string {
-  const gx = Math.round(cx / P) * P, gy = Math.round(cy / P) * P, s3 = Math.sqrt(3);
-  let d = '';
-  for (let y = -Math.floor(rad / P) * P; y <= rad; y += P) {
-    const ay = Math.abs(y + P / 2);
-    if (ay > rad) continue;
-    let hw = Math.min((rad * s3) / 2, (rad - ay) * s3);
-    hw = Math.round(hw / P) * P;
-    if (hw < P) continue;
-    d += `M${gx - hw} ${gy + y}h${hw * 2}v${P}h-${hw * 2}z`;
-  }
-  return d ? `<path d="${d}" style="fill:var(--t${n})"/>` : '';
-}
-const hsh = (i: number, j: number, k: number) => {
-  let t = Math.imul(i * 374761393 + j * 668265263 + (17 + k) * 1442695041, 1274126177);
-  t ^= t >>> 13;
-  t = Math.imul(t, 1103515245);
-  t ^= t >>> 16;
-  return ((t >>> 0) % 10000) / 10000;
-};
-// Faded hex tiles that thin out and shrink to pixels away from the bottom-right corner.
-function hexField(w: number, h: number): string {
-  const s3 = Math.sqrt(3), R = 46, P = Math.max(3, Math.round(R / 9)), reach = Math.max(w, h) * 0.78;
-  let g = '';
-  for (let r = -1; r <= Math.ceil(h / (R * 1.5)) + 1; r++)
-    for (let q = -Math.ceil(r / 2) - 2; q <= Math.ceil(w / (R * s3)) + 2; q++) {
-      const cx = R * s3 * (q + r / 2), cy = R * 1.5 * r;
-      if (cx < -R || cx > w + R || cy < -R || cy > h + R) continue;
-      const d = Math.hypot(cx - w, (cy - h) * 1.15) / reach;
-      if (d >= 0.9) continue;
-      const k = hsh(q, r, 1), keep = Math.pow(1 - d, 1.15);
-      if (hsh(q, r, 0) > keep * 1.08 + 0.04) continue;
-      const sc = 1 - d * 0.72;
-      if (sc < 0.36) continue;
-      const rad = (R - 3) * sc;
-      let n = d < 0.3 ? (k > 0.5 ? 2 : 0) : d < 0.6 ? (k > 0.5 ? 0 : 1) : k > 0.5 ? 1 : 3;
-      if (k > 0.955) n = 4;
-      if (sc < 0.5) {
-        const hs = P * Math.max(1, Math.round((rad * 0.5) / P));
-        g += `<rect x="${Math.round(cx / P) * P - hs / 2}" y="${Math.round(cy / P) * P - hs / 2}" width="${hs}" height="${hs}" style="fill:var(--t${n})"/>`;
-      } else g += pxhex(cx, cy, rad, P, n);
-    }
-  return `<svg class="qhex" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">${g}</svg>`;
-}
-// A step marker: a pixel ring that spins while the step runs, a check when it is done.
-const ring = [[1,1],[2,1],[3,1],[4,1],[5,1],[5,2],[5,3],[5,4],[5,5],[4,5],[3,5],[2,5],[1,5],[1,4],[1,3],[1,2]];
-const check = [[1,3],[2,4],[3,5],[4,4],[5,3],[6,2]];
+// A step marker: a ring, a spinner arc while the step runs, a solid brand check circle when it is done.
 const marker =
-  '<svg viewBox="0 0 7 7" width="21" height="21" shape-rendering="crispEdges">' +
-  ring.map(([x, y], i) => `<rect class="r" x="${x}" y="${y}" width="1" height="1" style="animation-delay:-${(((16 - i) % 16) * 0.075).toFixed(3)}s"/>`).join('') +
-  check.map(([x, y], i) => `<rect class="c" x="${x}" y="${y}" width="1" height="1" style="transition-delay:${(i * 0.07).toFixed(2)}s"/>`).join('') +
-  '</svg>';
-const field = hexField(720, 640);
-const robot = sprite('robot');
+  '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+  '<circle class="r" cx="12" cy="12" r="9"/><path class="sp" d="M21 12a9 9 0 1 1-6.219-8.56"/>' +
+  '<circle class="fl" cx="12" cy="12" r="10.5" stroke="none"/><path class="c" d="m8 12.5 3 3 5-6"/></svg>';
 ---
 <section class="qs" id="quickstart" aria-labelledby="h-qs">
   <div class="qs-in">
@@ -88,10 +35,8 @@ const robot = sprite('robot');
         ))}
       </ol>
       <div class="qprompt">
-        <Fragment set:html={field} />
         <div class="qmas">
           <span class="qsay" aria-hidden="true"><b id="qsay">Hi, set me up</b></span>
-          <span class="qframe"><span class="qbot" aria-hidden="true" set:html={robot} /></span>
         </div>
         <div class="qpanel">
           <div class="qpbody">
@@ -144,40 +89,33 @@ const robot = sprite('robot');
   }
   .qsq { grid-row: 1 / 3; grid-column: 1; margin-top: 3px; display: block; width: 21px; height: 21px; color: var(--ink-muted); transition: color .4s; }
   .qsq :global(svg) { display: block; width: 21px; height: 21px; overflow: visible; }
-  .qsq :global(rect) { fill: currentColor; }
-  .qsq :global(.r) { opacity: .16; }
-  .qsq :global(.c) { opacity: 0; transition: opacity .01s linear; }
+  .qsq :global(.r) { opacity: .45; stroke: currentColor; }
+  .qsq :global(.sp) { opacity: 0; transform-origin: 12px 12px; }
+  .qsq :global(.fl) { fill: var(--brand); opacity: 0; transform: scale(.6); transform-origin: 12px 12px; transition: opacity .25s ease, transform .25s ease; }
+  .qsq :global(.c) { stroke: var(--surface-0); stroke-dasharray: 14; stroke-dashoffset: 14; transition: stroke-dashoffset .35s ease .1s; }
   .qrows li.cur:not(.done) .qsq { color: var(--ink); }
-  .qrows li.cur:not(.done) .qsq :global(.r) { animation: qsp 1.2s steps(6) infinite; }
-  .qrows li.done .qsq { color: var(--brand); }
-  .qrows li.done .qsq :global(.r) { opacity: 0; animation: none; }
-  .qrows li.done .qsq :global(.c) { opacity: 1; }
-  @keyframes qsp { 0% { opacity: 1; } 70%, 100% { opacity: .14; } }
+  .qrows li.cur:not(.done) .qsq :global(.r) { opacity: .25; }
+  .qrows li.cur:not(.done) .qsq :global(.sp) { opacity: 1; animation: qspin .8s linear infinite; }
+  .qrows li.done .qsq :global(.r) { opacity: 0; }
+  .qrows li.done .qsq :global(.fl) { opacity: 1; transform: scale(1); }
+  .qrows li.done .qsq :global(.c) { stroke-dashoffset: 0; }
+  @keyframes qspin { to { transform: rotate(360deg); } }
 
-  /* The prompt side: brand blue with the build-time hex field behind a mascot and the prompt panel. */
+  /* The prompt side: brand blue, a status label above the prompt panel. */
   .qprompt {
-    --bg: #0A6190; --t0: #1470A2; --t1: #08557F; --t2: #2B84B0; --t3: #064668; --t4: #4C99A4;
+    --bg: #0A6190;
     position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
-    padding: 40px 72px 88px; background: var(--bg);
+    padding: var(--qpad, 64px) 72px 88px; background: var(--bg);
   }
-  .qprompt :global(.qhex) { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-  .qmas { display: flex; flex-direction: column; align-items: center; gap: 12px; align-self: center; margin-bottom: 28px; }
-  .qsay { background: #111214; color: #fff; font: 500 12px/16px var(--mono); padding: 8px 11px; white-space: nowrap; box-shadow: 4px 4px 0 rgba(0,0,0,.22); }
+  .qmas { display: flex; justify-content: center; align-self: center; margin: 0 0 16px; }
+  .qsay { background: #111214; color: #fff; font: 500 12px/16px var(--mono); padding: 8px 11px; white-space: nowrap; border-radius: 6px; }
   .qsay b { font-weight: 500; }
   .qsay b::after { content: ''; display: inline-block; width: 6px; height: 11px; margin-left: 3px; vertical-align: -2px; background: currentColor; animation: qcur 1s steps(1) infinite; }
   @keyframes qcur { 50% { opacity: 0; } }
-  .qframe {
-    position: relative; display: grid; place-items: center; width: 96px; height: 96px; background: #111214;
-    box-shadow: 0 0 0 5px #2A2B31, 0 0 0 6px rgba(0,0,0,.5), 5px 5px 0 6px rgba(0,0,0,.2);
-  }
-  .qframe::after { content: ''; position: absolute; inset: 6px; border: 1px solid #2F3036; pointer-events: none; }
-  .qbot { display: block; line-height: 0; animation: qhop 1.6s steps(1) infinite; }
-  .qbot :global(svg) { display: block; width: 64px; height: 64px; }
-  @keyframes qhop { 0% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
   .qpanel {
     width: 100%; padding: 8px; background: #fff; border: 1px solid rgba(0,0,0,.45);
-    box-shadow: 4px 4px 0 rgba(0,0,0,.26), 8px 8px 0 rgba(0,0,0,.14);
+    box-shadow: 0 10px 28px -8px rgba(0,0,0,.35);
   }
   :global(:root:not([data-theme='light'])) .qpanel { background: var(--surface-1); }
   @media (prefers-color-scheme: light) { :global(:root:not([data-theme='dark'])) .qpanel { background: #fff; } }
@@ -209,8 +147,8 @@ const robot = sprite('robot');
     .qfa, .qfd { padding: 0 8px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .qbot, .qsay b::after, .qrows li.cur:not(.done) .qsq :global(.r) { animation: none; }
-    .qsq :global(.c) { transition: none; }
+    .qsay b::after, .qrows li.cur:not(.done) .qsq :global(.sp) { animation: none; }
+    .qsq :global(.c), .qsq :global(.fl) { transition: none; }
   }
 </style>
 

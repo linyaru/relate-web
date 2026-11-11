@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "verified": "0.1.2",
+  "verified": "0.1.3",
   "cells": {
     "seed": {
       "kind": "table",
@@ -297,7 +297,7 @@
     },
     "show-indexes": {
       "kind": "table",
-      "text": "| name               | type    | labelsOrTypes | properties       | owningConstraint | state    |\n|--------------------|---------|---------------|------------------|------------------|----------|\n| \"person_name_role\" | \"RANGE\" | [\"Person\"]    | [\"name\", \"role\"] | null             | \"ONLINE\" |\n| \"person_role\"      | \"RANGE\" | [\"Person\"]    | [\"role\"]         | null             | \"ONLINE\" |\n| \"project_language\" | \"TEXT\"  | [\"Project\"]   | [\"language\"]     | null             | \"ONLINE\" |\n| \"project_name\"     | \"RANGE\" | [\"Project\"]   | [\"name\"]         | \"project_name\"   | \"ONLINE\" |\n4 rows",
+      "text": "| name               | type     | labelsOrTypes | properties       | owningConstraint | state    |\n|--------------------|----------|---------------|------------------|------------------|----------|\n| \"index_1b9dcc97\"   | \"LOOKUP\" | null          | null             | null             | \"ONLINE\" |\n| \"index_460996c0\"   | \"LOOKUP\" | null          | null             | null             | \"ONLINE\" |\n| \"person_name_role\" | \"RANGE\"  | [\"Person\"]    | [\"name\", \"role\"] | null             | \"ONLINE\" |\n| \"person_role\"      | \"RANGE\"  | [\"Person\"]    | [\"role\"]         | null             | \"ONLINE\" |\n| \"project_language\" | \"TEXT\"   | [\"Project\"]   | [\"language\"]     | null             | \"ONLINE\" |\n| \"project_name\"     | \"RANGE\"  | [\"Project\"]   | [\"name\"]         | \"project_name\"   | \"ONLINE\" |\n6 rows",
       "table": {
         "columns": [
           "name",
@@ -316,6 +316,22 @@
           false
         ],
         "rows": [
+          [
+            "\"index_1b9dcc97\"",
+            "\"LOOKUP\"",
+            "null",
+            "null",
+            "null",
+            "\"ONLINE\""
+          ],
+          [
+            "\"index_460996c0\"",
+            "\"LOOKUP\"",
+            "null",
+            "null",
+            "null",
+            "\"ONLINE\""
+          ],
           [
             "\"person_name_role\"",
             "\"RANGE\"",
@@ -349,15 +365,15 @@
             "\"ONLINE\""
           ]
         ],
-        "summary": "4 rows"
+        "summary": "6 rows"
       },
       "graph": null,
       "envelope": {
         "columnTypes": [
           "STRING",
           "STRING",
-          "LIST",
-          "LIST",
+          "ANY",
+          "ANY",
           "ANY",
           "STRING"
         ],
@@ -374,6 +390,22 @@
         "plan": null,
         "plan_cache": "miss",
         "rows": [
+          {
+            "labelsOrTypes": null,
+            "name": "index_1b9dcc97",
+            "owningConstraint": null,
+            "properties": null,
+            "state": "ONLINE",
+            "type": "LOOKUP"
+          },
+          {
+            "labelsOrTypes": null,
+            "name": "index_460996c0",
+            "owningConstraint": null,
+            "properties": null,
+            "state": "ONLINE",
+            "type": "LOOKUP"
+          },
           {
             "labelsOrTypes": [
               "Person"
@@ -557,7 +589,7 @@
     },
     "verify": {
       "kind": "table",
-      "text": "| name               | type    | owningConstraint | state    |\n|--------------------|---------|------------------|----------|\n| \"person_role\"      | \"RANGE\" | null             | \"ONLINE\" |\n| \"project_language\" | \"TEXT\"  | null             | \"ONLINE\" |\n| \"project_name\"     | \"RANGE\" | \"project_name\"   | \"ONLINE\" |\n3 rows",
+      "text": "| name               | type     | owningConstraint | state    |\n|--------------------|----------|------------------|----------|\n| \"index_1b9dcc97\"   | \"LOOKUP\" | null             | \"ONLINE\" |\n| \"index_460996c0\"   | \"LOOKUP\" | null             | \"ONLINE\" |\n| \"person_role\"      | \"RANGE\"  | null             | \"ONLINE\" |\n| \"project_language\" | \"TEXT\"   | null             | \"ONLINE\" |\n| \"project_name\"     | \"RANGE\"  | \"project_name\"   | \"ONLINE\" |\n5 rows",
       "table": {
         "columns": [
           "name",
@@ -572,6 +604,18 @@
           false
         ],
         "rows": [
+          [
+            "\"index_1b9dcc97\"",
+            "\"LOOKUP\"",
+            "null",
+            "\"ONLINE\""
+          ],
+          [
+            "\"index_460996c0\"",
+            "\"LOOKUP\"",
+            "null",
+            "\"ONLINE\""
+          ],
           [
             "\"person_role\"",
             "\"RANGE\"",
@@ -591,7 +635,7 @@
             "\"ONLINE\""
           ]
         ],
-        "summary": "3 rows"
+        "summary": "5 rows"
       },
       "graph": null,
       "envelope": {
@@ -612,6 +656,18 @@
         "plan": null,
         "plan_cache": "miss",
         "rows": [
+          {
+            "name": "index_1b9dcc97",
+            "owningConstraint": null,
+            "state": "ONLINE",
+            "type": "LOOKUP"
+          },
+          {
+            "name": "index_460996c0",
+            "owningConstraint": null,
+            "state": "ONLINE",
+            "type": "LOOKUP"
+          },
           {
             "name": "person_role",
             "owningConstraint": null,

@@ -1,7 +1,7 @@
 {
   "$schema_note": "Facts about the relate CLI for the docs pipeline (DOCS-PLAN.md §8 check 3, the <ExitCodes>/<Flags>/<EnvVars> components). Summaries are paraphrases; strings in `messages` and in backticks are quoted from the binary or the sources character for character. Facts the sources disagreed on were settled against the binary named in `recorded_with` (`settled_by`); before launch that is a source build, not a published release (engine.json `source_build`). `verify` marks what the binary cannot show. `recorded` holds a replayable run of the binary (see `recording`); `help` and `agent_context` hold the recorded `--help` pages and agent briefings.",
   "binary": "relate",
-  "verified": "0.1.2",
+  "verified": "0.1.3",
   "upstream": {
     "repo": "relatedb/relate",
     "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
@@ -32,7 +32,7 @@
       "recorded": {
         "command": "relate --database ./s.rl < s.cypher",
         "setup": "printf 'RETURN 1 AS ok;\\n' > s.cypher",
-        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown|parquet-wide); empty directory only (parquet-wide:\n                       ADR-0534 wide-column parts; the manifest keeps the store wide)\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal (ADR-0231); on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
+        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal (ADR-0231); on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
         "stderr": "",
         "exit": 0
       }
@@ -882,7 +882,7 @@
           "recorded": {
             "command": "relate serve --database ./store --http 7474 --snapshot-format csv",
             "stdout": "",
-            "stderr": "Error: serve --snapshot-format expects a snapshot format, got \"csv\": storage error: unknown snapshot format 'csv' (expected parquet or json or markdown or parquet-wide)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
+            "stderr": "Error: serve --snapshot-format expects a snapshot format, got \"csv\": storage error: unknown snapshot format 'csv' (expected parquet or json or markdown)\nUsage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\nRun 'relate serve --help' for more information.\n",
             "exit": 2
           }
         },
@@ -1101,7 +1101,7 @@
       "command_id": null,
       "recorded": {
         "command": "relate --help",
-        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown|parquet-wide); empty directory only (parquet-wide:\n                       ADR-0534 wide-column parts; the manifest keeps the store wide)\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal (ADR-0231); on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
+        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal (ADR-0231); on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
         "stderr": "",
         "exit": 0
       }
@@ -1111,7 +1111,7 @@
       "command_id": "query",
       "recorded": {
         "command": "relate query --help",
-        "stdout": "Usage: relate query [STATEMENT] [--database PATH]\n\nquery runs a statement session (ADR-0200): a positional STATEMENT or\n-c/--command (one statement or a `;`-separated list). With no\nSTATEMENT, a script is read from stdin, or the interactive shell opens\non a terminal. The path-first form with no QUERY opens the same shell on a\nterminal (ADR-0231); on piped or redirected stdin it prints help instead.\n-d / --database sets\nthe store; omitted, it is :memory:. The same flag is the store on\nthe path-first form, on pull, and on info.\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown|parquet-wide); empty directory only (parquet-wide:\n                       ADR-0534 wide-column parts; the manifest keeps the store wide)\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional STATEMENT)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\n",
+        "stdout": "Usage: relate query [STATEMENT] [--database PATH]\n\nquery runs a statement session (ADR-0200): a positional STATEMENT or\n-c/--command (one statement or a `;`-separated list). With no\nSTATEMENT, a script is read from stdin, or the interactive shell opens\non a terminal. The path-first form with no QUERY opens the same shell on a\nterminal (ADR-0231); on piped or redirected stdin it prints help instead.\n-d / --database sets\nthe store; omitted, it is :memory:. The same flag is the store on\nthe path-first form, on pull, and on info.\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source (LABS-903, ADR-0500)\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on — ADR-0426)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines (ADR-0463)\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected (ADR-0452)\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n                       (LABS-610, ADR-0466).\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked (LABS-680, ADR-0477).\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default, ADR-0426); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       ADR-0407's ladder: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused (LABS-903, ADR-0500)\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone (LABS-872, ADR-0496)\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional STATEMENT)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\n",
         "stderr": "",
         "exit": 0
       }
@@ -1201,7 +1201,7 @@
       "command_id": "serve",
       "recorded": {
         "command": "relate serve --help",
-        "stdout": "Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\n\nserve hosts Relate's network surfaces on one open database until\nSIGINT/SIGTERM (ADR-0232). At least one surface flag is required; ports\nhave no defaults, and a taken port is a startup error.\n  -d, --database PATH  The store to serve (directory, .rl bundle, or :memory:)\n  --host HOST    Bind host for every served surface (ADR-0248). Default\n                       127.0.0.1 (loopback only). Any other host deliberately\n                       exposes the PLAINTEXT surfaces to the network — serve\n                       has no TLS — and a loud WARNING prints at startup\n  --http PORT    HTTP Query API v2 endpoint (POST /db/<name>/query/v2; plus the\n                       public GET / discovery document) on --host:PORT\n  --origin ORIGIN  Allow a browser Origin on the HTTP surface (repeatable;\n                   an exact URL or * for any). Default: loopback origins plus\n                   https://browser.neo4j.io and https://console.neo4j.io\n  --tx-idle-timeout-secs N\n                   Expire an HTTP managed transaction after N seconds idle\n                   (ADR-0435); the next registry operation sweeps it. Default:\n                   RELATE_TX_IDLE_TIMEOUT_SECS, else 60. 0 disables expiry\n  --max-open-transactions N\n                   Cap on open HTTP managed transactions (ADR-0435). Over cap\n                   is a typed 429 naming this flag. Default:\n                   RELATE_MAX_OPEN_TRANSACTIONS, else 128. 0 is unlimited\n  --mcp PORT|stdio\n                   MCP server: PORT serves the streamable HTTP transport\n                   on --host:PORT; the `stdio` keyword serves the stdio\n                   transport in the foreground (newline-delimited JSON-RPC\n                   on stdin/stdout, for MCP hosts) until the host closes\n                   stdin — no auth challenge (ADR-0232, LABS-381, ADR-0368)\n  --bolt PORT    Bolt server (Bolt + Bolt-over-WebSocket) on --host:PORT.\n                   WebSocket Origins default to loopback (any port) plus the\n                   hosted Neo4j Browser and Neo4j Console; another Origin\n                   needs --ws-allow-origin (ADR-0266, ADR-0459)\n  --ws-allow-origin ORIGIN\n                   Allow this Origin on Bolt-over-WebSocket upgrades\n                   (repeatable; an exact http(s) URL or * for any). Overrides\n                   the default: loopback plus https://browser.neo4j.io and\n                   https://console.neo4j.io with auth on, loopback only with\n                   --auth none\n  --bolt-identity STRING\n                   HELLO `server` agent string for the Bolt surface\n                   (ADR-0293). Default: RELATE_IDENTITY, else\n                   Relate/<version>. Sent verbatim — a Neo4j-shaped\n                   value (Neo4j/5.26.0) admits strict tooling like\n                   cypher-shell without claiming feature parity\n  --ws-max-connections N\n                   Opt-in cap on concurrent WebSocket sessions (ADR-0459).\n                   Default: RELATE_WS_MAX_CONNECTIONS, else unlimited —\n                   bulk data transfers legitimately run many sessions. The\n                   process-wide --max-connections cap still applies\n  --read-only[=FRESHNESS]  Open the existing store read-only\n                   (ADR-0306): no writer lease, never creates it; every\n                   write fails. FRESHNESS is snapshot (default: a frozen\n                   snapshot at open) or live (ADR-0480): tail the WAL and\n                   follow the writer's commits; refuses .rl and :memory:.\n                   Attach the value; once per run\n  --load SOURCE   Load the served store's content from SOURCE — a\n                   .rl bundle, a store directory, or an https URL\n                   (LABS-872/903, ADR-0500) — into --database. A :memory:\n                   target (the default) turns the source into the\n                   in-memory store: read-only, nothing held open or\n                   locked, a fetched copy released after the load. A path\n                   target creates the store there (the path must not\n                   exist) and opens it writable by default\n  --auth USER:PASSWORD  Basic-auth credential shared by every served\n                       surface; `none` disables auth. Default:\n                       RELATE_AUTH, else a generated token printed at\n                       startup (persisted as <dir>.auth-token, 0600)\n  --max-connections N  Process-wide session cap shared by every surface\n                       (ADR-0333). Over cap is accept-then-close. Default:\n                       RELATE_MAX_CONNECTIONS, else 128\n  --header-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request header\n                   block (ADR-0451). Trickled headers are dropped at the\n                   deadline. Default: RELATE_HEADER_DEADLINE_SECS, else 10. 0 disables the deadline\n  --body-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request body\n                   (ADR-0451). Trickled bodies are dropped at the deadline.\n                   Default: RELATE_BODY_DEADLINE_SECS, else 60. 0 disables the deadline\n  --concurrent-logical-workspace-limit SIZE\n                       Admit queries against a shared logical-workspace\n                       pool (bytes or mb/mib/gb/gib; ADR-0452). A positive\n                       value turns admission on. Omit, or an unset\n                       RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT, leaves\n                       it off. 0 is rejected. Same resolution as the query\n                       session's flag\n  --max-traversal-depth N\n                       Largest explicit traversal hop bound a served\n                       statement may ask for (1 through 2000; LABS-610,\n                       ADR-0466). Default: RELATE_MAX_TRAVERSAL_DEPTH,\n                       else 500. An *1..N or {1,N} bound above it fails at\n                       admission with TraversalDepthExceeded\n  --expression-memory-limit SIZE\n                       Per-value expression build cap for the served store\n                       (bytes, mb/mib/gb/gib, or none; ADR-0463). Default:\n                       256 MiB, or raise/lower it here; none disables the\n                       cap for known bulk pipelines\n  --safe, --no-safe\n                       Refuse agent-typical dangerous statement shapes on\n                       the served store (LABS-680, ADR-0477). Default:\n                       RELATE_SAFE_MODE=1/0, else off. --no-safe\n                       negates an enabled environment default\n  --logical-graph-size-limit SIZE\n                       Live graph + index cap for the served store (bytes\n                       or mb/mib/gb/gib; ADR-0390). Default:\n                       RELATE_LOGICAL_GRAPH_SIZE_LIMIT, else unlimited —\n                       the same resolution as the query session's flag\n  --durability-mode MODE\n                       Commit durability policy for the served store\n                       (ADR-0077): full, everysecond, or snapshot. Default:\n                       RELATE_DURABILITY_MODE, else full — the same\n                       resolution as the query session's flag (ADR-0470)\n  --snapshot-format F\n                       Snapshot format for the served store (parquet|json|markdown|parquet-wide); the wide-column opt-in (ADR-0534) among them, the manifest keeping the store wide.\n                       Default: RELATE_SNAPSHOT_FORMAT (a codec name), else\n                       the build default — the same grammar as the query\n                       session's flag\n\nExamples:\n  # Serve the HTTP Query API and MCP on one store\n  relate serve --database ./mydata --http 7474 --mcp 8000\n",
+        "stdout": "Usage: relate serve --database PATH [--host HOST] [--http PORT] [--origin ORIGIN] [--mcp PORT|stdio] [--bolt PORT [--bolt-identity STRING] [--ws-allow-origin ORIGIN] [--ws-max-connections N]] [--read-only[=FRESHNESS]] [--load SOURCE] [--auth USER:PASSWORD] [--concurrent-logical-workspace-limit SIZE] [--max-traversal-depth N] [--expression-memory-limit SIZE] [--safe | --no-safe] [--logical-graph-size-limit SIZE] [--durability-mode MODE] [--snapshot-format F]\n\nserve hosts Relate's network surfaces on one open database until\nSIGINT/SIGTERM (ADR-0232). At least one surface flag is required; ports\nhave no defaults, and a taken port is a startup error.\n  -d, --database PATH  The store to serve (directory, .rl bundle, or :memory:)\n  --host HOST    Bind host for every served surface (ADR-0248). Default\n                       127.0.0.1 (loopback only). Any other host deliberately\n                       exposes the PLAINTEXT surfaces to the network — serve\n                       has no TLS — and a loud WARNING prints at startup\n  --http PORT    HTTP Query API v2 endpoint (POST /db/<name>/query/v2; plus the\n                       public GET / discovery document) on --host:PORT\n  --origin ORIGIN  Allow a browser Origin on the HTTP surface (repeatable;\n                   an exact URL or * for any). Default: loopback origins plus\n                   https://browser.neo4j.io and https://console.neo4j.io\n  --tx-idle-timeout-secs N\n                   Expire an HTTP managed transaction after N seconds idle\n                   (ADR-0435); the next registry operation sweeps it. Default:\n                   RELATE_TX_IDLE_TIMEOUT_SECS, else 60. 0 disables expiry\n  --max-open-transactions N\n                   Cap on open HTTP managed transactions (ADR-0435). Over cap\n                   is a typed 429 naming this flag. Default:\n                   RELATE_MAX_OPEN_TRANSACTIONS, else 128. 0 is unlimited\n  --mcp PORT|stdio\n                   MCP server: PORT serves the streamable HTTP transport\n                   on --host:PORT; the `stdio` keyword serves the stdio\n                   transport in the foreground (newline-delimited JSON-RPC\n                   on stdin/stdout, for MCP hosts) until the host closes\n                   stdin — no auth challenge (ADR-0232, LABS-381, ADR-0368)\n  --bolt PORT    Bolt server (Bolt + Bolt-over-WebSocket) on --host:PORT.\n                   WebSocket Origins default to loopback (any port) plus the\n                   hosted Neo4j Browser and Neo4j Console; another Origin\n                   needs --ws-allow-origin (ADR-0266, ADR-0459)\n  --ws-allow-origin ORIGIN\n                   Allow this Origin on Bolt-over-WebSocket upgrades\n                   (repeatable; an exact http(s) URL or * for any). Overrides\n                   the default: loopback plus https://browser.neo4j.io and\n                   https://console.neo4j.io with auth on, loopback only with\n                   --auth none\n  --bolt-identity STRING\n                   HELLO `server` agent string for the Bolt surface\n                   (ADR-0293). Default: RELATE_IDENTITY, else\n                   Relate/<version>. Sent verbatim — a Neo4j-shaped\n                   value (Neo4j/5.26.0) admits strict tooling like\n                   cypher-shell without claiming feature parity\n  --ws-max-connections N\n                   Opt-in cap on concurrent WebSocket sessions (ADR-0459).\n                   Default: RELATE_WS_MAX_CONNECTIONS, else unlimited —\n                   bulk data transfers legitimately run many sessions. The\n                   process-wide --max-connections cap still applies\n  --read-only[=FRESHNESS]  Open the existing store read-only\n                   (ADR-0306): no writer lease, never creates it; every\n                   write fails. FRESHNESS is snapshot (default: a frozen\n                   snapshot at open) or live (ADR-0480): tail the WAL and\n                   follow the writer's commits; refuses .rl and :memory:.\n                   Attach the value; once per run\n  --load SOURCE   Load the served store's content from SOURCE — a\n                   .rl bundle, a store directory, or an https URL\n                   (LABS-872/903, ADR-0500) — into --database. A :memory:\n                   target (the default) turns the source into the\n                   in-memory store: read-only, nothing held open or\n                   locked, a fetched copy released after the load. A path\n                   target creates the store there (the path must not\n                   exist) and opens it writable by default\n  --auth USER:PASSWORD  Basic-auth credential shared by every served\n                       surface; `none` disables auth. Default:\n                       RELATE_AUTH, else a generated token printed at\n                       startup (persisted as <dir>.auth-token, 0600)\n  --max-connections N  Process-wide session cap shared by every surface\n                       (ADR-0333). Over cap is accept-then-close. Default:\n                       RELATE_MAX_CONNECTIONS, else 128\n  --header-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request header\n                   block (ADR-0451). Trickled headers are dropped at the\n                   deadline. Default: RELATE_HEADER_DEADLINE_SECS, else 10. 0 disables the deadline\n  --body-deadline-secs N\n                   Absolute deadline for a complete HTTP/MCP request body\n                   (ADR-0451). Trickled bodies are dropped at the deadline.\n                   Default: RELATE_BODY_DEADLINE_SECS, else 60. 0 disables the deadline\n  --concurrent-logical-workspace-limit SIZE\n                       Admit queries against a shared logical-workspace\n                       pool (bytes or mb/mib/gb/gib; ADR-0452). A positive\n                       value turns admission on. Omit, or an unset\n                       RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT, leaves\n                       it off. 0 is rejected. Same resolution as the query\n                       session's flag\n  --max-traversal-depth N\n                       Largest explicit traversal hop bound a served\n                       statement may ask for (1 through 2000; LABS-610,\n                       ADR-0466). Default: RELATE_MAX_TRAVERSAL_DEPTH,\n                       else 500. An *1..N or {1,N} bound above it fails at\n                       admission with TraversalDepthExceeded\n  --expression-memory-limit SIZE\n                       Per-value expression build cap for the served store\n                       (bytes, mb/mib/gb/gib, or none; ADR-0463). Default:\n                       256 MiB, or raise/lower it here; none disables the\n                       cap for known bulk pipelines\n  --safe, --no-safe\n                       Refuse agent-typical dangerous statement shapes on\n                       the served store (LABS-680, ADR-0477). Default:\n                       RELATE_SAFE_MODE=1/0, else off. --no-safe\n                       negates an enabled environment default\n  --logical-graph-size-limit SIZE\n                       Live graph + index cap for the served store (bytes\n                       or mb/mib/gb/gib; ADR-0390). Default:\n                       RELATE_LOGICAL_GRAPH_SIZE_LIMIT, else unlimited —\n                       the same resolution as the query session's flag\n  --durability-mode MODE\n                       Commit durability policy for the served store\n                       (ADR-0077): full, everysecond, or snapshot. Default:\n                       RELATE_DURABILITY_MODE, else full — the same\n                       resolution as the query session's flag (ADR-0470)\n  --snapshot-format F\n                       Snapshot format for the served store (parquet|json|markdown).\n                       Default: RELATE_SNAPSHOT_FORMAT (a codec name), else\n                       the build default — the same grammar as the query\n                       session's flag\n\nExamples:\n  # Serve the HTTP Query API and MCP on one store\n  relate serve --database ./mydata --http 7474 --mcp 8000\n",
         "stderr": "",
         "exit": 0
       }
@@ -1233,7 +1233,7 @@
       "command_id": null,
       "recorded": {
         "command": "relate agent-context",
-        "stdout": "relate v0.1.2 — agent context\n\nCommands (detail: relate agent-context <COMMAND>):\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nQuery-run flags (relate [OPTIONS] [QUERY]):\n  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command\n\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stdout": "relate v0.1.3 — agent context\n\nCommands (detail: relate agent-context <COMMAND>):\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nQuery-run flags (relate [OPTIONS] [QUERY]):\n  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command\n\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
         "stderr": "",
         "exit": 0
       }
@@ -1647,7 +1647,7 @@
       "recorded": {
         "command": "relate --snapshot-format csv --database ./store \"RETURN 1 AS ok\"",
         "stdout": "",
-        "stderr": "Error: invalid --snapshot-format: storage error: unknown snapshot format 'csv' (expected parquet or json or markdown or parquet-wide)\n",
+        "stderr": "Error: invalid --snapshot-format: storage error: unknown snapshot format 'csv' (expected parquet or json or markdown)\n",
         "exit": 2
       }
     },
@@ -2022,13 +2022,13 @@
       "recorded": [
         {
           "command": "relate --version",
-          "stdout": "Relate v0.1.2\nLicense: Apache 2.0 (binary)\n",
+          "stdout": "Relate v0.1.3\nLicense: Apache 2.0 (binary)\n",
           "stderr": "",
           "exit": 0
         },
         {
           "command": "relate -v",
-          "stdout": "Relate v0.1.2\nLicense: Apache 2.0 (binary)\n",
+          "stdout": "Relate v0.1.3\nLicense: Apache 2.0 (binary)\n",
           "stderr": "",
           "exit": 0
         }
@@ -2878,7 +2878,7 @@
     ]
   },
   "recording": "Each `recorded` run: the bash command line in `command`, with the binary on PATH as `relate`, in a fresh empty directory, with a fresh HOME and an environment of PATH, HOME, TMPDIR and DO_NOT_TRACK=1 only; `setup` runs first, `hold` keeps a second process on the store while `command` runs. In the output the directory is written `<dir>` and the home directory `<home>`. `npm run docs:cli-check` replays every one against a binary.",
-  "recorded_with": "relate 0.1.2 (f0c09d2), release build",
+  "recorded_with": "relate 0.1.3 (6356687), release build",
   "page_steps": {
     "concepts/agent-native.mdx": [
       {
@@ -2952,84 +2952,6 @@
         "expected_sha256": "0229c6c4d2e5b2fc634ffd83847230a9165d0f92c50bd288fc78a73b6905b592"
       }
     ],
-    "get-started/agent-quickstart.mdx": [
-      {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "43b651e7dc4d89cef73389a091b9455c1532143cc85f491b6eed24943b598420"
-      },
-      {
-        "command": "relate skill install --agent claude-code",
-        "expected_sha256": "a5c5b4b19d67b5c005488a4f618bf9384d5039d5d6703b0e5325b0fe0b87c242"
-      },
-      {
-        "command": "relate agent-context",
-        "expected_sha256": "799dd10182241261d33f51f331b909681646b5021a47f9ca9b825032a3ff7446"
-      },
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "sha256sum team.cypher",
-        "expected_sha256": "b0593e6223fd309a069800feda759de6b4005e0379b681fce3d72c1d5c2411a0"
-      },
-      {
-        "command": "relate query --database ./team.rl --mode envelope < team.cypher",
-        "expected_sha256": "35cb699c5197403ad74572b42b3d56273ca8bf8331ae9d2ff63b8a01280d6cee"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project ORDER BY person, project\"",
-        "expected_sha256": "b525ff7b1bd95e4389223d9f0bbf9d72dd848f5ede09deddacbc726fc51da07b"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table --param name=Noor --param project=opencypher-tck 'EXPLAIN MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project'",
-        "expected_sha256": "fe6e31db8e994432233ffe3df61f2abf6c85f1be96878d9d3664c562c826b94b"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --safe --mode envelope \"MATCH (p:Person) RETURN p.name AS name\"",
-        "expected_sha256": "feebf8d701f6a4d63945e55f2af84889048aac52bc91944079110deb792800c1"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --safe --mode envelope \"MATCH (p:Person) RETURN p.name AS name ORDER BY name LIMIT 3\"",
-        "expected_sha256": "e2db32d858db59a086f9adf21c36856e19c87716d9e1db6d59df81a7bf3422f8"
-      },
-      {
-        "command": "relate --load ./team.rl --database ./rehearsal.rl --mode envelope --param name=Noor --param project=opencypher-tck 'MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project, w.since AS since'",
-        "expected_sha256": "ce9e76374f7cbb159f0e8def2a4ff06ddbbc0e79662fa4b373d2e8b058bae776"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (:Person {name: 'Noor'})-[w:WORKS_ON]->() RETURN count(w) AS projects\"",
-        "expected_sha256": "7728e9af2bc8fd34e12ee4d8ca1c341b71b9c0b840f8fa9336a209906ebb4fe7"
-      },
-      {
-        "command": "rm ./rehearsal.rl",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --mode envelope --param name=Noor --param project=opencypher-tck 'MATCH (p:Person {name: $name}), (j:Project {name: $project}) MERGE (p)-[w:WORKS_ON]->(j) SET w.since = 2026 RETURN p.name AS person, j.name AS project, w.since AS since'",
-        "expected_sha256": "455c8bb580402df8d42b4eb3e4d61dae9d3eb9131145ea4d7db22071bc25b71a"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person)-[w:WORKS_ON]->(j:Project) RETURN p.name AS person, j.name AS project ORDER BY person, project\"",
-        "expected_sha256": "2c7c615f6d12e38a8f9d9020c8be3001e68cd7b18ba73b09a1ad899f84137f4c"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
-        "expected_sha256": "a83f3ad30028166688edccf709b643702e6067b479a8a69b7d99658ff9ea4112"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'",
-        "expected_sha256": "e157ffe4aef0510f9bc8daf60df633a8d8a53669b1aa80f85a3e6d4907c8cf52"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope 'MATCH (p:Person {name: $name}) RETURN p.role AS role'\necho \"exit=$?\"",
-        "expected_sha256": "4270b82f01d08c325ba12ff4166c445dc702c3a0a08717fc794f82d2f964988f"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope --param name=Noor 'MATCH (p:Person {name: $name}) RETURN p.role AS role'",
-        "expected_sha256": "e74963f5f54a8531ada97e4cc4feec0d6162f0cd9de3d4ed02ff7ad0b268ad88"
-      }
-    ],
     "get-started/first-graph.mdx": [
       {
         "command": "cat > seed.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nMATCH (n) RETURN count(n) AS nodes;\nEOF",
@@ -3066,20 +2988,6 @@
       {
         "command": "relate --database ./team.rl --read-only --mode envelope --param name=Zed 'MATCH (:Person {name: $name})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project ORDER BY project'",
         "expected_sha256": "894c9eab54f10b845452d75f3f578a14dd0717376dcf710f63e98ec6f6e3e050"
-      }
-    ],
-    "get-started/install.mdx": [
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
-      },
-      {
-        "command": "relate --mode table \"RETURN 1 AS ok\"",
-        "expected_sha256": "30469e7c745c9804ceec92251435d8b5aff0f97f6d9666cd9ceeaa49e81c712f"
-      },
-      {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
-        "expected_sha256": "0e549ba89bc78dd2c4a22eaf0fec6f865637fcd4ad4a335da9d1145b9beaa240"
       }
     ],
     "guides/agents/agent-safety.mdx": [
@@ -3138,16 +3046,6 @@
       {
         "command": "relate --database ./team.rl --read-only --safe --mode envelope 'MATCH (p:Person) RETURN count(p) AS people'",
         "expected_sha256": "d37d48a1da14a0dd6faf5efae4eeb03ec96ccd5ec00c2f3f792827321a35a365"
-      }
-    ],
-    "guides/agents/connect-over-mcp.mdx": [
-      {
-        "command": "relate --database ./graph.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"CREATE (:Person {name: \\\"Eve\\\"})\"}}}' \\\n  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null",
-        "expected_sha256": "4351e43f34c76d4206b0c7290c7f4285bd404b09cef5fecd3251e687362e9107"
       }
     ],
     "guides/agents/diffable-memory.mdx": [
@@ -3250,28 +3148,6 @@
         "expected_sha256": "3fd2bdf867762a8ab9806e18949b303948328ce52cdfa16f3362126c631b36a9"
       }
     ],
-    "guides/agents/install-the-skill.mdx": [
-      {
-        "command": "relate skill install --agent claude-code",
-        "expected_sha256": "a5c5b4b19d67b5c005488a4f618bf9384d5039d5d6703b0e5325b0fe0b87c242"
-      },
-      {
-        "command": "relate skill list",
-        "expected_sha256": "810e70b8668a984815abbd355e8bb61799d5a45bf3df8836ffc122ce021f16ee"
-      },
-      {
-        "command": "relate skill check",
-        "expected_sha256": "e13d8d1072c45d2cef2f7482140efe2ce2276fa65917b8b970e7b9e01aa9195d"
-      },
-      {
-        "command": "ls -A \"$HOME/.claude/skills/relate\"",
-        "expected_sha256": "facce8b97aa1e7429b52ef53ab72835fba80a37bb5c8c32ee9c33dbf9ad5212b"
-      },
-      {
-        "command": "grep -E '^(name|version):' \"$HOME/.claude/skills/relate/SKILL.md\"",
-        "expected_sha256": "57d0904c0ed0023301c499c57a3d15ae15be0219fa5f2f45f661c373dfce6c31"
-      }
-    ],
     "guides/agents/run-in-a-sandbox.mdx": [
       {
         "command": "DO_NOT_TRACK=1 relate telemetry status",
@@ -3284,50 +3160,6 @@
       {
         "command": "relate --database ./work.rl --mode envelope \"CREATE (:Note {text: 'kept'})\"\nrelate --database ./work.rl --read-only --mode envelope \"MATCH (n:Note) RETURN count(n) AS notes\"",
         "expected_sha256": "8332c257fbdc82628468dbc4536057969700765eef2fcdb988ff0d7663794027"
-      }
-    ],
-    "guides/agents/text-to-cypher.mdx": [
-      {
-        "command": "relate query --database ./team.rl --mode envelope <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF",
-        "expected_sha256": "69e94e847c4a5e4bf926ed7fbf3be56f95094de8f6e5d8642630ecee6cfc88f1"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{}}}' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null",
-        "expected_sha256": "78f175685f9bf1dc0dbcf0e8d77b84b4dca677345983eccf453e3b1c52c17354"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"EXPLAIN MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN c.name AS company, count(p) AS people\" | jq -c '.notifications[] | {gql_status, description}'",
-        "expected_sha256": "50f5fc10cea9b4a33b7b949afe3a2e832ffac0add733cf92f1f74381a2abc0bf"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"EXPLAIN MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project, count(p) AS people ORDER BY people DESC\" | jq -c '.notifications'",
-        "expected_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-      }
-    ],
-    "guides/agents/use-in-ci.mdx": [
-      {
-        "command": "relate query --database ./deps.rl --mode envelope <<'EOF'\nCREATE (app:Version:Root {key: 'NPM/team-api@1.4.0', name: 'team-api', version: '1.4.0'}),\n       (router:Version {key: 'NPM/route-kit@2.3.1', name: 'route-kit', version: '2.3.1'}),\n       (parser:Version {key: 'NPM/path-match@0.1.7', name: 'path-match', version: '0.1.7'}),\n       (signer:Version {key: 'NPM/token-sign@8.5.1', name: 'token-sign', version: '8.5.1'}),\n       (app)-[:DEPENDS_ON {requirement: '^2.3.0'}]->(router),\n       (router)-[:DEPENDS_ON {requirement: '0.1.7'}]->(parser),\n       (app)-[:DEPENDS_ON {requirement: '^8.5.0'}]->(signer),\n       (parser)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0007', title: 'Backtracking on crafted paths', cvss3: 7.5}),\n       (signer)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0012', title: 'Weak default algorithm', cvss3: 8.1}),\n       (router)-[:AFFECTED_BY]->(:Advisory {id: 'ADV-2026-0019', title: 'Verbose error pages', cvss3: 4.3});\nEOF",
-        "expected_sha256": "75bc4589c2f1edb4392d1a8a8a85f63eecbb55c904f62dc348f7a1e036af3a2e"
-      },
-      {
-        "command": "cat > gate.cypher <<'EOF'\nMATCH p = SHORTEST 1 (r:Root)-[:DEPENDS_ON]->{0,12}(v:Version)\nMATCH (v)-[:AFFECTED_BY]->(a:Advisory)\nWHERE a.cvss3 >= $minCvss AND NOT a.id IN $allow\nRETURN a.id AS advisory, a.cvss3 AS cvss, v.key AS version,\n       [n IN nodes(p) | n.name] AS path\nORDER BY cvss DESC, advisory, version;\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate query --database ./deps.rl --read-only --mode json --max-rows 0 --timeout 30s --param minCvss=7.5 --param 'allow=[]' < gate.cypher > findings.json\necho \"relate exit=$?\"\ncat findings.json\njq -e '.data | length == 0' findings.json\necho \"gate exit=$?\"",
-        "expected_sha256": "3cde319f4dce1d94884296376aa136492a3b6ad07f64a19a8a5a6a34523272c5"
-      },
-      {
-        "command": "relate query --database ./deps.rl --read-only --mode json --max-rows 0 --timeout 30s --param minCvss=7.5 --param 'allow=[\"ADV-2026-0007\",\"ADV-2026-0012\"]' < gate.cypher > findings.json\njq -e '.data | length == 0' findings.json\necho \"gate exit=$?\"",
-        "expected_sha256": "976ffd9a7337f630958141c4deeff73f7c58e110ed79854781f406718e6d6ee1"
-      },
-      {
-        "command": "DO_NOT_TRACK=1 relate telemetry status",
-        "expected_sha256": "1221056224b1fcd01c0349d19793413c6fad02c9e7d205ba46c742c04f527b03"
-      },
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
       }
     ],
     "guides/cli/interactive-shell.mdx": [
@@ -3592,154 +3424,6 @@
         "expected_sha256": "99b931de2ed96ca530387cb129ef39a245dedb73992afa7aaedc60e351fa3a34"
       }
     ],
-    "guides/cypher/tune-a-query.mdx": [
-      {
-        "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project\"",
-        "expected_sha256": "4d822e1f9bee4b3d1db694fc51df488b45e102ce68d77305cb0ceb2ae3b2ac54"
-      },
-      {
-        "command": "relate --database ./team.rl \"CREATE INDEX relate_Person__name FOR (n:Person) ON (n.name)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"EXPLAIN MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project) RETURN proj.name AS project\"",
-        "expected_sha256": "6ad16ef401a8f476ff06cfbcad41c2206a039df5cbf4d620dd88d8aaaacb6085"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state\"",
-        "expected_sha256": "c281e9de0e248286e5f251b4ebe3fa6fd44cfdd1d691b4ad401cdbfcac47f8da"
-      }
-    ],
-    "guides/extensions/install-and-run.mdx": [
-      {
-        "command": "relate extension init greet",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate extension install greet --from ./greet",
-        "expected_sha256": "0175128266111a991e3d297d3bc920b8416f053389f03c9adf69faf8d34aae0d"
-      },
-      {
-        "command": "relate extension install word-count --url http://example.com/word-count-0.1.0.tar.gz",
-        "expected_sha256": "0da0706296bdb5c462053c5b5d43df6098b93bcb00ba21195f03504541cf4327"
-      },
-      {
-        "command": "relate extension install greet --github relatedb/greet",
-        "expected_sha256": "c9ac88ec1ab844a454a5cc39ade869c5cdc27b712ba57a2523fd9b34072d3529"
-      },
-      {
-        "command": "relate extension list",
-        "expected_sha256": "ea1494ade41be8275b9802044b9782433dfb8d0307b3f15ee1e8e110cac66847"
-      },
-      {
-        "command": "ls -A \"$HOME/.config/relate/extensions/greet\"",
-        "expected_sha256": "08d00e0331de53eedbf20f747da62d10a2b778240968a388e39722894122b0b9"
-      },
-      {
-        "command": "cat \"$HOME/.config/relate/extensions/greet/.relate-provenance.json\"",
-        "expected_sha256": "47b5348148eecb109f2a82b229cb81a71975638bad1aa0ac260d92fb75de15ac"
-      },
-      {
-        "command": "relate extension check ./greet",
-        "expected_sha256": "cf38c94dc8775a897e5f4828095d52171b2c6ad4ecadea02b5e5a2ce29c84a36"
-      },
-      {
-        "command": "relate run greet --help",
-        "expected_sha256": "872e8341111c2b435473a94f6bfbfab59c27df7422021f7fb2b91ab300637468"
-      },
-      {
-        "command": "relate run greet --name Ada -d ./team.rl",
-        "expected_sha256": "9652050ddcba0ea491d945764c70aa713f49cb8ed5e92dafb4eb4e1bdb4cf80e"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"MATCH (n:Scaffold) RETURN n.id AS id, n.note AS note\"",
-        "expected_sha256": "13e5da34add513bc2a824a1589ffd2dbadf8613c01d1f3db7e0f674ec0963f71"
-      },
-      {
-        "command": "relate extension remove greet",
-        "expected_sha256": "7d93e7c82096913ca0c8f3a2511c036b5df6e6806abe9e92c738a0895d7a7979"
-      },
-      {
-        "command": "relate extension install greet --from ./greet\nrelate extension check \"$HOME/.config/relate/extensions/greet\"",
-        "expected_sha256": "18cee92d1feddde675d11b7cbc6a1545c4ce7a50d00ffc527bb5f3b6e25a4e36"
-      }
-    ],
-    "guides/extensions/write-an-extension.mdx": [
-      {
-        "command": "relate extension init word-count",
-        "expected_sha256": "b1709e8b089299f9f6c2ba405f78b653aa42cefce942089efe9224d59332f0c0"
-      },
-      {
-        "command": "ls word-count",
-        "expected_sha256": "4c2fbb332d2a669f88c5fed31dca81639832d9f6e75a9a848ed94ae9118c8e3a"
-      },
-      {
-        "command": "cat word-count/extension.json",
-        "expected_sha256": "d408b2848be55695e499eea6a332bcd57e45c1c4e5a810fbbd3de66b14e1a090"
-      },
-      {
-        "command": "cat > word-count/extension.json <<'EOF'\n{\n  \"kind\": \"command\",\n  \"name\": \"word-count\",\n  \"version\": \"0.1.0\",\n  \"protocol\": \"2025-06-18\",\n  \"flags\": [\n    {\"kind\": \"integer\", \"name\": \"min-length\", \"default\": 4}\n  ],\n  \"positional\": {\"name\": \"DIR\"},\n  \"commit\": \"whole-import\",\n  \"executable\": \"word-count.py\"\n}\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "cat > walk.py <<'EOF'\nWRITE = \"\"\"UNWIND $rows AS row\nMERGE (f:File {path: row.file})\nMERGE (w:Word {text: row.word})\nMERGE (f)-[m:MENTIONS]->(w)\nSET m.count = row.count\"\"\"\n\nREAD = \"\"\"MATCH (f:File)-[m:MENTIONS]->(w:Word)\nRETURN count(DISTINCT f) AS files, count(DISTINCT w) AS words\"\"\"\n\n\ndef walk(client: Client, envelope: dict[str, Any]) -> None:\n    \"\"\"Count the words in every Markdown file under DIR.\"\"\"\n    import re\n    from collections import Counter\n    from pathlib import Path\n\n    root = Path(envelope.get(\"DIR\", \".\"))\n    min_length = envelope[\"min-length\"]\n    rows = []\n    for path in sorted(root.rglob(\"*.md\")):\n        words = re.findall(r\"[a-z]+\", path.read_text().lower())\n        counts = Counter(w for w in words if len(w) >= min_length)\n        for word, count in sorted(counts.items()):\n            rows.append({\"file\": path.relative_to(root).as_posix(), \"word\": word, \"count\": count})\n    chunk = client.caps.get(\"maxRowsPerStatement\", 1000)\n    for start in range(0, len(rows), chunk):\n        batch = rows[start:start + chunk]\n        client.call(\"write_cypher\", {\"statement\": WRITE, \"parameters\": {\"rows\": batch}})\n    found = client.call(\"read_cypher\", {\"statement\": READ})[\"rows\"][0]\n    client.call(\n        \"report_output\",\n        {\n            \"text\": f\"{NAME}: {found['files']} files, {found['words']} distinct words\",\n            \"starters\": [\n                \"MATCH (:File)-[m:MENTIONS]->(w:Word) \"\n                \"RETURN w.text AS word, sum(m.count) AS uses ORDER BY uses DESC, word LIMIT 5\"\n            ],\n        },\n    )\nEOF\npython3 - <<'EOF'\nfrom pathlib import Path\nexe = Path(\"word-count/word-count.py\")\nsrc = exe.read_text()\nstart, end = src.index('WRITE = \"\"\"'), src.index(\"def main(\")\nexe.write_text(src[:start] + Path(\"walk.py\").read_text() + \"\\n\\n\" + src[end:])\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate extension check ./word-count",
-        "expected_sha256": "e3c06c21d61e771c3066d796ae9256d5dd3b87b92f8f7579e35695867e36b833"
-      },
-      {
-        "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner examples before the release.\\n' > notes/retro.md",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate extension install word-count --from ./word-count",
-        "expected_sha256": "8566ff023200c7470fb32b183ec693fdd07f850543793c3cba80c53fd281c210"
-      },
-      {
-        "command": "relate run word-count notes -d ./words.rl",
-        "expected_sha256": "1e37048a093ec2ffeff057fb13ba48b30f6b3344ef640cd9495f5cd4780f99b5"
-      },
-      {
-        "command": "relate --database ./words.rl --read-only --mode table \"MATCH (:File)-[m:MENTIONS]->(w:Word) RETURN w.text AS word, sum(m.count) AS uses ORDER BY uses DESC, word LIMIT 3\"",
-        "expected_sha256": "0089ff89707fda4f480f8a9a92e9219ddb24c84da88f554dc0a22f27b3d22973"
-      },
-      {
-        "command": "relate run word-count notes --min-length 7 -d ./long.rl",
-        "expected_sha256": "dbc0ed750d3689eee26e46fc30c2560bee1f35a8bc72b02889b89a11907f4717"
-      }
-    ],
-    "guides/integrations/claude-agent-sdk.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate query --database ./team --mode envelope < team.cypher",
-        "expected_sha256": "1e80762d65f4a90e51da17a987c3ce16d10c914553f964696e54ad4347cbee65"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null",
-        "expected_sha256": "41ab8b222d4ee2cada37a1db68a953690e79e67b3e847838a0ceedc8786af275"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\",\"parameters\":{\"project\":\"relate\"}}}}' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null \\\n  | grep -o '\\\\\"rows\\\\\":\\[[^]]*\\]'",
-        "expected_sha256": "2983218e5ac2835cda0afe31c859847a07fe0930b21c8882709998515c8edb8f"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person {name: $name}) DETACH DELETE p\",\"parameters\":{\"name\":\"Ada\"}}}}' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null",
-        "expected_sha256": "a98ae868e7803ae934190e236f5d579f597d748840bbf0b91c916ac92fd79345"
-      },
-      {
-        "command": "relate --database ./team --read-only --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"",
-        "expected_sha256": "07aa9bb1f593f6e0fad1d2ccf65e49b2dbc2915ce87738b667580efaf9712f72"
-      }
-    ],
     "guides/migrate/from-json-files.mdx": [
       {
         "command": "cat > people.json <<'JSON'\n[{\"id\": \"p1\", \"name\": \"Ada\", \"role\": \"engineer\", \"knows\": [\"p2\"]},\n {\"id\": \"p2\", \"name\": \"Grace\", \"role\": \"engineer\", \"knows\": []},\n {\"id\": \"p3\", \"name\": \"Noor\", \"role\": \"maintainer\", \"knows\": []}]\nJSON\ncat > projects.json <<'JSON'\n[{\"id\": \"relate\", \"name\": \"relate\", \"language\": \"Rust\", \"maintainer\": \"p3\",\n  \"contributors\": [{\"person\": \"p1\", \"since\": 2024}, {\"person\": \"p2\", \"since\": 2023}]},\n {\"id\": \"tck\", \"name\": \"opencypher-tck\", \"language\": \"Gherkin\", \"maintainer\": null,\n  \"contributors\": [{\"person\": \"p2\", \"since\": 2022}]}]\nJSON",
@@ -3894,32 +3578,6 @@
         "expected_sha256": "e20a79b9355f2414ee4036453d27ffa9c73de908fdf82aa4721cbd523fb53794"
       }
     ],
-    "guides/operate/crash-and-recovery.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "cat > work.cypher <<'EOF'\nMATCH (noor:Person {name: 'Noor'}), (tck:Project {name: 'opencypher-tck'}) CREATE (noor)-[:MAINTAINS]->(tck);\nUNWIND range(1, 100000) AS a RETURN sum(reduce(s = 0, x IN range(1, 10000) | s + x)) AS total;\nEOF\nrelate query --database ./team.rl < work.cypher > /dev/null &\nsleep 1\nkill -9 $!\nwait $! 2>/dev/null\necho \"exit=$?\"",
-        "expected_sha256": "9ef53a3d1ef2c99d4705653679d82c3a306a2bf0e466a142324c7dcc5eae59e5"
-      },
-      {
-        "command": "relate info --database ./team.rl",
-        "expected_sha256": "a01737e9d720538ea396ff6c820e26692a95e0e11a948a821a40211b59cab9be"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person)-[:MAINTAINS]->(project:Project) RETURN p.name AS person, project.name AS project ORDER BY project\"",
-        "expected_sha256": "449bd22ddec4a06aae1b91cb2f0a952fcfa5a8b8b564455e6db4d3076aec950a"
-      },
-      {
-        "command": "relate --database ./team.rl --mode envelope \"MATCH ()-[m:MAINTAINS]->() RETURN count(m) AS maintains\"",
-        "expected_sha256": "7bf7cca57953cb3964439a57a5916eae7bab36a435d9df17bf5e0b179460a560"
-      },
-      {
-        "command": "relate info --database ./team.rl",
-        "expected_sha256": "72f8700d40fea21d2d3e39322531421b2cf4254afabbf538e8574fb14bd091c8"
-      }
-    ],
     "guides/operate/durability-modes.mdx": [
       {
         "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
@@ -3936,50 +3594,6 @@
       {
         "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person)-[:MAINTAINS]->(project:Project) RETURN p.name AS person, project.name AS project ORDER BY person, project\"",
         "expected_sha256": "8f2faf789ea005a9dc009ceac7eaeffb2ea0cbfc95935121c7de565ec28efaea"
-      }
-    ],
-    "guides/operate/sizing-and-memory.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./team.rl",
-        "expected_sha256": "a01737e9d720538ea396ff6c820e26692a95e0e11a948a821a40211b59cab9be"
-      },
-      {
-        "command": "relate --load ./team.rl --database ./probe.rl --logical-graph-size-limit 1 --mode envelope \"CREATE (:Probe)\"",
-        "expected_sha256": "7c7c6be643e1f150f00d3de1a02ec8d4c80630df3d54e20f671dd00d0c219f37"
-      },
-      {
-        "command": "rm ./probe.rl",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --logical-graph-size-limit 6500 --mode envelope \"CREATE (:Person {name: 'Ines', role: 'engineer'})\"\necho \"exit=$?\"",
-        "expected_sha256": "e8811c8d3a620edeb9142bbf589363af1504756d06cdc10ac77999405e3b056c"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --logical-graph-size-limit 6500 --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"",
-        "expected_sha256": "b5a7857ced07dc51534a92d92ae3dee0117869be1ea80536fb1832d6e4f22c49"
-      }
-    ],
-    "guides/operate/troubleshooting.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./tema.rl --read-only --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"\necho \"exit=$?\"",
-        "expected_sha256": "4a2e6c8eae198933b164c26350d19f8278f773f479ac112b8a32436cacc8cf10"
-      },
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"\necho \"exit=$?\"",
-        "expected_sha256": "213d5a78c75b839b33a04a39b9056e80abb1005562bd19885e8ebe707c4ba89d"
       }
     ],
     "guides/operate/two-processes-one-store.mdx": [
@@ -4004,46 +3618,10 @@
         "expected_sha256": "5d7169f596f267fe117b12c0881d5ecbacfdb8bd6ceae18094a36170c9f37e01"
       }
     ],
-    "guides/operate/upgrade-a-store.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./team.rl",
-        "expected_sha256": "a01737e9d720538ea396ff6c820e26692a95e0e11a948a821a40211b59cab9be"
-      },
-      {
-        "command": "relate clone ./team.rl ./team-backup.rl",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
-      },
-      {
-        "command": "relate --database ./team.rl --mode envelope \"MATCH (n) RETURN count(n) AS nodes\"",
-        "expected_sha256": "5cef2b5d785c232384ac63d03f20d4c94b8058130210eaef4c45aa8fc5ec483c"
-      },
-      {
-        "command": "relate info --database ./team.rl --json",
-        "expected_sha256": "4f8a4ec299fe3585b05432fdf40a2e93ff9da74aae4cdc2f4fc2fc5f96650457"
-      }
-    ],
     "guides/serve/auth-and-tls.mdx": [
       {
         "command": "relate --database ./graph.rl \"CREATE (:Person {name: 'Ada', role: 'engineer'})\" > /dev/null\nrelate serve --http 8842 --database ./graph.rl --read-only 2> first.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\nkill $server\nwait $server\nls -l graph.rl.auth-token | cut -c1-10\ncut -d: -f1 graph.rl.auth-token\nrelate serve --http 8842 --database ./graph.rl --read-only 2> second.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -o /dev/null -w '%{http_code}\\n' -u \"$(cat graph.rl.auth-token)\" \\\n  -H 'Content-Type: application/json' -d '{\"statement\": \"RETURN 1 AS ok\"}' \\\n  http://127.0.0.1:8842/db/neo4j/query/v2\ncurl -s -o /dev/null -w '%{http_code}\\n' -u relate:wrong \\\n  -H 'Content-Type: application/json' -d '{\"statement\": \"RETURN 1 AS ok\"}' \\\n  http://127.0.0.1:8842/db/neo4j/query/v2\nkill $server\nwait $server\ngrep '^auth:' second.log\nrelate serve --http 8842 --database ./graph.rl --read-only --auth ada\necho \"exit=$?\"",
         "expected_sha256": "7ced5bd79ad8ab08ed959b19caa131f59a23851e77e8abc4ca162fc2dbb7f404"
-      }
-    ],
-    "guides/serve/bolt.mdx": [
-      {
-        "command": "relate --database ./graph.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate serve --bolt 8843 --http 8842 --database ./graph.rl --read-only 2> serve.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -w '\\n' http://127.0.0.1:8842/\nexec 3<>/dev/tcp/127.0.0.1/8843\nprintf '\\x60\\x60\\xb0\\x17\\x00\\x00\\x04\\x05\\x00\\x00\\x04\\x04\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00' >&3\nhead -c 4 <&3 > reply.bin\nexec 3>&-\nprintf '\\x00\\x00\\x04\\x05' | cmp -s - reply.bin && echo \"Bolt 5.4 agreed\"\nkill $server\nwait $server",
-        "expected_sha256": "e3d5af29d2f52a2cc055ef23c4729883e4e44d91cdd18660c3181dc6b6be22e2"
       }
     ],
     "guides/serve/docker.mdx": [
@@ -4054,16 +3632,6 @@
       {
         "command": "relate --database ./data/graph \"UNWIND ['Ada', 'Grace', 'Noor'] AS name CREATE (:Person {name: name})\" > /dev/null\nrelate serve --database ./data/graph --read-only --http 8842 --bolt 8843 --mcp 8844 2> serve.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8842/\ncurl -s -u \"$(cat data/graph.auth-token)\" -H 'Content-Type: application/json' \\\n  -d '{\"statement\": \"MATCH (p:Person) RETURN count(p) AS people\"}' \\\n  -w '\\n' http://127.0.0.1:8842/db/neo4j/query/v2\nkill $server\nwait $server",
         "expected_sha256": "9d8ad120aa1bd81469710c487dea46ab89de4cf4df69d86e441825f1cdeb021d"
-      }
-    ],
-    "guides/serve/http-query-api.mdx": [
-      {
-        "command": "relate --database ./graph.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate serve --http 8842 --database ./graph.rl --read-only 2> serve.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -w '\\n' http://127.0.0.1:8842/\ncurl -s -u \"$(cat graph.rl.auth-token)\" -H 'Content-Type: application/json' \\\n  -d '{\"statement\": \"MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name ORDER BY name\", \"parameters\": {\"project\": \"relate\"}}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\ncurl -s -u \"$(cat graph.rl.auth-token)\" -H 'Content-Type: application/json' \\\n  -d '{\"statement\": \"CREATE (:Person {name: $name})\", \"parameters\": {\"name\": \"Eve\"}}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\ncurl -s -H 'Content-Type: application/json' -d '{\"statement\": \"RETURN 1 AS ok\"}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\nkill $server\nwait $server",
-        "expected_sha256": "db41389345144a3d2f55c9cf3952cb64a5d3c03746057a1634522e48beac69be"
       }
     ],
     "guides/serve/mcp.mdx": [
@@ -4082,140 +3650,6 @@
       {
         "command": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name ORDER BY name\",\"parameters\":{\"project\":\"relate\"}}}}' \\\n  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null \\\n  | grep -o '\\\\\"rows\\\\\":\\[[^]]*\\]'",
         "expected_sha256": "891720b100e664b5aca035201405e203228506aee03283e04458edc9a75c93d6"
-      }
-    ],
-    "guides/storage/backup-and-restore.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team --mode envelope < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "mkdir backups\nrelate clone ./team ./backups/team-2026-11-07.rl",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./backups/team-2026-11-07.rl --read-only --mode envelope \"MATCH (n) RETURN count(n) AS nodes\"",
-        "expected_sha256": "7b33a567ae6ea01065cc39ad2e99c5ecafdce75693ef0c233f27150ddc8c4656"
-      },
-      {
-        "command": "relate info --database ./backups/team-2026-11-07.rl",
-        "expected_sha256": "3c44fdc78819c230dddf6aa7468176b8cc1d9e9292e2f57167cf16f7dbaf3755"
-      },
-      {
-        "command": "mv ./team ./team-damaged\nrelate clone ./backups/team-2026-11-07.rl ./team",
-        "expected_sha256": null
-      },
-      {
-        "command": "cp -R ./team ./backups/team-folder-copy\nls ./backups/team-folder-copy",
-        "expected_sha256": "e2ef03b97f2b745a68333638bb1313f72474523fe72c640a25ff0a553823e1bd"
-      },
-      {
-        "command": "relate --database ./team --read-only --mode envelope \"MATCH (p:Person) RETURN p.name AS name ORDER BY name\"",
-        "expected_sha256": "ecdf3017224800a20125486fe2ac6c456a015c45444790125b2a8dfefc7377e2"
-      },
-      {
-        "command": "relate clone ./team ./backups/team-2026-11-07.rl",
-        "expected_sha256": "30127bf2fb29578a1e6d2cc151e673c57428e778d18122a200498b443736a3ad"
-      }
-    ],
-    "guides/storage/choose-a-store-layout.mdx": [
-      {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "2ef94723ebfe18c2cb6b566fd8701ab647ea53a185166bc4dcf990ffc2c2dee6"
-      },
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate query --database ./team.rl --mode envelope < team.cypher",
-        "expected_sha256": "fcd47553e14e7d4d4c7a52de2c8dfef53908cb82e3af78942b27325bd77d7660"
-      },
-      {
-        "command": "relate info --database ./team.rl",
-        "expected_sha256": "a01737e9d720538ea396ff6c820e26692a95e0e11a948a821a40211b59cab9be"
-      },
-      {
-        "command": "relate --load ./team.rl --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"",
-        "expected_sha256": "279eebf56cf2e9bdfac4b3845ba7930aaa1b0bb7b174b273625e58e95fba1fef"
-      },
-      {
-        "command": "relate query --database ./team --mode envelope < team.cypher",
-        "expected_sha256": "99adbab951e6c7058f1c0563a608962a61c78f88db457411bc8bbb002146b5cb"
-      },
-      {
-        "command": "ls team",
-        "expected_sha256": "e2ef03b97f2b745a68333638bb1313f72474523fe72c640a25ff0a553823e1bd"
-      },
-      {
-        "command": "relate query --database ./team-json --snapshot-format json --mode envelope < team.cypher",
-        "expected_sha256": "14baf1f7a4a652dfb9326bbcc37e12cba8ebc78730d8742ac4f32ef88305c253"
-      },
-      {
-        "command": "ls team-json",
-        "expected_sha256": "6390231d449a5240759beeed59dc7e14efcc6efce003061ff590da3af25600ee"
-      },
-      {
-        "command": "relate --database ./team-json --read-only --mode envelope \"MATCH (p:Person) RETURN p.name AS name ORDER BY name\"",
-        "expected_sha256": "dc59dc9993fb5d7e7ff2a653d4303f989bf10a64134698708e017f840fcd8944"
-      },
-      {
-        "command": "relate clone ./team.rl ./team-copy",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate clone --to-snapshot-format json ./team-copy ./team-copy-json",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./team-copy-json | head -n 2",
-        "expected_sha256": "a158d46ed55429efb1b19292c6cf4b51b75636b998b32f3b933171d6ab399cdb"
-      },
-      {
-        "command": "relate --database ./team-json --snapshot-format parquet --read-only --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "09079f978e8fee7edcbad71e311d2708f61ff85127e519f509aae7631087cd90"
-      }
-    ],
-    "guides/storage/clone-and-convert.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team.rl < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate clone ./team.rl ./team\nrelate clone ./team ./team-copy.rl",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate clone --to-snapshot-format json ./team ./team-json\nrelate clone --to-snapshot-format markdown ./team ./team-md",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./team-md | head -n 2",
-        "expected_sha256": "bbc2db504fa49f837a23c656a031120f6c59632d8f423dda5579d50f3abade65"
-      },
-      {
-        "command": "ls team-json team-md team-md/Person",
-        "expected_sha256": "cad84db6eecd85525e0cd601dd38be874fc0a15758aab85023eaaef52faf3e76"
-      },
-      {
-        "command": "cat > graph-check.cypher <<'EOF'\nMATCH (n) RETURN labels(n) AS labels, properties(n) AS props ORDER BY n.name;\nMATCH (a)-[r]->(b) RETURN a.name AS from, type(r) AS type, properties(r) AS props, b.name AS to ORDER BY from, type, to;\nEOF\nrelate clone --to-snapshot-format parquet ./team-md ./team-roundtrip.rl\nrelate query --database ./team.rl --read-only --mode jsonl < graph-check.cypher | grep -v '\"timings\"' > before.jsonl\nrelate query --database ./team-roundtrip.rl --read-only --mode jsonl < graph-check.cypher | grep -v '\"timings\"' > after.jsonl\ncmp before.jsonl after.jsonl && echo \"same graph: $(wc -l < after.jsonl | tr -d ' ') rows\"",
-        "expected_sha256": "625cbe22ecb08df7e136656d2b4c3f247035056dbd606d87556b9662c7d59409"
-      },
-      {
-        "command": "relate info --database ./team.rl | grep 'total bytes'\nrelate --database ./team.rl --mode envelope \"UNWIND range(1, 20000) AS i CREATE (:Draft {id: i, text: 'draft note ' + toString(i)})\"\nrelate --database ./team.rl --mode envelope \"MATCH (d:Draft) DELETE d\"\nrelate clone ./team.rl ./team-compact.rl",
-        "expected_sha256": "73bc79e453128dea0b234e91678883a3c788210ea97fc5304c1673dbee8632b5"
-      },
-      {
-        "command": "for store in team.rl team-compact.rl team team-json team-md; do printf '%s: ' \"$store\"; relate info --database \"./$store\" | grep 'total bytes'; done",
-        "expected_sha256": "8c24971654473baa9aa3eb2d4452b7b40a420df9e19f53c7ae465419369dfa29"
-      },
-      {
-        "command": "relate --database ./team-md --read-only --mode envelope \"MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN p.name AS name, proj.name AS project ORDER BY name, project\"",
-        "expected_sha256": "e924a9991e7da9bcf3ceb1ae9e625c5f081727a3028aaa3dfdc6e7ac99de7398"
-      },
-      {
-        "command": "relate clone --snapshot-format json ./team ./team-json2",
-        "expected_sha256": "1e7027e4d66eac9dbd5df52f04bb696b7df5f1fe0237110457c0c380f869673e"
       }
     ],
     "guides/storage/obsidian-vault.mdx": [
@@ -4298,66 +3732,6 @@
         "expected_sha256": "ac3f582aa49bd43a9d5fe8847d3ac3694aabe92af5afe54cb88826bb62f0633d"
       }
     ],
-    "guides/storage/schema-as-files.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF\nrelate query --database ./team < team.cypher",
-        "expected_sha256": null
-      },
-      {
-        "command": "ls -A team/.cypherlite/schema",
-        "expected_sha256": "82a97685de2cf037bab3047745f3b56ff9a9b68d7f358eabf0b97e8c4900fbfa"
-      },
-      {
-        "command": "relate --database ./team --mode envelope \"CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE\"\nrelate --database ./team --mode envelope \"CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)\"",
-        "expected_sha256": "82f32191fb04765f57ba3d282615facb4a98bf1c3edcc0839e25176f8f3b65f3"
-      },
-      {
-        "command": "cat team/.cypherlite/schema/schema.cypher",
-        "expected_sha256": "9b6904ebd03c13f28e59e2cdafe971cdec1e91fbf3769c6e8004e40010157e8a"
-      },
-      {
-        "command": "cp team/.cypherlite/schema/schema.cypher schema-before.cypher\nrelate --database ./team --mode envelope \"CREATE FULLTEXT INDEX project_search IF NOT EXISTS FOR (p:Project) ON EACH [p.name, p.language]\"\ndiff schema-before.cypher team/.cypherlite/schema/schema.cypher",
-        "expected_sha256": "621caefc6348ad51abdb36f630d237f377fcac97ed0f6d686c0289f59f6c20b9"
-      },
-      {
-        "command": "relate query --database ./team-staging --mode envelope < team/.cypherlite/schema/schema.cypher\ncmp team/.cypherlite/schema/schema.cypher team-staging/.cypherlite/schema/schema.cypher && echo \"same schema\"",
-        "expected_sha256": "518e2e1d84ce48945a47c6a49cb6cd9373577460b00b825e214fbabe587d5efb"
-      },
-      {
-        "command": "cp -R team team-edited\necho \"CREATE INDEX person_age FOR (n:Person) ON (n.age);\" >> team-edited/.cypherlite/schema/schema.cypher\nrelate --database ./team-edited --read-only --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
-        "expected_sha256": "964c1a73360969afa4ccd25bc7fec9142ccfb0ab00979d2cff1d2ba998cb91e9"
-      },
-      {
-        "command": "rm -r team-edited/.cypherlite/schema\nrelate --database ./team-edited --mode envelope \"RETURN 1 AS ok\"\ncat team-edited/.cypherlite/schema/schema.cypher",
-        "expected_sha256": "9d302420aeb490f2d36c3f361d367d393124a2f1ecc74637a21022ac4511a692"
-      },
-      {
-        "command": "relate clone --to-snapshot-format json ./team ./team-json\nls -A team-json team-json/.cypherlite/schema",
-        "expected_sha256": "9daad084792ed1d058018d07f9bcd060c5753449155267a0be23dc54f3b0e88f"
-      },
-      {
-        "command": "relate --database ./team --read-only --mode envelope \"SHOW INDEXES YIELD name, type RETURN name, type ORDER BY name\"",
-        "expected_sha256": "eff977c8e88ed1b6f6541e6e0d687822391d808547a261dd03836ccddeb49c1f"
-      }
-    ],
-    "reference/cli/agent-context.mdx": [
-      {
-        "command": "relate agent-context",
-        "expected_sha256": "799dd10182241261d33f51f331b909681646b5021a47f9ca9b825032a3ff7446"
-      },
-      {
-        "command": "relate agent-context info",
-        "expected_sha256": "84f27c1e0a6c0d24d5de70b147c689c4feda05dec0772dc2e64a45779358432c"
-      },
-      {
-        "command": "relate agent-context --json\necho \"exit=$?\"",
-        "expected_sha256": "02326e79532b0478d567e20664dc641e3f5d2f0af27325e46efcad5221aad4f3"
-      },
-      {
-        "command": "relate agent-context telemetry",
-        "expected_sha256": "4566db1b1ca44febca7bf7fd28394b2b373f8d1d49b458af4093fc20b4126c7e"
-      }
-    ],
     "reference/cli/agent-mode.mdx": [
       {
         "command": "CLAUDECODE=1 relate \"UNWIND [1, 2] AS x RETURN x\"",
@@ -4438,48 +3812,6 @@
         "expected_sha256": "4fb18a370ad0ceffedf1abd9158caf12982623ef88c87cc88ab644047b7816bd"
       }
     ],
-    "reference/cli/dot-commands.mdx": [
-      {
-        "command": "printf '.help\\n' | relate query",
-        "expected_sha256": "af020a8b02f1c17f95c293dc8f7f929de67ea2ec9ed6f60aed2cb55ad2bd33a4"
-      },
-      {
-        "command": "printf \".quit\\nCREATE (:Note {text: 'never runs'});\\n\" | relate query --mode envelope\necho \"exit=$?\"",
-        "expected_sha256": "804cb8b0d0ccd96791ae5eed231de68f307bffbdf3522e93d8bc0ec856db38de"
-      },
-      {
-        "command": "printf '.begin\\nCREATE (:Note);\\n.quit\\n' | relate query\necho \"exit=$?\"",
-        "expected_sha256": "ee74dec544d2aa9b3e119acd6176e6d0dd7c98f00112271c1462953a3d03ea95"
-      },
-      {
-        "command": "printf \".begin\\nCREATE (:Note {text: 'kept'});\\nCREATE (:Note {text: 'also kept'});\\n.commit\\n\" | relate query --database ./notes\nrelate --database ./notes --read-only --mode jsonl \"MATCH (n:Note) RETURN count(n) AS notes\"",
-        "expected_sha256": "569367f46360802bf98a5098af8ab03c00c24061eae4429149ed0cda6c237d40"
-      },
-      {
-        "command": "printf '.commit\\n' | relate query\necho \"exit=$?\"",
-        "expected_sha256": "987dd6609c3bdd16ccd2d11d01f6d43d11483b18dcea504bc958d764b5590fab"
-      },
-      {
-        "command": "printf '.checkpoint\\n' | relate query --database ./notes --read-only\necho \"exit=$?\"",
-        "expected_sha256": "2145efcac7c81eaca0b22faa0e3baf6c8a277f377af7ecc011b53ff63745a7d2"
-      },
-      {
-        "command": "printf '.info\\n' | relate query --mode csv",
-        "expected_sha256": "1fd7e703013e7c827520618df21ad17032b4c2937a87f24e4d3787ab6525f331"
-      },
-      {
-        "command": "printf '.info\\n' | relate query --database ./notes --read-only --mode csv | grep -E '^(layout|codec|checkpoint LSN|nodes|relationships):'",
-        "expected_sha256": "f7c91b423d3fde28ec1014e1cdd65001b18323d84e4868173571ae3c618af172"
-      },
-      {
-        "command": "printf '.timer on\\n.timer off\\n.timer ON\\n' | relate query\necho \"exit=$?\"",
-        "expected_sha256": "e8556cd36316b6206bdf95c6f8f91274a3c9147fda36a6f6fac1695bbec9746c"
-      },
-      {
-        "command": "printf '.mode csv\\n' | relate query\necho \"exit=$?\"",
-        "expected_sha256": "582c27cb1c2a9eb4eec78296c93741151cc34089ad83b3ccdb95863946c76b3f"
-      }
-    ],
     "reference/cli/environment-variables.mdx": [
       {
         "command": "RELATE_MAX_ROWS=1 relate --mode jsonl \"UNWIND [1, 2, 3] AS x RETURN x\"\nRELATE_MAX_ROWS=1 relate --mode jsonl --max-rows 0 \"UNWIND [1, 2, 3] AS x RETURN x\"",
@@ -4540,32 +3872,6 @@
         "expected_sha256": "a92b8b024eeded9995468b034ce96cf8967aeb7f476da8cb8c50f2cea7a4a2cc"
       }
     ],
-    "reference/cli/extension.mdx": [
-      {
-        "command": "relate extension list\necho \"exit=$?\"",
-        "expected_sha256": "804cb8b0d0ccd96791ae5eed231de68f307bffbdf3522e93d8bc0ec856db38de"
-      },
-      {
-        "command": "relate extension init team-import --lang sh",
-        "expected_sha256": "3e7c790d2f2ebdaf5a699ceb37a8df7ef0ca97e2a4779c71a02a9ddc89d9f023"
-      },
-      {
-        "command": "relate extension check team-import",
-        "expected_sha256": "d583c2081f95a266fe0011ca96fc6887cb5d785f3cf342c92ef7f90ae330cb60"
-      },
-      {
-        "command": "relate extension install team-import --from ./team-import\nrelate extension list",
-        "expected_sha256": "c1a20ba0b8a01961662fa728a96af5207fc6135564de114017e22ff51f804ff2"
-      },
-      {
-        "command": "relate extension install other-import --url http://example.com/other-import.tar.gz\necho \"exit=$?\"",
-        "expected_sha256": "c3b3d317d1477a874017d6caee122f9ad01a767dda95ddafa902bedc0f047441"
-      },
-      {
-        "command": "relate extension remove team-import",
-        "expected_sha256": "d008959400ff12c30516030e1f227be7bdf7e60417acf2f4fb270a85ebf0d987"
-      }
-    ],
     "reference/cli/flags.mdx": [
       {
         "command": "relate --readonly \"RETURN 1 AS ok\"\necho \"exit=$?\"",
@@ -4574,50 +3880,6 @@
       {
         "command": "relate --timeout soon \"RETURN 1 AS ok\"\necho \"exit=$?\"",
         "expected_sha256": "6ef54255df73890e42e190a53f03181b0f6ebb33116747ee129e337c83425eb2"
-      }
-    ],
-    "reference/cli/index.mdx": [
-      {
-        "command": "relate --mode envelope \"RETURN 1 AS ok\"",
-        "expected_sha256": "d99c0b0d38177e6ed76d88a544d11386905d46782beddf76f51ed83fa2f63e2c"
-      },
-      {
-        "command": "printf 'RETURN 1 AS a;\\nRETURN 2 AS b;\\n' | relate query --mode envelope",
-        "expected_sha256": "b708692836c557ec6c4c3cc01c027f18186972ab36aea0f630d27a10c06ffc87"
-      },
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
-      }
-    ],
-    "reference/cli/info.mdx": [
-      {
-        "command": "relate --database ./team \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./team",
-        "expected_sha256": "c6828a1ee7f271d56d7b910eebf8a8c09d89fdc8542876462a964eb9f9477c12"
-      },
-      {
-        "command": "relate --database ./catalog.rl \"CREATE (:Person {name: 'Ada'})-[:WORKS_ON {since: 2024}]->(:Project {name: 'relate'})\"\nrelate --database ./catalog.rl \"CREATE INDEX person_name FOR (p:Person) ON (p.name)\"\nrelate --database ./catalog.rl \"CREATE CONSTRAINT project_name FOR (p:Project) REQUIRE p.name IS NOT NULL\"\nrelate --database ./catalog.rl \"CREATE CONSTRAINT works_since FOR ()-[w:WORKS_ON]-() REQUIRE w.since IS :: INTEGER\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./catalog.rl",
-        "expected_sha256": "8d275b8456aa6a960b9fd83f8b1abe064dfa9d56e808012b446d4eb806231f82"
-      },
-      {
-        "command": "relate info --database ./catalog.rl --json",
-        "expected_sha256": "e2d6a649ab2132fb8e40a482919a649c456b141cd51f415968f15a38bb6a9151"
-      },
-      {
-        "command": "relate clone --to-snapshot-format json ./team ./team-json\nrelate info --database ./team-json",
-        "expected_sha256": "a88dbaab25f772b89ac14589c2f1279e5a7b4950ca27aecc9ace1ed1717ab1f4"
-      },
-      {
-        "command": "relate info --database ./missing\necho \"exit=$?\"",
-        "expected_sha256": "ffdb72141e119164fbba783305248d4a7ccc793f93f9a7dc3961a775a6bfb61d"
       }
     ],
     "reference/cli/output-modes.mdx": [
@@ -4894,28 +4156,6 @@
         "expected_sha256": "121ff6fdb69b1a31c86883808523caec3f5383506fbf1b3783f896cc48a9ff3e"
       }
     ],
-    "reference/cypher/explain-and-profile.mdx": [
-      {
-        "command": "relate --mode speedscope \"EXPLAIN RETURN 1 AS one\"",
-        "expected_sha256": "f3f104d9f849a9a05f4750df772e36f696838054241a2b8081ab601eef5706b6"
-      },
-      {
-        "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nCREATE INDEX person_name FOR (p:Person) ON (p.name)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"EXPLAIN MATCH (p:Person)-[:WORKS_ON]->(proj:Project) WITH proj, count(p) AS people WHERE people > 1 RETURN proj.name AS project, people ORDER BY people DESC LIMIT 5\"",
-        "expected_sha256": "8325e607d94b72a46f1967085c41aad8b793e6dbd0a3747e0e84afe5c72ceb16"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode table \"EXPLAIN MATCH (p:Person) WHERE p.name >= 'G' RETURN p.name AS name\"",
-        "expected_sha256": "608ff60443b6bf6febd88e9d5c97bb606eaa1307e203a4e15bfd04490e9715e3"
-      },
-      {
-        "command": "relate --database ./team.rl --read-only --mode json \"EXPLAIN MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend\"",
-        "expected_sha256": "ad883f9dd05e594adfd8f7bc416f2b43a492a3ebf25dfaa6a57018089b54d8b6"
-      }
-    ],
     "reference/cypher/functions.mdx": [
       {
         "command": "RELATE_PREVIEW=coll-zip,coll-has,gql-stddev-aliases relate --mode jsonl \"RETURN coll.zip([1, 2], ['a']) AS zipped, coll.hasAnyOf([1, 2], [2]) AS any_of, coll.hasAllOf([1, 2], [1, 3]) AS all_of, coll.hasNoneOf([1, 2], [5]) AS none_of\"",
@@ -5058,16 +4298,6 @@
         "expected_sha256": "3305d37ee0059d53eaeab51d9b2f645e1e5737aadec6ebf3ed71ffde4b820644"
       }
     ],
-    "reference/project.mdx": [
-      {
-        "command": "relate --version",
-        "expected_sha256": "12c58cd9de4933f5450e5ba53f3768445bb575b66e77da4c92d263f75b7b2b07"
-      },
-      {
-        "command": "RELATE_PREVIEW=time-travel relate \"RETURN 1 AS ok\"",
-        "expected_sha256": "fe8fd8358e79fda9a621092b01df3c35bedfb26b630ae28648b3b85756917e2f"
-      }
-    ],
     "reference/security.mdx": [
       {
         "command": "echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK relate-release' > release-signing-key.pub\nssh-keygen -lf release-signing-key.pub",
@@ -5086,66 +4316,6 @@
         "expected_sha256": "e9224838a44faff314c20413a5c731825d444e37986f23f83ed9a4b2cb20a1f0"
       }
     ],
-    "reference/server/mcp.mdx": [
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\"}' \\\n  | relate serve --mcp stdio --database :memory: 2>/dev/null",
-        "expected_sha256": "fb3d56af114537ccb5ddaf106d230a4d11cb88212442e9f96732d3453afbf81b"
-      },
-      {
-        "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{\"sample_size\":1}}}' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null",
-        "expected_sha256": "3d9262320aee5f379bef567719ff5c852fa6a59736710eea0740e97ffaa430fc"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\",\"parameters\":{\"project\":\"relate\"}}}}' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null \\\n  | sed -E 's/(_ms\\\\\":)[0-9.e-]+/\\1<ms>/g'",
-        "expected_sha256": "0148aaeb8f673419c94e6c89b1aafd08db0b5e1f3bc8df8bc30b2131fc0d231d"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"statement\":\"CREATE (:Person {name: $name, role: $role})\",\"parameters\":{\"name\":\"Ada\",\"role\":\"engineer\"}}}}' \\\n  | relate serve --mcp stdio --database :memory: 2>/dev/null \\\n  | sed -E 's/(_ms\\\\\":)[0-9.e-]+/\\1<ms>/g'",
-        "expected_sha256": "008fecf3adb0b2ac8f69066e446859a19ed3d39a2571e7f5943297cddd8073ab"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person {name: $name}) DETACH DELETE p\",\"parameters\":{\"name\":\"Ada\"}}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"CREATE INDEX person_name FOR (p:Person) ON (p.name)\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"statement\":\"CREATE (:Person {name: \\\"Eve\\\"})\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"query\":\"MATCH (p:Person) RETURN count(p) AS people\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"RETURN $limit AS n\",\"parameters\":\"10\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"RETURN $limit AS n\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{\"sample_size\":-2}}}' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null",
-        "expected_sha256": "53f07a51f3561933fed07d6dbc42acfa52c9f42237fafa40d056ff9374018c9d"
-      },
-      {
-        "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\"}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\",\"extra\":true}' \\\n  '{\"jsonrpc\":\"1.0\",\"id\":4,\"method\":\"ping\"}' \\\n  'not json' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null",
-        "expected_sha256": "d166c228f8e92b5d57e9b50083d30e6666e1486c53b206bba9ef8b55ccf14909"
-      }
-    ],
-    "reference/storage/formats.mdx": [
-      {
-        "command": "relate --database ./wide --snapshot-format parquet-wide \"CREATE (:Person {name: 'Ada', role: 'engineer'}), (:Person {name: 'Grace', role: 'engineer'})\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "relate info --database ./wide | head -n 3",
-        "expected_sha256": "9121da04256bcac58445ba8165b1ec501b5f73f0320bb8a1b844986e5abe55fe"
-      },
-      {
-        "command": "relate --database ./people --mode envelope \"CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE\"\nrelate --database ./people --mode envelope \"CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)\"",
-        "expected_sha256": null
-      },
-      {
-        "command": "cat people/.cypherlite/schema/schema.cypher",
-        "expected_sha256": "9b6904ebd03c13f28e59e2cdafe971cdec1e91fbf3769c6e8004e40010157e8a"
-      },
-      {
-        "command": "echo \"// edited\" >> people/.cypherlite/schema/schema.cypher\nrelate --database ./people --read-only --mode envelope \"RETURN 1 AS ok\"\necho \"exit=$?\"",
-        "expected_sha256": "964c1a73360969afa4ccd25bc7fec9142ccfb0ab00979d2cff1d2ba998cb91e9"
-      },
-      {
-        "command": "relate --database ./items --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate --database ./items-json --snapshot-format json --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate --database ./items.rl --mode envelope \"UNWIND range(1, 100000) AS i CREATE (:Item {id: i, name: 'item-' + toString(i), score: i * 0.5})\"\nrelate clone ./items.rl ./items-clone.rl",
-        "expected_sha256": "073cb9817130ad824528cdd3220ce4f11b428092a83c601cc351dc9cefefdf34"
-      },
-      {
-        "command": "for store in items items-json items.rl items-clone.rl; do printf '%s: ' \"$store\"; relate info --database \"./$store\" | grep 'total bytes'; done",
-        "expected_sha256": "844c9f49c946818797696fe0957dae9aa528addeb47cbbe030ce5d1ee4faf6ba"
-      }
-    ],
     "reference/storage/limits-and-sizing.mdx": [
       {
         "command": "relate --mode envelope --logical-graph-size-limit 1mb \"UNWIND range(1, 20000) AS i CREATE (:Item {i: i})\"\nrelate --mode envelope --logical-graph-size-limit 1mib \"UNWIND range(1, 20000) AS i CREATE (:Item {i: i})\"",
@@ -5162,20 +4332,6 @@
       {
         "command": "relate --mode envelope \"WITH reduce(s = 'a', i IN range(1, 25) | s + s) AS s CREATE (:Blob {s: s}) RETURN size(s) AS characters\"",
         "expected_sha256": "189e2b16d9d054ca0e55d889a5b04d4c1b8da37947ed08b6c41c44054326f89a"
-      }
-    ],
-    "reference/storage/wal-and-checkpoints.mdx": [
-      {
-        "command": "cat > team.cypher <<'EOF'\nCREATE (:Person {name: 'Ada', role: 'engineer'});\nCREATE (:Person {name: 'Grace', role: 'engineer'});\nCREATE (:Person {name: 'Noor', role: 'maintainer'});\nEOF\nrelate query --database ./team < team.cypher\nrelate info --database ./team\nls -A team/wal\ncat team/wal/00000002.log; echo",
-        "expected_sha256": "72faae4ffcc34ea283f2d66006734ad9e2e6fc26fef3a22d6af1d8314cae32af"
-      },
-      {
-        "command": "cat > checkpoint.cypher <<'EOF'\nMATCH (a:Person {name: 'Ada'}), (g:Person {name: 'Grace'}) CREATE (a)-[:KNOWS]->(g);\n.info\n.checkpoint\n.info\nEOF\nrelate query --database ./team < checkpoint.cypher | grep -E '^(checkpoint LSN|total bytes|wal segments)'",
-        "expected_sha256": "de21ae86d51c89756afb12129c4c272d3cb1f5d9bc600ef31d199bb8ee9f1847"
-      },
-      {
-        "command": "relate query --database ./batch <<'EOF' | grep -E '^(checkpoint LSN|nodes)'\nUNWIND range(1, 10001) AS i CALL (i) { CREATE (:Item {i: i}) } IN TRANSACTIONS OF 1 ROWS;\n.info\nEOF\nrelate info --database ./batch | grep -E '^(checkpoint LSN|nodes)'",
-        "expected_sha256": "7154cf05c7e6eec19e3582c1c27fa994065a64f237e700a3861185e8009c1172"
       }
     ]
   }

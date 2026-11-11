@@ -70,10 +70,11 @@ test('rewriteHref maps recipe links onto the site and drops what is not public',
   assert.equal(rewriteHref('README.md', slugs), '../');
   assert.equal(rewriteHref('#step-2', slugs), '#step-2');
   assert.equal(rewriteHref('https://deps.dev', slugs), 'https://deps.dev');
-  // Not on the site: a missing recipe, another file of this repository, and pre-launch URLs.
+  // Public URLs pass through, the relate repository and relatedb.ai included.
+  assert.equal(rewriteHref('https://github.com/relatedb/relate/blob/main/README.md', slugs), 'https://github.com/relatedb/relate/blob/main/README.md');
+  assert.equal(rewriteHref('https://relatedb.ai/install.sh', slugs), 'https://relatedb.ai/install.sh');
+  // Not on the site: a missing recipe and another file of this repository.
   assert.equal(rewriteHref('missing.md', slugs), null);
   assert.equal(rewriteHref('../adr/0035-ordered-expand-ts.md', slugs), null);
-  assert.equal(rewriteHref('https://github.com/relatedb/relate/blob/main/README.md', slugs), null);
-  assert.equal(rewriteHref('https://relatedb.ai/install.sh', slugs), null);
   assert.equal(rewriteHref('//evil.example/x', slugs), null);
 });

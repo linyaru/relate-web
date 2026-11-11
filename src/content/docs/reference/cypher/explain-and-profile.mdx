@@ -45,6 +45,7 @@ A plan is a tree of operators, one per clause. The root is the clause that produ
 | `NodeByLabelScan` | A node pattern with labels | The pattern, `(p:Person)` |
 | `NodeIndexSeek` | An equality on a range-indexed label and property | `RANGE INDEX p:Person(name) WHERE name = 'Ada'`, then the rest of the pattern |
 | `NodeIndexSeekByRange` | A `<`, `<=`, `>` or `>=` comparison on a range-indexed label and property | `RANGE INDEX p:Person(name) WHERE name >= 'G'` |
+| `NodeByLabelSeek` | A label disjunction whose labels each have a range index on the filtered property, such as `(p:Model OR p:Source) AND p.id = 1`, served as one keyed lookup per label | `RANGE INDEX p:Model(id), p:Source(id)`, one target per label; no `WHERE`, no count of its own |
 | `Expand` | A `MATCH` pattern with relationships, or several patterns | The patterns as written, from the chosen start |
 | `Optional(<operator>)` | An `OPTIONAL MATCH` | The pattern, then `optional` |
 | `Create` | `CREATE` | The created patterns |
@@ -93,13 +94,14 @@ A walking operator's `Details` also names how it started, as `[start #<k>, forwa
 
 ## Plan warnings
 
-Three notifications also appear in the plan table's `Warnings` column and in a `Warnings:` line under the table, instead of in the `Notifications:` block:
+Four notifications also appear in the plan table's `Warnings` column and in a `Warnings:` line under the table, instead of in the `Notifications:` block:
 
 | Warning | GQLSTATUS | Fires on |
 | --- | --- | --- |
 | `CartesianProduct` | `03N90` | Patterns in one `MATCH` that share no variable |
 | `AllNodesScan` | `03C90` | A node pattern with no label while the store has a property index |
 | `EstimationMiss` | `03C93` | `PROFILE` only: an estimate 10 times the actual rows or more |
+| `LabelDisjunctionScan` | `03C94` | An equality on a property of a label disjunction that no range index on each label serves |
 
 [Notifications](/docs/reference/cypher/notifications) lists every notification with its text and the statements it fires on.
 
@@ -237,7 +239,7 @@ relate --database ./team.rl --read-only --mode json "EXPLAIN MATCH (p:Person)-[:
 ```
 
 ```text
-{"notifications":[],"plan":{"args":{"Details":"1 item(s)","Id":0,"planner":"relate","planner-impl":"relate","planner-version":"0.1.2","runtime":"relate","runtime-impl":"relate","runtime-version":"0.1.2","string-representation":"Cypher 5\n\nPlanner relate\n\nRuntime relate\n\nRuntime version 0.1.2\n\nQuery: MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend\nPlan:\n+------------------+----+---------------------------------+\n| Operator         | Id | Details                         |\n+------------------+----+---------------------------------+\n| + ProduceResults | 0  | 1 item(s)                       |\n+------------------+----+---------------------------------+\n| | + Expand       | 1  | (p:Person)-[:KNOWS]->(f:Person) |\n+------------------+----+---------------------------------+","version":"5"},"children":[{"args":{"Details":"(p:Person)-[:KNOWS]->(f:Person)","Id":1,"PatternEngine":"auto"},"identifiers":[],"operatorType":"Expand"}],"identifiers":[],"operatorType":"ProduceResults"},"planCache":"miss","timings":{"elapsed_ms":0.225375,"execute_ms":0.027416999999999997,"lex_parse_ms":0.006125,"lower_ms":0.006583,"parse_ms":0.192084,"plan_ms":0.005084,"result_generation_ms":0.0,"rewrite_ms":0.00033299999999999996}}
+{"notifications":[],"plan":{"args":{"Details":"1 item(s)","Id":0,"planner":"relate","planner-impl":"relate","planner-version":"1.0.0","runtime":"relate","runtime-impl":"relate","runtime-version":"1.0.0","string-representation":"Cypher 5\n\nPlanner relate\n\nRuntime relate\n\nRuntime version 1.0.0\n\nQuery: MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend\nPlan:\n+------------------+----+---------------------------------+\n| Operator         | Id | Details                         |\n+------------------+----+---------------------------------+\n| + ProduceResults | 0  | 1 item(s)                       |\n+------------------+----+---------------------------------+\n| | + Expand       | 1  | (p:Person)-[:KNOWS]->(f:Person) |\n+------------------+----+---------------------------------+","version":"5"},"children":[{"args":{"Details":"(p:Person)-[:KNOWS]->(f:Person)","Id":1,"PatternEngine":"auto"},"identifiers":[],"operatorType":"Expand"}],"identifiers":[],"operatorType":"ProduceResults"},"planCache":"miss","timings":{"elapsed_ms":0.246333,"execute_ms":0.033207999999999994,"lex_parse_ms":0.006833,"lower_ms":0.009041,"parse_ms":0.204917,"plan_ms":0.007666000000000001,"result_generation_ms":0.0,"rewrite_ms":0.000458}}
 ```
 
 A `PROFILE` in table mode prints the rows on stdout and the plan on stderr. The `Time (ms)` and `Total (ms)` columns differ on every run:

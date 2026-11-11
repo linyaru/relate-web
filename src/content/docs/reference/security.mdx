@@ -20,7 +20,7 @@ Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 k
 | SBOM | None published |
 | SLSA provenance | None published |
 | Supported versions and security-fix policy | None published |
-| Vulnerability disclosure address | None yet; to be published at launch |
+| Vulnerability disclosure address | None yet |
 
 ## Release signing key
 
@@ -32,7 +32,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHgv/GHY5mtv/HopH/J/T7KrTT7eOVFEG2ueT4iRKwbK
 | --- | --- |
 | `https://relatedb.ai/install.sh` | The `SIGNING_KEY` line |
 | The `relate` binary | Compiled in; `relate upgrade` checks against it |
-| `distribution/release-signing-key.pub` in [github.com/relatedb/relate](https://github.com/relatedb/relate) | The public key file; the repository is public at launch |
+| `distribution/release-signing-key.pub` in [github.com/relatedb/relate](https://github.com/relatedb/relate) | The public key file |
 | A standalone key file at a `relatedb.ai` URL | Not published yet |
 
 All three copies are the same bytes. Its fingerprint, computed from the key:
@@ -82,7 +82,7 @@ Good "relate-release" signature for relate-release with ED25519 key SHA256:BfnIA
 relate-linux-amd64: OK
 ```
 
-In the output, `<version>` is that version number. The other assets are `relate-linux-arm64`, `relate-darwin-arm64`, `relate-darwin-amd64`, and `relate-windows-amd64.exe`. On macOS, `shasum -a 256 -c -` takes the place of `sha256sum -c -`. The [pinned install steps](/docs/get-started/agent-quickstart#install-a-pinned-relate) in Connect your agent to relate give the same steps with the install that follows them. The release URLs are launch-day targets: the repository is private until launch. The checks for a release up to and including 0.16.1 use that release's names instead: the `cypherlite-<os>-<arch>` asset, `cypherlite-release` as the identity, the namespace and the `allowed_signers` principal, and `# cypherlite-release-version: ` as the header.
+In the output, `<version>` is that version number. The other assets are `relate-linux-arm64`, `relate-darwin-arm64`, `relate-darwin-amd64`, and `relate-windows-amd64.exe`. On macOS, `shasum -a 256 -c -` takes the place of `sha256sum -c -`. The [pinned install steps](/docs/get-started/agent-quickstart#install-a-pinned-relate) in Connect your agent to relate give the same steps with the install that follows them. The checks for a release up to and including 0.16.1 use that release's names instead: the `cypherlite-<os>-<arch>` asset, `cypherlite-release` as the identity, the namespace and the `allowed_signers` principal, and `# cypherlite-release-version: ` as the header.
 
 ## Code signing and notarization
 
@@ -91,10 +91,12 @@ In the output, `<version>` is that version number. The other assets are `relate-
 | macOS CLI binaries | Signed with an Apple Developer ID Application identity, with the hardened runtime and a secure timestamp, then notarized by Apple. A bare binary cannot carry a stapled ticket, so Gatekeeper checks the notarization online the first time the binary runs. |
 | Linux CLI binaries | None |
 | Windows CLI binary | None; the release workflow has no Authenticode step |
-| C libraries (`relate-ffi-<target>.tar.gz`; `cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) and Python wheels | None |
-| Java jars | None on the release assets; the Maven Central publish, not enabled yet, signs with a GPG key |
+| C libraries (`relate-ffi-<target>.tar.gz`; `cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1) | None |
+| Python wheels and source distribution | None on the release assets. On PyPI, each `relate-db` file carries a PEP 740 attestation from trusted publishing: the `publish-registries.yml` workflow of `relatedb/relate`, in its `release` environment |
+| Java jars | None; `com.relate:relate` is published as release assets only, not to Maven Central |
 | Swift package | SwiftPM checks the release's `RelateFFI.xcframework.zip` (`CypherLiteFFI.xcframework.zip` up to and including 0.16.1) against the checksum in the tagged `Package.swift` |
-| npm packages | To be published with npm provenance through trusted publishing; none is published yet |
+| npm packages | npm provenance (SLSA provenance v1) through trusted publishing, from the `publish-registries.yml` workflow of `relatedb/relate`; `npm audit signatures` checks it |
+| Rust crates | None; published to crates.io through trusted publishing from the GitHub Actions of `relatedb/relate` |
 
 `SHA256SUMS` lists the five CLI binaries only. The other artifacts are not in it.
 
@@ -108,7 +110,7 @@ No supported-versions statement and no security-fix policy is published. Release
 
 ## Reporting a vulnerability
 
-No address for reporting a vulnerability exists yet. It is to be published at launch, together with `https://relatedb.ai/.well-known/security.txt`, which the site builds once a security contact is recorded. Until then the relate repositories are private, so there is no public issue tracker either.
+No address for reporting a vulnerability exists yet. When one exists, it is published here, together with `https://relatedb.ai/.well-known/security.txt`, which the site builds once a security contact is recorded.
 
 ## Served surfaces
 
@@ -142,7 +144,7 @@ No address for reporting a vulnerability exists yet. It is to be published at la
 | --- | --- |
 | `/skills/relate/` (the skill bundle) | Copied from the engine repository at a recorded commit, with the SHA-256 of every file recorded |
 | `/.well-known/agent-skills/index.json` | One `sha256:` digest per entry, over the bytes served |
-| `/docs/docs-artifacts.json` | Lists the skill and discovery files and the docs graph seed with their SHA-256; a signature with the release key, `docs-artifacts.json.sig`, is to be added at launch |
+| `/docs/docs-artifacts.json` | Lists the skill and discovery files and the docs graph seed with their SHA-256; a signature with the release key, `docs-artifacts.json.sig`, is not published yet |
 
 ## See also
 

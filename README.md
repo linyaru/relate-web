@@ -2,7 +2,7 @@
 
 The public website for **relate**, the embedded Cypher graph database, at [relatedb.ai](https://relatedb.ai): the home page, the documentation, the cookbook and the in-browser playground. It is a static [Astro](https://astro.build) site that ships the engine's WASM build and runs every example against it at build time.
 
-The site is pre-launch. Package names, release URLs and install URLs on the pages are launch-day targets and 404 until the first relate release; [`LAUNCH.md`](LAUNCH.md) tracks what flips at launch.
+The docs track relate 1.0.0, the first stable release and the first on PyPI (`relate-db`), npm (`@relate/relate`, `@relate/relate-wasm`) and crates.io (`relate`); the relate repository and this one are public. [`LAUNCH.md`](LAUNCH.md) tracks what is still open.
 
 ## What is here
 

@@ -104,7 +104,7 @@ for f in agent-safety client-c client-extensions client-go client-java client-ja
 done
 ```
 
-A download by hand has no digest check of its own. `/docs/docs-artifacts.json` lists the SHA-256 of every skill file the website serves, and at launch the release key signs it, as `docs-artifacts.json.sig` beside it. This script compares each downloaded file with its entry there:
+A download by hand has no digest check of its own. `/docs/docs-artifacts.json` lists the SHA-256 of every skill file the website serves; it is not signed yet, and a signature by the release key, `docs-artifacts.json.sig`, is planned beside it. This script compares each downloaded file with its entry there:
 
 ```bash
 manifest="$(mktemp)"
@@ -155,7 +155,7 @@ grep -E '^(name|version):' "$HOME/.claude/skills/relate/SKILL.md"
 
 ```text
 name: relate
-version: 0.1.2
+version: 1.0.0
 ```
 
 For a project copy, the same two commands on `.claude/skills/relate` show `SKILL.md` and `references` without the marker, and the same two lines.

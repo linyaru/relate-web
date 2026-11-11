@@ -7,7 +7,7 @@ surfaces: [go]
 related: [guides/embed/go, get-started/go, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Go :term[client]{id=client} is the module `github.com/relatedb/relate/clients/go`, package `relate`, for Go 1.22 or later. It is cgo code over the relate C library, `librelate_ffi`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous. This page lists the package's exported identifiers as `go doc` reports them for relate 0.1.2.
+The Go :term[client]{id=client} is the module `github.com/relatedb/relate/clients/go`, package `relate`, for Go 1.22 or later. It is cgo code over the relate C library, `librelate_ffi`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous. This page lists the package's exported identifiers as `go doc` reports them for relate 1.0.0.
 
 ## Synopsis
 
@@ -47,6 +47,7 @@ func (c *Connection) Close()
 | `Point`, `Vector` | struct | Spatial and vector values |
 | `Date`, `Time`, `LocalTime`, `DateTime`, `LocalDateTime`, `Duration` | struct | Temporal values as their components |
 | `Notification` | struct | One planner notification |
+| `Severity`, `Category` | `string` types | A notification's severity (`SeverityInformation`, `SeverityWarning`) and category (`CategoryPerformance`, `CategoryUnrecognized`, `CategoryDeprecation`, `CategorySchema`, `CategoryHint`); typed since 0.1.3, where 0.1.2 used plain strings |
 | `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | struct | The structured plan |
 
 ## Database
@@ -129,7 +130,7 @@ Each result cell decodes to one Go type per Cypher kind:
 | `VECTOR` | `Vector{DType string, Ints []int64, Floats []float64}`; the slice of the other family is nil |
 | byte array | `[]any` of `int64` |
 
-A zoned value reports its local wall clock. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`, and is `""` in the `system` namespace. The `ID` fields are the deprecated numeric ids `id()` returns. A value kind the client does not know is an error, never `nil`.
+A zoned value reports its local wall clock. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:rl-id:n0`, and is `""` in the `system` namespace. The `ID` fields are the deprecated numeric ids `id()` returns. A value kind the client does not know is an error, never `nil`.
 
 ## Parameters
 
@@ -171,7 +172,7 @@ Every failure the engine or the C boundary reports is a `*Error`, from a stateme
 
 ## Notifications and plans
 
-`Notification` has the fields `Code`, `GQLStatus`, `Severity` (`INFORMATION` or `WARNING`), `Category` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `Title`, `Description`, `Remedy` and `OperatorID`, an `*int64` that is nil on a statement-scoped notification.
+`Notification` has the fields `Code`, `GQLStatus`, `Severity`, a `Severity` (`SeverityInformation` or `SeverityWarning`, whose strings are `INFORMATION` and `WARNING`), `Category`, a `Category` (`CategoryPerformance`, `CategoryUnrecognized`, `CategoryDeprecation`, `CategorySchema` or `CategoryHint`, each the upper-case name), `Title`, `Description`, `Remedy` and `OperatorID`, an `*int64` that is nil on a statement-scoped notification. A severity or category outside those values, or a missing one, fails the result's decoding with an error that begins `ABI contract violated:` and names the key and the value.
 
 | Struct | Fields |
 | --- | --- |

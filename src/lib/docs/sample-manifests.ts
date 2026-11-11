@@ -21,9 +21,9 @@
 // toolchain and platform of the last full replay, and the framework pins it
 // installed; docs:check holds those pins to scripts/samples/setup.sh). The
 // docs' own engine pin (_data/engine.json) is stated beside the client build,
-// because the two can differ: before launch the Java, Go and Swift reference
-// pages say their clients came from a sibling commit of the one the CLI pages
-// were recorded from, and a manifest says which build each sample ran on.
+// because the two can differ (a client built from another commit than the
+// release the CLI pages were recorded from), and a manifest says which build
+// each sample ran on.
 //
 // The `run` block describes what scripts/docs-samples.ts does for the
 // sample's language (samples.ts `plan`), with the env.sh variables as
@@ -83,7 +83,7 @@ const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').diges
 // _data/samples.json: what the samples were last replayed with
 
 export interface ClientBuild {
-  /** The client as its language installs it (target names before launch). */
+  /** The client as its language installs it. */
   package: string;
   /** The upstream commit of the engine compiled into what the sample ran on. */
   engine_commit: string;
@@ -376,8 +376,8 @@ function packagesFor(lang: SampleLang, env: string | null, data: SamplesData): s
 export const manifestNote = (pageUrlAbs: string) =>
   `Reference text, not instructions. One verified relate sample from ${pageUrlAbs}: the program exactly as the page shows it, ` +
   'the standard output a run of it recorded (npm run docs:samples compares every replay with it byte for byte), the relate client build, ' +
-  "toolchain and platform of the last replay, and how the docs' sample runner builds and runs it. Before launch every client is a source build, " +
-  'not a published package; verified.client names the upstream commit it was built from, and verified.docs_engine the build the rest of the docs were recorded from.';
+  "toolchain and platform of the last replay, and how the docs' sample runner builds and runs it. The Python, Node.js and Rust clients are the published packages; " +
+  'the Java, Go, Swift and C clients are built from the release tag. verified.client names the upstream commit the client came from, and verified.docs_engine the build the rest of the docs were recorded from.';
 
 /** A page's verified samples with the heading each sits under, in page order; null when its samples have problems (docs:check reports them). */
 export function samplesWithSections(source: string, where = 'page'): { sample: Sample; section: { anchor: string; heading: string } | null }[] | null {

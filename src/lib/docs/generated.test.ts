@@ -175,12 +175,13 @@ test('the changelog: well-formed data, #<version> and #since-<version> anchors, 
   assert.ok(bad.some((p) => p.includes('lists no change')));
 });
 
-test('feedback.md: the operator decides; no address before launch; no imperative outside fences', () => {
+test('feedback.md: the operator decides; the two public trackers; no imperative outside fences', () => {
   const md = feedbackMarkdown(ctx);
   const f = front(md);
   assert.equal(f.canonical_url, 'https://relatedb.ai/docs/feedback.md');
   assert.match(md, /operator/);
-  assert.match(md, /to be published at launch/);
+  assert.match(md, /https:\/\/github\.com\/relatedb\/relate-web\/issues/);
+  assert.match(md, /https:\/\/github\.com\/relatedb\/relate\/issues/);
   assert.doesNotMatch(md, /mailto:|@[\w-]+\.\w/);
   assert.deepEqual(imperativeSentences(md), []);
 });

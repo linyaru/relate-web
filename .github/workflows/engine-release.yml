@@ -29,9 +29,9 @@
 #
 # Secrets (all optional; each one's absence is reported, not fatal):
 #   RELATE_UPSTREAM_TOKEN  read access to the upstream repository's contents
-#                          and releases (private before launch). Without it
-#                          the release cannot be read until the repository is
-#                          public, and the samples are skipped.
+#                          and releases. The repository is public, so the
+#                          release reads with the default token too; without
+#                          this secret the language samples are skipped.
 #   RELEASE_PR_TOKEN       opens the pull request. A pull request opened with
 #                          the default GITHUB_TOKEN does not start other
 #                          workflows, so without this token the required
@@ -97,7 +97,7 @@ jobs:
             exit 1
           fi
           if [ "$HAS_UPSTREAM_TOKEN" != true ]; then
-            echo "::warning::RELATE_UPSTREAM_TOKEN is not set: the release is read with the default token, which works only once $UPSTREAM_REPO is public, and the language samples are skipped"
+            echo "::warning::RELATE_UPSTREAM_TOKEN is not set: the release is read with the default token and the language samples are skipped"
           fi
           {
             echo "version=$version"

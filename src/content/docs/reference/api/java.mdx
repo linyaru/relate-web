@@ -7,7 +7,7 @@ surfaces: [java]
 related: [guides/embed/java, get-started/java, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Java :term[client]{id=client} is the artifact `com.relate:relate`, package `com.relate`, for Java 17 or later. It calls the relate C library, `librelate_ffi`, through JNA (Java Native Access), and its jar carries that library; the library's C application binary interface (C ABI) is version 2. Its two dependencies are JNA and Jackson databind. Every call is synchronous, and every failure is an unchecked exception. This page describes the client of relate 0.1.2.
+The Java :term[client]{id=client} is the artifact `com.relate:relate`, package `com.relate`, for Java 17 or later. It calls the relate C library, `librelate_ffi`, through JNA (Java Native Access), and its jar carries that library; the library's C application binary interface (C ABI) is version 2. Its two dependencies are JNA and Jackson databind. Every call is synchronous, and every failure is an unchecked exception. This page describes the client of relate 1.0.0.
 
 ## Synopsis
 
@@ -144,7 +144,7 @@ Each result cell is decoded into one Java type per Cypher kind:
 | `VECTOR` | `VectorValue`; `coordinates` holds `Long` for the `INTEGER*` types and `Double` for the `FLOAT*` types |
 | byte array | `List<Long>`, each 0 to 255 |
 
-An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`, so it round-trips through a parameter. The `long` ids are the deprecated numeric ids `id()` returns. A map key holding a NUL character, or a value kind the client does not know, throws `RelateException` instead of returning a value.
+An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:rl-id:n0`, so it round-trips through a parameter. The `long` ids are the deprecated numeric ids `id()` returns. A map key holding a NUL character, or a value kind the client does not know, throws `RelateException` instead of returning a value.
 
 ## Parameters
 

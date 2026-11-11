@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "verified": "0.1.2",
+  "verified": "1.0.0",
   "cells": {
     "seed": {
       "kind": "table",
@@ -62,7 +62,7 @@
     },
     "show-indexes": {
       "kind": "table",
-      "text": "| name             | type     | entityType     | labelsOrTypes | properties |\n|------------------|----------|----------------|---------------|------------|\n| \"node_labels\"    | \"LOOKUP\" | \"NODE\"         | null          | null       |\n| \"person_role\"    | \"TEXT\"   | \"NODE\"         | [\"Person\"]    | [\"role\"]   |\n| \"works_on_since\" | \"RANGE\"  | \"RELATIONSHIP\" | [\"WORKS_ON\"]  | [\"since\"]  |\n3 rows",
+      "text": "| name             | type     | entityType     | labelsOrTypes | properties |\n|------------------|----------|----------------|---------------|------------|\n| \"index_1b9dcc97\" | \"LOOKUP\" | \"RELATIONSHIP\" | null          | null       |\n| \"index_460996c0\" | \"LOOKUP\" | \"NODE\"         | null          | null       |\n| \"node_labels\"    | \"LOOKUP\" | \"NODE\"         | null          | null       |\n| \"person_role\"    | \"TEXT\"   | \"NODE\"         | [\"Person\"]    | [\"role\"]   |\n| \"works_on_since\" | \"RANGE\"  | \"RELATIONSHIP\" | [\"WORKS_ON\"]  | [\"since\"]  |\n5 rows",
       "table": {
         "columns": [
           "name",
@@ -79,6 +79,20 @@
           false
         ],
         "rows": [
+          [
+            "\"index_1b9dcc97\"",
+            "\"LOOKUP\"",
+            "\"RELATIONSHIP\"",
+            "null",
+            "null"
+          ],
+          [
+            "\"index_460996c0\"",
+            "\"LOOKUP\"",
+            "\"NODE\"",
+            "null",
+            "null"
+          ],
           [
             "\"node_labels\"",
             "\"LOOKUP\"",
@@ -101,7 +115,7 @@
             "[\"since\"]"
           ]
         ],
-        "summary": "3 rows"
+        "summary": "5 rows"
       },
       "graph": null,
       "envelope": {
@@ -124,6 +138,20 @@
         "plan": null,
         "plan_cache": "miss",
         "rows": [
+          {
+            "entityType": "RELATIONSHIP",
+            "labelsOrTypes": null,
+            "name": "index_1b9dcc97",
+            "properties": null,
+            "type": "LOOKUP"
+          },
+          {
+            "entityType": "NODE",
+            "labelsOrTypes": null,
+            "name": "index_460996c0",
+            "properties": null,
+            "type": "LOOKUP"
+          },
           {
             "entityType": "NODE",
             "labelsOrTypes": null,
@@ -318,7 +346,7 @@
     },
     "drop-constraint": {
       "kind": "table",
-      "text": "| indexes                                          |\n|--------------------------------------------------|\n| [\"node_labels\", \"person_role\", \"works_on_since\"] |\n1 row · constraints removed: 1",
+      "text": "| indexes                                                                              |\n|--------------------------------------------------------------------------------------|\n| [\"index_1b9dcc97\", \"index_460996c0\", \"node_labels\", \"person_role\", \"works_on_since\"] |\n1 row · constraints removed: 1",
       "table": {
         "columns": [
           "indexes"
@@ -328,7 +356,7 @@
         ],
         "rows": [
           [
-            "[\"node_labels\", \"person_role\", \"works_on_since\"]"
+            "[\"index_1b9dcc97\", \"index_460996c0\", \"node_labels\", \"person_role\", \"works_on_since\"]"
           ]
         ],
         "summary": "1 row · constraints removed: 1"
@@ -348,6 +376,8 @@
         "rows": [
           {
             "indexes": [
+              "index_1b9dcc97",
+              "index_460996c0",
               "node_labels",
               "person_role",
               "works_on_since"

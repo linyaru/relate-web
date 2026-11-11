@@ -11,13 +11,11 @@
 # It is not a required check: it depends on a published release, not on the
 # pull request.
 #
-# install.sh resolves the latest release of relatedb/relate through the
-# GitHub API. The repository is private before launch, so the install step
-# reads it with RELATE_UPSTREAM_TOKEN (the token docs-samples.yml and
-# engine-release.yml use); without that secret it falls back to the job's
-# token, which can read the release only once the repository is public. A
-# failure turns the run red: since relate 0.1.0 a release exists, so a red run
-# is drift or a broken install, never "no release yet".
+# install.sh resolves the latest release from https://relatedb.ai/releases.json
+# and downloads it from the public relatedb/relate releases; the install step
+# passes RELATE_UPSTREAM_TOKEN when it is set (engine-release.yml uses it too),
+# else the job's own token. A failure turns the run red: a release exists, so a
+# red run is drift or a broken install, never "no release yet".
 #
 # A drift after a release: if the CLI changed on purpose, re-record the data
 # files with `RELATE_BIN=<binary> npm run docs:cli-check -- --record`, fix the

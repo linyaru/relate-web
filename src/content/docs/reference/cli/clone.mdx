@@ -29,7 +29,7 @@ A directory store can be cloned while another process writes it: the clone takes
 
 ## Layouts
 
-Every pairing of the two durable layouts works; the in-memory store is refused on either side. One pairing depends on the codec: in relate 0.1.2 a `.rl` destination refuses markdown body properties, so a `markdown` source reaches a `.rl` path only with `--to-snapshot-format parquet` or `json` ([Codecs](#codecs)).
+Every pairing of the two durable layouts works; the in-memory store is refused on either side. One pairing depends on the codec: in relate 1.0.0 a `.rl` destination refuses markdown body properties, so a `markdown` source reaches a `.rl` path only with `--to-snapshot-format parquet` or `json` ([Codecs](#codecs)).
 
 | Source | Destination | Result |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ relate --database ./from-vault --read-only --mode jsonl "MATCH (p:Person)-[w:WOR
 
 ### Markdown into a `.rl` file
 
-In relate 0.1.2 a `.rl` destination refuses markdown body properties, whether they come from `--markdown-body-properties` or from the configuration a `markdown` source records. Cloning a `markdown` store into a `.rl` path therefore needs `--to-snapshot-format parquet` or `json`; without it, or with `--to-snapshot-format markdown`, the clone exits 1 and creates nothing. The message names `parquet` whatever codec the command asked for:
+In relate 1.0.0 a `.rl` destination refuses markdown body properties, whether they come from `--markdown-body-properties` or from the configuration a `markdown` source records. Cloning a `markdown` store into a `.rl` path therefore needs `--to-snapshot-format parquet` or `json`; without it, or with `--to-snapshot-format markdown`, the clone exits 1 and creates nothing. The message names `parquet` whatever codec the command asked for:
 
 ```bash verify
 relate clone ./team-vault ./vault-kept.rl

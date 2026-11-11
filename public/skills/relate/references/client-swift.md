@@ -46,8 +46,11 @@ day: 2))`, `.point(.init(srid: 4326, x: -105.0, y: 40.0, z: nil))`).
 
 ## Gotchas
 
-- **`queryType` / `namespace` are closed enums** — a value outside the
-  vocabulary throws `RelateError.decoding` (`ABI contract violated: ...`).
+- **`queryType` / `namespace` and notification `severity` / `category` are
+  closed enums** — a value outside the vocabulary throws
+  `RelateError.decoding` (`ABI contract violated: ...`). The offending value
+  echoed into the message is sanitized: non-printable characters arrive escaped
+  and the value is bounded.
 - A result map key containing an interior NUL is refused with an error (the C ABI looks keys up NUL-terminated); string values keep their NULs.
 - **`Connection` is not `Sendable`** — the compiler stops you sharing one
   across actors. Own it inside one actor; `Database` is shareable, open one
@@ -55,7 +58,7 @@ day: 2))`, `.point(.init(srid: 4326, x: -105.0, y: 40.0, z: nil))`).
 - **Blocking calls** — queries run synchronously; never call them on the
   `MainActor`.
 - **Every value is typed** — nodes and relationships carry element ids
-  (`"4:relate-neo4j:n0"`, `elementId(n) = $id` round-trips) plus the
+  (`"4:rl-id:n0"`, `elementId(n) = $id` round-trips) plus the
   deprecated numeric ids Cypher's `id()` returns (`node.id`,
   `rel.id`/`rel.startId`/`rel.endId`, ADR-0506 — use them for entity
   equality, not lookups), temporals arrive

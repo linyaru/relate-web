@@ -1,10 +1,9 @@
-# LAUNCH — relatedb.ai pre-launch notes
+# LAUNCH — relatedb.ai launch notes
 
-Status: **stealth**. relate v0.1.0, v0.1.1 and v0.1.2 are published as GitHub
-releases of the upstream repository, which is not public yet, and the docs track
-v0.1.2; no package is on a registry and no repo is public. Everything on this
-site that points at a package, a release URL, or another URL is written for the
-launch-day names and will 404 for a logged-out visitor until then.
+Status: **launched**. relate v1.0.0 (2026-11-11) is the first stable release:
+`relatedb/relate` and `relatedb/relate-web` are public, `relatedb.ai` is served
+by Cloudflare Pages, and the clients are on PyPI, npm and crates.io. The docs
+track v1.0.0. The open items below are what launch left.
 
 Working notes and plans live here. `MAINTAINING.md` is the standing contract
 for the site; `PLAN.md` / `WEBSITE-PLAN.md` are historical (from the
@@ -19,19 +18,20 @@ cypherlite-era redo) and should not be extended.
 - `public/wasm/` is a copy of upstream `surfaces/relate-wasm/pkg/` (built with
   `scripts/build-wasm.sh --mode release`). Re-copy after upstream changes.
 
-## Target names (from upstream sources; none published yet)
+## Published names (as of v1.0.0)
 
-| Surface | Name |
-|---|---|
-| Install script | `https://relatedb.ai/install.sh` |
-| Release discovery | `https://relatedb.ai/releases.json` |
-| Releases / repo | `github.com/relatedb/relate` |
-| Binaries | `relate-<os>-<arch>` |
-| Python | `relate-db` (`import relate`) |
-| npm (Node / browser) | `@relate/relate` / `@relate/relate-wasm` |
-| Java | `com.relate:relate` |
-| Go | `github.com/relatedb/relate/clients/go` |
-| Swift | `Relate` via `github.com/relatedb/relate` |
+| Surface | Name | Where |
+|---|---|---|
+| Install script | `https://relatedb.ai/install.sh` | relatedb.ai |
+| Release discovery | `https://relatedb.ai/releases.json` | relatedb.ai |
+| Releases / repo | `github.com/relatedb/relate` | GitHub, public |
+| Binaries | `relate-<os>-<arch>` | release assets |
+| Python | `relate-db` (`import relate`) | PyPI |
+| npm (Node / browser) | `@relate/relate` (+ `@relate/relate-<platform>-<arch>`) / `@relate/relate-wasm` | npm |
+| Rust | `relate` (+ the crates it depends on) | crates.io |
+| Java | `com.relate:relate` | release jars only; **not on Maven Central** |
+| Go | `github.com/relatedb/relate/clients/go` | the repository; **no `clients/go/vX.Y.Z` tag**, so `go get` records a pseudo-version |
+| Swift | `Relate` via `github.com/relatedb/relate` | the release tag + `RelateFFI.xcframework.zip` |
 
 ## Open work before launch
 
@@ -42,17 +42,20 @@ cypherlite-era redo) and should not be extended.
 - [x] Indexing: every page and `robots.txt` follow one switch (ADR-0058). On by default (the site is open to indexing); a build with `PUBLIC_INDEXABLE=false` is non-indexable, for previews. The 404 page and the blog placeholder are never indexable
 - [x] Playground is built by this site at `/playground/` (source: `playground/`, its own package); the header and the home page link it
 - [x] Cookbook is built by this site at `/cookbook/` (source: `src/content/cookbook/`); the header links it
-- [ ] Cookbook link policy: `src/lib/cookbook/links.ts` `NOT_PUBLIC_YET` drops links to `github.com/relatedb/` and `relatedb.ai` from recipe prose; delete those entries at launch
-- [ ] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) now point at `relatedb/relate`, which is private: they 404 for logged-out visitors until the repo is public, and the docs paths (`docs/tck/compliance.md`, `docs/adr/`, `docs/api/extensions/...`) must exist there
+- [x] Cookbook link policy: `src/lib/cookbook/links.ts` `NOT_PUBLIC_YET` is empty since v1.0.0; the relate repository and relatedb.ai links render
+- [x] All repo links (header, footer, releases, issues, TCK doc, ADRs, extension examples) point at `relatedb/relate`, which is public; every `github.com/relatedb/…` URL in the docs, cookbook and skills resolved on 2026-11-11
 - [x] canonical / `og:url` / `sitemap.xml` / install URL now use `https://relatedb.ai/` (the site is indexable)
-- [ ] `public/extensions.json` (+ `.sig`) is still the cypherlite-era copy (its tags are `cypherlite-extensions-…`); regenerate it from upstream when the first relate extension release is cut. `releases.json` is relate's (v0.1.0 to v0.1.2)
+- [x] `public/extensions.json` (+ `.sig`) comes from the relate extension releases (`relate-extensions-…`), synced by `scripts/release-refresh.sh` for v1.0.0. `releases.json` is relate's (v0.1.0 to v1.0.0)
 - [x] After the first relate-named release: `continue-on-error` is gone from `.github/workflows/docs-cli-check.yml`, which now installs the latest release with `RELATE_UPSTREAM_TOKEN` (the private repository's release API answered 404 to the job's own token). Run it once by hand (workflow_dispatch) after this lands on `main`
 - [ ] Release discovery (ADR-0546, upstream): upstream's pipelines attach `install.sh` + `releases.json` (core release) and the signed `extensions.json` pair (extension release) as release assets, then send a `repository_dispatch` `relate-release` (`{kind: cli|extension, tag}`) here. Both deploy workflows run on it and `scripts/fetch-discovery.sh` pulls the files (newest release wins; signature verified; fails closed) before the build, so **a release is never held up by review** (runbook: `runbooks/release-discovery.md`). The checked-in `public/install.sh`, `releases.json`, `extensions.json(.sig)` are seed copies for local work and pre-release. Secrets are shared across the `relatedb` org: make `RELATE_UPSTREAM_TOKEN` (read on `relate`) visible to this repo and `RELATE_WEB_DISPATCH_TOKEN` (`contents:write` on this repo) visible to `relate`. Until `RELATE_UPSTREAM_TOKEN` is set the fetch is skipped with a notice; set the repo variable `RELATE_DISCOVERY_REQUIRED=true` at launch so a missing token fails the deploy. Not yet tried against real assets: dry-run on the first release (`gh workflow run` the deploy, or `npm run discovery:fetch` with a token)
 - [ ] Release docs refresh (`.github/workflows/engine-release.yml`, a `cli` poke only; a reviewed pull request, it does not gate the discovery files): until the pokes are live run it by hand. Configure `RELATE_UPSTREAM_TOKEN` (also read by `docs-samples.yml`) and `RELEASE_PR_TOKEN` (so the refresh PR starts the required Cookbook check); the WASM package must be a release asset (`relate-relate-wasm-<version>.tgz`) or on npm. `public/extensions.json.sig` verifies only under the old `cypherlite-release` namespace until upstream republishes under `relate-release`, so verification fails closed until then
-- [ ] **Blocker:** the served relate skill (`public/skills/relate/references/vector.md`, also in `relate skill install`) calls the vector index "an HNSW (Hierarchical Navigable Small World) approximate" index, while every docs page and both task skills say `SEARCH` is an exact top-k scan. Land the upstream fix to `surfaces/relate-cli/src/skill/bundle/references/vector.md`, run `npm run skill:sync`, and review the diff before the site publishes
-- [x] One build for every fact: the CLI facts, the WASM build and all seven languages' sample clients come from relate v0.1.2 (upstream `f0c09d2`): the CLI recordings were replayed against the release binary installed by `install.sh`, and every client was built by `scripts/samples/setup.sh` from a clone at the tag (`_data/samples.json`). Still open: have `setup.sh` record the commit it built each client from, so `_data/samples.json` need not be written by hand
-- [x] The docs samples environment and the CLI recordings are pinned to the v0.1.2 release, not a source build: re-pin at each release with `scripts/release-refresh.sh` (AGENTS.md §4)
-- [ ] After the first release with published clients: switch `docs-samples.yml` and `scripts/samples/setup.sh` from building the clients out of the upstream checkout to installing the published `relate-db` and `@relate/relate` packages
+- [ ] **Blocker (still open at v1.0.0):** the served relate skill (`public/skills/relate/references/vector.md`, also in `relate skill install`) calls the vector index "an HNSW (Hierarchical Navigable Small World) approximate" index, while every docs page and both task skills say `SEARCH` is an exact top-k scan. Land the upstream fix to `surfaces/relate-cli/src/skill/bundle/references/vector.md`, run `npm run skill:sync`, and review the diff before the site publishes
+- [x] One build for every fact: the CLI facts, the WASM build and all seven languages' sample clients come from relate v1.0.0 (upstream `b02f283`): the CLI recordings were replayed against the release binary installed by `install.sh`, the Python, Node.js and Rust clients are the published packages, and the others were built by `scripts/samples/setup.sh` from a clone at the tag (`_data/samples.json`, ADR-0062). Still open: have `setup.sh` record the commit it built each client from, so `_data/samples.json` need not be written by hand
+- [x] The docs samples environment and the CLI recordings are pinned to the v1.0.0 release, not a source build: re-pin at each release with `scripts/release-refresh.sh` (AGENTS.md §4)
+- [x] After the first release with published clients: `scripts/samples/setup.sh` installs `relate-db`, `@relate/relate` and the `relate` crate from their registries, and `docs-samples.yml` no longer needs a token to check out upstream (ADR-0062)
+- [ ] Java on Maven Central and a `clients/go/vX.Y.Z` module tag: both are upstream decisions; until then the docs describe the release jar plus `mvn install:install-file`, and the pseudo-version
+- [ ] A vulnerability disclosure address (and `_data/project.json` `security.contact`, which builds `/.well-known/security.txt`): none exists upstream at v1.0.0
+- [ ] `/docs/relate-docs.rl` is still not built or served (`reference/docs-graph` says so)
 
 ## Feedback (giscus)
 
@@ -100,21 +103,21 @@ GitHub token.
 - [ ] Home "Zero to querying" shows no TCK pass count: the design's "3,893 tests passed" figure is not published by any engine document (upstream `docs/tck/compliance.md`: the count retired 2026-11-05 with the move to the spec harness). Add a number only when the harness publishes one, with its link
 - [ ] The hero banner's Join link (`https://relate.devpost.com`) resolves; the banner runs one month, then remove it from `src/components/Hero.astro`
 
-**Install names** (the table under "Target names" is the source; the site must agree with it)
-- [ ] Before the first publish, confirm each name is free or ours: `pip index versions relate-db`, `npm view @relate/relate` and `npm view @relate/relate-wasm` (the `@relate` scope is ours), Maven Central search for `com.relate:relate` (group ownership verified), `go list -m github.com/relatedb/relate/clients/go`
-- [ ] After publish, each name resolves to the release just cut (same version as `relate --version`), not a squatted or stale package
+**Install names** (the table under "Published names" is the source; the site must agree with it)
+- [x] Each name is ours (2026-11-11): `relate-db` 1.0.0 on PyPI, `@relate/relate`, `@relate/relate-wasm` and the five `@relate/relate-<platform>-<arch>` packages at 1.0.0 on npm, `relate` 1.0.0 on crates.io; `com.relate:relate` is not on Maven Central
+- [x] After publish, each name resolves to the release just cut: the PyPI sdist and the npm `@relate/relate` tarball are byte for byte the v1.0.0 release assets, and the crate's `.cargo_vcs_info.json` names the release commit `b02f283`
 - [ ] No unlisted install name on the site: `grep -rhoE "pip install [a-z0-9_.-]+|npm install [@a-z0-9/_.-]+|cargo add [^\`<]+|go get [^\`< ]+" src public dist | sort -u` lists only names from the table; `grep -rhoE "relate-(linux|darwin|windows)[a-z0-9.-]*" dist | sort -u` matches the release's actual asset names
 - [ ] Native library and crate names (`relate-ffi`, `librelate_ffi`) match the release assets and the Java jar's bundled natives
 - [ ] The same names appear in `llms.txt`, `/skill.md`, the served skill, and `relate skill install` output
 
 **Install paths** (each one on a clean environment)
 - [ ] `curl -sSfL https://relatedb.ai/install.sh | bash` installs; `relate --version` matches the release; signature + SHA256SUMS verification passes
-- [ ] `relate upgrade --check` reads `https://relatedb.ai/releases.json` successfully
+- [x] `relate upgrade --check` reads `https://relatedb.ai/releases.json` successfully (1.0.0, 2026-11-11)
 - [ ] Prebuilt binaries download for macOS arm64/amd64, Linux arm64/amd64, Windows
-- [ ] `pip install relate-db` then `python -c "import relate"`
-- [ ] `npm install @relate/relate` and `npm install @relate/relate-wasm` (platform optional deps resolve)
-- [ ] Java: `com.relate:relate` resolves from Maven Central
-- [ ] Go: `go get github.com/relatedb/relate/clients/go`
+- [x] `pip install relate-db` then `python -c "import relate"` (macOS arm64, 2026-11-11, by `scripts/samples/setup.sh`)
+- [x] `npm install @relate/relate` and `npm install @relate/relate-wasm` (platform optional deps resolve; macOS arm64, 2026-11-11)
+- [ ] Java: `com.relate:relate` is not on Maven Central. Until it is, the docs install the release jar with `mvn install:install-file -Dfile=relate-<version>.jar` (its embedded POM brings JNA and Jackson; checked 2026-11-11 with Maven 3.10.0, plain and classifier jars)
+- [x] Go: `go get github.com/relatedb/relate/clients/go@b02f283` records `v0.0.0-20261111173503-b02f283c3620`; without `@<commit>` it takes the newest `main` commit, and `@v1.0.0` fails (no `clients/go/v1.0.0` tag)
 - [ ] Swift: package resolves from `github.com/relatedb/relate`
 - [ ] `relate skill install` works and the agent skill loads
 
@@ -146,7 +149,7 @@ Owned by the docs team, mostly shipped outside this repo. Phase 1 unless
 marked.
 
 - [ ] Canonical phrase everywhere a model reads first: "relate, the embedded Cypher graph database (relatedb.ai)" in `llms.txt`'s first line, every docs description, the skill description, MCP `serverInfo`, PyPI/npm descriptions, the README H1
-- [ ] Confirm publishing rights for the `@relate` npm scope (owned by the Neo4j organisation; `@relate/cli` is the Desktop framework) before announcing `@relate/relate`
+- [x] Publishing rights for the `@relate` npm scope: `@relate/relate` 1.0.0 is published there with provenance from `relatedb/relate`
 - [ ] PyPI and npm metadata: descriptions, keywords (agent memory, knowledge graph, GraphRAG, Cypher, embedded), links to `/docs/llms.txt` and the skill
 - [ ] Official MCP registry: `server.json` for the local server; `mcpName` in `package.json`
 - [ ] Context7, Smithery, Glama, awesome-mcp-servers listings; the skills registries (`/.well-known/agent-skills/index.json` live)
@@ -186,14 +189,14 @@ Listed in DOCS-PLAN.md §10's phase 1 platform list and not built in the platfor
 
 - [x] The phase 2 interactive elements of DOCS-PLAN.md §7.3 are built and placed (ADR-0035 to ADR-0042; §10 "As built (phase 2, part C)"): graph view extras, the timing bar, the plan viewer, the agent-mode terminal, the live schema, the vector and geospatial explorers, the MCP tryout, agent trace playback and the docs graph. `npm run cookbook:browser` runs each element's cases
 - [x] Engine bump to 0.1.2: the terminal's fixtures were re-recorded and its renderers print the CLI's `timings` and `planCache` (static forms write the values as `<ms>`); `node scripts/docs.ts --record` re-stamped every element form. Repeat at each bump
-- [ ] `reference/docs-graph` lists `https://relatedb.ai/docs/relate-docs.rl` and its `.sha256` as launch-day targets; serve them (the manifest item above) or drop the row
+- [ ] `reference/docs-graph` lists `https://relatedb.ai/docs/relate-docs.rl` and its `.sha256` as not served yet; serve them (the manifest item above) or drop the row
 - [ ] The docs graph view fetches `/docs/graph-view.json` and the plan viewer, terminal and explorers load the engine from `/wasm/`: after the host move, open `reference/docs-graph`, `concepts/agent-native` and `guides/cypher/geospatial` on `relatedb.ai` and check each element goes live with no console error
 - [ ] When ADR-0042 is accepted, add a **Later references** line to ADR-0010 naming it (the docs graph's network view is the one graph module's second entry point, `renderNetwork`)
 
 ### Docs work in phase 2 (platform)
 
 - [ ] Host deeplinks: the Cursor and VS Code link forms in `src/lib/docs/deeplink.ts` follow each host documentation page as of 2026-11-07 (Cursor install-links page; VS Code extension guide, page dated 2026-11-04); neither link has been opened in the real app. Re-check quarterly
-- [ ] `_data/surfaces.json`: re-check every cell at each engine bump. Rechecked on 2026-11-09 against v0.1.2 (f0c09d2): the release binary (query session; `relate serve` over Bolt with the Neo4j Python driver, HTTP, and MCP on stdio and streamable HTTP), the shipped WASM, and probe programs on the Python, Node.js, C, Java, Go, Swift and Rust clients. No cell is inferred from the shared library any more. Loading a store from a URL was run with an http URL on loopback; https reached a verified TLS handshake but no store was loaded over https. The Arrow and CDC "no" cells of the clients other than Python, Node.js and Rust, and of the served surfaces, rest on the v0.1.2 specs and client sources
+- [ ] `_data/surfaces.json`: re-check every cell at each engine bump. For v1.0.0 (2026-11-11) the cells were rechecked by the `recheck-1.0.0` source (the upstream API specs diffed from v0.1.2, every recording and sample replayed, Bolt, HTTP and MCP rerun), not by re-running the per-client probe programs; only the Rust CDC cell changed. Rechecked on 2026-11-09 against v0.1.2 (f0c09d2): the release binary (query session; `relate serve` over Bolt with the Neo4j Python driver, HTTP, and MCP on stdio and streamable HTTP), the shipped WASM, and probe programs on the Python, Node.js, C, Java, Go, Swift and Rust clients. No cell is inferred from the shared library any more. Loading a store from a URL was run with an http URL on loopback; https reached a verified TLS handshake but no store was loaded over https. The Arrow and CDC "no" cells of the clients other than Python, Node.js and Rust, and of the served surfaces, rest on the v0.1.2 specs and client sources
 - [ ] Confirm the license of the docs text (cookbook recipe query-the-relate-docs front matter says Apache-2.0, like the other site-authored recipe datasets; relate-web has no LICENSE file) and cite the source, or change the field
 - [ ] Structural check "a term used on three or more pages and defined on none": needs a candidate-term source outside the glossary (none exists; no bold or otherwise marked term occurs on three pages). Owner to be assigned: the glossary check (`checks/glossary.ts`) or a graph query
 - [ ] First live docs eval (`docs-evals.yml` by hand, Claude Code wrapper). Confirm that the skill condition's `system/init` event lists the relate skill, that a `-p` run starts with an empty HOME and ANTHROPIC_API_KEY, and that the Bash `tool_use`/`tool_result` transcript is read (`scripts/evals/agents/claude-code.sh`, `scripts/evals/harness.ts`)
@@ -201,7 +204,7 @@ Listed in DOCS-PLAN.md §10's phase 1 platform list and not built in the platfor
 - [ ] To run the eval on every relate release (DOCS-PLAN.md §10): set the repository variables `DOCS_EVALS_AGENT_PACKAGE` (pinned npm spec) and `DOCS_EVALS_HARNESS`, plus ANTHROPIC_API_KEY or CODEX_API_KEY. Until upstream sends the `relate-release` dispatch, no run starts by itself
 - [ ] List the five task skills (`relate-agent-memory`, `relate-graphrag`, `relate-schema-design`, `relate-query-tuning`, `relate-migrate-from-vector-search`) wherever the CLI bundle is listed in the skills registries, once `/.well-known/agent-skills/index.json` is live
 - [ ] `guides/agents/install-the-skill` names skills CLI 1.7.6 (read and run 2026-11-07); re-check the `--skill` selection and the digest check against the current release before launch
-- [ ] Run `docs-samples.yml` once by hand now that `RELATE_UPSTREAM_TOKEN` exists (it builds from the tag `_data/engine.json` names, v0.1.2): the Linux paths of the C, Go and Java runners and the macos-15 runner's Swift toolchain are untested. The Java client's pom now reads 0.1.2, the engine's version (`relate-0.1.2.jar`); after launch, check that the published packages' versions equal the engine's
+- [ ] Run `docs-samples.yml` once by hand (it installs the registry clients and checks out the tag `_data/engine.json` names, v1.0.0, with no token): the Linux paths of the C, Go and Java runners and the macos-15 runner's Swift toolchain are untested. The published packages' versions equal the engine's at 1.0.0
 - [x] Capability catalog: each phase 2 guide has joined its capability's `guides`, and `neo4j-subgraph-mirror` cites the recorded `--dry-run` push plan (`guides/neo4j/push-to-neo4j#step-3`; a real pull or push still needs a Neo4j or Aura server no check here has). Done in phase 2 part B
 - [ ] Capability catalog: several verify runs prove less than the whole capability (`concepts/problems-relate-solves`); re-point them at a `bash verify` step on a guide where one now proves it directly
 - [ ] When ADR-0026 to ADR-0034 are accepted, change their status in `docs/adr/README.md`
@@ -210,7 +213,7 @@ Listed in DOCS-PLAN.md §10's phase 1 platform list and not built in the platfor
 
 Written in phase 2 part B (DOCS-PLAN.md §10); what a launch, a release or upstream still has to settle:
 
-- [ ] Client install lines are launch-day targets, never run against a registry: `go get github.com/relatedb/relate/clients/go` (and its cgo flags outside an upstream checkout), the Java coordinate (written `<release>` because the client pom reads 0.1.0), the SwiftPM URL, and the `@relate/relate-wasm` package layout (`relate.js`, `relate_bg.wasm`, `trap.js`, `snippets/` at its root, per upstream's `package.json.template`). Check each against the published package, and replace `<release>` with the coordinate's version
+- [ ] Client install lines against the published packages (2026-11-11): `go get …@b02f283` resolves outside a checkout, and the `@relate/relate-wasm` 1.0.0 tarball holds `relate.js`, `relate_bg.wasm`, `opfs.js`, `trap.js` and `snippets/` at its root. Still unchecked: the Go cgo flags outside an upstream checkout, and SwiftPM resolving `from: "1.0.0"` against GitHub with the release XCFramework
 - [x] The release `librelate_ffi` dylib's install name was checked against v0.1.2's `relate-ffi-aarch64-apple-darwin.tar.gz`: it is the CI runner's absolute path, so an rpath alone does not find it on macOS (a program built that way aborts at launch). The Go pages already said so; the C pages now add `install_name_tool -id @rpath/librelate_ffi.dylib` on macOS. Ask upstream to ship the dylib with an `@rpath/` install name
 - [ ] `guides/serve/docker`: the image was read from upstream's Dockerfile, Makefile and entrypoint, never built or run here; build it once and replay the page
 - [ ] `guides/serve/auth-and-tls` names no TLS proxy configuration because none was installed to verify one; add one verified configuration

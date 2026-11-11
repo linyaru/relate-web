@@ -7,7 +7,7 @@ surfaces: [node]
 related: [guides/embed/node, get-started/node, reference/errors, reference/api/python, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The relate Node.js :term[client]{id=client} is the `@relate/relate` package: it loads the engine as a native library (`librelate_ffi`, the C ABI version 2) and runs it in the calling process against a :term[store]{id=store}. `query()` is synchronous and `queryAsync()` returns a Promise of the same result. The package ships TypeScript types in `index.d.ts`; the signatures on this page are read from those types and the package source, and checked against `@relate/relate` 0.1.2 on Node.js 26; the package requires Node.js 18 or later.
+The relate Node.js :term[client]{id=client} is the `@relate/relate` package: it loads the engine as a native library (`librelate_ffi`, the C ABI version 2) and runs it in the calling process against a :term[store]{id=store}. `query()` is synchronous and `queryAsync()` returns a Promise of the same result. The package ships TypeScript types in `index.d.ts`; the signatures on this page are read from those types and the package source, and checked against `@relate/relate` 1.0.0 on Node.js 26; the package requires Node.js 18 or later.
 
 ## Synopsis
 
@@ -39,11 +39,11 @@ The types file also exports the TypeScript types `QueryType`, `Namespace`, `Int6
 
 ## Loading
 
-`require("@relate/relate")` finds the library in this order: the path in `RELATE_LIB`; the platform package `@relate/<platform>-<arch>` that npm installs as an optional dependency (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`, `win32-x64`); then a source checkout's build directories. It then checks the library's ABI version.
+`require("@relate/relate")` finds the library in this order: the path in `RELATE_LIB`; the platform package `@relate/relate-<platform>-<arch>` that npm installs as an optional dependency (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`, `win32-x64`); then a source checkout's build directories. It then checks the library's ABI version.
 
 | Failure at `require` time | Error message |
 | --- | --- |
-| No library found | `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/<platform>-<arch> (lib/ directory), (3) the repo target/debug and target/release directories. Set RELATE_LIB to the library path.` |
+| No library found | `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/relate-<platform>-<arch> (lib/ directory), (3) the repo target/debug and target/release directories. Set RELATE_LIB to the library path.` |
 | A library with another ABI version | `incompatible librelate_ffi: ABI version <n>; this client requires 2` |
 | A library without the version symbol | `incompatible librelate_ffi: no relate_abi_version symbol (the library predates the ABI version symbol); this client requires ABI v2` |
 
@@ -135,7 +135,7 @@ Each result value carries its own type; there is no per-column type list.
 | `DURATION` | `CypherDuration` |
 | `POINT`, `VECTOR` | `CypherPoint`, `CypherVector` |
 
-A :term[node]{id=node} and a :term[relationship]{id=relationship} carry `elementId`, the string Cypher's `elementId()` returns (`4:relate-neo4j:n0`, `5:relate-neo4j:r0`), and `id`, what `id()` returns. A :term[path]{id=path} is an array of both. Byte arrays arrive as a list of integers 0 to 255, and UUIDs as strings.
+A :term[node]{id=node} and a :term[relationship]{id=relationship} carry `elementId`, the string Cypher's `elementId()` returns (`4:rl-id:n0`, `5:rl-id:r0`), and `id`, what `id()` returns. A :term[path]{id=path} is an array of both. Byte arrays arrive as a list of integers 0 to 255, and UUIDs as strings.
 
 | JavaScript parameter | Cypher value |
 | --- | --- |

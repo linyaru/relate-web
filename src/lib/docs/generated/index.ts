@@ -5,11 +5,11 @@
 
 import { GENERATED_PAGES } from '../model.ts';
 import { changelogFeed, changelogPage } from './changelog.ts';
-import { feedbackMarkdown } from './feedback.ts';
+import { FEEDBACK_TRACKERS, feedbackMarkdown } from './feedback.ts';
 import { glossaryPage } from './glossary.ts';
 import { generatedContext, newest, type GeneratedContext, type GeneratedPage, type RenderedPage } from './page.ts';
 
-export { changelogFeed, feedbackMarkdown, generatedContext, newest, type GeneratedContext, type GeneratedPage, type RenderedPage };
+export { changelogFeed, FEEDBACK_TRACKERS, feedbackMarkdown, generatedContext, newest, type GeneratedContext, type GeneratedPage, type RenderedPage };
 
 /** Every generated page, in GENERATED_PAGES order. */
 export const GENERATED: GeneratedPage[] = [glossaryPage, changelogPage];

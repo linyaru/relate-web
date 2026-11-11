@@ -6,7 +6,7 @@ surfaces: [bolt]
 related: [guides/serve/bolt, reference/cli/serve, reference/errors#bolt-errors, reference/server/http, reference/cypher/differences-from-neo4j, reference/security#served-surfaces, reference/limitations#server]
 ---
 
-`relate serve --bolt PORT` speaks :term[Bolt]{id=bolt}, Neo4j's binary client protocol, at versions 4.4 and 5.4, so Neo4j's drivers, `cypher-shell`, and Neo4j Browser can run statements against a relate :term[store]{id=store}. Neo4j's Java and Python drivers and `cypher-shell` refuse the default server agent and connect only when the server runs with `--bolt-identity Neo4j/5.26.0` ([Compatibility with Neo4j](#compatibility-with-neo4j)). The same port also serves Bolt over WebSocket for browser clients. Bolt is the transport only: the statements are relate's Cypher, with the differences listed in [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j). Every reply quoted on this page was captured from relate 0.1.2 with a raw Bolt client, PackStream values shown as JSON.
+`relate serve --bolt PORT` speaks :term[Bolt]{id=bolt}, Neo4j's binary client protocol, at versions 4.4 and 5.4, so Neo4j's drivers, `cypher-shell`, and Neo4j Browser can run statements against a relate :term[store]{id=store}. Neo4j's Java and Python drivers and `cypher-shell` refuse the default server agent and connect only when the server runs with `--bolt-identity Neo4j/5.26.0` ([Compatibility with Neo4j](#compatibility-with-neo4j)). The same port also serves Bolt over WebSocket for browser clients. Bolt is the transport only: the statements are relate's Cypher, with the differences listed in [Differences from Neo4j](/docs/reference/cypher/differences-from-neo4j). Every reply quoted on this page was captured from relate 1.0.0 with a raw Bolt client, PackStream values shown as JSON.
 
 ## Synopsis
 
@@ -20,7 +20,7 @@ relate serve --database PATH --bolt PORT [--host HOST] [--auth USER:PASSWORD] [-
 | Bind | `127.0.0.1:PORT`; `--host` changes the address, with no TLS on any address |
 | URL schemes | `bolt://` and `neo4j://` (a `ROUTE` request gets a routing table naming this one server) |
 | WebSocket | Bolt over WebSocket (`ws://`) on the same port, for browser clients |
-| Server agent | `Relate/0.1.2`, or the value of `--bolt-identity` (`RELATE_IDENTITY`) |
+| Server agent | `Relate/1.0.0`, or the value of `--bolt-identity` (`RELATE_IDENTITY`) |
 | Authentication | The `basic` scheme against one user and password, shared with the other `relate serve` surfaces |
 | Namespaces | `neo4j` (the home namespace), `system` and `system_ontologies`, chosen per request with `db` |
 | Flags | On [relate serve](/docs/reference/cli/serve) and in [CLI flags](/docs/reference/cli/flags#serve-bolt) |
@@ -60,8 +60,8 @@ A refused handshake writes one line to the server's stderr, such as `bolt: no ve
 The `SUCCESS` of a Bolt 4.4 `HELLO` that asked for the UTC patch, and of a Bolt 5.4 `HELLO`:
 
 ```text
-SUCCESS {"server": "Relate/0.1.2", "connection_id": "conn-1", "hints": {"connection.recv_timeout_seconds": 120}, "patch_bolt": ["utc"]}
-SUCCESS {"server": "Relate/0.1.2", "connection_id": "conn-2", "hints": {"connection.recv_timeout_seconds": 120, "telemetry.enabled": false}}
+SUCCESS {"server": "Relate/1.0.0", "connection_id": "conn-1", "hints": {"connection.recv_timeout_seconds": 120}, "patch_bolt": ["utc"]}
+SUCCESS {"server": "Relate/1.0.0", "connection_id": "conn-2", "hints": {"connection.recv_timeout_seconds": 120, "telemetry.enabled": false}}
 ```
 
 `connection.recv_timeout_seconds: 120` tells the driver that a connection silent for 120 seconds is dead; while a statement or a commit runs longer than 60 seconds, the server sends a NOOP chunk (`00 00`) every 60 seconds to keep it alive.
@@ -188,10 +188,10 @@ Results encode as PackStream values and structures, at any depth inside a list o
 | Byte array | PackStream bytes (`CC`, `CD`, `CE`) | |
 | Vector, UUID | A string | |
 
-The 5.4 :term[element ids]{id=element-id} are the strings `elementId()` returns, such as `4:relate-neo4j:n0` for a node and `5:relate-neo4j:r0` for a relationship. Graph values from the `system` namespace have no element id, so a 5.4 result that holds one fails with `elements of this namespace have no element ids`. A Bolt 5.4 read of a node and a relationship:
+The 5.4 :term[element ids]{id=element-id} are the strings `elementId()` returns, such as `4:rl-id:n0` for a node and `5:rl-id:r0` for a relationship. Graph values from the `system` namespace have no element id, so a 5.4 result that holds one fails with `elements of this namespace have no element ids`. A Bolt 5.4 read of a node and a relationship:
 
 ```text
-RECORD [{"struct": "0x4E", "fields": [0, ["Person"], {"name": "Ada", "role": "engineer"}, "4:relate-neo4j:n0"]}, {"struct": "0x52", "fields": [0, 0, 3, "WORKS_ON", {"since": 2024}, "5:relate-neo4j:r0", "4:relate-neo4j:n0", "4:relate-neo4j:n3"]}]
+RECORD [{"struct": "0x4E", "fields": [0, ["Person"], {"name": "Ada", "role": "engineer"}, "4:rl-id:n0"]}, {"struct": "0x52", "fields": [0, 0, 3, "WORKS_ON", {"since": 2024}, "5:rl-id:r0", "4:rl-id:n0", "4:rl-id:n3"]}]
 ```
 
 Parameters decode by the same table in reverse, temporal, duration, and point structures included. A byte array parameter lives only inside the statement: storing it as a property fails with `Neo.ClientError.Statement.TypeError`. A parameter the engine cannot represent fails the `RUN` with `Neo.ClientError.Request.Invalid` and a message naming its path, such as `unsupported parameter value for $p: Struct(0x46)`; this happens to the legacy DateTime structures `0x46` and `0x66` on a 5.4 connection. A point's SRID must be 4326, 4979, 7203, or 9157.
@@ -208,6 +208,7 @@ Every `FAILURE` carries a Neo4j status code, so a driver classifies it as it wou
 | An unknown `db` | `Neo.ClientError.Database.DatabaseNotFound` | `RUN` |
 | A type error | `Neo.ClientError.Statement.TypeError` | The first `PULL` or `DISCARD` |
 | Division or modulo by zero | `Neo.ClientError.Statement.ArithmeticError` | The first `PULL` or `DISCARD` |
+| A function argument value out of its domain at run time, such as `range(1, 5, $s)` with `$s` 0 (`semantic error: NumberOutOfRange: range() step cannot be 0`) | `Neo.ClientError.Statement.ArgumentError` | The first `PULL` or `DISCARD` |
 | A uniqueness constraint violated | `Neo.ClientError.Schema.ConstraintValidationFailed` | The first `PULL` or `DISCARD` |
 | A rejected index or constraint `OPTIONS` value, such as a negative `vector.dimensions` | `Neo.ClientError.General.InvalidArguments`, message such as `semantic error: NumberOutOfRange` ([errors reference](/docs/reference/errors#cli-validation-error-argument)) | `RUN` |
 | A write-write :term[conflict]{id=conflict}, message `write-write conflict` | `Neo.TransientError.Transaction.Outdated`, retryable | The first `PULL` or `DISCARD` |
@@ -320,7 +321,7 @@ What still differs from a Neo4j server:
 | Versions offered | 4.4 and 5.4 only | 2026.09.0 also answers proposals relate refuses, such as 4.3 and 5.0 |
 | Manifest handshake (`00 00 01 FF`) | Never answered; a later 4.4 proposal is | Answered by 2026.09.0 |
 | `RUN` `SUCCESS` | Adds `columnTypes` (the deferred finding) | No `columnTypes` |
-| Server agent | `Relate/0.1.2` by default | `Neo4j/<version>` |
+| Server agent | `Relate/1.0.0` by default | `Neo4j/<version>` |
 | Concurrent writers | The losing `COMMIT` fails with `Neo.TransientError.Transaction.Outdated`; the caller retries | 5.26: the second writer waits for the lock |
 | `SHOW SERVER` | Answers | 5.26: fails outside the system database |
 

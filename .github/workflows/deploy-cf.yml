@@ -102,9 +102,10 @@ jobs:
           HAS_UPSTREAM_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN != '' }}
           REQUIRED: ${{ vars.RELATE_DISCOVERY_REQUIRED }}
         run: |
-          # Until the upstream token is set (the repository is private) there is nothing to
-          # fetch: keep the seed copies. Set the repository variable
-          # RELATE_DISCOVERY_REQUIRED=true at launch so a missing token fails the deploy.
+          # Without the upstream token the fetch is skipped and the seed copies deploy,
+          # unless the repository variable RELATE_DISCOVERY_REQUIRED=true makes a missing
+          # token fail the deploy. The repository is public, so the job's own token could
+          # read the releases too; the skip predates that.
           if [ "$HAS_UPSTREAM_TOKEN" != true ] && [ "$REQUIRED" != true ]; then
             echo "::notice::RELATE_UPSTREAM_TOKEN is not set: using the checked-in release-discovery files"
             exit 0

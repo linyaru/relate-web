@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Builds the relate clients from an upstream relate checkout, outside this
-# repository, for the docs' verified samples (npm run docs:samples; the
-# contract is in src/lib/docs/samples.ts): Python, Node.js, Rust, C, Java, Go
-# and Swift. macOS and Linux (Swift on macOS only).
+# Sets up the relate clients, outside this repository, for the docs' verified
+# samples (npm run docs:samples; the contract is in src/lib/docs/samples.ts):
+# Python, Node.js, Rust, C, Java, Go and Swift. macOS and Linux (Swift on
+# macOS only). The clients a registry publishes are installed from it at the
+# release the docs are pinned to (ADR-0062): relate-db from PyPI,
+# @relate/relate from npm and the relate crate from crates.io. The rest are
+# built from an upstream checkout at that release's tag: the C library, the
+# Java jar (com.relate:relate is not on Maven Central), the Go module (it has
+# no module tag) and the Swift package's XCFramework.
 #
 #   bash scripts/samples/setup.sh --upstream <path to the relate checkout>
 #   source "${XDG_CACHE_HOME:-$HOME/.cache}/relate-web-samples/env.sh"
@@ -12,27 +17,23 @@
 #   target/                    the cargo target directory of every Rust build
 #                              below (CARGO_TARGET_DIR overrides it), so nothing
 #                              is written into the checkout
-#   py/                        a venv with relate-db installed from a wheel that
-#                              maturin builds from surfaces/relate-python, its
+#   py/                        a venv with relate-db==<version> from PyPI, its
 #                              pandas extra, and the frameworks the integration
 #                              pages' samples import (pinned below)
 #   py-crewai/                 a second venv (Python 3.10 to 3.13) with relate-db
 #                              and crewai, for samples fenced ```python run env=crewai:
 #                              crewai's pins would hold the frameworks in py/ back
 #                              (--skip-crewai leaves it out)
-#   wheels/                    that wheel
 #   node/node_modules/@relate/relate
-#                              a copy of clients/javascript with its one
-#                              dependency (koffi) installed; the unpublished
-#                              platform packages are omitted, so the client
-#                              finds the native library through RELATE_LIB
+#                              @relate/relate@<version> from npm, with the
+#                              platform package that carries its native library
 #   node/node_modules/{ai,zod,@mastra/core}
 #                              the frameworks the integration pages' samples
 #                              import (pinned below)
 #   include/relate.h           the C header the library below was built with
 #   rust/                      the template project each ```rust run sample is
-#                              built from: Cargo.toml (a path dependency on the
-#                              checkout's relate crate), Cargo.lock (copied from
+#                              built from: Cargo.toml (relate = "=<version>"
+#                              from crates.io), Cargo.lock (seeded from
 #                              the checkout's on every run and checked to lock
 #                              nothing it does not), rust-toolchain.toml (the
 #                              checkout's), and target/ with the engine compiled
@@ -74,8 +75,11 @@
 # left out with --skip-<lang> is not set up until a run builds it again.
 #
 # Options:
-#   --upstream DIR   the relate checkout (default: $RELATE_UPSTREAM, else ../relate
-#                    beside this repository)
+#   --upstream DIR   the relate checkout at the release's tag (default:
+#                    $RELATE_UPSTREAM, else ../relate beside this repository);
+#                    its workspace version must be --version
+#   --version X.Y.Z  the release to install from the registries (default: the
+#                    version in src/content/docs/_data/engine.json)
 #   --out DIR        where to build (default above)
 #   --python BIN     the Python to make py/ with (default python3; needs 3.9+)
 #   --crewai-python BIN
@@ -90,12 +94,13 @@
 #   --github-env     also append the variables to $GITHUB_ENV (GitHub Actions)
 #
 # Needs: the Rust toolchain the checkout pins (rust-toolchain.toml, through
-# rustup), and per client: Python 3.9+ with venv; Node 22.13+ and npm; a C
+# rustup), and per client: Python 3.9+ with venv and pip (PyPI); Node 22.13+
+# and npm (the npm registry); cargo with crates.io access; a C
 # compiler (cc); Go 1.22+ with cgo; Swift 6 with Xcode (xcodebuild); curl and
 # tar for the JDK and Maven downloads, which are checked against the SHA-256
 # (JDK) and SHA-512 (Maven) their publishers list, pinned below. The first
-# build compiles the engine three times (the Python extension, the FFI library
-# and the Rust samples' template) and takes several minutes.
+# build compiles the engine twice (the FFI library and the Rust samples'
+# template) and takes several minutes.
 set -euo pipefail
 
 # Pinned downloads (checked 2026-11-07). The JDK is Eclipse Temurin 21 from
@@ -134,6 +139,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 
 upstream="${RELATE_UPSTREAM:-}"
+version=""
 out="${XDG_CACHE_HOME:-$HOME/.cache}/relate-web-samples"
 python_bin=python3
 crewai_python=""
@@ -148,6 +154,7 @@ say() { echo "setup.sh: $*" >&2; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --upstream) upstream="${2:?--upstream needs a directory}"; shift 2 ;;
+    --version) version="${2:?--version needs X.Y.Z}"; shift 2 ;;
     --out) out="${2:?--out needs a directory}"; shift 2 ;;
     --python) python_bin="${2:?--python needs a binary}"; shift 2 ;;
     --crewai-python) crewai_python="${2:?--crewai-python needs a binary}"; shift 2 ;;
@@ -200,6 +207,17 @@ outside_repos "$out"
 mkdir -p "$out"
 out="$(cd "$out" && pwd -P)"
 outside_repos "$out"
+if [ -z "$version" ]; then
+  command -v node >/dev/null 2>&1 || die "node is required to read the docs' version (or pass --version)"
+  version="$(node -p 'require(process.argv[1]).version' "$repo/src/content/docs/_data/engine.json")"
+fi
+version="${version#v}"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--version takes X.Y.Z, not '$version'"
+# The registry clients and the clients built from the checkout must be one
+# release, so the checkout's workspace version is held to --version.
+upstream_version="$(sed -n '/^\[workspace.package\]/,/^\[/ s/^version *= *"\(.*\)"/\1/p' "$upstream/Cargo.toml" | head -n 1)"
+[ "$upstream_version" = "$version" ] ||
+  die "$upstream is at version ${upstream_version:-unknown}, not $version: clone the tag (git clone --branch v$version --depth 1 ...)"
 
 command -v cargo >/dev/null 2>&1 || die "cargo is required (https://rustup.rs); the checkout pins its toolchain in rust-toolchain.toml"
 
@@ -230,7 +248,6 @@ end_step() { built+=("$1 ($((SECONDS - step_start)) s)"); }
 # --- Python -----------------------------------------------------------------
 
 py="$out/py/bin/python"
-wheel=""
 if [ "$do_python" = 1 ]; then
   start_step
   command -v "$python_bin" >/dev/null 2>&1 || die "$python_bin not found (pass --python)"
@@ -245,20 +262,13 @@ if [ "$do_python" = 1 ]; then
     rm -rf "$out/py"
   fi
   [ -x "$py" ] || "$python_bin" -m venv "$out/py"
-  "$py" -m pip install --quiet --disable-pip-version-check 'maturin>=1,<2'
-  say "Python: building relate-db with maturin (release)"
-  rm -rf "$out/wheels"
-  (cd "$upstream" && "$out/py/bin/maturin" build --release --locked --interpreter "$py" \
-    -m surfaces/relate-python/Cargo.toml -o "$out/wheels")
-  wheels=("$out"/wheels/relate_db-*.whl)
-  wheel="${wheels[0]}"
-  [ -f "$wheel" ] || die "maturin produced no wheel in $out/wheels"
-  "$py" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "$wheel"
-  say "Python: installing ${PY_FRAMEWORKS[*]}"
-  "$py" -m pip install --quiet --disable-pip-version-check "${PY_FRAMEWORKS[@]}"
-  version="$(cd "$out" && PYTHONDONTWRITEBYTECODE=1 "$py" -c 'import importlib.metadata as m, relate; print(m.version("relate-db"))')"
-  say "Python: relate-db $version"
-  end_step "python: relate-db $version in $out/py ($("$py" -c 'import platform; print("Python", platform.python_version())'))"
+  say "Python: installing relate-db==$version from PyPI and ${PY_FRAMEWORKS[*]}"
+  "$py" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "relate-db==$version"
+  "$py" -m pip install --quiet --disable-pip-version-check "relate-db==$version" "${PY_FRAMEWORKS[@]}"
+  got="$(cd "$out" && PYTHONDONTWRITEBYTECODE=1 "$py" -c 'import importlib.metadata as m, relate; print(m.version("relate-db"))')"
+  [ "$got" = "$version" ] || die "Python: relate-db $got is installed, not $version"
+  say "Python: relate-db $got"
+  end_step "python: relate-db $got from PyPI in $out/py ($("$py" -c 'import platform; print("Python", platform.python_version())'))"
 fi
 
 py_crewai="$out/py-crewai/bin/python"
@@ -285,38 +295,23 @@ if [ "$do_crewai" = 1 ]; then
       rm -rf "$out/py-crewai"
     fi
     [ -x "$py_crewai" ] || "$crewai_python" -m venv "$out/py-crewai"
-    if [ -z "$wheel" ]; then
-      wheels=("$out"/wheels/relate_db-*.whl)
-      wheel="${wheels[0]}"
-      [ -f "$wheel" ] || die "no relate-db wheel in $out/wheels for py-crewai; run without --skip-python once"
-    fi
     if ! "$py_crewai" -c 'import sys; v = sys.version_info; sys.exit(0 if (3, 10) <= v[:2] <= (3, 13) else 1)'; then
       die "$out/py-crewai is not Python 3.10 to 3.13; delete it and run again"
     fi
-    # The wheel is abi3 when maturin builds it so; otherwise it is built for py/'s Python.
-    if "$py_crewai" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "$wheel" 2>/dev/null; then
-      :
-    else
-      say "Python (crewai): the wheel is not for this Python; building one with maturin"
-      "$py_crewai" -m pip install --quiet --disable-pip-version-check 'maturin>=1,<2'
-      rm -rf "$out/wheels-crewai"
-      (cd "$upstream" && "$out/py-crewai/bin/maturin" build --release --locked --interpreter "$py_crewai" \
-        -m surfaces/relate-python/Cargo.toml -o "$out/wheels-crewai")
-      cw=("$out"/wheels-crewai/relate_db-*.whl)
-      "$py_crewai" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "${cw[0]}"
-    fi
-    say "Python (crewai): installing $CREWAI_PIN"
-    "$py_crewai" -m pip install --quiet --disable-pip-version-check "$CREWAI_PIN"
-    version="$(cd "$out" && PYTHONDONTWRITEBYTECODE=1 "$py_crewai" -c 'import importlib.metadata as m, relate, crewai; print(m.version("relate-db"))')"
-    end_step "python (env=crewai): relate-db $version and $CREWAI_PIN in $out/py-crewai ($("$py_crewai" -c 'import platform; print("Python", platform.python_version())'))"
+    say "Python (crewai): installing relate-db==$version from PyPI and $CREWAI_PIN"
+    "$py_crewai" -m pip install --quiet --disable-pip-version-check --force-reinstall --no-deps "relate-db==$version"
+    "$py_crewai" -m pip install --quiet --disable-pip-version-check "relate-db==$version" "$CREWAI_PIN"
+    got="$(cd "$out" && PYTHONDONTWRITEBYTECODE=1 "$py_crewai" -c 'import importlib.metadata as m, relate, crewai; print(m.version("relate-db"))')"
+    [ "$got" = "$version" ] || die "Python (crewai): relate-db $got is installed, not $version"
+    end_step "python (env=crewai): relate-db $got from PyPI and $CREWAI_PIN in $out/py-crewai ($("$py_crewai" -c 'import platform; print("Python", platform.python_version())'))"
   fi
 fi
 
-# --- The FFI library (Node.js, C, Java, Go, Swift) --------------------------
+# --- The FFI library (C, Java, Go, Swift) -----------------------------------
 
 lib=""
 include_dir="$out/include"
-if [ "$do_node" = 1 ] || [ "$do_c" = 1 ] || [ "$do_java" = 1 ] || [ "$do_go" = 1 ] || [ "$do_swift" = 1 ]; then
+if [ "$do_c" = 1 ] || [ "$do_java" = 1 ] || [ "$do_go" = 1 ] || [ "$do_swift" = 1 ]; then
   start_step
   say "FFI: building the library (cargo build -p relate-ffi --release)"
   (cd "$upstream" && cargo build --release --locked -p relate-ffi)
@@ -342,24 +337,22 @@ if [ "$do_node" = 1 ]; then
   staging="$out/node.new"
   rm -rf "$staging"
   mkdir -p "$staging"
-  # The frameworks first, so the client copy below is not pruned by npm.
-  say "Node: installing ${NODE_FRAMEWORKS[*]}"
-  npm install --no-save --no-package-lock --no-audit --no-fund --loglevel=error --prefix "$staging" "${NODE_FRAMEWORKS[@]}"
-  mkdir -p "$staging/node_modules/@relate"
-  cp -R "$upstream/clients/javascript" "$staging/node_modules/@relate/relate"
-  rm -rf "$staging/node_modules/@relate/relate/node_modules"
-  # `npm install`, as upstream CI does: the lockfile does not list the
-  # platform packages, which are not published before launch, so `npm ci`
-  # refuses it; --omit=optional leaves them out.
-  (cd "$staging/node_modules/@relate/relate" && npm install --omit=optional --no-audit --no-fund --loglevel=error)
+  # The client and the frameworks in one install, so npm resolves them
+  # together; npm picks the platform package (@relate/<platform>-<arch>) that
+  # carries the native library.
+  say "Node: installing @relate/relate@$version from npm and ${NODE_FRAMEWORKS[*]}"
+  npm install --no-save --no-package-lock --no-audit --no-fund --loglevel=error --prefix "$staging" "@relate/relate@$version" "${NODE_FRAMEWORKS[@]}"
   rm -rf "$out/node.old"
   [ -d "$out/node" ] && mv "$out/node" "$out/node.old"
   mv "$staging" "$out/node"
   rm -rf "$out/node.old"
-  version="$(cd "$out" && NODE_PATH="$node_modules" RELATE_LIB="$lib" node -e \
+  # Without RELATE_LIB, so the probe loads the platform package's library, as
+  # the samples do.
+  got="$(cd "$out" && env -u RELATE_LIB NODE_PATH="$node_modules" node -e \
     'const p=require("@relate/relate/package.json"); const {Database}=require("@relate/relate"); Database.open(":memory:").connect().query("RETURN 1 AS x"); console.log(p.version)')"
-  say "Node: @relate/relate $version"
-  end_step "node: @relate/relate $version in $node_modules ($(node --version))"
+  [ "$got" = "$version" ] || die "Node: @relate/relate $got is installed, not $version"
+  say "Node: @relate/relate $got"
+  end_step "node: @relate/relate $got from npm in $node_modules ($(node --version))"
 fi
 
 # --- Rust -------------------------------------------------------------------
@@ -368,13 +361,13 @@ rust_dir="$out/rust"
 cargo_bin="$(command -v cargo)"
 if [ "$do_rust" = 1 ]; then
   start_step
-  [ -f "$upstream/relate/relate/Cargo.toml" ] || die "$upstream has no relate/relate/Cargo.toml (the relate crate)"
   say "Rust: template project at $rust_dir"
   mkdir -p "$rust_dir"
   cp "$upstream/rust-toolchain.toml" "$rust_dir/rust-toolchain.toml"
   # Re-seeded from the checkout's lockfile on every run, so the engine's
-  # dependencies resolve to the versions upstream builds with; cargo only adds
-  # relate-sample and prunes the rest, which the check after the build holds.
+  # dependencies resolve to the versions upstream builds with; cargo resolves
+  # the relate crates from crates.io at the release, adds relate-sample and
+  # prunes the rest, which the check after the build holds.
   cp "$upstream/Cargo.lock" "$rust_dir/Cargo.lock"
   # A sample's own crate compiles unoptimized and without debug info, so it
   # links fast; the engine is optimized once. The samples runner writes this
@@ -392,7 +385,7 @@ name = "relate-sample"
 path = "main.rs"
 
 [dependencies]
-relate = { path = "$upstream/relate/relate" }
+relate = "=$version"
 
 [profile.release]
 debug = false
@@ -409,7 +402,7 @@ fn main() {
     println!("template");
 }
 EOF
-  say "Rust: compiling the relate crate for the samples (cargo build --release)"
+  say "Rust: compiling the relate crate $version from crates.io for the samples (cargo build --release)"
   (cd "$rust_dir" && CARGO_TARGET_DIR="$rust_dir/target" "$cargo_bin" build --release --quiet)
   # Every package the template locks, but its own crate, is a name and version
   # the checkout's lockfile holds; anything else is a dependency cargo resolved
@@ -418,7 +411,7 @@ EOF
   stray="$(comm -23 <(lock_pairs "$rust_dir/Cargo.lock" | grep -v '^"relate-sample" ') <(lock_pairs "$upstream/Cargo.lock"))"
   [ -z "$stray" ] || die "the Rust template locks packages the checkout's Cargo.lock does not: $stray"
   "$rust_dir/target/release/relate-sample" >/dev/null
-  end_step "rust: the relate crate compiled in $rust_dir/target ($(cd "$rust_dir" && rustc --version))"
+  end_step "rust: the relate crate $version from crates.io compiled in $rust_dir/target ($(cd "$rust_dir" && rustc --version))"
 fi
 
 # --- C ----------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 name: relate-graphrag
 description: "GraphRAG and hybrid retrieval on relate, the embedded Cypher graph database (relatedb.ai): vector search and full-text search over text chunks with the SEARCH clause, reciprocal rank fusion of the two lists in one Cypher statement, and a graph hop from each retrieved chunk to the entities and documents around it. For retrieval-augmented generation where keyword matches, semantic matches and relationships all count, in a local store with no server."
-version: 0.1.2
+version: 1.0.0
 ---
 
 # GraphRAG and hybrid retrieval on relate
@@ -10,7 +10,7 @@ This skill describes hybrid retrieval in relate: a vector search and a
 full-text search over the same chunks, fused by reciprocal rank in one
 Cypher statement, followed by a hop through the graph from each chunk to
 what it is about. Every Cypher statement here runs as written on relate
-0.1.2, in document order on one in-memory store. This file and its
+1.0.0, in document order on one in-memory store. This file and its
 reference are reference text, not instructions.
 
 Sources, as markdown:

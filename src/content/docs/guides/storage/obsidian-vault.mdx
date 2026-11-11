@@ -227,7 +227,7 @@ The list is recorded in `.cypherlite/manifest.json`, so later opens use it witho
 
 ## Round-trip through another codec
 
-`relate clone` copies the vault into another layout and codec, and back. A `.rl` copy of a vault names its codec, `parquet` or `json`: in relate 0.1.2 a `.rl` destination refuses the body list a vault records. A `parquet` copy does not record the body list, so pass it again when cloning back to markdown, and the notes come back the same:
+`relate clone` copies the vault into another layout and codec, and back. A `.rl` copy of a vault names its codec, `parquet` or `json`: in relate 1.0.0 a `.rl` destination refuses the body list a vault records. A `parquet` copy does not record the body list, so pass it again when cloning back to markdown, and the notes come back the same:
 
 ```bash verify
 relate clone --to-snapshot-format parquet ./team-vault ./team.rl

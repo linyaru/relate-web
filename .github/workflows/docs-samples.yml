@@ -1,21 +1,19 @@
 # Runs the docs' verified language samples (```python run, ```js run,
 # ```rust run, ```java run, ```go run, ```swift run and ```c run fences; the
-# contract is in src/lib/docs/samples.ts) against the relate clients built
-# from the upstream relate checkout, and fails when a sample no longer builds,
-# runs, or prints its recorded result (DOCS-PLAN.md §6, "Language samples are
-# verified from phase 1").
+# contract is in src/lib/docs/samples.ts) against the relate clients, and
+# fails when a sample no longer builds, runs, or prints its recorded result
+# (DOCS-PLAN.md §6, "Language samples are verified from phase 1").
 #
-# Weekly and on demand; not a required check, because it needs the upstream
-# repository, which is private before launch. It reads it with the
-# RELATE_UPSTREAM_TOKEN secret (a fine-grained token with read access to that
-# repository's contents); without the secret the gate job prints a notice and
-# succeeds, and the sample jobs are skipped. After launch the clients come
-# from the published packages.
+# Weekly and on demand; not a required check, because it needs the network
+# (the registries and the public upstream repository) and takes long.
+# scripts/samples/setup.sh installs relate-db, @relate/relate and the relate
+# crate from PyPI, npm and crates.io at src/content/docs/_data/engine.json's
+# version, and builds the Java, Go, Swift and C clients from an upstream
+# checkout at that version's tag (ADR-0062).
 #
-# The clients are built from the `ref` input, else from the tag of
-# src/content/docs/_data/engine.json's version (v<version>) when upstream has
-# it, else from its default branch (with a warning: then a sample can drift
-# for reasons the docs' version does not explain).
+# The checkout is the `ref` input, else the tag v<version>. A `ref` at another
+# version fails setup, which holds the checkout to the registry clients'
+# version.
 #
 # Two jobs, so each language runs where its client builds:
 #   samples  ubuntu: Python, Node.js, Rust, Java, Go and C. The JDK comes from
@@ -38,7 +36,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Upstream ref to build the clients from (default v<engine version>, else the default branch)
+        description: Upstream ref to build the Java, Go, Swift and C clients from (default v<engine version>)
         required: false
         default: ''
 
@@ -63,25 +61,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upstream access and ref
+      - name: Upstream ref
         id: gate
         env:
-          GH_TOKEN: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
           INPUT_REF: ${{ inputs.ref }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::notice title=Docs samples skipped::RELATE_UPSTREAM_TOKEN is not set, so the private repository $UPSTREAM_REPO cannot be checked out. Add the secret (read access to its contents) to run the samples."
-            echo "ok=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           ref="$INPUT_REF"
           if [ -z "$ref" ]; then
-            version="$(node -p 'require("./src/content/docs/_data/engine.json").version')"
-            if gh api "repos/$UPSTREAM_REPO/git/ref/tags/v$version" --silent 2>/dev/null; then
-              ref="v$version"
-            else
-              echo "::warning::$UPSTREAM_REPO has no tag v$version; building its default branch"
-            fi
+            ref="v$(node -p 'require("./src/content/docs/_data/engine.json").version')"
           fi
           echo "ok=true" >> "$GITHUB_OUTPUT"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
@@ -99,7 +86,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.UPSTREAM_REPO }}
-          token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
           ref: ${{ needs.gate.outputs.ref }}
           path: upstream
           persist-credentials: false
@@ -160,7 +146,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.UPSTREAM_REPO }}
-          token: ${{ secrets.RELATE_UPSTREAM_TOKEN }}
           ref: ${{ needs.gate.outputs.ref }}
           path: upstream
           persist-credentials: false

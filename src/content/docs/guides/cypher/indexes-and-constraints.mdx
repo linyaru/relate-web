@@ -113,7 +113,7 @@ RETURN name, type, labelsOrTypes, properties, owningConstraint, state
 ORDER BY name
 ```
 
-`owningConstraint` names the constraint an index belongs to, and `state` is `ONLINE` once the index serves reads. `SHOW RANGE INDEXES`, `SHOW UNIQUE CONSTRAINTS` and the other kinds narrow the list to one kind.
+`owningConstraint` names the constraint an index belongs to, and `state` is `ONLINE` once the index serves reads. The two `LOOKUP` rows, `index_1b9dcc97` and `index_460996c0`, are on every store before any `CREATE INDEX`; they are listed only and can't be dropped. `SHOW RANGE INDEXES`, `SHOW UNIQUE CONSTRAINTS` and the other kinds narrow the list to one kind.
 
 ## Check that the planner uses an index
 
@@ -212,7 +212,7 @@ RETURN name, type, owningConstraint, state
 ORDER BY name
 ```
 
-Three `ONLINE` indexes, one of them owned by `project_name`, and the `NodeIndexSeek` plan in the terminal mean the indexes are in place and serve the lookups they were made for.
+Three `ONLINE` indexes besides the two lookup indexes, one of them owned by `project_name`, and the `NodeIndexSeek` plan in the terminal mean the indexes are in place and serve the lookups they were made for.
 
 ## If it goes wrong
 

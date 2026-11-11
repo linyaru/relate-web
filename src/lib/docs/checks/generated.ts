@@ -14,8 +14,8 @@
 //     lists no release newer than the engine, and each
 //     item's `pages` name a page (published, planned or generated; a page not
 //     written yet is a warning) with an anchor that page has
-//   - feedback.md names the operator as the sender and no contact address
-//     (none exists before launch; LAUNCH.md)
+//   - feedback.md names the operator as the sender and no address but the
+//     two public issue trackers (FEEDBACK_TRACKERS)
 // From dist/ (`--built`, when the Site has built ids):
 //   - each generated page has its HTML page and both twin URLs, appears in
 //     /docs/llms.txt and in /sitemap.xml; the built changelog page has
@@ -35,7 +35,7 @@ import { parse as parseYaml } from 'yaml';
 import { CANONICAL_ORIGIN } from '../../cookbook/links.ts';
 import { ROOT, type Engine } from '../content.ts';
 import { CHANGELOG_FILE, changelogData, changelogPending, sinceTargets } from '../generated/changelog.ts';
-import { feedbackMarkdown, GENERATED, generatedContext, type RenderedPage } from '../generated/index.ts';
+import { FEEDBACK_TRACKERS, feedbackMarkdown, GENERATED, generatedContext, type RenderedPage } from '../generated/index.ts';
 import { glossaryEntries } from '../generated/glossary.ts';
 import { GLOSSARY_JSON_PATH, glossaryJsonText } from '../glossary.ts';
 import { CANONICAL_PHRASE } from '../llms.ts';
@@ -140,14 +140,14 @@ export function checkGenerated(site: GeneratedCheckSite, report: Report, dist = 
     report(CHANGELOG_FILE, null, 'error', 'generated', (e as Error).message.replace(/\n\s*/g, ' '));
   }
 
-  // feedback.md: the operator sends a report; no address is invented before launch.
+  // feedback.md: the operator sends a report; the two public trackers are the only addresses.
   const feedbackFile = join(GENERATED_DIR, 'feedback.ts');
   try {
     const md = feedbackMarkdown(ctx);
     twinFrontmatter(md, feedbackFile, `${CANONICAL_ORIGIN}${FEEDBACK_URL}`, site, report, TWIN_KEYS.filter((k) => k !== 'type'));
     if (!/\boperator\b/.test(md)) report(feedbackFile, null, 'error', 'generated', 'feedback.md does not say that the operator decides whether a report is sent (ADR-0013)');
-    const addresses = [...md.matchAll(/mailto:[^\s)]+|[\w.+-]+@[\w-]+\.[\w.]+|https?:\/\/[^\s)`]+/g)].map((m) => m[0]).filter((a) => !a.startsWith(`${CANONICAL_ORIGIN}/docs/`));
-    for (const a of addresses) report(feedbackFile, null, 'error', 'generated', `feedback.md names ${a}; it names no address until one is published (LAUNCH.md)`);
+    const addresses = [...md.matchAll(/mailto:[^\s)]+|[\w.+-]+@[\w-]+\.[\w.]+|https?:\/\/[^\s)`]+/g)].map((m) => m[0]).filter((a) => !a.startsWith(`${CANONICAL_ORIGIN}/docs/`) && !(FEEDBACK_TRACKERS as readonly string[]).includes(a.replace(/[.,]$/, '')));
+    for (const a of addresses) report(feedbackFile, null, 'error', 'generated', `feedback.md names ${a}; it names no address but the public issue trackers`);
   } catch (e) {
     report(feedbackFile, null, 'error', 'generated', `feedback.md does not render: ${(e as Error).message}`);
   }

@@ -18,7 +18,7 @@ The usage line is the one `relate serve --help` prints. The HTTP limits (`--tx-i
 
 ## Options
 
-`--database` (short form `-d`) is required: a directory, a path ending in `.rl`, or `:memory:`. Each flag beats its environment variable, which beats the default. Besides its own flags, `relate serve` takes `--snapshot-format` and the query-run flags named in the table's last row, with the same resolution as in a query session. `--snapshot-format parquet-wide` opts the served store into wide-column `parquet` parts ([Storage formats](/docs/reference/storage/formats#wide-column-parquet)). Any other query-run flag, such as `--timeout`, `--mode` or `--wal-dir`, exits 2 with `Error: unexpected argument to serve: <flag>`. `RELATE_CHECKPOINT_INTERVAL_SECS` sets the checkpoint period, since `--checkpoint-interval-secs` is not accepted.
+`--database` (short form `-d`) is required: a directory, a path ending in `.rl`, or `:memory:`. Each flag beats its environment variable, which beats the default. Besides its own flags, `relate serve` takes `--snapshot-format` and the query-run flags named in the table's last row, with the same resolution as in a query session. Any other query-run flag, such as `--timeout`, `--mode` or `--wal-dir`, exits 2 with `Error: unexpected argument to serve: <flag>`. `RELATE_CHECKPOINT_INTERVAL_SECS` sets the checkpoint period, since `--checkpoint-interval-secs` is not accepted.
 
 <Flags command="serve" />
 
@@ -151,7 +151,7 @@ echo "exit=$?"
 ```
 
 ```text
-serve: opened the store read-only (ADR-0306) — no writer lease and never creates the store; every write fails
+serve: opened the store read-only — no writer lease and never creates the store; every write fails
 serve: MCP (stdio) serving on stdin/stdout (auth: none)
 serve: stdin closed, shutting down
 exit=0

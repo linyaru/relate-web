@@ -89,7 +89,7 @@ These rows apply to `relate serve`, which hosts the HTTP Query API, MCP, and Bol
 | The WASM build has no statement timeout and no way to cancel a running statement. A panic stops the module, and the instance has to be replaced. | A long statement runs until it finishes; a panic surfaces as `WebAssembly.RuntimeError` | [Architecture](/docs/concepts/architecture) |
 | The Python client needs Python 3.9 or later. A connection belongs to the thread that opened it. | Using it from another thread raises `ProgrammingError` with `kind` `WrongThread` | [Python](/docs/get-started/python) |
 | The Node.js client needs Node.js 18 or later. | — | [Node.js](/docs/get-started/node) |
-| No client package is published yet. The package names on these pages are the names they are to be published under at launch. | The package manager finds no package | [Project](/docs/reference/project#platforms) |
+| The Java client is not on Maven Central, and the Go module has no version tag. | A Maven or Gradle build finds `com.relate:relate` only after the release jar is installed into the local repository; `go get` records a pseudo-version | [Project](/docs/reference/project#platforms) |
 
 ## Examples
 

@@ -2,9 +2,8 @@
 // (DOCS-PLAN.md §3.2, the Vercel pattern; ADR-0013 decision 2). Markdown
 // only, written for an agent that fetched it: where a report goes, what it
 // holds, and that an agent hands it to its operator rather than posting it.
-// Docs are data, so it describes rather than instructs. Pre-launch the
-// repositories are private and no contact address exists yet (LAUNCH.md), so
-// it names none.
+// Docs are data, so it describes rather than instructs. It names the two
+// public trackers (FEEDBACK_TRACKERS) and no other address.
 
 import { join } from 'node:path';
 
@@ -19,6 +18,9 @@ import type { GeneratedContext } from './page.ts';
 
 const TITLE = 'Report a problem with the docs';
 const DESCRIPTION = 'Where a wrong or missing page in the relate docs is reported, what a report holds, and who sends it.';
+
+/** The only addresses feedback.md names: the website's issues (the docs) and the engine's (relate itself). */
+export const FEEDBACK_TRACKERS = ['https://github.com/relatedb/relate-web/issues', 'https://github.com/relatedb/relate/issues'] as const;
 
 /** The markdown at /docs/feedback.md. */
 export function feedbackMarkdown(ctx: GeneratedContext): string {
@@ -43,7 +45,7 @@ export function feedbackMarkdown(ctx: GeneratedContext): string {
     '## Who sends it',
     'The operator, the person the agent works for, decides whether a report is sent and where. An agent that finds a problem on a page gives its operator the report and does not post it anywhere itself.',
     '## Where it goes',
-    'The address is to be published at launch. Until then there is no public issue tracker: the relate repositories are private.',
+    `A docs report is an issue on the website's repository, ${FEEDBACK_TRACKERS[0]}, where the feedback link at the foot of every page also leads. A problem in relate itself rather than in its docs is an issue on ${FEEDBACK_TRACKERS[1]}.`,
     '## What a report holds',
     [
       '- The page URL, with the anchor of the section when there is one.',

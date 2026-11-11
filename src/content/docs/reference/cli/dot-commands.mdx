@@ -148,7 +148,7 @@ A persistent store also checkpoints on a timer (`--checkpoint-interval-secs`, de
 | Live counts | `nodes:` and `relationships:` | The open session, so writes not yet checkpointed count |
 | Catalog | `indexes:` and `constraints:`, each followed by the `SHOW INDEXES` or `SHOW CONSTRAINTS` result | The open session, printed in the session's output mode |
 
-On `:memory:` with `--mode csv`, each catalog result is its header line:
+On `:memory:` with `--mode csv`, the indexes result holds the two lookup indexes every store lists, and the constraints result is its header line:
 
 ```bash verify
 printf '.info\n' | relate query --mode csv
@@ -160,6 +160,8 @@ nodes:                        0
 relationships:                0
 indexes:
 id,name,state,populationPercent,type,entityType,labelsOrTypes,properties,indexProvider,owningConstraint,lastRead,readCount
+0,index_1b9dcc97,ONLINE,100.0,LOOKUP,RELATIONSHIP,,,token-lookup-1.0,,,0
+0,index_460996c0,ONLINE,100.0,LOOKUP,NODE,,,token-lookup-1.0,,,0
 constraints:
 id,name,type,entityType,labelsOrTypes,properties,ownedIndex,propertyType,enforcedLabel
 ```

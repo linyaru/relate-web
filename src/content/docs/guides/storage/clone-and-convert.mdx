@@ -122,7 +122,7 @@ cmp before.jsonl after.jsonl && echo "same graph: $(wc -l < after.jsonl | tr -d 
 same graph: 10 rows
 ```
 
-Five nodes and five relationships come back identical. The way back names its codec: in relate 0.1.2, a `.rl` destination refuses the body-property configuration a `markdown` store records, so `relate clone ./team-md ./team-roundtrip.rl` without `--to-snapshot-format`, or with `--to-snapshot-format markdown`, exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`. A `markdown` store clones into a `.rl` file with `--to-snapshot-format parquet` or `json`, and into a directory store with any codec. Order the rows by a property your graph has on every node. Values without a YAML form keep their type in a `markdown` note: a date or a point is written as a small map tagged `__type` and reads back as a date or a point. One difference to expect from a `markdown` round trip: a node with two or more labels can return them from `labels(n)` in another order, so sort them before comparing such a graph.
+Five nodes and five relationships come back identical. The way back names its codec: in relate 1.0.0, a `.rl` destination refuses the body-property configuration a `markdown` store records, so `relate clone ./team-md ./team-roundtrip.rl` without `--to-snapshot-format`, or with `--to-snapshot-format markdown`, exits 1 with `Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`. A `markdown` store clones into a `.rl` file with `--to-snapshot-format parquet` or `json`, and into a directory store with any codec. Order the rows by a property your graph has on every node. Values without a YAML form keep their type in a `markdown` note: a date or a point is written as a small map tagged `__type` and reads back as a date or a point. One difference to expect from a `markdown` round trip: a node with two or more labels can return them from `labels(n)` in another order, so sort them before comparing such a graph.
 
 ## Measure the sizes
 
@@ -148,9 +148,9 @@ for store in team.rl team-compact.rl team team-json team-md; do printf '%s: ' "$
 ```
 
 ```text
-team.rl: total bytes: 3203072
+team.rl: total bytes: 3100672
 team-compact.rl: total bytes: 32768
-team: total bytes: 3556
+team: total bytes: 4032
 team-json: total bytes: 1385
 team-md: total bytes: 2926
 ```
@@ -195,7 +195,7 @@ relate --database ./team-md --read-only --mode envelope "MATCH (p:Person)-[:WORK
 
   A `--snapshot-format` placed before the verb, as in `relate --snapshot-format json clone …`, does not change the destination's codec: the copy keeps the source's. Put `--to-snapshot-format` after `clone`.
 
-- **`Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`** (exit code 1). The destination is a `.rl` path and the source is a `markdown` store, or the command passes `--markdown-body-properties`. In relate 0.1.2 a `.rl` destination refuses that configuration, even with `--to-snapshot-format markdown`. Pass `--to-snapshot-format parquet` or `json` for a `.rl` copy of a vault, or clone it into a directory store.
+- **`Failed to clone database: semantic error: markdown body properties are set but the store's snapshot codec is parquet, not markdown; the configuration would be ignored`** (exit code 1). The destination is a `.rl` path and the source is a `markdown` store, or the command passes `--markdown-body-properties`. In relate 1.0.0 a `.rl` destination refuses that configuration, even with `--to-snapshot-format markdown`. Pass `--to-snapshot-format parquet` or `json` for a `.rl` copy of a vault, or clone it into a directory store.
 - **`Failed to clone database: storage error: clone destination already exists`** (exit code 1). `relate clone` never overwrites. Pick a new destination path.
 - **`Failed to clone database: storage error: markdown vault: node <id> of label <Label> has no '<property>' property; the markdown vault requires a non-null unique '<property>' on :<Label>`** (exit code 1). A `markdown` destination names each note after a key property, and a node of that label lacks it. Set the property on every node of the label first. A failed clone removes the destination it created.
 - **`Failed to clone database: storage error: markdown vault: two nodes of label <Label> share the key value '<value>'; the vault filename would collide`** (exit code 1). Two nodes of one label have the same key value. Make the values unique, or keep the store in `parquet` or `json`.

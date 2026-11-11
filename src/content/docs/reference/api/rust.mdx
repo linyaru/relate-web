@@ -7,7 +7,7 @@ surfaces: [rust]
 related: [guides/embed/rust, get-started/rust, reference/api/c, reference/errors, reference/storage/formats, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The `relate` crate is the engine as a Rust library: a `Database` opens a :term[store]{id=store}, a `Connection` runs statements on it, and each statement returns a `QueryResult` of `Value` rows or a `relate::Error`. This page lists what the crate exports at its root (every name is `relate::<name>`), as of relate 0.1.2. The C application binary interface (ABI) and the Python client are built on the same `Database`. The guide [Use the Rust crate](/docs/guides/embed/rust) covers the same API with runnable programs.
+The `relate` crate is the engine as a Rust library: a `Database` opens a :term[store]{id=store}, a `Connection` runs statements on it, and each statement returns a `QueryResult` of `Value` rows or a `relate::Error`. This page lists what the crate exports at its root (every name is `relate::<name>`), as of relate 1.0.0. The C application binary interface (ABI) and the Python client are built on the same `Database`. The guide [Use the Rust crate](/docs/guides/embed/rust) covers the same API with runnable programs.
 
 ## Synopsis
 
@@ -30,7 +30,7 @@ relate::error_info(&Error) -> ErrorInfo
 
 ## Cargo features
 
-The crate is `relate`, in the workspace at version 0.1.2, with `rust-version` 1.88 and edition 2021. Before crates.io publication it is a Git dependency, `cargo add --git https://github.com/relatedb/relate relate`.
+The crate is `relate` on crates.io, at version 1.0.0, with `rust-version` 1.88 and edition 2021: `cargo add relate` adds it. The crates it depends on, such as `relate-core`, are published beside it at the same version.
 
 | Feature | Default | Effect |
 | --- | --- | --- |
@@ -65,8 +65,7 @@ An open store. `Database` is `Send` and `Sync`; dropping it stops the background
 | `needs_reopen()` | `true` when a `FollowGapPolicy::Yield` follower stopped at a gap; new queries then fail with the retryable `follow-gap` limit |
 | `promote()`, `demote()`, `is_draining()` | Take or hand back the writer lease between a writer and a follower of the same directory store |
 | `register_procedure(Procedure)` | Registers a procedure that later statements can `CALL` |
-| `register_cdc_slot(&str)`, `ack_cdc_slot(&str, u64)`, `drop_cdc_slot(&str)`, `cdc_slots()`, `cdc_records_after(u64, usize)` | Change data capture: a slot holds WAL recycling until its consumer acknowledges a log sequence number (LSN); `cdc_records_after` returns at most `limit` records after an LSN without blocking |
-| `set_apply_only(bool)`, `apply_only()`, `apply_replicated(&WalRecord)` | A read replica: Cypher writes refused, records applied from another store's WAL |
+| `apply_replicated(&WalRecord)` | Appends one record from another store's WAL to this store's WAL and applies it, under a new log sequence number (LSN), keeping the record's commit timestamp and ids; the replica write path |
 | `ontology_document()`, `commit_ontology_set(String)`, `commit_ontology_drop()` | The store's ontology document, read, replaced, or dropped |
 | `token_pool()`, `on_token_ceiling(hook)` | The shared workspace pool's reservations, when admission is on |
 | `enable_commit_timing()`, `clear_commit_timing()`, `commit_timing_report()` | A histogram of commit steps; empty unless `RELATE_COMMIT_TIMING=1` |
@@ -83,7 +82,6 @@ The settings of `Database::open_with`, a struct with public fields and `Default`
 | `checkpoint_interval` | `Option<Duration>` | `RELATE_CHECKPOINT_INTERVAL_SECS`, else 300 seconds (`DEFAULT_CHECKPOINT_INTERVAL_SECS`) | The checkpoint timer, which runs when the WAL has work; `Duration::ZERO` turns it off |
 | `wal_dir` | `Option<PathBuf>` | `<store>/wal` | A directory store's WAL directory; ignored for `:memory:` |
 | `snapshot_codec` | `Option<SnapshotCodecKind>` | `RELATE_SNAPSHOT_FORMAT`, else Parquet (JSON without the `parquet` feature) | A new store's codec: `Parquet`, `Json`, `Markdown`, or the experimental `Rkyv` (only with the `rkyv-codec` feature). An existing directory store keeps its own; a different one is an error. |
-| `wide_columns` | `bool` | `false` | Opts a Parquet store into the wide-column encoding: its next checkpoint writes one typed column per promoted property key beside a JSON tail, and the store stays wide from then on, whatever later opens set. On a store whose codec is not Parquet, or with `markdown_body_properties` set too, the open fails with `Error::Semantic`. |
 | `markdown_body_properties` | `Option<MarkdownBodyProperties>` | `RELATE_MARKDOWN_BODY_PROPERTIES`, else the store's recorded setting, else `body` | The properties a `Markdown` store writes as note bodies; set on another codec, the open fails |
 | `logical_graph_size_limit` | `Option<u64>` | `RELATE_LOGICAL_GRAPH_SIZE_LIMIT`, else unlimited | Limit: the live graph plus its indexes, in logical bytes; `Some(0)` is unlimited. A growing write over it fails with `Error::Capacity`. |
 | `expression_memory_limit` | `Option<u64>` | `RELATE_EXPRESSION_MEMORY_LIMIT`, else 256 MiB | Limit: one value an expression builds; `Some(0)` turns it off |
@@ -184,6 +182,7 @@ A parameter or a result cell. `Value` is `Send`, `Sync` and `Clone`; strings, li
 | `ParameterMissing(String)` | `semantic error: ParameterMissing: ` | `Neo.ClientError.Statement.ParameterMissing` | `42N02` | `Compile` | `false` |
 | `DatabaseNotFound { name }` | `semantic error: DatabaseNotFound: Graph not found: ` | `Neo.ClientError.Database.DatabaseNotFound` | `42N00` | `Compile` | `false` |
 | `ArgumentError(String)` | `semantic error: ` | `Neo.ClientError.General.InvalidArguments` | `42000` | `Compile` | `false` |
+| `ArgumentValue { kind, detail }` | `semantic error: <kind>: `, such as `semantic error: NumberOutOfRange: range() step cannot be 0` | `Neo.ClientError.Statement.ArgumentError` | `42000` | `Runtime` | `false` |
 | `Semantic(String)` | `semantic error: ` | `Neo.ClientError.Statement.SemanticError` | `42000` | `Runtime` | `false` |
 | `Execution(String)` | the message | `Neo.ClientError.Statement.SemanticError` | `42000` | `Runtime` | `false` |
 | `UniquenessViolation { name }` | ``semantic error: ConstraintValidationFailed: `<name>` uniqueness`` | `Neo.ClientError.Schema.ConstraintValidationFailed` | `42000` | `Runtime` | `false` |

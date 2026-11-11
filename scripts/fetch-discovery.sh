@@ -26,7 +26,7 @@
 #     deploy leaves the live site as it was; the next dispatch retries.
 # Files are written only after every check passes.
 #
-# Needs gh (GH_TOKEN; the upstream repository is private before launch), node
+# Needs gh (GH_TOKEN, any token that can read the public upstream releases), node
 # and ssh-keygen. Honours $RELATE_UPSTREAM_REPO (default relatedb/relate) and
 # writes a summary to $GITHUB_STEP_SUMMARY when set.
 set -euo pipefail
@@ -68,7 +68,7 @@ newest() { # TAG_REGEX ASSET...
   local list
   list="$(gh release list -R "$repo" --limit 100 --json tagName,isDraft,isPrerelease,publishedAt \
     -q "[.[] | select((.isDraft|not) and (.isPrerelease|not) and (.tagName|test(\"$re\")))] | sort_by(.publishedAt) | reverse | .[].tagName")" ||
-    fail "could not list the releases of $repo (is GH_TOKEN set with read access? the repository is private before launch)"
+    fail "could not list the releases of $repo (is GH_TOKEN set?)"
   printf '%s\n' "$list" | sed '/^$/d'
 }
 has_assets() { # TAG ASSET...

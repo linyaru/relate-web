@@ -171,18 +171,23 @@ function packageTab(v: string): Tab {
       { key: 'python', label: 'Python', blocks: [bash('pip install relate-db'), { p: 'The package is `relate-db`; the import is `import relate`.' }] },
       { key: 'node', label: 'Node.js', blocks: [bash('npm install @relate/relate'), { p: 'Node.js 18 or later. The package carries native bindings.' }] },
       { key: 'browser', label: 'Browser', blocks: [bash('npm install @relate/relate-wasm'), { p: 'The WebAssembly build, for browsers.' }] },
-      { key: 'rust', label: 'Rust', blocks: [bash(`cargo add --git ${REPO} relate`)] },
+      { key: 'rust', label: 'Rust', blocks: [bash('cargo add relate'), { p: 'The crate is on crates.io; the first build compiles the engine from source, with Rust 1.88 or later.' }] },
       {
         key: 'java',
         label: 'Java',
-        blocks: [{ p: `\`com.relate:relate\`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](${RELEASES}). The client needs JNA (\`net.java.dev.jna:jna\`) and Jackson (\`com.fasterxml.jackson.core:jackson-databind\`) on the classpath; a Maven or Gradle build brings both in through the coordinate.` }],
+        blocks: [
+          { p: `\`com.relate:relate\`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](${RELEASES}), not on Maven Central. Download \`relate-${v}.jar\` and install it into your local Maven repository:` },
+          bash(`mvn install:install-file -Dfile=relate-${v}.jar`),
+          { p: 'The jar carries its POM, so a Maven or Gradle build (with `mavenLocal()`) resolves `com.relate:relate` and brings in its two dependencies, JNA (`net.java.dev.jna:jna`) and Jackson (`com.fasterxml.jackson.core:jackson-databind`), from Maven Central.' },
+        ],
       },
       {
         key: 'go',
         label: 'Go',
         blocks: [
           { p: 'In a Go module (`go mod init <module>` creates one):' },
-          bash('go get github.com/relatedb/relate/clients/go'),
+          bash(`go get github.com/relatedb/relate/clients/go@${engine().commit ?? `<commit of v${v}>`}`),
+          { p: `\`${engine().commit ?? `<commit of v${v}>`}\` is the commit of relate ${v}: the module has no version tag of its own, so Go records the commit as a pseudo-version, and without \`@<commit>\` it takes the newest commit on the default branch.` },
           {
             p:
               `The module uses cgo and links \`librelate_ffi\`, from the \`${releaseNames(v).prefix}-ffi-<target>.tar.gz\` archive attached to each release` +

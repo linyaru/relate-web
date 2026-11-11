@@ -1,8 +1,8 @@
 ---
-title: Nearby places for an agent
-summary: A geo-aware memory tool that answers radius, nearest-k, map-box, and recent-visit questions over 80 remembered places.
+title: Answer "what's nearby?" from memory
+summary: "Store the places a travel assistant's users mention and its agents visit, and turn them into five small location tools: within 2 km, nearest, inside a map area, and recently visited nearby. The agent answers location questions from its own memory, with distances in meters."
 level: Beginner
-category: Geospatial
+category: Maps and places
 features: [point(), point.distance, point.withinBBox, POINT index, relationship property constraints]
 browser: full
 dataset: 80 places in Portland and Seattle and 18 visits by two agents (10 KB)
@@ -10,7 +10,7 @@ source: Synthetic, generated with a fixed seed by the examples project's 19-near
 license: Apache-2.0
 ---
 
-# Nearby places for an agent
+# Answer "what's nearby?" from memory
 
 *A travel assistant remembers the places its users mention and the places its
 agents visit. Five small queries turn that memory into tools: what is within

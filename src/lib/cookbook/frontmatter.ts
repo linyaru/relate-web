@@ -22,16 +22,16 @@ export const KEYS = [
 ] as const;
 
 /** Longest `summary`, in characters. */
-export const MAX_SUMMARY_CHARS = 200;
+export const MAX_SUMMARY_CHARS = 350;
 
 export const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
 /** Every category, in index order. */
 export const CATEGORIES = [
   'Agent memory',
-  'Search and retrieval',
-  'Data quality',
-  'Graph analytics',
-  'Geospatial',
+  'Search with context',
+  'Data wrangling',
+  'Code and dependencies',
+  'Maps and places',
 ] as const;
 /** `full`: every step runs in the page. `partial`: some steps are shown as code only. */
 export const BROWSERS = ['full', 'partial'] as const;

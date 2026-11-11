@@ -1,8 +1,8 @@
 ---
-title: Rehearse a migration against a golden graph
-summary: Fingerprint a graph before a migration runs, declare what the migration may change, and catch a bug that node counts and intended-change checks both miss.
+title: Catch a migration that quietly loses data
+summary: Fingerprint a graph before a migration, declare what the migration may change, and compare afterward. Node counts and intended-change checks can all pass while data is destroyed; here the fingerprint catches 352 lost city links and restores them.
 level: Advanced
-category: Data quality
+category: Data wrangling
 features: [COUNT subqueries, COLLECT subqueries, EXISTS subqueries, "CALL () {}", list comprehensions, keys(), dynamic property access, MERGE … ON CREATE SET, FOREACH]
 browser: full
 dataset: A synthetic company graph of 90 organizations, 68 CEOs, 10 industry categories, and 26 cities in 7 countries; 201 nodes and 676 relationships (26 KB)
@@ -10,7 +10,7 @@ source: Synthetic, generated with a fixed seed for this recipe. The graph's shap
 license: Apache-2.0
 ---
 
-# Rehearse a migration against a golden graph
+# Catch a migration that quietly loses data
 
 *A migration can keep every node count and every intended change right and
 still destroy data. Fingerprint the graph before the migration runs, write

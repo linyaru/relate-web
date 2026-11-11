@@ -10,7 +10,7 @@ import { recipeCells, recipeTwin, recipeUses, runRecordings } from './elements.t
 import { createMarkdown, type MarkdownEnv } from './markdown.ts';
 import { narrative, parseDirectiveAttributes, parseRecipe, validateRecipe } from './recipe.ts';
 
-const HEAD = '---\ntitle: T\nsummary: S\nlevel: Beginner\ncategory: Geospatial\nfeatures: [point]\nbrowser: full\n---\n\n# T\n\nIntro.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n';
+const HEAD = '---\ntitle: T\nsummary: S\nlevel: Beginner\ncategory: Maps and places\nfeatures: [point]\nbrowser: full\n---\n\n# T\n\nIntro.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n';
 const CELLS =
   '## Places\n\n```cypher cell=places\nRETURN 1 AS n\n```\n\n```table\nx\n```\n\n' +
   '```json data=steps\n{"steps": []}\n```\n\n';

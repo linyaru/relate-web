@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes the `docs` data block of the cookbook recipe "Query the relate docs"
+// Writes the `docs` data block of the cookbook recipe `query-the-relate-docs`
 // (src/content/cookbook/query-the-relate-docs.md) from the docs graph and
 // _data/embeddings.json: the subset rule is recipeData() in
 // src/lib/docs/graph.ts (the graph's pages, terms, capabilities, problems

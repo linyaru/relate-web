@@ -20,7 +20,7 @@ import {
 } from './recipe.ts';
 
 const SAMPLE =
-  '---\ntitle: T\nsummary: S\nlevel: Beginner\ncategory: Geospatial\nfeatures: [point]\nbrowser: full\n---\n\n# T\n\nIntro.\n\n' +
+  '---\ntitle: T\nsummary: S\nlevel: Beginner\ncategory: Maps and places\nfeatures: [point]\nbrowser: full\n---\n\n# T\n\nIntro.\n\n' +
   '```mermaid\nflowchart LR\n  A --> B\n```\n\n' +
   '```cypher cell=load setup params=rows\nUNWIND $rows AS r\nCREATE (:P {id: r.id})\n```\n\n' +
   '```table\nold\n```\n\n' +
@@ -181,15 +181,15 @@ test('the index groups by category and sorts by title', () => {
     front: { ...base.front, title, category, summary },
   });
   const index = renderIndex([
-    recipe('b', 'beta', 'Geospatial', 'a | b'),
-    recipe('a', 'Zeta', 'Geospatial'),
+    recipe('b', 'beta', 'Maps and places', 'a | b'),
+    recipe('a', 'Zeta', 'Maps and places'),
     recipe('m', 'Memory', 'Agent memory'),
   ]);
-  assert.ok(index.indexOf('### Agent memory') < index.indexOf('### Geospatial'));
+  assert.ok(index.indexOf('### Agent memory') < index.indexOf('### Maps and places'));
   // Code-point order: upper case sorts before lower case.
   assert.ok(index.indexOf('[Zeta](a.md)') < index.indexOf('[beta](b.md)'));
   assert.ok(index.includes('| [beta](b.md) | a \\| b | Beginner | Fully |\n'));
-  assert.ok(!index.includes('### Data quality'));
+  assert.ok(!index.includes('### Data wrangling'));
   const readme = 'intro\n<!-- cookbook-index:start -->\nold\n<!-- cookbook-index:end -->\nafter\n';
   assert.equal(spliceIndex(readme, '\nnew\n'), 'intro\n<!-- cookbook-index:start -->\nnew\n<!-- cookbook-index:end -->\nafter\n');
   assert.throws(() => spliceIndex('no markers', ''), /lacks/);

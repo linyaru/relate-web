@@ -1,8 +1,8 @@
 ---
-title: Entity resolution in pure Cypher
-summary: Resolve two messy customer exports into companies with normalized keys, bigram typo matching, IDF-weighted scores, and a human review queue, all in Cypher.
+title: Merge duplicate customers across systems
+summary: Match a CRM export and a billing export that spell the same companies differently, typos included, and resolve 396 records into 211 companies, with a short list of doubtful pairs for a person to review. It's entity resolution entirely inside the database, with no fuzzy-matching library, and it finds 216 of 218 duplicate pairs with no false merges.
 level: Intermediate
-category: Data quality
+category: Data wrangling
 features: [string.regexReplace, list comprehensions, "COUNT {}", "COLLECT {}", "EXISTS {}", "CALL (a, b) {}", quantified path patterns, label propagation, reduce, map projections]
 browser: full
 dataset: Two synthetic customer exports (194 CRM rows, 202 billing rows) and the company each row came from (65 KB)
@@ -10,7 +10,7 @@ source: Synthetic, generated with a fixed seed by the examples project's 06-csv-
 license: Apache-2.0
 ---
 
-# Entity resolution in pure Cypher
+# Merge duplicate customers across systems
 
 *A CRM export and a billing export list the same customers, spelled
 differently: `GOLDEN GATE LOGISTICS, INC.` in one is `Golden Gate Logistics,

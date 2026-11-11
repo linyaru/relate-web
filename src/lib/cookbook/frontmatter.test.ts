@@ -5,7 +5,7 @@ import { parseFrontMatter } from './frontmatter.ts';
 
 const BASE =
   'title: Nearby places\nsummary: "Finds \\"close\\" things"\nfeatures: [point, \'a, b\', "c"]\n' +
-  'level: Beginner\ncategory: Geospatial\nbrowser: full\n';
+  'level: Beginner\ncategory: Maps and places\nbrowser: full\n';
 
 const error = (text: string) => {
   try {
@@ -22,7 +22,7 @@ test('parses scalars, lists and enums', () => {
   assert.equal(fm.summary, 'Finds "close" things');
   assert.deepEqual(fm.features, ['point', 'a, b', 'c']);
   assert.equal(fm.level, 'Beginner');
-  assert.equal(fm.category, 'Geospatial');
+  assert.equal(fm.category, 'Maps and places');
   assert.equal(fm.browser, 'full');
   assert.equal(fm.companion, null);
 });
@@ -47,8 +47,8 @@ test('reports every schema problem', () => {
   ]) {
     assert.ok(errs.includes(want), `${want} not in:\n${errs}`);
   }
-  const long = BASE.replace('"Finds \\"close\\" things"', 'x'.repeat(201));
-  assert.match(error(long), /longer than 200/);
+  const long = BASE.replace('"Finds \\"close\\" things"', 'x'.repeat(351));
+  assert.match(error(long), /longer than 350/);
 });
 
 test('keeps colons in values', () => {

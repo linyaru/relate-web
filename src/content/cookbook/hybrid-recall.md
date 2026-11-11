@@ -1,8 +1,8 @@
 ---
-title: "Hybrid recall: vector + full-text + RRF"
-summary: Fuse vector and full-text SEARCH by reciprocal rank in one Cypher statement, then hop from each recalled note to its topic's latest decision.
+title: Find a note, then what was decided since
+summary: "Combine vector and keyword search (hybrid search) in one Cypher query, then follow each matching note to the latest decision on its topic. The best-matching note can be out of date: here it says Auth0, and the follow-up step shows the team later chose Okta."
 level: Advanced
-category: Search and retrieval
+category: Search with context
 features: [SEARCH, VECTOR INDEX, FULLTEXT INDEX, vector search prefilter, reciprocal rank fusion, CALL subquery, UNION ALL, relationship FULLTEXT INDEX, head(collect())]
 browser: full
 dataset: 40 notes from three working sessions, 6 topics and 9 decisions, with 384-dimension embeddings for every note and question (85 KB)
@@ -10,7 +10,7 @@ source: Synthetic, written for the examples project's 12-hybrid-recall; embedded
 license: Apache-2.0
 ---
 
-# Hybrid recall: vector + full-text + RRF
+# Find a note, then what was decided since
 
 *An engineering-support agent keeps 40 notes from three working sessions on a
 project. Asked "what did we decide about oauth tokens", it runs one Cypher

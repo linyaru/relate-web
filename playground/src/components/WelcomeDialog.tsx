@@ -30,7 +30,7 @@ export function WelcomeDialog({ isOpen, seedScript, onRunSeed, isRunning, canRun
           </Typography>
           <Typography variant="body-medium">
             Want to use Relate from the CLI, Python, or in your own app? Check out the{' '}
-            <TextLink href="https://relatedb.ai/">documentation</TextLink>.
+            <TextLink href="https://relatedb.ai/docs/">documentation</TextLink>.
           </Typography>
           <Typography variant="body-medium">
             Run the queries below to load the sample dataset and get started.

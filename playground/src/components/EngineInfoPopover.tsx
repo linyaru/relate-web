@@ -60,7 +60,7 @@ export function EngineInfoPopover({ engineReady, resetting, onReset }: Props) {
             <Typography variant="body-medium" className="n-text-neutral-text-weak">
               Embedded graph database in your browser.
               <br />
-              <TextLink href="https://relatedb.ai/">Relate Docs</TextLink>
+              <TextLink href="https://relatedb.ai/docs/">Relate Docs</TextLink>
             </Typography>
             <Flex flexDirection="row" gap="8" alignItems="baseline" justifyContent="space-between">
               <Typography variant="body-small" className="n-text-neutral-text-weak">

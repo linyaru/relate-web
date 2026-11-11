@@ -4,15 +4,17 @@
 #
 # Who can deploy (ADR-0059): only runs started by someone with write access to
 # this repository. Fork pull requests never deploy: GitHub withholds secrets
-# from them, and both jobs also skip them. Never switch this workflow to
+# from them, and all the jobs skip them. Never switch this workflow to
 # pull_request_target: that would hand the Cloudflare token to fork code.
 #
-# Two jobs, so the token never shares a runner with code it does not need:
+# Three jobs, so the token never shares a runner with code it does not need:
 #   build   no Cloudflare secret. Installs the dependencies (their install
 #           scripts run here), runs the checks, builds dist/, uploads it.
 #   deploy  the only job that reads the token. Installs with --ignore-scripts
 #           (the Pages Functions need github-slugger to bundle), downloads
 #           dist/ and runs the pinned wrangler; no build, no dependency code.
+#   comment pull requests only. No secret and no checkout; posts the preview
+#           URLs on the pull request and edits that one comment on later pushes.
 #
 # One-time setup:
 #   1. Create the project:  npx wrangler pages project create relate-web --production-branch main
@@ -168,6 +170,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      url: ${{ steps.urls.outputs.url }}
+      alias: ${{ steps.urls.outputs.alias }}
     steps:
       # functions/ and the src/lib/docs module they import, at the commit dist/ was built from.
       - uses: actions/checkout@v4
@@ -190,9 +195,83 @@ jobs:
           path: dist/
 
       # The branch name reaches the shell as data, never as script text.
+      # wrangler writes the deployment's URLs to WRANGLER_OUTPUT_FILE_PATH
+      # (ND-JSON), so the next step reads them instead of scraping the log.
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
         run: npx --yes "wrangler@${WRANGLER_VERSION}" pages deploy dist --project-name=relate-web --branch="$BRANCH"
+
+      # Only URLs on this project's pages.dev host leave the job. A missing or
+      # unexpected record warns and skips the pull request comment; the deploy
+      # itself has already succeeded.
+      - name: Record deployment URLs
+        id: urls
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/wrangler-output.ndjson
+        run: |
+          record=$(jq -c 'select(.type == "pages-deploy-detailed")' "$OUTPUT_FILE" 2>/dev/null | tail -n 1 || true)
+          [ -n "$record" ] || record='{}'
+          host='^https://[a-z0-9-]+\.relate-web\.pages\.dev$'
+          url=$(jq -r '.url // empty' <<<"$record")
+          alias=$(jq -r '.alias // empty' <<<"$record")
+          if ! [[ "$url" =~ $host ]]; then
+            echo "::warning::No pages.dev deployment URL in wrangler's output; skipping the preview comment."
+            exit 0
+          fi
+          [[ "$alias" =~ $host ]] || alias=""
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "alias=$alias" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Cloudflare Pages deployment"
+            echo
+            echo "- This deployment: $url"
+            if [ -n "$alias" ]; then echo "- Branch alias: $alias"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Posts the preview links on the pull request, then edits that one comment on
+  # each later push. No checkout, no secret, no repository code: its only scope
+  # is writing pull request comments (ADR-0059).
+  comment:
+    needs: deploy
+    if: github.event_name == 'pull_request' && needs.deploy.outputs.url != ''
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment the preview URL on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          URL: ${{ needs.deploy.outputs.url }}
+          ALIAS: ${{ needs.deploy.outputs.alias }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker='<!-- deploy-cf:preview -->'
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo "$marker"
+            echo "### Cloudflare Pages preview"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            if [ -n "$ALIAS" ]; then echo "| Branch (follows the latest push) | $ALIAS |"; fi
+            echo "| This commit (\`${HEAD_SHA:0:7}\`) | $URL |"
+            echo
+            echo "Deployed by [this run]($RUN_URL): the pull request merged with \`main\`, with the checked-in release-discovery files."
+          } > "$body"
+
+          id=$(gh api --paginate "repos/$GH_REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$GH_REPO/issues/comments/$id" -F body=@"$body" > /dev/null
+            echo "Updated comment $id"
+          else
+            gh api --method POST "repos/$GH_REPO/issues/$PR/comments" -F body=@"$body" > /dev/null
+            echo "Posted a new comment"
+          fi

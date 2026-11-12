@@ -1,17 +1,18 @@
 ---
-// Google Tag Manager (ADR-0063). `part="head"` goes last in <head>, `part="body"` right after
-// <body> opens. Renders nothing on a non-indexable build (a preview), so previews send no hits.
+// Google Tag Manager behind consent (ADR-0063). Goes last in <head>. It defaults every consent
+// signal to denied, loads the container only once the visitor has accepted (now, from a stored
+// choice, or after the banner), and exposes `window.relateConsent` to the banner and the
+// footer's "Cookie settings" button. Renders nothing on a non-indexable build (a preview).
 import { indexable } from '../lib/seo.ts';
-interface Props {
-  part: 'head' | 'body';
-}
-const { part } = Astro.props;
 const id = 'GTM-WJZF33JM';
-const on = indexable();
+const code = `(function(w,d){var k='relate-consent',loaded=false;w.dataLayer=w.dataLayer||[];function g(){w.dataLayer.push(arguments)}
+var all=['ad_storage','ad_user_data','ad_personalization','analytics_storage'];
+function state(v){var o={};all.forEach(function(n){o[n]=v});return o}
+g('consent','default',state('denied'));
+function get(){try{return localStorage.getItem(k)}catch(e){return null}}
+function load(){if(loaded)return;loaded=true;g('consent','update',state('granted'));w.dataLayer.push({'gtm.start':new Date().getTime(),event:'gtm.js'});var s=d.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtm.js?id=${id}';d.head.appendChild(s)}
+function set(v){try{localStorage.setItem(k,v)}catch(e){}if(v==='granted')load();else if(loaded)location.reload()}
+w.relateConsent={get:get,set:set};
+if(get()==='granted')load()})(window,document);`;
 ---
-{on && part === 'head' && (
-  <script is:inline set:html={`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${id}');`} />
-)}
-{on && part === 'body' && (
-  <noscript><iframe src={`https://www.googletagmanager.com/ns.html?id=${id}`} height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
-)}
+{indexable() && <script is:inline set:html={code} />}

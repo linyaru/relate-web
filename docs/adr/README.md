@@ -140,4 +140,4 @@ Copy `template.md`.
 | [0060](0060-one-setup-prompt-for-copy-for-agent-buttons.md) | One unpinned setup prompt and one unpinned AGENTS.md block for every surface that hands an agent relate | Proposed |
 | [0061](0061-required-check-runs-as-parallel-jobs.md) | The required check runs as parallel jobs, with the browser run in shares | Proposed |
 | [0062](0062-verified-samples-install-the-published-clients.md) | The verified samples install the published clients where a registry has them | Proposed |
-| [0063](0063-google-tag-manager-on-page-views.md) | Google Tag Manager measures page views on the indexable build | Proposed |
+| [0063](0063-google-tag-manager-on-page-views.md) | Google Tag Manager measures page views, behind a consent banner | Proposed |

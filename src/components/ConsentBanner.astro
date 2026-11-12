@@ -1,0 +1,20 @@
+---
+// The consent banner (ADR-0063): shown until the visitor has chosen, reopened by the footer's
+// "Cookie settings" button. Accept and Reject are equal in size and weight. Needs the loader
+// in Gtm.astro; renders nothing on a non-indexable build.
+import { indexable } from '../lib/seo.ts';
+---
+{indexable() && (
+  <div class="consent" id="consent" role="region" aria-label="Cookie consent" hidden>
+    <p>We use Google Tag Manager to measure how the site is used. It sets cookies and sends usage data to Google only if you accept. Rejecting has no effect on the site. <a href="/docs/reference/privacy-and-telemetry/">Privacy and telemetry</a></p>
+    <div class="consent-actions">
+      <button type="button" data-consent="denied">Reject</button>
+      <button type="button" data-consent="granted">Accept</button>
+    </div>
+  </div>
+  <script is:inline>(function(){var b=document.getElementById('consent'),c=window.relateConsent;if(!b||!c)return;
+function show(){b.hidden=false}
+if(c.get()===null)show();
+b.addEventListener('click',function(e){var v=e.target&&e.target.getAttribute&&e.target.getAttribute('data-consent');if(!v)return;b.hidden=true;c.set(v)});
+document.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('[data-consent-open]')){show();var f=b.querySelector('button');if(f)f.focus()}})})();</script>
+)}

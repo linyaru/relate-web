@@ -70,25 +70,28 @@
 // Python and Node.js the client package's version (relate-db,
 // @relate/relate), and for Rust, Java, Go, Swift and C the engine version the
 // client reports (`CALL dbms.components()`, component `Relate`), because those
-// clients carry no release version of their own before launch (the Go module
-// is v0.0.0 behind a replace directive, the Swift package has none, the Java
-// pom's 0.1.0 is not bumped between releases). `source_sha256` is the SHA-256
+// clients carry no release version the runner can read (the Go module has no
+// tag and runs behind a replace directive, the Swift package has none, the
+// Rust crate exports no version constant, the Java and C builds come from the
+// checkout). `source_sha256` is the SHA-256
 // of the program that produced it (sampleSourceHash: language, `env`, title
 // and code, line endings and trailing spaces normalized), so a sample edited
 // after it was recorded fails docs:check and loses its language from the
 // twin's `verified_by` until it is recorded again. The twin prints the fence
 // as written, then a ```text block holding `text`.
 //
-// The runner needs the clients, which are built from the upstream checkout
-// before launch (scripts/samples/setup.sh, whose header describes each
-// variable) and installed from the published packages after:
+// The runner needs the clients (scripts/samples/setup.sh, whose header
+// describes each variable): Python, Node.js and Rust installed from their
+// registries at the docs' release, the others built from the upstream
+// checkout at its tag (ADR-0062):
 //
 //   python  RELATE_PY (a Python that can `import relate`, package relate-db),
 //           RELATE_PY_<NAME> for `env=<name>`
 //   js      RELATE_NODE, and NODE_PATH naming the node_modules directory
 //           holding @relate/relate (linked into each sample's directory, so
-//           `require` and `import` both resolve); RELATE_LIB the native
-//           library when the client is not a published install
+//           `require` and `import` both resolve); the client loads the
+//           native library from its npm platform package, so a sample runs
+//           without RELATE_LIB
 //   rust    RELATE_CARGO, RELATE_RUST_PROJECT
 //   java    RELATE_JAVA, RELATE_JAVA_CLASSPATH, RELATE_LIB
 //   go      RELATE_GO, RELATE_GO_CLIENT, RELATE_GO_HOME, RELATE_C_INCLUDE, RELATE_LIB
@@ -668,6 +671,9 @@ function plan(sample: SampleSource, env: ClientEnv, runDir: string, buildDir: st
       symlinkSync(env.nodeModules!, join(runDir, 'node_modules'), 'dir');
       const step = run(env.node!, [file]);
       delete step.env.NODE_OPTIONS;
+      // The published install's platform package carries the engine; RELATE_LIB
+      // (set for the C-ABI clients) would load the checkout's build instead.
+      delete step.env.RELATE_LIB;
       return [step];
     }
     case 'rust': {

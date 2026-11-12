@@ -101,8 +101,9 @@ The planner emits these performance notifications. The descriptions are quoted f
 | `03N91` | Unbounded variable-length pattern | A variable-length pattern with no upper bound | `the variable-length pattern (p:Person)-[:KNOWS*1..]->(q) has no upper bound` | ``Bound the expansion (`[:R*1..5]`) where arbitrary length is not required, or add a selective endpoint/label predicate and a `LIMIT`.`` |
 | `03C92` | Eager aggregation | An aggregation whose input is estimated at 100,000 rows or more | `the aggregation buffers an estimated 100000 input rows, at or above the 100000-row eager threshold` | ``Reduce the rows reaching the aggregation with a selective label/property predicate or a `LIMIT` before it; profile again to confirm the buffered input shrank.`` |
 | `03C93` | Estimation miss | `PROFILE` only: an operator whose estimate is 10 times its actual rows or more | `estimated rows 10x or more above the actual rows` | `Rework the operator's input so the estimate can see the filter (add the selective predicate at the scan, or reorder the join); the estimate is a planner assumption, not a runtime fact.` |
+| `03C94` | Label disjunction scan | An equality on a property of a label disjunction, such as `(p:Model OR p:Source) AND p.id = 1`, that no range index on each label serves | `the disjunction scan answers per label; consider the property index (:Model(id), :Source(id))` | `Create a range index on each disjunct label's filtered property: the disjunction then serves as per-label keyed lookups instead of per-label scans.` |
 
-In `--mode table`, the three plan warnings (`03C90`, `03N90` and `03C93`) print in the plan's `Warnings` column and a `Warnings:` line instead of the `Notifications:` block; the envelope carries all of them. A plain run without `EXPLAIN` or `PROFILE` derives no notifications. The planner also reports a label, relationship type or property key the store does not have (`01N50` to `01N52`), a `CALL` subquery without a scope clause (`01N00`) and a deprecated function or procedure (`01N01`); the [errors reference](/docs/reference/errors#notifications) lists every notification with its code and severity, at a stable anchor.
+In `--mode table`, the four plan warnings (`03C90`, `03N90`, `03C93` and `03C94`) print in the plan's `Warnings` column and a `Warnings:` line instead of the `Notifications:` block; the envelope carries all of them. A plain run without `EXPLAIN` or `PROFILE` derives no notifications. The planner also reports a label, relationship type or property key the store does not have (`01N50` to `01N52`), a `CALL` subquery without a scope clause (`01N00`) and a deprecated function or procedure (`01N01`); the [errors reference](/docs/reference/errors#notifications) lists every notification with its code and severity, at a stable anchor.
 
 ## Compare the plans
 
@@ -181,18 +182,20 @@ MATCH (p:Person {name: 'Ada'})-[:WORKS_ON]->(proj:Project)
 RETURN proj.name AS project
 ```
 
-The index is listed and online:
+The index is listed and online, after the two lookup indexes every store lists:
 
 ```bash verify
 relate --database ./team.rl --read-only --mode table "SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state"
 ```
 
 ```text
-+-----------------------+---------+---------------+------------+----------+
-| name                  | type    | labelsOrTypes | properties | state    |
-+-----------------------+---------+---------------+------------+----------+
-| "relate_Person__name" | "RANGE" | ["Person"]    | ["name"]   | "ONLINE" |
-+-----------------------+---------+---------------+------------+----------+
++-----------------------+----------+---------------+------------+----------+
+| name                  | type     | labelsOrTypes | properties | state    |
++-----------------------+----------+---------------+------------+----------+
+| "index_1b9dcc97"      | "LOOKUP" | <null>        | <null>     | "ONLINE" |
+| "index_460996c0"      | "LOOKUP" | <null>        | <null>     | "ONLINE" |
+| "relate_Person__name" | "RANGE"  | ["Person"]    | ["name"]   | "ONLINE" |
++-----------------------+----------+---------------+------------+----------+
 ```
 
 ## If it goes wrong

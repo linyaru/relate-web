@@ -17,13 +17,13 @@ This guide shows you how to embed relate in a Rust program with the `relate` cra
 
 ## Add the client
 
-Add the crate from its Git repository:
+Add the crate from crates.io:
 
 ```bash
-cargo add --git https://github.com/relatedb/relate relate
+cargo add relate
 ```
 
-Cargo records the commit it resolved in `Cargo.lock`. To pin a release, add `--tag v0.1.2`; the programs on this page were checked against the crate at that tag. The default Cargo feature, `parquet`, compiles the Parquet snapshot codec. The [Rust API reference](/docs/reference/api/rust#cargo-features) lists the features.
+Cargo records the version it resolved in `Cargo.lock`. To pin a release, write `cargo add relate@=1.0.0`; the programs on this page were checked against the crate at 1.0.0. The default Cargo feature, `parquet`, compiles the Parquet snapshot codec. The [Rust API reference](/docs/reference/api/rust#cargo-features) lists the features.
 
 ## Open a store
 

@@ -16,7 +16,13 @@ By the end of this page, you'll have a Java program that keeps a small graph of 
 
 ## Install the client
 
-The Java :term[client]{id=client} is the Maven artifact `com.relate:relate`, with the package `com.relate`. Its jar bundles the native engine for macOS (arm64 and x86-64), Linux (arm64 and x86-64, glibc), and Windows (x86-64), and loads the right one through JNA (Java Native Access) with no library path to set. The jars are attached to each release on the [releases page](https://github.com/relatedb/relate/releases). The client needs two libraries that the jar does not include, JNA (`net.java.dev.jna:jna`) and Jackson (`com.fasterxml.jackson.core:jackson-databind`). In a Maven or Gradle build, the coordinate brings both with it (`<release>` is the release version). In Maven:
+The Java :term[client]{id=client} is the Maven artifact `com.relate:relate`, with the package `com.relate`. Its jar bundles the native engine for macOS (arm64 and x86-64), Linux (arm64 and x86-64, glibc), and Windows (x86-64), and loads the right one through JNA (Java Native Access) with no library path to set. The jars are attached to each release on the [releases page](https://github.com/relatedb/relate/releases); they are not on Maven Central. Download `relate-<release>.jar` (`<release>` is the release version, such as `1.0.0`) and install it into your local Maven repository:
+
+```bash
+mvn install:install-file -Dfile=relate-<release>.jar
+```
+
+The jar carries its own POM, so Maven installs it as `com.relate:relate:<release>`. The client needs two libraries that the jar does not include, JNA (`net.java.dev.jna:jna`) and Jackson (`com.fasterxml.jackson.core:jackson-databind`); the POM names both, so the coordinate brings them in from Maven Central. In Maven:
 
 ```xml
 <dependency>
@@ -29,6 +35,7 @@ The Java :term[client]{id=client} is the Maven artifact `com.relate:relate`, wit
 In Gradle (Kotlin DSL):
 
 ```kotlin
+repositories { mavenLocal(); mavenCentral() }
 dependencies { implementation("com.relate:relate:<release>") }
 ```
 

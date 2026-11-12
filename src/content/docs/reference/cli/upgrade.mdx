@@ -6,7 +6,7 @@ surfaces: [cli]
 related: [get-started/install, reference/security, reference/cli/skill, reference/cli/flags#relate-upgrade, guides/operate/upgrade-a-store, concepts/problems-relate-solves#offline-and-sandboxed-use]
 ---
 
-`relate upgrade` replaces the running `relate` binary with the latest release, after checking the release's checksum list against the signing key built into the binary. `relate update` is the same command. `--check` reports the installed and latest versions and changes nothing. Self-upgrade runs on macOS and Linux, on amd64 and arm64; it never opens a :term[store]{id=store}. The release URLs on this page are the launch-day locations: before launch, nothing is published at them.
+`relate upgrade` replaces the running `relate` binary with the latest release, after checking the release's checksum list against the signing key built into the binary. `relate update` is the same command. `--check` reports the installed and latest versions and changes nothing. Self-upgrade runs on macOS and Linux, on amd64 and arm64; it never opens a :term[store]{id=store}.
 
 ## Synopsis
 
@@ -95,7 +95,7 @@ Every failure starts with `Error: upgrade: ` on stderr and exits 1; a failed rep
 When the release list cannot be read, the message names its URL, the reason, and the reinstall command:
 
 ```text
-Error: upgrade: could not read the release list from <url>: GET failed: <reason>; reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+Error: upgrade: could not read the release list: GET <url>: <reason>; reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | bash
 ```
 
 ## Examples
@@ -107,23 +107,23 @@ relate upgrade --check
 ```
 
 ```text
-current version: 0.1.2
-latest release:  0.1.2
+current version: 1.0.0
+latest release:  1.0.0
 relate is up to date
 ```
 
-With the copy edited to list a higher version, `v0.99.0`, the report names it and nothing is downloaded:
+With the copy edited to list a higher version, `v1.99.0`, the report names it and nothing is downloaded:
 
 ```text
-current version: 0.1.2
-latest release:  0.99.0
-upgrade available: run `relate upgrade` to install 0.99.0
+current version: 1.0.0
+latest release:  1.99.0
+upgrade available: run `relate upgrade` to install 1.99.0
 ```
 
 A run that cannot reach the release list exits 1. This one had `RELATE_RELEASES_JSON_URL=http://127.0.0.1:8874/releases.json` with nothing listening; the text after `io:` comes from the operating system, and this recording is from macOS:
 
 ```text
-Error: upgrade: could not read the release list from http://127.0.0.1:8874/releases.json: GET failed: io: Connection refused (os error 61); reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | GITHUB_TOKEN=$(gh auth token) bash
+Error: upgrade: could not read the release list: GET http://127.0.0.1:8874/releases.json: io: Connection refused (os error 61); reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | bash
 ```
 
 A flag the command does not take is a usage error:

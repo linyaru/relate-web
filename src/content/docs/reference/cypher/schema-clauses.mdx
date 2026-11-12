@@ -88,6 +88,8 @@ A new store has no indexes. A :term[point index]{id=point-index} narrows distanc
 | `lastRead`, `readCount` | Read tracking |
 | `options`, `createStatement`, `failureMessage`, `trackedSince` | Only with `YIELD *` or by name |
 
+Every store lists two lookup indexes before any `CREATE INDEX`: `index_460996c0` on node labels and `index_1b9dcc97` on relationship types, with the same names in every store. They are listed only: `DROP INDEX index_1b9dcc97` fails with `semantic error: NoSuchIndex`, and the store's [schema copy](/docs/reference/storage/formats#directory-store-files) does not hold them.
+
 ## Constraints
 
 | Constraint | `REQUIRE` form | Entity | `SHOW CONSTRAINTS` `type` | Owns an index |

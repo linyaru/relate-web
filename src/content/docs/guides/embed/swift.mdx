@@ -27,7 +27,7 @@ let package = Package(
     name: "TeamApp",
     platforms: [.iOS(.v16), .macOS(.v13)],
     dependencies: [
-        .package(url: "https://github.com/relatedb/relate", from: "0.1.2"),
+        .package(url: "https://github.com/relatedb/relate", from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
@@ -38,7 +38,7 @@ let package = Package(
 )
 ```
 
-The package compiles in the Swift 6 language mode. Its binary target, `RelateFFI`, is a static XCFramework downloaded from the release the tag names, with slices for iOS devices (arm64), the iOS simulator (arm64 and x86-64) and macOS (arm64 and x86-64); it links `iconv` and `CoreFoundation`. The package ships a privacy manifest declaring no collection and no tracking. The repository URL is a launch-day target; [Project](/docs/reference/project#platforms) lists what each release publishes.
+The package compiles in the Swift 6 language mode. Its binary target, `RelateFFI`, is a static XCFramework downloaded from the release the tag names, with slices for iOS devices (arm64), the iOS simulator (arm64 and x86-64) and macOS (arm64 and x86-64); it links `iconv` and `CoreFoundation`. The package ships a privacy manifest declaring no collection and no tracking. [Project](/docs/reference/project#platforms) lists what each release publishes.
 
 ## Open a store
 

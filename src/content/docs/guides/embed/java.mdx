@@ -18,7 +18,7 @@ This guide shows you how to use the relate Java :term[client]{id=client} in an a
 
 ## Add the client
 
-The artifact is `com.relate:relate` and the package is `com.relate`. The plain jar carries the engine for all five platforms, about 40 MB; in these blocks `<release>` is the release version:
+The artifact is `com.relate:relate` and the package is `com.relate`. The jars are attached to each release on the [releases page](https://github.com/relatedb/relate/releases), not published to Maven Central, so a build resolves them from the local Maven repository. Each jar carries its POM; install the plain jar with `mvn install:install-file -Dfile=relate-<release>.jar`, and a classifier jar with `-Dclassifier=<classifier>` added. The plain jar carries the engine for all five platforms, about 40 MB; in these blocks `<release>` is the release version:
 
 ```xml title="pom.xml"
 <dependency>
@@ -29,6 +29,7 @@ The artifact is `com.relate:relate` and the package is `com.relate`. The plain j
 ```
 
 ```kotlin title="build.gradle.kts"
+repositories { mavenLocal(); mavenCentral() }
 dependencies { implementation("com.relate:relate:<release>") }
 ```
 
@@ -42,7 +43,7 @@ For a smaller deployable, depend on one classifier jar instead, which carries on
 | `linux-x86_64` | Linux x86-64, glibc |
 | `windows-x86_64` | Windows x86-64 |
 
-The names follow the vocabulary of the `os-maven-plugin` build extension for Maven and of `com.google.osdetector` for Gradle. With the extension, `<classifier>${os.detected.classifier}</classifier>` picks the build host's; in a Gradle build that applies `com.google.osdetector`, `"com.relate:relate:<release>:${osdetector.classifier}"` does. A container image built for another platform names its classifier literally. The jars are attached to each release on the [releases page](https://github.com/relatedb/relate/releases); resolving `com.relate:relate` from Maven Central is a launch-day target. [Project](/docs/reference/project#platforms) lists what each release publishes, and where.
+The names follow the vocabulary of the `os-maven-plugin` build extension for Maven and of `com.google.osdetector` for Gradle. With the extension, `<classifier>${os.detected.classifier}</classifier>` picks the build host's; in a Gradle build that applies `com.google.osdetector`, `"com.relate:relate:<release>:${osdetector.classifier}"` does. A container image built for another platform names its classifier literally. [Project](/docs/reference/project#platforms) lists what each release publishes, and where.
 
 ## Load the native engine
 

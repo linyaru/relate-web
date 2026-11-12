@@ -42,7 +42,7 @@ relate info --database ./team.rl
 layout: .rl bundle
 superblock version: 1
 codec: parquet
-format version: 3
+format version: 5
 checkpoint LSN: 1
 commit timestamp: 1
 total bytes: 36864
@@ -68,6 +68,8 @@ Where each part's version shows:
 
 A store whose versions are all readable but not all current is migrated on its next writable open. A store with a version this release can't read is refused before anything is written to it.
 
+From 0.1.2 to 1.0.0, the one part that changes is the Parquet snapshot: format version `3` becomes `5` at the store's first checkpoint, which a writable open writes at the latest when it closes, not before the statement runs. relate 0.1.2 reads format version `5`, so it still opens the store after the upgrade.
+
 ## Back up with the release you have
 
 Make the copy before the new binary touches the store. `relate clone` reads the source without writing it and creates a new store at the destination, which must not exist yet:
@@ -87,14 +89,14 @@ relate upgrade --check
 relate upgrade
 ```
 
-Then confirm the version that opens the store from now on. The first line names the release you installed; this run shows 0.1.2, the version this page is verified against:
+Then confirm the version that opens the store from now on. The first line names the release you installed; this run shows 1.0.0, the version this page is verified against:
 
 ```bash verify
 relate --version
 ```
 
 ```text
-Relate v0.1.2
+Relate v1.0.0
 License: Apache 2.0 (binary)
 ```
 
@@ -123,7 +125,7 @@ relate info --database ./team.rl --json
 ```
 
 ```text
-{"checkpoint_lsn":1,"codec":"parquet","commit_ts":1,"constraints":[],"format_version":3,"indexes":[],"layout":"bundle","node_count":5,"rel_count":5,"superblock_version":1,"total_bytes":36864,"wal_segments":1}
+{"checkpoint_lsn":1,"codec":"parquet","commit_ts":1,"constraints":[],"format_version":5,"indexes":[],"layout":"bundle","node_count":5,"rel_count":5,"superblock_version":1,"total_bytes":36864,"wal_segments":1}
 ```
 
 Between two releases with the same format, the version stays the same and there is nothing to migrate.

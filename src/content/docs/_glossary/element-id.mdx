@@ -1,14 +1,14 @@
 ---
 id: element-id
 term: "element id"
-short: "The string `elementId()` returns for a node or relationship, such as `4:relate-neo4j:n0`; it stays the same when the store is closed and opened again."
+short: "The string `elementId()` returns for a node or relationship, such as `4:rl-id:n0`; it stays the same when the store is closed and opened again."
 aliases: []
 context: cypher
 see: reference/cypher/differences-from-neo4j
 related: ["node", "relationship"]
 ---
 
-`elementId(n)` gives each node and relationship an id string: `4:relate-neo4j:n0` for a node, `5:relate-neo4j:r0` for a relationship. The middle segment names the namespace the entity belongs to (`relate-neo4j` for the default `neo4j` namespace), and `db.nameFromElementId()` reads it back. It is the way to name one entity across statements, and it survives closing and reopening the store.
+`elementId(n)` gives each node and relationship an id string: `4:rl-id:n0` for a node, `5:rl-id:r0` for a relationship. The middle segment names the namespace the entity belongs to (`rl-id` for the default `neo4j` namespace; clients such as Neo4j Browser tell an element id from an integer id by its dash), and `db.nameFromElementId()` reads it back. It is the way to name one entity across statements, and it survives closing and reopening the store.
 
 ```cypher
 CREATE (a:Person)-[r:KNOWS]->(b:Person)

@@ -57,8 +57,8 @@
 #   --upstream DIR     an upstream checkout at the tag, for skill:sync
 #                      (default $RELATE_UPSTREAM; optional)
 #
-# Needs gh (GH_TOKEN, or `gh auth login`; the upstream repository is private
-# before launch), node and npm (after `npm ci`), curl, tar, ssh-keygen.
+# Needs gh (GH_TOKEN, or `gh auth login`; the upstream repository is public),
+# node and npm (after `npm ci`), curl, tar, ssh-keygen.
 # When GITHUB_OUTPUT is set, writes ok=true|false, version and tag to it.
 set -euo pipefail
 export LC_ALL=C DO_NOT_TRACK=1
@@ -136,7 +136,7 @@ why() { { grep -E '(^|[^A-Za-z])([Ee]rror|ERR!|FAIL)' "$1" || tail -n 1 "$1"; } 
 
 say "reading $upstream_repo $tag"
 gh release view "$tag" -R "$upstream_repo" --json tagName,publishedAt,isDraft,isPrerelease,url,assets >"$work/release.json" ||
-  die "gh release view $tag -R $upstream_repo failed (is GH_TOKEN set? the repository is private before launch)"
+  die "gh release view $tag -R $upstream_repo failed (is GH_TOKEN set?)"
 read -r rel_draft rel_pre rel_date rel_url < <(node -e '
   const r = require(process.argv[1]);
   console.log([r.isDraft, r.isPrerelease, (r.publishedAt || "").slice(0, 10) || "-", r.url].join(" "));

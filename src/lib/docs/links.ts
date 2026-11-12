@@ -1,7 +1,7 @@
 // Links on docs pages. Authors write site-relative links (`/docs/guides/x`,
 // `/docs/reference/glossary#wal`, `/cookbook/<slug>/`) or external ones. A
 // link renders as a link only when its target exists: a docs page that is
-// planned or not written yet, or a URL that is not public yet (NOT_PUBLIC_YET),
+// planned or not written yet, or a URL that is not public yet (NOT_PUBLIC_YET, empty today),
 // keeps its text only, so a page never links to a 404.
 
 import { existsSync } from 'node:fs';

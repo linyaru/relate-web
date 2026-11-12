@@ -98,7 +98,7 @@ Reading a deleted entity's properties later in the same statement fails; a value
 | `syntax error: WriteBeforeCallInTransactions: a write cannot precede CALL IN TRANSACTIONS` | 6 | A write, or `LOAD CSV`, before `CALL { … } IN TRANSACTIONS` in the same statement |
 | `syntax error: parse error: MERGE requires exactly one pattern path at line 0, col 0` | 6 | Two comma-separated patterns in one `MERGE` |
 | `MergeReadOwnWrites: cannot MERGE with null properties` | 1 | A `MERGE` pattern property that is `null` |
-| `DeleteConnectedNode: Cannot delete node with relationships unless DETACH` | 1 | `DELETE` or `NODETACH DELETE` on a node with relationships |
+| `ConstraintVerificationFailed: DeleteConnectedNode: Cannot delete node with relationships unless DETACH` | 1 | `DELETE` or `NODETACH DELETE` on a node with relationships |
 | `DeletedEntityAccess: cannot access properties of a deleted node` | 1 | A property read after `DELETE` in the same statement |
 | `LOAD CSV file unavailable` | 1 | The file is outside the allowed directory, missing, a URL, or no directory is allowed |
 | `semantic error: ConstraintValidationFailed: <constraint> <rule>` | 6 | The write breaks a constraint ([schema clauses](/docs/reference/cypher/schema-clauses#constraint-violations)) |

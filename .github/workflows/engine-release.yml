@@ -29,9 +29,9 @@
 #
 # Secrets (all optional; each one's absence is reported, not fatal):
 #   RELATE_UPSTREAM_TOKEN  read access to the upstream repository's contents
-#                          and releases (private before launch). Without it
-#                          the release cannot be read until the repository is
-#                          public, and the samples are skipped.
+#                          and releases. The repository is public, so the
+#                          release reads with the default token too; without
+#                          this secret the language samples are skipped.
 #   RELEASE_PR_TOKEN       opens the pull request. A pull request opened with
 #                          the default GITHUB_TOKEN does not start other
 #                          workflows, so without this token the required
@@ -97,7 +97,7 @@ jobs:
             exit 1
           fi
           if [ "$HAS_UPSTREAM_TOKEN" != true ]; then
-            echo "::warning::RELATE_UPSTREAM_TOKEN is not set: the release is read with the default token, which works only once $UPSTREAM_REPO is public, and the language samples are skipped"
+            echo "::warning::RELATE_UPSTREAM_TOKEN is not set: the release is read with the default token and the language samples are skipped"
           fi
           {
             echo "version=$version"
@@ -140,14 +140,33 @@ jobs:
       # A failed client build (an upstream build change, pip or npm trouble)
       # must not stop the refresh: release-refresh.sh reports it in the pull
       # request (RELATE_CLIENTS_BUILD) and skips the samples.
+      # setup.sh installs relate-db, @relate/relate and the relate crate at the
+      # release's version (ADR-0062), and the registries can lag the GitHub
+      # release, so the step waits for all three first (at most 30 minutes).
+      # --version names the new release: _data/engine.json still names the
+      # previous one until the Refresh step bumps it.
       - name: Build the clients
         id: clients
         if: steps.release.outputs.upstream == 'true'
         continue-on-error: true
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS -o /dev/null "https://pypi.org/pypi/relate-db/$VERSION/json" &&
+              curl -fsS -o /dev/null "https://registry.npmjs.org/@relate%2Frelate/$VERSION" &&
+              curl -fsS -o /dev/null -A relate-web-engine-release "https://crates.io/api/v1/crates/relate/$VERSION"; then
+              break
+            fi
+            if [ "$attempt" = 60 ]; then
+              echo "::warning::relate $VERSION is not on PyPI, npm and crates.io after 30 minutes; the samples are skipped"
+              exit 1
+            fi
+            sleep 30
+          done
           channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' upstream/rust-toolchain.toml)"
           rustup toolchain install "$channel" --profile minimal
-          bash site/scripts/samples/setup.sh --upstream upstream --out "$RUNNER_TEMP/samples" --python python3 --github-env
+          bash site/scripts/samples/setup.sh --upstream upstream --version "$VERSION" --out "$RUNNER_TEMP/samples" --python python3 --github-env
 
       - name: Refresh
         id: refresh

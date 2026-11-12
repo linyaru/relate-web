@@ -21,8 +21,10 @@ The Go :term[client]{id=client} is the module `github.com/relatedb/relate/client
 ```bash
 mkdir team && cd team
 go mod init team
-go get github.com/relatedb/relate/clients/go
+go get github.com/relatedb/relate/clients/go@b02f283
 ```
+
+`b02f283` is the commit of relate 1.0.0. The module has no version tag of its own, so Go records the commit as a pseudo-version, `v0.0.0-20261111173503-b02f283c3620`; without `@<commit>`, `go get` takes the newest commit on the default branch, which can be ahead of the release's C library.
 
 The module uses cgo and links the engine's C library, `librelate_ffi`. Each release attaches it as `relate-ffi-<target>.tar.gz` (`cypherlite-ffi-<target>.tar.gz` up to and including 0.16.1), holding the library and its header in `include/relate.h`. Unpack it into a directory and point cgo at that directory when you build, and the dynamic loader at it when you run:
 

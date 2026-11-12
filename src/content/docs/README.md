@@ -786,7 +786,7 @@ To allow writes, remove `--read-only`.
 
 Only shipped behavior, verified against the relate binary the data files
 name (`recorded_with`) or the WASM build the site ships (`AGENTS.md`). That
-binary is a published release (today v0.1.2), installed through
+binary is a published release (today v1.0.0), installed through
 `install.sh`; each release re-records everything (`AGENTS.md` §4). Quote
 error messages, flags and JSON keys character for character. The one part of
 an output that changes from run to run, a timing value (the number after a

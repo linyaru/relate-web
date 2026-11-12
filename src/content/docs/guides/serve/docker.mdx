@@ -8,12 +8,12 @@ prerequisites: [get-started/install]
 related: [guides/serve/auth-and-tls, reference/cli/serve, guides/serve/http-query-api, guides/serve/bolt, guides/serve/mcp, reference/privacy-and-telemetry]
 ---
 
-This guide shows you how to run `relate serve` in a container, with the Dockerfile that ships in the relate source repository. One container serves :term[Bolt]{id=bolt} on port 7687, the :term[HTTP Query API]{id=http-query-api} on 7474 and :term[MCP]{id=mcp} over HTTP on 7475, from one :term[store]{id=store} kept on a volume, with one credential for all three. No prebuilt image is published: you build it from a checkout of the source. For this page, the `relate serve` commands the image runs and the endpoints it answers on were checked against the relate 0.1.2 binary on the host, and the Compose file was parsed by Docker Compose 5.6.1. The image itself was not built or run.
+This guide shows you how to run `relate serve` in a container, with the Dockerfile that ships in the relate source repository. One container serves :term[Bolt]{id=bolt} on port 7687, the :term[HTTP Query API]{id=http-query-api} on 7474 and :term[MCP]{id=mcp} over HTTP on 7475, from one :term[store]{id=store} kept on a volume, with one credential for all three. No prebuilt image is published: you build it from a checkout of the source. For this page, the `relate serve` commands the image runs and the endpoints it answers on were checked against the relate 1.0.0 binary on the host, and the Compose file was parsed by Docker Compose 5.6.1. The image itself was not built or run.
 
 ## Prerequisites
 
 - Docker Engine 23.0 or later, where BuildKit is the default builder. This page parsed its Compose file with Docker Compose 5.6.1 on Docker 29.9.2.
-- A checkout of the relate source repository, `github.com/relatedb/relate`, at the release you want to serve. The repository is private until launch.
+- A checkout of the relate source repository, `github.com/relatedb/relate`, at the release you want to serve: `git clone --branch v1.0.0 --depth 1 https://github.com/relatedb/relate`.
 - relate on your `PATH` for the last check, optional ([Install relate](/docs/get-started/install)).
 
 ## Build the image
@@ -21,7 +21,7 @@ This guide shows you how to run `relate serve` in a container, with the Dockerfi
 From the root of the checkout:
 
 ```bash
-docker build -t relate-bolt:0.1.2 .
+docker build -t relate-bolt:1.0.0 .
 ```
 
 The Dockerfile compiles `relate` in a Rust build stage and copies the static binaries into an image built `FROM scratch`. The repository's `make docker` runs the same build and tags it `relate-bolt:<version>` and `relate-bolt:latest`. What the image holds:
@@ -35,7 +35,7 @@ The Dockerfile compiles `relate` in a Rust build stage and copies the static bin
 | Ports | `7687` (Bolt), `7474` (HTTP Query API), `7475` (MCP over HTTP) |
 | Effective arguments | `--host 0.0.0.0 --database /data/graph --bolt 7687` (the image's `CMD`); the entrypoint appends `--http 7474 --mcp 7475` when they are not given |
 
-Arguments after the image name go to `relate serve` in place of the defaults, and the entrypoint adds back any of `--host`, `--database`, `--bolt`, `--http` and `--mcp` they leave out. So `docker run relate-bolt:0.1.2 --read-only` serves the default store read-only on all three ports.
+Arguments after the image name go to `relate serve` in place of the defaults, and the entrypoint adds back any of `--host`, `--database`, `--bolt`, `--http` and `--mcp` they leave out. So `docker run relate-bolt:1.0.0 --read-only` serves the default store read-only on all three ports.
 
 ## Create the store on a volume
 
@@ -48,7 +48,7 @@ docker run -d --name relate-seed \
   -e DO_NOT_TRACK=1 \
   -e RELATE_AUTH \
   -e RELATE_QUERY="UNWIND ['Ada', 'Grace', 'Noor'] AS name CREATE (:Person {name: name})" \
-  relate-bolt:0.1.2
+  relate-bolt:1.0.0
 ```
 
 | Setting | Why |
@@ -76,7 +76,7 @@ docker run -d --name relate \
   -v relate-data:/data \
   -e DO_NOT_TRACK=1 \
   -e RELATE_AUTH \
-  relate-bolt:0.1.2 --read-only
+  relate-bolt:1.0.0 --read-only
 ```
 
 To allow writes, remove `--read-only`. A read-only open never creates a store, so on an empty volume this container exits at once. The same flags with the host binary show the message it prints, with the path the container would name in place of `<dir>/data/graph`:
@@ -98,7 +98,7 @@ The same read-only service as a Compose file. `RELATE_AUTH` comes from your shel
 ```yaml title="compose.yaml"
 services:
   relate:
-    image: relate-bolt:0.1.2
+    image: relate-bolt:1.0.0
     command: ["--read-only"]
     environment:
       DO_NOT_TRACK: "1"

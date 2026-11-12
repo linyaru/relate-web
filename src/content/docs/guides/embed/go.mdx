@@ -20,14 +20,14 @@ This guide shows you how to use the relate Go :term[client]{id=client} in an app
 The module path is `github.com/relatedb/relate/clients/go` and the package name is `relate`:
 
 ```bash
-go get github.com/relatedb/relate/clients/go
+go get github.com/relatedb/relate/clients/go@b02f283
 ```
 
 ```go
 import relate "github.com/relatedb/relate/clients/go"
 ```
 
-The module path is a launch-day target; [Project](/docs/reference/project#platforms) lists what each release publishes.
+Go resolves the module from the repository. It has no version tag of its own, so `go.mod` records a pseudo-version of the commit: `b02f283`, the commit of relate 1.0.0, is `v0.0.0-20261111173503-b02f283c3620`. Without `@<commit>`, `go get` takes the newest commit on the default branch, which can be ahead of the release's C library; [Project](/docs/reference/project#platforms) lists what each release publishes.
 
 ## Point cgo at the C library
 

@@ -60,7 +60,7 @@ Every event also carries these properties:
 | Files | `state.json` (the install ID and the notice flag), `config.json` (the setting `relate telemetry` writes) and the spool, one `telemetry-spool-<uuid>.jsonl` file per run that recorded events, all mode `0600` on Unix, in `$XDG_CONFIG_HOME/relate/` when that is set to an absolute path, else `~/.config/relate/`; on Windows, `%APPDATA%\relate`, else `%USERPROFILE%\.config\relate` |
 | Delivery | A run sends nothing while it works. At exit it appends its events to its own spool file, a local write with no network wait. The next run with usage metrics on sends the spooled files in the background, as `POST https://api.mixpanel.com/track` with a 2-second HTTP timeout, and deletes each file once delivered; a file that fails stays for a later run. The spool is bounded: past its limits, events and files are dropped. |
 | Failure | Every :term[telemetry]{id=telemetry} error is ignored: nothing is printed, and exit codes do not change. |
-| Recipient | A Mixpanel project shared with another command-line tool; its operator is to be named here at launch. The `RELATE-CLI_` prefix keeps relate's events apart. The CLI does not set Mixpanel's `ip` parameter, so Mixpanel's own handling of the request's IP address applies. |
+| Recipient | A Mixpanel project shared with another command-line tool; its operator is not named here yet. The `RELATE-CLI_` prefix keeps relate's events apart. The CLI does not set Mixpanel's `ip` parameter, so Mixpanel's own handling of the request's IP address applies. |
 
 ## Turning usage metrics off
 
@@ -121,10 +121,10 @@ NVL, the graph view, includes a telemetry module. The cookbook and docs pages re
 
 | Item | Status |
 | --- | --- |
-| Host | Decided: Cloudflare Pages serves `relatedb.ai`. It is not deployed yet; until then a preview of the site is served by GitHub Pages. |
+| Host | Cloudflare Pages serves `relatedb.ai`, with a Pages Function on the docs paths |
 | Docs page analytics | Decided, not deployed: Cloudflare Web Analytics on the docs pages, with no cookies and no script beyond Cloudflare's own |
-| Agent-path hits | Decided, not deployed: one log line per request for a `.md` twin, a data file a twin links, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, or the skill, with the path, the status and the user agent; no query string |
-| What Cloudflare logs, and for how long | Not published yet; to be published on this page at launch, when the Cloudflare account exists |
+| Agent-path hits | Deployed with the Pages Function: one log line per request for a `.md` twin, a data file a twin links, `llms.txt`, a page asked for with `Accept: text/markdown` or `?section=`, or the skill, with the path, the status and the user agent; no query string |
+| What Cloudflare logs, and for how long | Not published yet |
 
 ## See also
 

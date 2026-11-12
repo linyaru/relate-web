@@ -29,7 +29,7 @@ A directory store can be cloned while another process writes it: the clone takes
 
 ## Layouts
 
-Every pairing of the two durable layouts works; the in-memory store is refused on either side. One pairing depends on the codec: in relate 1.0.0 a `.rl` destination refuses markdown body properties, so a `markdown` source reaches a `.rl` path only with `--to-snapshot-format parquet` or `json` ([Codecs](#codecs)).
+Every pairing of the two durable layouts works; the in-memory store is refused on either side. One pairing depends on the codec: in relate 1.0.1 a `.rl` destination refuses markdown body properties, so a `markdown` source reaches a `.rl` path only with `--to-snapshot-format parquet` or `json` ([Codecs](#codecs)).
 
 | Source | Destination | Result |
 | --- | --- | --- |
@@ -69,13 +69,9 @@ done
 
 ```text
 {"store":"team-copy","works":3}
-{"planCache":"miss","timings":{"elapsed_ms":0.387583,"execute_ms":0.2,"lex_parse_ms":0.030125,"lower_ms":0.045166,"parse_ms":0.11820800000000001,"plan_ms":0.059417,"result_generation_ms":0.000292,"rewrite_ms":0.008624999999999999}}
 {"store":"team.rl","works":3}
-{"planCache":"miss","timings":{"elapsed_ms":0.39399999999999996,"execute_ms":0.208584,"lex_parse_ms":0.03025,"lower_ms":0.04575,"parse_ms":0.116167,"plan_ms":0.060291000000000004,"result_generation_ms":0.00025,"rewrite_ms":0.007833}}
 {"store":"team-unpacked","works":3}
-{"planCache":"miss","timings":{"elapsed_ms":0.33675000000000005,"execute_ms":0.181292,"lex_parse_ms":0.025791,"lower_ms":0.038542,"parse_ms":0.09875,"plan_ms":0.049499999999999995,"result_generation_ms":0.000292,"rewrite_ms":0.006875}}
 {"store":"team-copy.rl","works":3}
-{"planCache":"miss","timings":{"elapsed_ms":0.3995,"execute_ms":0.206292,"lex_parse_ms":0.033583,"lower_ms":0.049917,"parse_ms":0.126208,"plan_ms":0.058332999999999996,"result_generation_ms":0.000292,"rewrite_ms":0.008459}}
 ```
 
 ## Codecs
@@ -130,12 +126,11 @@ relate --database ./from-vault --read-only --mode jsonl "MATCH (p:Person)-[w:WOR
 {"person":"Grace","project":"opencypher-tck","since":2022}
 {"person":"Grace","project":"relate","since":2023}
 {"person":"Ada","project":"relate","since":2024}
-{"planCache":"miss","timings":{"elapsed_ms":0.579875,"execute_ms":0.39808299999999996,"lex_parse_ms":0.030583000000000003,"lower_ms":0.044875,"parse_ms":0.115042,"plan_ms":0.058415999999999996,"result_generation_ms":0.000417,"rewrite_ms":0.008333}}
 ```
 
 ### Markdown into a `.rl` file
 
-In relate 1.0.0 a `.rl` destination refuses markdown body properties, whether they come from `--markdown-body-properties` or from the configuration a `markdown` source records. Cloning a `markdown` store into a `.rl` path therefore needs `--to-snapshot-format parquet` or `json`; without it, or with `--to-snapshot-format markdown`, the clone exits 1 and creates nothing. The message names `parquet` whatever codec the command asked for:
+In relate 1.0.1 a `.rl` destination refuses markdown body properties, whether they come from `--markdown-body-properties` or from the configuration a `markdown` source records. Cloning a `markdown` store into a `.rl` path therefore needs `--to-snapshot-format parquet` or `json`; without it, or with `--to-snapshot-format markdown`, the clone exits 1 and creates nothing. The message names `parquet` whatever codec the command asked for:
 
 ```bash verify
 relate clone ./team-vault ./vault-kept.rl

@@ -58,7 +58,6 @@ CLAUDECODE=1 relate "UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name"
 {"name":"Ada"}
 {"name":"Grace"}
 {"name":"Noor"}
-{"planCache":"miss","timings":{"elapsed_ms":0.404375,"execute_ms":0.249166,"lex_parse_ms":0.023,"lower_ms":0.031917,"parse_ms":0.102042,"plan_ms":0.043542,"result_generation_ms":0.000625,"rewrite_ms":0.007459}}
 rows[3]{name}:
   Ada
   Grace
@@ -103,7 +102,7 @@ It prints the statement as relate does in four output modes, `table`, `envelope`
 | Choice | What it buys | What it costs |
 | --- | --- | --- |
 | Row cap under a harness | A runaway result cannot flood the context | The engine still computes the whole result; the cap bounds printing, not work. A Cypher `LIMIT` bounds the work |
-| TOON as the piped default under agent mode | Fewer bytes per row than JSON | TOON is not JSON. A tool that expects one JSON object per row gets it with `--mode jsonl` (or `--no-agent-mode`), followed by one timing line per statement; `--mode envelope` gives one JSON object per result set |
+| TOON as the piped default under agent mode | Fewer bytes per row than JSON | TOON is not JSON. A tool that expects one JSON object per row gets it with `--mode jsonl` (or `--no-agent-mode`), with one timing line per statement when `--timings` is set; `--mode envelope` gives one JSON object per result set |
 | Detection from environment variables | No flag to remember inside a harness | A variable set for another reason turns agent mode on; `--no-agent-mode` or `RELATE_AGENT_MODE=0` turns it off. Detection is silent, so the same command prints differently inside and outside a harness unless `--mode` pins the output |
 | The skill as a copy in each agent's folder | The agent reads relate's rules before its first command | A copy can fall behind the binary after an upgrade; `relate skill check` exits 1 when an installed copy differs |
 | MCP classification before execution | A read tool, annotated `readOnlyHint`, that cannot change the graph or its indexes | One extra planning pass per call |

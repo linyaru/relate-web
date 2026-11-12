@@ -121,7 +121,7 @@ A selector keeps some of the paths between each pair of end nodes; a mode restri
 | `TRAIL` | A relationship |
 | `ACYCLIC` | A node, so it never returns to its start |
 
-`shortestPath(<pattern>)` and `allShortestPaths(<pattern>)` are the older forms. In `MATCH p = shortestPath(…)` with no upper bound, the search has no hop cap. As an expression, `shortestPath(…)` with no upper bound finds paths of up to 32 hops and returns `null` for a longer one.
+`shortestPath(<pattern>)` and `allShortestPaths(<pattern>)` are the older forms. In `MATCH p = shortestPath(…)` with no upper bound, the search has no hop cap. As an expression, `shortestPath(…)` with no upper bound finds paths of up to 32 hops and returns `null` for a longer one. Outside a `MATCH`, both end nodes must be variables bound earlier: `(a)-[:NEXT*]->(:Stop)` fails with `syntax error: InvalidPatternCharacter: A shortestPath(...) requires bound nodes when not part of a MATCH clause.`, and a property map on the relationship, `[:NEXT* {w: 1}]`, fails with `syntax error: InvalidPatternCharacter: unsupported use of properties: properties are not supported in the shortestPath() function`.
 
 ## Path variables
 
@@ -284,11 +284,11 @@ A line of 40 stops shows the two unbounded cases: `MATCH` walks all 39 hops, and
 ```cypher run name=unbounded
 UNWIND range(1, 40) AS i CREATE (:Stop {i: i});
 MATCH (a:Stop), (b:Stop) WHERE b.i = a.i + 1 CREATE (a)-[:NEXT]->(b);
-MATCH (first:Stop {i: 1})
+MATCH (first:Stop {i: 1}), (stop33:Stop {i: 33}), (stop34:Stop {i: 34})
 OPTIONAL MATCH p = (first)-[:NEXT*]->(:Stop)
 RETURN max(length(p)) AS longestWalk,
-       length(shortestPath((first)-[:NEXT*]->(:Stop {i: 33}))) AS hopsTo33,
-       length(shortestPath((first)-[:NEXT*]->(:Stop {i: 34}))) AS hopsTo34
+       length(shortestPath((first)-[:NEXT*]->(stop33))) AS hopsTo33,
+       length(shortestPath((first)-[:NEXT*]->(stop34))) AS hopsTo34
 ```
 
 On the CLI, `--max-traversal-depth` raises the limit for one run. The store is in memory and empty, so no path matches:

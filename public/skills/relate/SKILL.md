@@ -1,7 +1,7 @@
 ---
 name: relate
 description: Relate is an embedded openCypher graph database with a single-binary CLI. Use this skill when the user wants to run Cypher queries, manage a local graph database, or embed it from Python; its focused references cover vector search, geospatial, operations, and agent safety.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Relate
@@ -264,7 +264,7 @@ docs/api/python/spec.md#visualization-relateviz-optional).
 1. Run `relate --version` first and trust it over remembered behavior.
 2. Use `:memory:` only for disposable work — it vanishes on exit.
 3. Prefer a **new `.rl` database per experimental task**
-   (`relate ./task-<slug>.rl`); copy an existing one instead of
+   (`relate -d ./task-<slug>.rl`); copy an existing one instead of
    experimenting in place.
 4. Load the ontology before generating Cypher from a natural-language
    request — `CALL db.ontology.get()` returns the stored ontology document

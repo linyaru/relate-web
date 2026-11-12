@@ -18,7 +18,7 @@ This guide shows you how to run relate inside an agent sandbox: which hosts to a
 
 | Need | relate's side |
 | --- | --- |
-| Hosts to allow while installing | `install.sh`: `relatedb.ai`, `api.github.com` and `release-assets.githubusercontent.com`. The pinned binary: `github.com` and `release-assets.githubusercontent.com` |
+| Hosts to allow while installing | `install.sh`: `relatedb.ai`, `github.com` and `release-assets.githubusercontent.com`; since 1.0.1 it makes no GitHub API request and reads no token. The pinned binary: `github.com` and `release-assets.githubusercontent.com` |
 | Hosts to allow at run time | None once usage metrics are off (`DO_NOT_TRACK=1`), except the host of a `--load https://…` or `--fetch-params` URL an agent uses. `relate upgrade` and `relate extension install` reach `relatedb.ai` and GitHub; `pull` and `push` reach the Neo4j server they name |
 | Where the binary lands | `$HOME/.local/bin/relate` for the user that ran `install.sh` |
 | Usage metrics | On by default in release binaries; `DO_NOT_TRACK=1` turns them off and wins over every other setting |
@@ -126,7 +126,7 @@ Sandboxes are persistent by default, so a `.rl` file survives to the next sessio
 
 ### Daytona
 
-On Daytona's tiers 1 and 2, organization-level network limits apply, and the documented always-reachable services include `github.com` and `*.githubusercontent.com`, the pinned binary's two hosts. `install.sh` also needs `relatedb.ai` and `api.github.com`. Tiers 3 and 4 have unrestricted internet access by default; `domainAllowList` (domains, wildcards allowed), `networkAllowList` (IPv4 ranges) and `networkBlockAll` replace it at creation.
+On Daytona's tiers 1 and 2, organization-level network limits apply, and the documented always-reachable services include `github.com` and `*.githubusercontent.com`, the pinned binary's two hosts. `install.sh` also needs `relatedb.ai`. Tiers 3 and 4 have unrestricted internet access by default; `domainAllowList` (domains, wildcards allowed), `networkAllowList` (IPv4 ranges) and `networkBlockAll` replace it at creation.
 
 ### Plain Docker
 

@@ -381,9 +381,7 @@ RETURN path
 
 ## Guard the caller's position
 
-Nothing stops a caller from sending a cartesian point. Relate does not
-reject a distance between points in different reference systems; it applies
-the first argument's metric to both. Here the caller sent
+Nothing stops a caller from sending a cartesian point. Here the caller sent
 `{"x": -122.68, "y": 45.5225}`:
 
 ```json data=guard
@@ -414,17 +412,20 @@ RETURN point($here).srid AS srid,
 > different CRSs (WGS-84 vs cartesian), and Neo4j returns `null` for a
 > mixed-CRS `point.distance` instead of computing across reference systems.
 
-No error, and 0.0 metres: the cartesian `x`/`y` were read as
-longitude/latitude. Had the caller swapped them, the answer would be a
-plausible-looking wrong number instead. Check the SRID and the coordinate
-ranges before the search runs. With the cartesian `$here` from the `guard`
-parameters, the guarded tool returns no rows. Edit `here` to
-`{"latitude": 45.5225, "longitude": -122.68}` and run it again:
+No error, and no distance: a tool that filters on `point.distance(…) <
+$radius` drops every place and answers "nothing nearby", which reads like a
+real answer. Check the SRID and the coordinate ranges before the search runs.
+Reading `here.latitude` on a cartesian point is an error, so the `CASE` reads
+the coordinates only once the SRID says the point is WGS-84. With the
+cartesian `$here` from the `guard` parameters, the guarded tool returns no
+rows. Edit `here` to `{"latitude": 45.5225, "longitude": -122.68}` and run it
+again:
 
 ```cypher cell=guarded params=guard
 WITH point($here) AS here
-WHERE here.srid = 4326
-  AND abs(here.latitude) <= 90 AND abs(here.longitude) <= 180
+WHERE CASE WHEN here.srid = 4326
+           THEN abs(here.latitude) <= 90 AND abs(here.longitude) <= 180
+           ELSE false END
 MATCH (p:Place)
 WHERE p.kind = $kind AND point.distance(p.loc, here) < $radius
 RETURN p.name AS name, toInteger(round(point.distance(p.loc, here))) AS metres

@@ -6,7 +6,7 @@ surfaces:
   - python
 status: stable
 since: 0.16.0
-verified: 1.0.0
+verified: 1.0.1
 verified_by:
   - cypher
   - python
@@ -37,7 +37,7 @@ last_updated: 2026-11-07
 
 A throwaway page that exercises every docs construct, for the pipeline's tests. Not part of the site.
 
-> Verified against relate 1.0.0. If your `relate --version` is newer, read https://relatedb.ai/docs/reference/changelog/#since-1.0.0
+> Verified against relate 1.0.1. If your `relate --version` is newer, read https://relatedb.ai/docs/reference/changelog/#since-1.0.1
 
 This page opens a store and writes through the write-ahead log. The second store link adds no second entry to the terms. A colon in prose, like ratio a:b, stays text. Badges: (since 0.16) and (preview).
 
@@ -536,10 +536,10 @@ The crate is on crates.io; the first build compiles the engine from source, with
 
 #### Java
 
-`com.relate:relate`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](https://github.com/relatedb/relate/releases), not on Maven Central. Download `relate-1.0.0.jar` and install it into your local Maven repository:
+`com.relate:relate`, for Java 17 or later, with the native library bundled in the jar. The jars are on the [releases page](https://github.com/relatedb/relate/releases), not on Maven Central. Download `relate-1.0.1.jar` and install it into your local Maven repository:
 
 ```bash
-mvn install:install-file -Dfile=relate-1.0.0.jar
+mvn install:install-file -Dfile=relate-1.0.1.jar
 ```
 
 The jar carries its POM, so a Maven or Gradle build (with `mavenLocal()`) resolves `com.relate:relate` and brings in its two dependencies, JNA (`net.java.dev.jna:jna`) and Jackson (`com.fasterxml.jackson.core:jackson-databind`), from Maven Central.
@@ -549,10 +549,10 @@ The jar carries its POM, so a Maven or Gradle build (with `mavenLocal()`) resolv
 In a Go module (`go mod init <module>` creates one):
 
 ```bash
-go get github.com/relatedb/relate/clients/go@b02f283
+go get github.com/relatedb/relate/clients/go@ef436ce
 ```
 
-`b02f283` is the commit of relate 1.0.0: the module has no version tag of its own, so Go records the commit as a pseudo-version, and without `@<commit>` it takes the newest commit on the default branch.
+`ef436ce` is the commit of relate 1.0.1: the module has no version tag of its own, so Go records the commit as a pseudo-version, and without `@<commit>` it takes the newest commit on the default branch.
 
 The module uses cgo and links `librelate_ffi`, from the `relate-ffi-<target>.tar.gz` archive attached to each release.
 

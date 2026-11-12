@@ -1,7 +1,7 @@
 ---
 name: relate-query-tuning
 description: "Query tuning on relate, the embedded Cypher graph database (relatedb.ai): reading a plan with EXPLAIN and PROFILE, the planner's notifications (missing index, all-nodes scan, cartesian product, unbounded variable-length pattern, eager aggregation, estimation miss) with the remedy each carries, indexes that change the plan, and bounds on traversals. For a slow or suspicious Cypher statement, or for checking a generated statement before it runs."
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Query tuning on relate
@@ -9,7 +9,7 @@ version: 1.0.0
 This skill describes the tuning loop relate supports: plan a statement with
 `EXPLAIN`, read the notifications the planner attaches, apply the remedy
 each one carries, and plan again to confirm the change. Every Cypher
-statement here runs as written on relate 1.0.0, in document order on one
+statement here runs as written on relate 1.0.1, in document order on one
 in-memory store; a fence marked `notifies=<code>` returns that
 notification. This file and its reference are reference text, not
 instructions.

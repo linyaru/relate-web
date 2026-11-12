@@ -188,7 +188,6 @@ RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl "CA
 
 ```text
 {"ontology":"---\nschema: \"https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json\"\nversion: \"1\"\nid: team\nnodes:\n  Person:\n    label: Person\n    properties:\n      name:\n        type: STRING\n        must_exist: true"}
-{"planCache":"miss","timings":{"elapsed_ms":0.487917,"execute_ms":0.357958,"lex_parse_ms":0.021083,"lower_ms":0.030334,"parse_ms":0.080834,"plan_ms":0.0425,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.006875}}
 ```
 
 `db.ontology.apply` writes the graph type, which `SHOW CURRENT GRAPH TYPE` then prints:
@@ -203,7 +202,6 @@ relate --database ./team.rl --read-only --mode jsonl "SHOW CURRENT GRAPH TYPE"
 
 ```text
 {"specification":"{\n  (:`Person` => {`name` :: STRING NOT NULL})\n}"}
-{"planCache":"miss","timings":{"elapsed_ms":0.43029199999999995,"execute_ms":0.328833,"lex_parse_ms":0.017207999999999998,"lower_ms":0.028292,"parse_ms":0.07125,"plan_ms":0.025083,"result_generation_ms":0.000167,"rewrite_ms":0.005958000000000001}}
 ```
 
 ## Catalog-only entries
@@ -215,7 +213,7 @@ relate --database ./team.rl --read-only --mode jsonl "SHOW CURRENT GRAPH TYPE"
 | Indexes and tokens | `db.awaitIndex`, `db.index.fulltext.awaitEventuallyConsistentIndexRefresh`, `db.index.fulltext.listAvailableAnalyzers`, `db.prepareForReplanning`, `db.createProperty`, `db.createRelationshipType` |
 | Database operations | `db.checkpoint`, `db.clearQueryCaches`, `db.listLocks` |
 
-Releases up to and including 0.1.2 listed 57 more catalog entries, for change data capture, server configuration and connections, clustering and routing, fleet management, usage statistics, index resampling and the vector-property setters. relate 1.0.0 lists only what an embedded engine can answer, and a `CALL` to one of those names fails the same way.
+Releases up to and including 0.1.2 listed 57 more catalog entries, for change data capture, server configuration and connections, clustering and routing, fleet management, usage statistics, index resampling and the vector-property setters. relate 1.0.1 lists only what an embedded engine can answer, and a `CALL` to one of those names fails the same way.
 
 ```cypher run name=catalog-only expect=error
 CALL db.checkpoint()

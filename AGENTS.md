@@ -23,7 +23,7 @@ A decision about hosting or deploy, build tooling other work depends on, content
 
 ### Upstream
 
-The engine lives in the upstream relate repository. The WASM copy under `public/wasm/`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`) and the skill bundle `public/skills/relate/` are synced from it, never hand-edited (refresh steps in §4). The docs and the cookbook are authored here and are not synced (ADR-0002). The docs' facts, samples and CLI recordings are pinned to one published relate release (today v1.0.0, upstream `b02f283`; `_data/engine.json`); re-pin to the next release with `scripts/release-refresh.sh` (§4), never to a moving checkout or a source build. relate restarted its version numbers at 0.1.0 after cypherlite's 0.16.1, so compare releases by publication date, not by number (`releaseNames` in `src/components/docs/install.ts`, the changelog's order).
+The engine lives in the upstream relate repository. The WASM copy under `public/wasm/`, `install.sh`, `releases.json`, `extensions.json` (+ `.sig`) and the skill bundle `public/skills/relate/` are synced from it, never hand-edited (refresh steps in §4). The docs and the cookbook are authored here and are not synced (ADR-0002). The docs' facts, samples and CLI recordings are pinned to one published relate release (today v1.0.1, upstream `ef436ce`; `_data/engine.json`); re-pin to the next release with `scripts/release-refresh.sh` (§4), never to a moving checkout or a source build. relate restarted its version numbers at 0.1.0 after cypherlite's 0.16.1, so compare releases by publication date, not by number (`releaseNames` in `src/components/docs/install.ts`, the changelog's order).
 
 ### Conventions
 

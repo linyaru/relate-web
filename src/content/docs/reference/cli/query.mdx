@@ -63,7 +63,7 @@ relate query --database ./team.rl "CREATE (ada:Person {name: 'Ada', role: 'engin
        (ada)-[:KNOWS]->(grace)"
 ```
 
-A oneshot read. Stdout is a pipe here, so the output mode is `jsonl`: one JSON object per row, then one line with the statement's [timings and plan-cache outcome](/docs/reference/cli/output-modes#timings-and-the-plan-cache):
+A oneshot read. Stdout is a pipe here, so the output mode is `jsonl`: one JSON object per row, and nothing else unless `--timings` adds the statement's [timings and plan-cache outcome](/docs/reference/cli/output-modes#timings-and-the-plan-cache):
 
 ```bash verify
 relate query --database ./team.rl --read-only "MATCH (p:Person) RETURN p.name AS name ORDER BY name"
@@ -73,7 +73,6 @@ relate query --database ./team.rl --read-only "MATCH (p:Person) RETURN p.name AS
 {"name":"Ada"}
 {"name":"Grace"}
 {"name":"Noor"}
-{"planCache":"miss","timings":{"elapsed_ms":0.532833,"execute_ms":0.366083,"lex_parse_ms":0.028334,"lower_ms":0.042624999999999996,"parse_ms":0.104958,"plan_ms":0.052958,"result_generation_ms":0.000167,"rewrite_ms":0.008209000000000001}}
 ```
 
 `-c` with a `;`-separated list prints one result set per statement, here as envelopes (`--mode envelope`):

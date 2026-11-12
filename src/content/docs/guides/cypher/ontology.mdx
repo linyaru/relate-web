@@ -104,7 +104,6 @@ RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl "CA
 
 ```text
 {"ontology":"{\"schema\":\"https://neo4j.com/docs/ontology-graph-spec/1.1.0/schema.json\",\"id\":\"team\",\"version\":\"1\",\"description\":\"Who works on which project, and since when.\",\"nodes\":{\"Person\":{\"label\":\"Person\",\"description\":\"Someone on the team.\",\"properties\":{\"name\":{\"type\":\"STRING\",\"key\":true},\"role\":{\"type\":\"STRING\",\"must_exist\":true,\"description\":\"engineer or maintainer\"}}},\"Project\":{\"label\":\"Project\",\"description\":\"A code repository the team works on.\",\"properties\":{\"name\":{\"type\":\"STRING\",\"key\":true},\"language\":{\"type\":\"STRING\"}}}},\"relationships\":{\"WORKS_ON\":{\"type\":\"WORKS_ON\",\"description\":\"A person contributes to a project.\",\"from\":{\"node\":\"Person\"},\"to\":{\"node\":\"Project\"},\"properties\":{\"since\":{\"type\":\"INTEGER\",\"description\":\"the year the person started\"}}}}}"}
-{"planCache":"miss","timings":{"elapsed_ms":0.524458,"execute_ms":0.38375,"lex_parse_ms":0.023334,"lower_ms":0.032916999999999995,"parse_ms":0.08625,"plan_ms":0.046542,"result_generation_ms":0.00025,"rewrite_ms":0.007291}}
 ```
 
 | Procedure | Mode | Returns |

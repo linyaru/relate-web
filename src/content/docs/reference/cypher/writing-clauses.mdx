@@ -91,7 +91,7 @@ Reading a deleted entity's properties later in the same statement fails; a value
 | `syntax error: RequiresDirectedRelationship: CREATE relationships must have a direction` | 6 | A `CREATE` relationship written `-[:TYPE]-` |
 | `syntax error: NoSingleRelationshipType: CREATE relationships must have exactly one type` | 6 | No type, or `:A\|B`; the `MERGE` form names `MERGE` |
 | `syntax error: CreatingVarLength: variable length relationships cannot be used in CREATE` | 6 | A variable-length or quantified relationship in `CREATE`; the `MERGE` form names `MERGE` |
-| `syntax error: SyntaxError: Entity, '<name>', cannot be created and referenced in the same clause` | 6 | `CREATE (a {…}), (b {name: a.name})` |
+| `syntax error: SyntaxError: Entity, '<name>', cannot be created and referenced in the same clause` | 6 | `CREATE (a {…}), (b {name: a.name})`, or a `MERGE` whose properties read the entity it merges: `MERGE (p:Person {name: 'Ida', nick: p.name})` |
 | `syntax error: VariableAlreadyBound: variable '<name>' already declared` | 6 | `MATCH (a) CREATE (a:Person)` |
 | `type error: InvalidPropertyType` | 6 | A map, a mixed list or a list holding `null` as a property value |
 | `syntax error: InvalidClauseComposition: invalid FOREACH: invalid use of MATCH inside 'FOREACH'` | 6 | A reading clause inside `FOREACH` |

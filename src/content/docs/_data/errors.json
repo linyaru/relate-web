@@ -1,6 +1,6 @@
 {
   "$schema_note": "Every error an agent can meet, for /docs/reference/errors and explain_error (DOCS-PLAN.md §2, §8 check 3d). `id` is a stable anchor (#<id>); renaming one needs a redirect. `message` is quoted character for character, from the binary where `recorded` holds a run of it (replayed by `npm run docs:cli-check`; see cli.json `recording`), otherwise from upstream; `<name>` marks a variable part and `…` an elision. null means the sources do not say. `verify` marks what the release binary cannot show.",
-  "verified": "1.0.0",
+  "verified": "1.0.1",
   "upstream": {
     "repo": "relatedb/relate",
     "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
@@ -2394,7 +2394,7 @@
       ],
       "recorded": {
         "command": "RELATE_SHARD_TARGET_BYTES=0 relate --database ./s \"CREATE (:A)\"",
-        "stdout": "{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":1.226542,\"execute_ms\":1.1026250000000002,\"lex_parse_ms\":0.003125,\"lower_ms\":0.003084,\"parse_ms\":0.11791700000000001,\"plan_ms\":0.001625,\"result_generation_ms\":0.000166,\"rewrite_ms\":0.000292}}\n",
+        "stdout": "",
         "stderr": "Error: final checkpoint failed: storage error: RELATE_SHARD_TARGET_BYTES must be an integer in 1..=1073741824\n",
         "exit": 1
       }
@@ -4140,7 +4140,7 @@
       "recorded": {
         "command": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"write_cypher\",\"arguments\":{\"query\":\"CREATE (:B)\"}}}' | relate serve --mcp stdio --database ./graph.rl --read-only",
         "setup": "relate --database ./graph.rl \"CREATE (:A)\"",
-        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"1.0.0\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"tools\":{}},\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"relate-mcp\",\"version\":\"1.0.1\"}}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"unknown tool 'write_cypher'\",\"type\":\"text\"}],\"isError\":true}}\n",
         "stderr": "serve: opened the store read-only — no writer lease and never creates the store; every write fails\nserve: MCP (stdio) serving on stdin/stdout (auth: none)\nserve: stdin closed, shutting down\n",
         "exit": 0
       }
@@ -5223,5 +5223,5 @@
       "engine-unsupported-administration-command"
     ]
   },
-  "recorded_with": "relate 1.0.0 (b02f283), release build"
+  "recorded_with": "relate 1.0.1 (ef436ce), release build"
 }

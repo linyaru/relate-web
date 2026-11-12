@@ -1,12 +1,12 @@
 ---
 title: Security
-description: How relate releases are signed and checked, the signing key and its fingerprint, macOS notarization, what is not published yet, and vulnerability reports.
+description: How relate releases are signed and checked, the signing key and its fingerprint, macOS notarization, what is not published, and how to report a vulnerability.
 order: 90
 surfaces: [cli, bolt, http, mcp, agents]
 related: [get-started/install, reference/privacy-and-telemetry, reference/project, guides/agents/agent-safety, reference/limitations, concepts/security-and-trust]
 ---
 
-Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 key. `install.sh` and `relate upgrade` check that signature against a copy of the key pinned inside themselves, check that the manifest names the release being installed, check the binary's SHA-256, and install nothing if any check fails. The macOS binaries are also signed and notarized by Apple. No security policy, supported-versions statement, or vulnerability disclosure address is published yet, and no release carries a software bill of materials (SBOM) or SLSA provenance.
+Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 key. `install.sh` and `relate upgrade` check that signature against a copy of the key pinned inside themselves, check that the manifest names the release being installed, check the binary's SHA-256, and install nothing if any check fails. The macOS binaries are also signed and notarized by Apple. Since 1.0.1 the engine repository publishes a security policy, `SECURITY.md`: vulnerabilities are reported by email to `security@neo4j.com`, and only the latest release line receives security fixes. No release carries a software bill of materials (SBOM) or SLSA provenance.
 
 ## Synopsis
 
@@ -19,8 +19,8 @@ Every relate CLI release ships a `SHA256SUMS` manifest signed with one Ed25519 k
 | Windows binary | No Authenticode signature |
 | SBOM | None published |
 | SLSA provenance | None published |
-| Supported versions and security-fix policy | None published |
-| Vulnerability disclosure address | None yet |
+| Supported versions and security-fix policy | The latest release line only (`SECURITY.md`, from 1.0.1) |
+| Vulnerability disclosure address | `security@neo4j.com`, under the Neo4j responsible-disclosure policy (`SECURITY.md`, from 1.0.1) |
 
 ## Release signing key
 
@@ -106,11 +106,11 @@ No release publishes a software bill of materials (SBOM), and no release publish
 
 ## Supported versions and security fixes
 
-No supported-versions statement and no security-fix policy is published. Releases are cut forward from the main branch, and the release process describes no way of patching an older release line. relate is pre-1.0; [Project](/docs/reference/project#versioning-and-stability) gives the versioning policy.
+`SECURITY.md` in [github.com/relatedb/relate](https://github.com/relatedb/relate/blob/v1.0.1/SECURITY.md), from 1.0.1, states that only the latest release line receives security fixes, and asks for a report to be reproduced on the latest release first. Releases are cut forward from the main branch. [Project](/docs/reference/project#versioning-and-stability) gives the versioning policy.
 
 ## Reporting a vulnerability
 
-No address for reporting a vulnerability exists yet. When one exists, it is published here, together with `https://relatedb.ai/.well-known/security.txt`, which the site builds once a security contact is recorded.
+Report a vulnerability in relate by email to `security@neo4j.com`, not in a public issue. `SECURITY.md` in the engine repository is the policy: reporting and disclosure follow the [Neo4j responsible-disclosure policy](https://neo4j.com/responsible-disclosure/), which publishes the PGP key for encrypted reports; there is no bug bounty. The policy covers the engine, the `relate` CLI with its extension host, the Bolt, HTTP Query API and MCP servers, the C ABI, and every language client, the browser WASM client included. It names this website and the cookbook out of scope, and lists the accepted design allowances, such as no engine-level access control and plaintext served surfaces, that are not vulnerabilities. The site publishes no `/.well-known/security.txt`.
 
 ## Served surfaces
 

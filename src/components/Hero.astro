@@ -33,14 +33,11 @@ const first = tabs[0];
 ---
 <section class="hero" aria-labelledby="h-hero" data-hero data-version={version} data-tabs={JSON.stringify(tabs)} data-prompt={PROMPT}>
   <div class="hero-in">
-    <h1 id="h-hero">Agents <span class="hh-t" aria-hidden="true"><Fragment set:html={HERO_MASCOT} /></span> that understand data.</h1>
+    <h1 id="h-hero">Relate <span class="hh-t" aria-hidden="true"><Fragment set:html={HERO_MASCOT} /></span><span class="hh-sub">Help agents understand data</span></h1>
     <p class="hero-sub">
-      Relate is an open-source embedded database for AI agents. Give your agents a place to keep their data
-      and see how it all connects. No signup. No server to deploy.
+      Give your agents an open-source embedded database to keep their data. No signup. No server to deploy.
     </p>
-    <p>
-    Pure data joy.
-    </p>
+    <p class="hero-joy">Pure data joy.</p>
 
     <!-- div class="hero-btns">
       <a class="hbtn hbtn-primary" href="/#quickstart">Get started</a>
@@ -104,8 +101,9 @@ const first = tabs[0];
 
   h1 {
     margin: 0; font: 500 clamp(46px, 6.2vw, 92px) / 1 var(--font);
-    letter-spacing: -.05em; text-wrap: balance; color: var(--ink); max-width: 12.5ch;
+    letter-spacing: -.05em; text-wrap: balance; color: var(--ink);
   }
+  .hh-sub { display: block; margin-top: .2em; font-size: .62em; letter-spacing: -.04em; }
   .hh-t {
     position: relative; display: inline-flex; height: 1.08em; margin: 0 -.1em; vertical-align: -.12em;
     transform: rotate(-7deg); overflow: visible;
@@ -125,6 +123,7 @@ const first = tabs[0];
     margin: 24px 0 0; max-width: 56ch; color: var(--ink-muted);
     font-size: clamp(17px, 1.5vw, 20px); line-height: 28px; text-wrap: balance;
   }
+  .hero-joy { margin: 8px 0 0; color: var(--ink); font: 500 clamp(17px, 1.5vw, 20px) / 28px var(--font); }
 
   .hero-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 28px; }
   .hbtn {

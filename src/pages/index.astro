@@ -12,6 +12,8 @@ import Chapters from '../components/Chapters.astro';
 import Community from '../components/Community.astro';
 import Cta from '../components/Cta.astro';
 import SeoHead from '../components/SeoHead.astro';
+import Gtm from '../components/Gtm.astro';
+import ConsentBanner from '../components/ConsentBanner.astro';
 import engine from '../content/docs/_data/engine.json';
 import { homeGraph } from '../lib/seo.ts';
 import '../styles/base.css';
@@ -30,8 +32,10 @@ const description = 'relate is an open-source embedded database for AI agents. G
     <link rel="preload" href="/fonts/relate-mono.woff2" as="font" type="font/woff2" crossorigin />
     <SeoHead title={title} description={description} path="/" describedby="/llms.txt" jsonld={[homeGraph(engine, description)]} />
     <script is:inline>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+    <Gtm />
   </head>
   <body>
+    <ConsentBanner />
     <Header />
     <main id="main">
       <Hero />

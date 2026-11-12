@@ -88,7 +88,7 @@ const hubSvg = `<svg class="hubsvg" viewBox="0 16 520 358" role="img" aria-label
               <div class="chip-row"><div class={`chip-tr${r.rv ? ' rv' : ''}`}>{r.items.map(([t, k]) => <span class={`ch ${k}`}>{t}</span>)}</div></div>
             ))}
           </div>
-          <div class="cq"><div class="code" translate="no"><span class="k">MATCH</span> (<span class="n">:Person</span> &#123;name: <span class="s">'Maya'</span>&#125;)-[<span class="r">:DECIDED</span>]-&gt;(<span class="n">:Topic</span>){'\n'}      -[<span class="r">:DEPENDS_ON</span>]-&gt;(<span class="n">:Launch</span>){'\n'}<span class="k">RETURN</span> <span class="n">Launch</span>.name</div></div>
+          <div class="cq"><div class="code" translate="no"><span class="k">MATCH</span> (<span class="n">:Person</span> &#123;name: <span class="s">'Maya'</span>&#125;)-[<span class="r">:DECIDED</span>]-&gt;(<span class="n">:Topic</span>){'\n'}      -[<span class="r">:DEPENDS_ON</span>]-&gt;(l<span class="n">:Launch</span>){'\n'}<span class="k">RETURN</span> l.name</div></div>
         </div>
       </div>
       <div class="fx-t">

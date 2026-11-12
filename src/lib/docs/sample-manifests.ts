@@ -291,11 +291,11 @@ export function runSpec(s: Pick<Sample, 'lang' | 'title' | 'code' | 'env'>): Run
     }
     case 'js':
       return spec({
-        variables: ['RELATE_NODE', 'NODE_PATH', 'RELATE_LIB'],
+        variables: ['RELATE_NODE', 'NODE_PATH'],
         program: `${RUN_DIR}/${file}`,
         files: [{ path: `${RUN_DIR}/node_modules`, link: '$NODE_PATH', note: 'a link, so require and import both resolve @relate/relate' }],
         build: null,
-        run: step(['$RELATE_NODE', file], {}, ['NODE_OPTIONS']),
+        run: step(['$RELATE_NODE', file], {}, ['NODE_OPTIONS', 'RELATE_LIB']),
       });
     case 'rust':
       return spec({

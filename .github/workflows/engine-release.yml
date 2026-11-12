@@ -140,14 +140,33 @@ jobs:
       # A failed client build (an upstream build change, pip or npm trouble)
       # must not stop the refresh: release-refresh.sh reports it in the pull
       # request (RELATE_CLIENTS_BUILD) and skips the samples.
+      # setup.sh installs relate-db, @relate/relate and the relate crate at the
+      # release's version (ADR-0062), and the registries can lag the GitHub
+      # release, so the step waits for all three first (at most 30 minutes).
+      # --version names the new release: _data/engine.json still names the
+      # previous one until the Refresh step bumps it.
       - name: Build the clients
         id: clients
         if: steps.release.outputs.upstream == 'true'
         continue-on-error: true
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS -o /dev/null "https://pypi.org/pypi/relate-db/$VERSION/json" &&
+              curl -fsS -o /dev/null "https://registry.npmjs.org/@relate%2Frelate/$VERSION" &&
+              curl -fsS -o /dev/null -A relate-web-engine-release "https://crates.io/api/v1/crates/relate/$VERSION"; then
+              break
+            fi
+            if [ "$attempt" = 60 ]; then
+              echo "::warning::relate $VERSION is not on PyPI, npm and crates.io after 30 minutes; the samples are skipped"
+              exit 1
+            fi
+            sleep 30
+          done
           channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' upstream/rust-toolchain.toml)"
           rustup toolchain install "$channel" --profile minimal
-          bash site/scripts/samples/setup.sh --upstream upstream --out "$RUNNER_TEMP/samples" --python python3 --github-env
+          bash site/scripts/samples/setup.sh --upstream upstream --version "$VERSION" --out "$RUNNER_TEMP/samples" --python python3 --github-env
 
       - name: Refresh
         id: refresh

@@ -28,13 +28,14 @@ The samples setup installs the clients a registry publishes, at the release
 the docs are pinned to (`_data/engine.json`): `relate-db==<version>` from
 PyPI in both Python environments, `@relate/relate@<version>` from npm with
 the platform package npm picks, and `relate = "=<version>"` from crates.io
-in the Rust template project. The Node.js samples run without `RELATE_LIB`,
-so the client loads the engine from its platform package.
+in the Rust template project, with every `relate-*` crate it resolves pinned
+to that version. The Node.js samples run without `RELATE_LIB`, so the client
+loads the engine from its platform package.
 
 The Java, Go, Swift and C clients are still built from an upstream checkout,
 which must be at the same release: setup refuses a checkout whose workspace
-version is not the version it installs, so every language in one replay
-runs one release.
+version is not the version it installs, or whose commit is not the one the
+release tag names, so every language in one replay runs one release.
 
 ## Alternatives considered
 
@@ -52,7 +53,8 @@ runs one release.
 ## Consequences
 
 - A replay needs PyPI, npm and crates.io, and the release must be on all
-  three before its samples can be re-recorded.
+  three before its samples can be re-recorded; the release refresh waits a
+  bounded time for them and reports the samples as skipped after that.
 - `_data/samples.json` describes the Python, Node.js and Rust clients as the
   published packages and the others as checkout builds at the tag.
 - The Rust template still seeds its lockfile from the checkout's, so the

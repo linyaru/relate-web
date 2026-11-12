@@ -58,7 +58,8 @@
 #   RELATE_PY_CREWAI       Python: the interpreter of py-crewai/ (env=crewai samples)
 #   RELATE_NODE            Node.js: the node binary
 #   NODE_PATH              Node.js: node/node_modules (holds @relate/relate)
-#   RELATE_LIB             the FFI library (Node.js, C, Java, Go and Swift link it)
+#   RELATE_LIB             the FFI library (C, Java, Go and Swift link it; the Node.js
+#                          client loads its npm platform package instead)
 #   RELATE_CARGO           Rust: the cargo binary (rustup's, so rust-toolchain.toml applies)
 #   RELATE_RUST_PROJECT    Rust: the template project rust/
 #   RELATE_CC              C: the C compiler
@@ -174,13 +175,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ -z "$upstream" ] && [ -d "$repo/../relate/surfaces/relate-python" ]; then
+if [ -z "$upstream" ] && [ -d "$repo/../relate/surfaces/relate-ffi" ]; then
   upstream="$repo/../relate"
 fi
 [ -n "$upstream" ] || die "no upstream checkout: pass --upstream <path to the relate checkout> or set RELATE_UPSTREAM"
 upstream="$(cd "$upstream" && pwd)"
-[ -f "$upstream/surfaces/relate-python/Cargo.toml" ] || die "$upstream has no surfaces/relate-python/Cargo.toml; is it a relate checkout?"
-[ -f "$upstream/clients/javascript/package.json" ] || die "$upstream has no clients/javascript/package.json; is it a relate checkout?"
+[ -f "$upstream/Cargo.toml" ] || die "$upstream has no Cargo.toml; is it a relate checkout?"
+[ -d "$upstream/surfaces/relate-ffi" ] || die "$upstream has no surfaces/relate-ffi; is it a relate checkout?"
 # --out is resolved to an absolute physical path before it is compared with
 # the two repositories, and before anything is created, so a relative path or
 # a symlink cannot place the build inside either one.
@@ -214,10 +215,20 @@ fi
 version="${version#v}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--version takes X.Y.Z, not '$version'"
 # The registry clients and the clients built from the checkout must be one
-# release, so the checkout's workspace version is held to --version.
+# release, so the checkout is held to --version twice: its workspace version,
+# and its commit, which must be the one the tag v<version> names (a commit
+# after the tag can still carry the released version string).
 upstream_version="$(sed -n '/^\[workspace.package\]/,/^\[/ s/^version *= *"\(.*\)"/\1/p' "$upstream/Cargo.toml" | head -n 1)"
 [ "$upstream_version" = "$version" ] ||
   die "$upstream is at version ${upstream_version:-unknown}, not $version: clone the tag (git clone --branch v$version --depth 1 ...)"
+if git -C "$upstream" rev-parse --git-dir >/dev/null 2>&1; then
+  tag_commit="$(git -C "$upstream" rev-parse -q --verify "refs/tags/v$version^{commit}" 2>/dev/null || true)"
+  [ -n "$tag_commit" ] || die "$upstream has no tag v$version: clone the tag (git clone --branch v$version --depth 1 ...)"
+  [ "$(git -C "$upstream" rev-parse HEAD)" = "$tag_commit" ] ||
+    die "$upstream is not at the commit of v$version ($tag_commit): check out the tag"
+else
+  die "$upstream is not a git checkout, so its commit cannot be held to v$version"
+fi
 
 command -v cargo >/dev/null 2>&1 || die "cargo is required (https://rustup.rs); the checkout pins its toolchain in rust-toolchain.toml"
 
@@ -338,7 +349,7 @@ if [ "$do_node" = 1 ]; then
   rm -rf "$staging"
   mkdir -p "$staging"
   # The client and the frameworks in one install, so npm resolves them
-  # together; npm picks the platform package (@relate/<platform>-<arch>) that
+  # together; npm picks the platform package (@relate/relate-<platform>-<arch>) that
   # carries the native library.
   say "Node: installing @relate/relate@$version from npm and ${NODE_FRAMEWORKS[*]}"
   npm install --no-save --no-package-lock --no-audit --no-fund --loglevel=error --prefix "$staging" "@relate/relate@$version" "${NODE_FRAMEWORKS[@]}"
@@ -402,6 +413,15 @@ fn main() {
     println!("template");
 }
 EOF
+  # The relate crate requires its sibling crates (relate-core and the rest)
+  # with caret requirements, so a later compatible release on crates.io would
+  # be picked; resolve once, then pin every relate-* crate to the release.
+  (cd "$rust_dir" && CARGO_TARGET_DIR="$rust_dir/target" "$cargo_bin" metadata --format-version 1 >/dev/null)
+  while read -r crate crate_version; do
+    [ "$crate_version" = "$version" ] && continue
+    say "Rust: pinning $crate $crate_version to $version"
+    (cd "$rust_dir" && "$cargo_bin" update --quiet -p "$crate@$crate_version" --precise "$version")
+  done < <(awk '/^\[\[package\]\]/ { n = "" } /^name = "relate/ { n = $3 } /^version = / && n != "" { gsub(/"/, "", n); v = $3; gsub(/"/, "", v); print n, v; n = "" }' "$rust_dir/Cargo.lock" | grep -v '^relate-sample ')
   say "Rust: compiling the relate crate $version from crates.io for the samples (cargo build --release)"
   (cd "$rust_dir" && CARGO_TARGET_DIR="$rust_dir/target" "$cargo_bin" build --release --quiet)
   # Every package the template locks, but its own crate, is a name and version

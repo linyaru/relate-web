@@ -146,7 +146,7 @@ export function checkGenerated(site: GeneratedCheckSite, report: Report, dist = 
     const md = feedbackMarkdown(ctx);
     twinFrontmatter(md, feedbackFile, `${CANONICAL_ORIGIN}${FEEDBACK_URL}`, site, report, TWIN_KEYS.filter((k) => k !== 'type'));
     if (!/\boperator\b/.test(md)) report(feedbackFile, null, 'error', 'generated', 'feedback.md does not say that the operator decides whether a report is sent (ADR-0013)');
-    const addresses = [...md.matchAll(/mailto:[^\s)]+|[\w.+-]+@[\w-]+\.[\w.]+|https?:\/\/[^\s)`]+/g)].map((m) => m[0]).filter((a) => !a.startsWith(`${CANONICAL_ORIGIN}/docs/`) && !(FEEDBACK_TRACKERS as readonly string[]).includes(a.replace(/[.,]$/, '')));
+    const addresses = [...md.matchAll(/mailto:[^\s)]+|[\w.+-]+@[\w-]+\.[\w.]+|https?:\/\/[^\s)`]+/g)].map((m) => m[0]).filter((a) => !a.startsWith(`${CANONICAL_ORIGIN}/docs/`) && !(FEEDBACK_TRACKERS as readonly string[]).includes(a.replace(/[.,;:]+$/, '')));
     for (const a of addresses) report(feedbackFile, null, 'error', 'generated', `feedback.md names ${a}; it names no address but the public issue trackers`);
   } catch (e) {
     report(feedbackFile, null, 'error', 'generated', `feedback.md does not render: ${(e as Error).message}`);

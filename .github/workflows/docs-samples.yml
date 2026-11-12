@@ -56,7 +56,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      ok: ${{ steps.gate.outputs.ok }}
       ref: ${{ steps.gate.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
@@ -70,12 +69,10 @@ jobs:
           if [ -z "$ref" ]; then
             ref="v$(node -p 'require("./src/content/docs/_data/engine.json").version')"
           fi
-          echo "ok=true" >> "$GITHUB_OUTPUT"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
   samples:
     needs: gate
-    if: needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -135,7 +132,6 @@ jobs:
 
   swift:
     needs: gate
-    if: needs.gate.outputs.ok == 'true'
     runs-on: macos-15
     timeout-minutes: 45
     steps:

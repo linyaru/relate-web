@@ -45,7 +45,7 @@ export function feedbackMarkdown(ctx: GeneratedContext): string {
     '## Who sends it',
     'The operator, the person the agent works for, decides whether a report is sent and where. An agent that finds a problem on a page gives its operator the report and does not post it anywhere itself.',
     '## Where it goes',
-    `A docs report is an issue on the website's repository, ${FEEDBACK_TRACKERS[0]}, where the feedback link at the foot of every page also leads. A problem in relate itself rather than in its docs is an issue on ${FEEDBACK_TRACKERS[1]}.`,
+    `A docs report is an issue on the website's repository, ${FEEDBACK_TRACKERS[0]}; the feedback panel at the foot of every page holds that page's discussion thread on the same repository. A problem in relate itself rather than in its docs is an issue on ${FEEDBACK_TRACKERS[1]}.`,
     '## What a report holds',
     [
       '- The page URL, with the anchor of the section when there is one.',

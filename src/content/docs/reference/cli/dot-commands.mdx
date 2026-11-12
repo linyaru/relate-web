@@ -81,7 +81,6 @@ echo "exit=$?"
 ```
 
 ```text
-{"planCache":"miss","timings":{"elapsed_ms":0.49208300000000005,"execute_ms":0.366208,"lex_parse_ms":0.001916,"lower_ms":0.003416,"parse_ms":0.11995800000000001,"plan_ms":0.001583,"result_generation_ms":0.000292,"rewrite_ms":0.000292}}
 Warning: exiting with an open transaction; rolling back uncommitted changes. Use .commit before exiting to persist them.
 exit=1
 ```
@@ -96,10 +95,7 @@ relate --database ./notes --read-only --mode jsonl "MATCH (n:Note) RETURN count(
 ```
 
 ```text
-{"planCache":"miss","timings":{"elapsed_ms":0.4615,"execute_ms":0.300375,"lex_parse_ms":0.003375,"lower_ms":0.003375,"parse_ms":0.153792,"plan_ms":0.0018750000000000001,"result_generation_ms":0.000041,"rewrite_ms":0.0015}}
-{"planCache":"miss","timings":{"elapsed_ms":0.025541,"execute_ms":0.00575,"lex_parse_ms":0.001458,"lower_ms":0.001459,"parse_ms":0.018542,"plan_ms":0.000833,"result_generation_ms":0.000042,"rewrite_ms":0.000125}}
 {"notes":2}
-{"planCache":"miss","timings":{"elapsed_ms":0.5155,"execute_ms":0.351375,"lex_parse_ms":0.030040999999999998,"lower_ms":0.041875,"parse_ms":0.105459,"plan_ms":0.050959,"result_generation_ms":0.00025,"rewrite_ms":0.007833}}
 ```
 
 Transactions do not nest, and `.commit` or `.rollback` needs an open one:

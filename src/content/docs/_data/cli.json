@@ -1,7 +1,7 @@
 {
   "$schema_note": "Facts about the relate CLI for the docs pipeline (DOCS-PLAN.md §8 check 3, the <ExitCodes>/<Flags>/<EnvVars> components). Summaries are paraphrases; strings in `messages` and in backticks are quoted from the binary or the sources character for character. Facts the sources disagreed on were settled against the binary named in `recorded_with` (`settled_by`); before launch that is a source build, not a published release (engine.json `source_build`). `verify` marks what the binary cannot show. `recorded` holds a replayable run of the binary (see `recording`); `help` and `agent_context` hold the recorded `--help` pages and agent briefings.",
   "binary": "relate",
-  "verified": "1.0.0",
+  "verified": "1.0.1",
   "upstream": {
     "repo": "relatedb/relate",
     "commit": "5e77ee6706821065804a9b77eb66ffd2985d1ac4",
@@ -32,7 +32,7 @@
       "recorded": {
         "command": "relate --database ./s.rl < s.cypher",
         "setup": "printf 'RETURN 1 AS ok;\\n' > s.cypher",
-        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal; on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
+        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --timings     Append the per-statement timing line to --jsonl output (default off)\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal; on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
         "stderr": "",
         "exit": 0
       }
@@ -1101,7 +1101,7 @@
       "command_id": null,
       "recorded": {
         "command": "relate --help",
-        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal; on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
+        "stdout": "Usage: relate [OPTIONS] [--database PATH] [QUERY]\n       relate <COMMAND> [ARGS]\n\nCommands:\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --timings     Append the per-statement timing line to --jsonl output (default off)\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional QUERY)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\n--database is a directory (WAL + snapshot), a .rl bundle, or :memory: (the default).\nWith no QUERY, the interactive shell opens on a terminal; on piped\nor redirected stdin this help is printed. `query` with no STATEMENT reads a script\nfrom stdin, or opens the same shell on a terminal.\n\nExamples:\n  # Run a query and print JSON\n  relate --database ./mydata --json -c \"MATCH (n) RETURN count(n) AS nodes\"\n  # Explore without being able to change anything\n  relate --database ./mydata --read-only --mode envelope -c \"MATCH (n:Person) RETURN n.name LIMIT 5\"\n\nRun 'relate <COMMAND> --help' for details on a command.\n",
         "stderr": "",
         "exit": 0
       }
@@ -1111,7 +1111,7 @@
       "command_id": "query",
       "recorded": {
         "command": "relate query --help",
-        "stdout": "Usage: relate query [STATEMENT] [--database PATH]\n\nquery runs a statement session: a positional STATEMENT or\n-c/--command (one statement or a `;`-separated list). With no\nSTATEMENT, a script is read from stdin, or the interactive shell opens\non a terminal. The path-first form with no QUERY opens the same shell on a\nterminal; on piped or redirected stdin it prints help instead.\n-d / --database sets\nthe store; omitted, it is :memory:. The same flag is the store on\nthe path-first form, on pull, and on info.\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional STATEMENT)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\n",
+        "stdout": "Usage: relate query [STATEMENT] [--database PATH]\n\nquery runs a statement session: a positional STATEMENT or\n-c/--command (one statement or a `;`-separated list). With no\nSTATEMENT, a script is read from stdin, or the interactive shell opens\non a terminal. The path-first form with no QUERY opens the same shell on a\nterminal; on piped or redirected stdin it prints help instead.\n-d / --database sets\nthe store; omitted, it is :memory:. The same flag is the store on\nthe path-first form, on pull, and on info.\n\nOptions:\n  -h, --help    Show this help and exit\n  --version     Show version and license and exit (with --json: one JSON object)\n  -d, --database PATH  Database directory, .rl bundle, or :memory: (default :memory:)\n                       The store to open — never a URL: a remote store is a --load\n                       source\n  --json        Output as JSON (indented on a terminal, compact when piped)\n  --csv         Output as CSV\n  --markdown    Output as Markdown\n  --jsonl       Output as JSON Lines\n  --toon        Output as TOON (one header line, one line per row)\n  --noheader    Disable column headers\n  --mode MODE   Set output mode (table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)\n                default: table on a terminal, jsonl when stdout is piped or redirected\n                (toon instead of jsonl when agent mode is on)\n  --format MODE Alias of --mode\n  --pretty      Indent JSON output even when stdout is not a terminal\n  --timings     Append the per-statement timing line to --jsonl output (default off)\n  --param N=V   Bind a Cypher parameter (repeatable; V parsed as JSON scalar, bare words are strings)\n  --fetch-params N=SRC  Fetch a URL or read a file (http, https, file path), parse it as JSON, and bind it as the parameter N (repeatable)\n  --snapshot-format F  Snapshot codec (parquet|json|markdown); empty directory only\n  --markdown-body-properties LIST  Markdown vault body properties (LIST or\n                       Label=LIST; entries separated by ';'; first bare, rest as\n                       ## sections; default: body)\n  --wal-dir DIR        WAL directory (default <DATABASE>/wal)\n  --checkpoint-interval-secs N  Timed checkpoint period; 0 disables\n  --durability-mode MODE  WAL durability (full|everysecond|snapshot; default full,\n                       RELATE_DURABILITY_MODE)\n  --logical-graph-size-limit SIZE  Live graph + index cap (bytes or mb/mib/gb/gib)\n  --expression-memory-limit SIZE  Per-value expression build cap (bytes, mb/mib/gb/gib, or none)\n                       Default: 256 MiB. Guards against one statement\n                       building a pathological single value; raise it, or\n                       pass none for known bulk pipelines\n  --concurrent-logical-workspace-limit SIZE  Shared logical-workspace pool (bytes or mb/mib/gb/gib)\n                       A positive value turns admission on. Omit, or an\n                       unset RELATE_CONCURRENT_LOGICAL_WORKSPACE_LIMIT,\n                       leaves it off. 0 is rejected\n  --max-traversal-depth N  Largest explicit traversal hop bound (1-2000; default 500)\n                       A query whose explicit hop bound exceeds this fails at\n                       admission with TraversalDepthExceeded. This is a safety\n                       limit, not a database limit: raising it risks a stack\n                       overflow on small-stack platforms.\n                       RELATE_MAX_TRAVERSAL_DEPTH sets the default\n  --safe               Refuse agent-typical dangerous statement shapes; --no-safe\n                       negates it. Refuses a new named node without a label, and\n                       a MATCH read without LIMIT or a reducing aggregate\n                       (collect() does not count). A policy, not a database\n                       limit. RELATE_SAFE_MODE=1/0 sets the default; off\n                       unless asked.\n  --agent-mode         Force agent ergonomics on (the row cap's default and the\n                       toon piped default); pairs with --max-rows.\n                       --no-agent-mode turns them off (the -mode suffix stays\n                       clear of the skill-install harness selector).\n                       Precedence: the flag, then RELATE_AGENT_MODE=1/0,\n                       then harness detection (piped runs only). The explicit\n                       acts print a one-line announcement; detection stays silent\n  --max-rows N         Print at most N rows per statement; 0 = unlimited.\n                       Default: 100 under a detected agent harness with stdout\n                       not a terminal, unlimited otherwise (RELATE_MAX_ROWS)\n  --width N            Wrap the human table to N display columns; the widest\n                       columns shrink and their cells wrap over lines.\n                       Default: the terminal width, else an exported COLUMNS\n                       (both floored at 20), else the natural width\n  --timeout DURATION   Cancel a statement that runs longer (500ms, 10s, 2m;\n                       bare number = seconds; 0 disables). Exit code 7\n  --load SOURCE        Load a store's content from a .rl path, a directory, or an\n                       https URL. With :memory: (the default target) the source is\n                       turned into the in-memory store: a read-only open that releases\n                       the source after the load (nothing is held open or locked, so\n                       it can be deleted or opened writable underneath). With a\n                       --database path the source is cloned there and the store opens\n                       normally (the target must not exist yet). --read-only=live is\n                       refused\n                       An https URL is fetched to a private temp copy — a GitHub blob\n                       or raw link is rewritten to its raw form; a remote folder store\n                       is not supported. Nothing is kept: the memory target releases\n                       the copy after the load, a path target removes it after the\n                       clone\n  --read-only[=FRESH]  Open an existing database without writing or checkpointing.\n                       FRESH is snapshot (default: a frozen snapshot at open) or\n                       live (tail the WAL and follow the writer's commits;\n                       refused for .rl and :memory:). Attach the value\n                       (--read-only=live); once per run.\n                       A native directory can be open beside a writer. A .rl file\n                       opens only while no writer holds it. :memory: rejects writes\n                       and creates nothing\n  --load-csv-dir PATH  Allow local LOAD CSV under this directory (default denied; overrides RELATE_LOAD_CSV_DIR)\n  --namespace NAME     Session namespace (neo4j|system|system_ontologies; default neo4j)\n  -c, --command Q      One-shot statement or `;`-separated list (same as positional STATEMENT)\n  --            Treat all following arguments as positional\nOn a TTY, the interactive shell supports readline-style editing (arrow keys, Home/End).\n\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\n",
         "stderr": "",
         "exit": 0
       }
@@ -1233,7 +1233,7 @@
       "command_id": null,
       "recorded": {
         "command": "relate agent-context",
-        "stdout": "relate v1.0.0 — agent context\n\nCommands (detail: relate agent-context <COMMAND>):\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nQuery-run flags (relate [OPTIONS] [QUERY]):\n  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command\n\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stdout": "relate v1.0.1 — agent context\n\nCommands (detail: relate agent-context <COMMAND>):\n  query          Run a statement session (oneshot, stdin, or shell)\n  clone          Copy a database into a new store and exit\n  info           Print store metadata for a database without opening it\n  pull           Copy a Neo4j/Aura subgraph into a database\n  push           Copy a database subgraph into Neo4j/Aura\n  skill          Install, inspect, or remove the embedded agent skill bundle\n  upgrade        Update the relate binary (alias: update)\n  telemetry      Manage anonymous usage metrics (on, off, status)\n  run            Run an installed extension action into a store the host owns\n  serve          Host the HTTP Query API and MCP surfaces on a database\n  agent-context  Print the compact agent briefing (commands, flags, exit codes)\n  extension      Scaffold, install, check, list, or remove command extensions\n\nQuery-run flags (relate [OPTIONS] [QUERY]):\n  --help --version --database --json --csv --markdown --jsonl --toon --noheader --mode --format --pretty --timings --param --fetch-params --snapshot-format --markdown-body-properties --wal-dir --checkpoint-interval-secs --durability-mode --logical-graph-size-limit --expression-memory-limit --concurrent-logical-workspace-limit --max-traversal-depth --safe --no-safe --agent-mode --no-agent-mode --max-rows --width --timeout --load --read-only --load-csv-dir --namespace --command\n\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
         "stderr": "",
         "exit": 0
       }
@@ -1243,7 +1243,7 @@
       "command_id": "query",
       "recorded": {
         "command": "relate agent-context query",
-        "stdout": "query — Run a statement session (oneshot, stdin, or shell)\nUsage: relate query [STATEMENT] [--database PATH]\nFlags:\n  --help\n  --version\n  --database\n  --json\n  --csv\n  --markdown\n  --jsonl\n  --toon\n  --noheader\n  --mode\n  --format\n  --pretty\n  --param\n  --fetch-params\n  --snapshot-format\n  --markdown-body-properties\n  --wal-dir\n  --checkpoint-interval-secs\n  --durability-mode\n  --logical-graph-size-limit\n  --expression-memory-limit\n  --concurrent-logical-workspace-limit\n  --max-traversal-depth\n  --safe\n  --no-safe\n  --agent-mode\n  --no-agent-mode\n  --max-rows\n  --width\n  --timeout\n  --load\n  --read-only\n  --load-csv-dir\n  --namespace\n  --command\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
+        "stdout": "query — Run a statement session (oneshot, stdin, or shell)\nUsage: relate query [STATEMENT] [--database PATH]\nFlags:\n  --help\n  --version\n  --database\n  --json\n  --csv\n  --markdown\n  --jsonl\n  --toon\n  --noheader\n  --mode\n  --format\n  --pretty\n  --timings\n  --param\n  --fetch-params\n  --snapshot-format\n  --markdown-body-properties\n  --wal-dir\n  --checkpoint-interval-secs\n  --durability-mode\n  --logical-graph-size-limit\n  --expression-memory-limit\n  --concurrent-logical-workspace-limit\n  --max-traversal-depth\n  --safe\n  --no-safe\n  --agent-mode\n  --no-agent-mode\n  --max-rows\n  --width\n  --timeout\n  --load\n  --read-only\n  --load-csv-dir\n  --namespace\n  --command\nExamples:\n  # Run one statement against a store\n  relate query \"RETURN 1 AS n\" --database ./my-db\nExit codes:\n  0  success: success, including an empty result\n  1  fatal_error: runtime failure: store open or I/O error, capacity limit, query execution failure, internal error\n  2  usage_error: unknown flag, bad or missing value, extra positional\n  5  conflict: write-write conflict, or the store is locked by another opener\n  6  validation_error: the statement is rejected: syntax, semantic or type error\n  7  timeout: a statement exceeded --timeout\n",
         "stderr": "",
         "exit": 0
       }
@@ -1551,6 +1551,23 @@
       }
     },
     {
+      "id": "timings",
+      "flag": "--timings",
+      "default": "off",
+      "summary": "Append each statement's `{\"planCache\":…,\"timings\":…}` line to `jsonl` output; `json`, `envelope` and `toon` always carry the timings, and the other modes ignore it.",
+      "sources": [
+        "docs/api/cli/spec.md",
+        "docs/reference/cli-flags.md"
+      ],
+      "settled_by": "relate 1.0.1 (ef436ce), release build",
+      "recorded": {
+        "command": "relate --jsonl --timings \"RETURN 1 AS ok\"",
+        "stdout": "{\"ok\":1}\n{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":0.315,\"execute_ms\":0.190916,\"lex_parse_ms\":0.017,\"lower_ms\":0.027208,\"parse_ms\":0.081167,\"plan_ms\":0.035625,\"result_generation_ms\":0.00020800000000000001,\"rewrite_ms\":0.005292000000000001}}\n",
+        "stderr": "",
+        "exit": 0
+      }
+    },
+    {
       "id": "noheader",
       "flag": "--noheader",
       "default": "off",
@@ -1727,7 +1744,7 @@
         },
         {
           "command": "RELATE_DURABILITY_MODE=fast relate --durability-mode full \"RETURN 1 AS ok\"",
-          "stdout": "{\"ok\":1}\n{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":0.341042,\"execute_ms\":0.206875,\"lex_parse_ms\":0.018417,\"lower_ms\":0.02775,\"parse_ms\":0.088209,\"plan_ms\":0.0375,\"result_generation_ms\":0.000292,\"rewrite_ms\":0.007583}}\n",
+          "stdout": "{\"ok\":1}\n",
           "stderr": "",
           "exit": 0
         }
@@ -2022,13 +2039,13 @@
       "recorded": [
         {
           "command": "relate --version",
-          "stdout": "Relate v1.0.0\nLicense: Apache 2.0 (binary)\n",
+          "stdout": "Relate v1.0.1\nLicense: Apache 2.0 (binary)\n",
           "stderr": "",
           "exit": 0
         },
         {
           "command": "relate -v",
-          "stdout": "Relate v1.0.0\nLicense: Apache 2.0 (binary)\n",
+          "stdout": "Relate v1.0.1\nLicense: Apache 2.0 (binary)\n",
           "stderr": "",
           "exit": 0
         }
@@ -2557,7 +2574,7 @@
       "row_cap_in_band": "a {\"rowCap\":{\"kept\":100,\"total\":250}} line after the rows, before the statement's timing line",
       "recorded": {
         "command": "relate --max-rows 2 --mode jsonl \"UNWIND range(1, 5) AS x RETURN x\"",
-        "stdout": "{\"x\":1}\n{\"x\":2}\n{\"rowCap\":{\"kept\":2,\"total\":5}}\n{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":0.345958,\"execute_ms\":0.208042,\"lex_parse_ms\":0.021167,\"lower_ms\":0.032292,\"parse_ms\":0.08449999999999999,\"plan_ms\":0.046083,\"result_generation_ms\":0.001209,\"rewrite_ms\":0.007}}\n",
+        "stdout": "{\"x\":1}\n{\"x\":2}\n{\"rowCap\":{\"kept\":2,\"total\":5}}\n",
         "stderr": "warning: result truncated to 2 rows (the statement returned 5); pass --max-rows 0 for all rows\n",
         "exit": 0
       }
@@ -2871,14 +2888,14 @@
       },
       {
         "command": "CLAUDECODE=1 relate --no-agent-mode \"UNWIND [1, 2] AS x RETURN x\"",
-        "stdout": "{\"x\":1}\n{\"x\":2}\n{\"planCache\":\"miss\",\"timings\":{\"elapsed_ms\":0.533125,\"execute_ms\":0.388875,\"lex_parse_ms\":0.029542,\"lower_ms\":0.027834,\"parse_ms\":0.096959,\"plan_ms\":0.038791,\"result_generation_ms\":0.000167,\"rewrite_ms\":0.006084}}\n",
+        "stdout": "{\"x\":1}\n{\"x\":2}\n",
         "stderr": "",
         "exit": 0
       }
     ]
   },
   "recording": "Each `recorded` run: the bash command line in `command`, with the binary on PATH as `relate`, in a fresh empty directory, with a fresh HOME and an environment of PATH, HOME, TMPDIR and DO_NOT_TRACK=1 only; `setup` runs first, `hold` keeps a second process on the store while `command` runs. In the output the directory is written `<dir>` and the home directory `<home>`. `npm run docs:cli-check` replays every one against a binary.",
-  "recorded_with": "relate 1.0.0 (b02f283), release build",
+  "recorded_with": "relate 1.0.1 (ef436ce), release build",
   "page_steps": {
     "concepts/agent-native.mdx": [
       {
@@ -2887,7 +2904,7 @@
       },
       {
         "command": "relate \"UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name\"\nCLAUDECODE=1 relate \"UNWIND ['Ada', 'Grace', 'Noor'] AS name RETURN name\"",
-        "expected_sha256": "4ea64b6e7723a11cf4e96b98e80f48f795017da59644f69dbb2d58a7a000b6f5"
+        "expected_sha256": "c797737280dcc144db4d6180088727702cfa18bf1799bae46d54110fbaf74683"
       }
     ],
     "concepts/architecture.mdx": [
@@ -2963,7 +2980,7 @@
       },
       {
         "command": "relate agent-context",
-        "expected_sha256": "98268c89ff0f81b6b14c47a94be46b031cc54d8ae2aef0ff074d6245da72dc4f"
+        "expected_sha256": "d692d9a82c1ad8e2cb743bb6d326bc41ccf0cb595b3230427abc0b10e8e06c21"
       },
       {
         "command": "cat > team.cypher <<'EOF'\nCREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace);\nEOF",
@@ -3147,7 +3164,7 @@
       },
       {
         "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"CREATE (:Person {name: \\\"Eve\\\"})\"}}}' \\\n  | relate serve --mcp stdio --database ./graph.rl --read-only 2>/dev/null",
-        "expected_sha256": "24136eae3b1d929ed6f1f0615e5f15cf71e1d6f6520152a1cd193fb839e5ee0f"
+        "expected_sha256": "c2ac47aecb92c7fb8352479766a331d8f0e4f8be7088fbd8b8119c77836b98e9"
       }
     ],
     "guides/agents/diffable-memory.mdx": [
@@ -3269,7 +3286,7 @@
       },
       {
         "command": "grep -E '^(name|version):' \"$HOME/.claude/skills/relate/SKILL.md\"",
-        "expected_sha256": "d57177ac487e25dae636f8edf8b1448970875f7bafd5891d2eb6aa4944ee92b7"
+        "expected_sha256": "a32933d03cf91c2c84cc5457b51fe51aee51770d780df7b8ef2e6e7c39baf6ce"
       }
     ],
     "guides/agents/run-in-a-sandbox.mdx": [
@@ -3293,7 +3310,7 @@
       },
       {
         "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_schema\",\"arguments\":{}}}' \\\n  | relate serve --mcp stdio --database ./team.rl --read-only 2>/dev/null",
-        "expected_sha256": "316b3fd6ad004a27b712c875d658ff3bdb80d48b3b6657c9177977cf1b62c7ca"
+        "expected_sha256": "c85372025be31b35a40600c18beecd640cf7b4c839a46278e50aaccc33a802aa"
       },
       {
         "command": "relate --database ./team.rl --read-only --mode envelope \"EXPLAIN MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN c.name AS company, count(p) AS people\" | jq -c '.notifications[] | {gql_status, description}'",
@@ -3327,7 +3344,7 @@
       },
       {
         "command": "relate --version",
-        "expected_sha256": "3953e60f18575587034b812c84a270a91859804e74ae040f8d4c5a86b638fe95"
+        "expected_sha256": "6d015ef2fa088d4aaa35d534edf2889e91f6a6bfa163ea9deb47a05e28391877"
       }
     ],
     "guides/cli/interactive-shell.mdx": [
@@ -3539,7 +3556,7 @@
       },
       {
         "command": "RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl \"CALL db.ontology.get('json') YIELD ontology RETURN ontology\"",
-        "expected_sha256": "e327d23b56c24c3803e5dad42cd68b37a8bc46601a1fc9680b2cf4396ddb54ea"
+        "expected_sha256": "b8e9f65cda1d33cf37e968ac74796c2ed9249ee4a04e2385b0442a41a97e6680"
       },
       {
         "command": "RELATE_PREVIEW=ontology relate --database ./team.rl \"CALL db.ontology.apply()\"",
@@ -3645,7 +3662,7 @@
       },
       {
         "command": "relate extension check ./greet",
-        "expected_sha256": "48af4862f0b411016e6903d644f8039dbb1d8953e21480287ff5774a494d3eda"
+        "expected_sha256": "99e40ab424c678f3715cb60fb312a16f1f1bfe8d629216fdeb824216a35aa4b5"
       },
       {
         "command": "relate run greet --help",
@@ -3665,7 +3682,7 @@
       },
       {
         "command": "relate extension install greet --from ./greet\nrelate extension check \"$HOME/.config/relate/extensions/greet\"",
-        "expected_sha256": "7d7910b933d7e9af42cb6c4c1d80ed53e93af826aa34c481a18f8c8b7411fd10"
+        "expected_sha256": "b6356b84dbcaf1abaadf326a2cee09084566b379e7be9bda96caafde3c894465"
       }
     ],
     "guides/extensions/write-an-extension.mdx": [
@@ -3691,7 +3708,7 @@
       },
       {
         "command": "relate extension check ./word-count",
-        "expected_sha256": "a54c078fafcc205f49abb57c25351346a6a220d2d8c00e010bfe4ca59a9a3a54"
+        "expected_sha256": "d40b0e2f395aedf64dc74bc85bfe957f6338a63df891bf75a82d58e489fa2e23"
       },
       {
         "command": "mkdir notes\nprintf 'Ada fixed the planner bug.\\nGrace reviewed the planner change and the parser change.\\n' > notes/standup.md\nprintf 'The parser tests pass.\\nNoor wants planner examples before the release.\\n' > notes/retro.md",
@@ -3725,7 +3742,7 @@
       },
       {
         "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"check\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null",
-        "expected_sha256": "97b9ef470e1ac671094022d564218e467ed97f3d4914ba29ac440918a1f55b39"
+        "expected_sha256": "f2930d636804003f73f5b4744a828dd2d428777be14859b837a193d37a9bebea"
       },
       {
         "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"read_cypher\",\"arguments\":{\"statement\":\"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name, w.since AS since ORDER BY since\",\"parameters\":{\"project\":\"relate\"}}}}' \\\n  | relate serve --mcp stdio --database ./team --read-only 2>/dev/null \\\n  | grep -o '\\\\\"rows\\\\\":\\[[^]]*\\]'",
@@ -3827,7 +3844,7 @@
       },
       {
         "command": "relate query --database ./team.rl \\\n  --fetch-params people=export/people.json \\\n  --fetch-params projects=export/projects.json \\\n  --fetch-params issues=export/issues.json \\\n  --fetch-params works_on=export/works_on.json \\\n  --fetch-params knows=export/knows.json \\\n  < load.cypher",
-        "expected_sha256": "e9e215a9b105ef25beaf9549b0957ce34361140a53a392c69cbbe62f13751a33"
+        "expected_sha256": "950995875a2f44f8faec1e42b07e6450c12cda2c7f613937d7276e0f57291286"
       },
       {
         "command": "sqlite3 -header -list team.db \"SELECT other.name AS teammate, pr.name AS project\nFROM people AS ada\nJOIN works_on AS mine ON mine.person_id = ada.id\nJOIN works_on AS theirs ON theirs.project_id = mine.project_id AND theirs.person_id <> ada.id\nJOIN people AS other ON other.id = theirs.person_id\nJOIN projects AS pr ON pr.id = mine.project_id\nWHERE ada.name = 'Ada'\nORDER BY teammate\"",
@@ -3975,7 +3992,7 @@
       },
       {
         "command": "relate --version",
-        "expected_sha256": "3953e60f18575587034b812c84a270a91859804e74ae040f8d4c5a86b638fe95"
+        "expected_sha256": "6d015ef2fa088d4aaa35d534edf2889e91f6a6bfa163ea9deb47a05e28391877"
       },
       {
         "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person) RETURN count(p) AS people\"\necho \"exit=$?\"",
@@ -4019,7 +4036,7 @@
       },
       {
         "command": "relate --version",
-        "expected_sha256": "3953e60f18575587034b812c84a270a91859804e74ae040f8d4c5a86b638fe95"
+        "expected_sha256": "6d015ef2fa088d4aaa35d534edf2889e91f6a6bfa163ea9deb47a05e28391877"
       },
       {
         "command": "relate --database ./team.rl --mode envelope \"MATCH (n) RETURN count(n) AS nodes\"",
@@ -4043,7 +4060,7 @@
       },
       {
         "command": "relate serve --bolt 8843 --http 8842 --database ./graph.rl --read-only 2> serve.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -w '\\n' http://127.0.0.1:8842/\nexec 3<>/dev/tcp/127.0.0.1/8843\nprintf '\\x60\\x60\\xb0\\x17\\x00\\x00\\x04\\x05\\x00\\x00\\x04\\x04\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00' >&3\nhead -c 4 <&3 > reply.bin\nexec 3>&-\nprintf '\\x00\\x00\\x04\\x05' | cmp -s - reply.bin && echo \"Bolt 5.4 agreed\"\nkill $server\nwait $server",
-        "expected_sha256": "5855a7f45e0ca503a626446c8dfd2c706f2a43a81e9069dff783b33f2daa9ea0"
+        "expected_sha256": "2be4ef841e1e420d3038a2e374c54dc0e4cc4ec37bf98ede5a691ab13c992524"
       }
     ],
     "guides/serve/docker.mdx": [
@@ -4063,7 +4080,7 @@
       },
       {
         "command": "relate serve --http 8842 --database ./graph.rl --read-only 2> serve.log &\nserver=$!\nuntil curl -s -o /dev/null http://127.0.0.1:8842/; do sleep 0.1; done\ncurl -s -w '\\n' http://127.0.0.1:8842/\ncurl -s -u \"$(cat graph.rl.auth-token)\" -H 'Content-Type: application/json' \\\n  -d '{\"statement\": \"MATCH (p:Person)-[:WORKS_ON]->(:Project {name: $project}) RETURN p.name AS name ORDER BY name\", \"parameters\": {\"project\": \"relate\"}}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\ncurl -s -u \"$(cat graph.rl.auth-token)\" -H 'Content-Type: application/json' \\\n  -d '{\"statement\": \"CREATE (:Person {name: $name})\", \"parameters\": {\"name\": \"Eve\"}}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\ncurl -s -H 'Content-Type: application/json' -d '{\"statement\": \"RETURN 1 AS ok\"}' \\\n  -w '\\n%{http_code}\\n' http://127.0.0.1:8842/db/neo4j/query/v2\nkill $server\nwait $server",
-        "expected_sha256": "1d960f3a2d3a5fd3abb5aae796de50b8cff2962797c0ae334df4494be94daf00"
+        "expected_sha256": "e08279c010b3ba3a078768edb4778724a03fb07b8f47e0b9d921e7f1ac008ee9"
       }
     ],
     "guides/serve/mcp.mdx": [
@@ -4343,7 +4360,7 @@
     "reference/cli/agent-context.mdx": [
       {
         "command": "relate agent-context",
-        "expected_sha256": "98268c89ff0f81b6b14c47a94be46b031cc54d8ae2aef0ff074d6245da72dc4f"
+        "expected_sha256": "d692d9a82c1ad8e2cb743bb6d326bc41ccf0cb595b3230427abc0b10e8e06c21"
       },
       {
         "command": "relate agent-context info",
@@ -4365,11 +4382,11 @@
       },
       {
         "command": "CLAUDECODE=1 relate --no-agent-mode \"UNWIND [1, 2] AS x RETURN x\"",
-        "expected_sha256": "a4cfa6cc480173de0afb8c87cd1fb6b8f4fc04d4c3504935028ada468c950baf"
+        "expected_sha256": "006102965f8a8992e60dc158e6c02ab53ccd375b7a3cd6c36c0dcf568f84482b"
       },
       {
         "command": "CLAUDECODE=1 relate --mode jsonl \"UNWIND [1, 2] AS x RETURN x\"",
-        "expected_sha256": "3ae84fb1deae25c0be5e82143aef027c43c0cb38d637b22bda4c145d6aa1dcec"
+        "expected_sha256": "006102965f8a8992e60dc158e6c02ab53ccd375b7a3cd6c36c0dcf568f84482b"
       },
       {
         "command": "RELATE_AGENT_MODE=1 relate \"UNWIND [1, 2] AS x RETURN x\"",
@@ -4415,7 +4432,7 @@
       },
       {
         "command": "relate clone ./team ./team-copy\nrelate clone ./team ./team.rl\nrelate clone ./team.rl ./team-unpacked\nrelate clone ./team.rl ./team-copy.rl\nfor store in team-copy team.rl team-unpacked team-copy.rl; do\n  relate --database \"./$store\" --read-only --mode jsonl \"MATCH (:Person)-[w:WORKS_ON]->(:Project) RETURN '$store' AS store, count(w) AS works\"\ndone",
-        "expected_sha256": "771a9416618e928aa6f4a33d4248764fb8baa9122ffdd66b42ac10732f8d72d3"
+        "expected_sha256": "9d20ca8821be7753132e0b8a5a3746903325f32c992b4364685f31ab4119094f"
       },
       {
         "command": "relate clone --to-snapshot-format json ./team ./team-json\nrelate clone --to-snapshot-format markdown ./team ./team-vault\nrelate clone --to-snapshot-format parquet ./team ./team-parquet\nrelate clone --to-snapshot-format parquet ./team-json ./from-json\nrelate clone --to-snapshot-format parquet ./team-vault ./from-vault\nrelate clone --to-snapshot-format parquet ./team-vault ./team-vault.rl\nrelate clone --to-snapshot-format json ./team.rl ./team-json.rl\nrelate clone --to-snapshot-format markdown ./team.rl ./vault-from-rl\nfor store in team-json team-vault team-parquet from-json from-vault team-vault.rl team-json.rl vault-from-rl; do\n  printf '%s: ' \"$store\"\n  relate info --database \"./$store\" | grep '^codec:'\ndone",
@@ -4423,7 +4440,7 @@
       },
       {
         "command": "relate --database ./from-vault --read-only --mode jsonl \"MATCH (p:Person)-[w:WORKS_ON]->(r:Project) RETURN p.name AS person, r.name AS project, w.since AS since ORDER BY since\"",
-        "expected_sha256": "ce08f13d797b60ca4a3331617b6cdaf8208234463a1e512cb2d4f092a359d675"
+        "expected_sha256": "48fe1f0c2396bd16fe93286cefcc4ea594beef0a40534991c5808919e9034e83"
       },
       {
         "command": "relate clone ./team-vault ./vault-kept.rl\necho \"exit=$?\"\nrelate clone --to-snapshot-format markdown ./team-vault ./vault-md.rl\necho \"exit=$?\"",
@@ -4449,11 +4466,11 @@
       },
       {
         "command": "printf '.begin\\nCREATE (:Note);\\n.quit\\n' | relate query\necho \"exit=$?\"",
-        "expected_sha256": "ee74dec544d2aa9b3e119acd6176e6d0dd7c98f00112271c1462953a3d03ea95"
+        "expected_sha256": "895efaebc180257d84c9e68e0779e503744ef6b9c4f4f3ea6d75ffaa1e6de849"
       },
       {
         "command": "printf \".begin\\nCREATE (:Note {text: 'kept'});\\nCREATE (:Note {text: 'also kept'});\\n.commit\\n\" | relate query --database ./notes\nrelate --database ./notes --read-only --mode jsonl \"MATCH (n:Note) RETURN count(n) AS notes\"",
-        "expected_sha256": "569367f46360802bf98a5098af8ab03c00c24061eae4429149ed0cda6c237d40"
+        "expected_sha256": "7586dfa239e2504b4cc69e2b15189deb7c67d29c1e78ea511d4c48e19ea8d392"
       },
       {
         "command": "printf '.commit\\n' | relate query\necho \"exit=$?\"",
@@ -4483,7 +4500,7 @@
     "reference/cli/environment-variables.mdx": [
       {
         "command": "RELATE_MAX_ROWS=1 relate --mode jsonl \"UNWIND [1, 2, 3] AS x RETURN x\"\nRELATE_MAX_ROWS=1 relate --mode jsonl --max-rows 0 \"UNWIND [1, 2, 3] AS x RETURN x\"",
-        "expected_sha256": "ca4988fe471495bee5326946fd37d8d3caae64da181e6d2a17ec453397553499"
+        "expected_sha256": "c4cc871317d19da090fe2c1f9a32200142f64a12f3267e41658e4fcb494acae5"
       },
       {
         "command": "CYPHERLITE_MAX_ROWS=1 relate \"RETURN 1 AS x\"\necho \"exit=$?\"",
@@ -4551,7 +4568,7 @@
       },
       {
         "command": "relate extension check team-import",
-        "expected_sha256": "08f360426e2914360b9294d600499b895737f49200f9cfc216ca536ab6e148bf"
+        "expected_sha256": "4897040bafb29d1a22fbf42c1a11bb8a1b77ee9fb48a6a10a83a57e6bcb11119"
       },
       {
         "command": "relate extension install team-import --from ./team-import\nrelate extension list",
@@ -4587,7 +4604,7 @@
       },
       {
         "command": "relate --version",
-        "expected_sha256": "3953e60f18575587034b812c84a270a91859804e74ae040f8d4c5a86b638fe95"
+        "expected_sha256": "6d015ef2fa088d4aaa35d534edf2889e91f6a6bfa163ea9deb47a05e28391877"
       }
     ],
     "reference/cli/info.mdx": [
@@ -4643,7 +4660,7 @@
       },
       {
         "command": "relate --database ./team.rl --read-only --jsonl \"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since\"",
-        "expected_sha256": "dfea78c4b5c70cf553296e122e36f924fcdfb8436f3ae4c3dcb859ffd375ee0e"
+        "expected_sha256": "5a43e13eb1fb5c42af91d3aa681f4e6c3a66a3f0e03ea9ca7a58c50eb1cf0ab2"
       },
       {
         "command": "relate --database ./team.rl --read-only --mode envelope \"MATCH (p:Person)-[w:WORKS_ON]->(:Project {name: 'relate'}) RETURN p.name AS name, w.since AS since ORDER BY since\"",
@@ -4671,11 +4688,11 @@
       },
       {
         "command": "relate --database ./sp --mode speedscope \"CREATE (:Run)\"\necho \"exit=$?\"\nrelate --database ./sp --read-only --mode jsonl \"MATCH (r:Run) RETURN count(r) AS runs\"",
-        "expected_sha256": "faf90a1f45f7ee40de7054e59ac23f6375ba471a60a08ac673ae730ccae5319e"
+        "expected_sha256": "b11d0dee27757800806649f9f23945245120dd60ea11056f394661608b4b7776"
       },
       {
         "command": "relate --database ./team.rl --read-only --mode jsonl \"MATCH (p:Person {name: 'Ada'}) RETURN p\"",
-        "expected_sha256": "7b13f7d2e075618873302aa391ff31cbef6a9877a52bebd67ec0a1d9c020ef94"
+        "expected_sha256": "b25b67bbff745bb55f6e1d8589e54f67f551ba50083a5e4d006fa5acac027437"
       },
       {
         "command": "relate --csv \"RETURN -5 AS n, '=1+1' AS formula\"",
@@ -4686,7 +4703,7 @@
         "expected_sha256": "881808f92e0e0627610a1993fdc9e73fed67f0e9511f5b03afd2a77032cf8bd6"
       },
       {
-        "command": "relate --jsonl \"RETURN 1 AS a; RETURN 2 AS a; RETURN 2 AS a\" | jq -r 'select(.planCache) | .planCache'",
+        "command": "relate --jsonl --timings \"RETURN 1 AS a; RETURN 2 AS a; RETURN 2 AS a\" | jq -r 'select(.planCache) | .planCache'",
         "expected_sha256": "0080d2be8f14135b0a55f88e7e8cafba9bc62893fa5114c44694b8590e990785"
       },
       {
@@ -4753,7 +4770,7 @@
       },
       {
         "command": "relate query --database ./team.rl --read-only \"MATCH (p:Person) RETURN p.name AS name ORDER BY name\"",
-        "expected_sha256": "7bc277d461e144b555797f1afa3529a6c63005ce65a8fb89a33e8d531ac56ae4"
+        "expected_sha256": "a8b8f53b948d4289a57a36528fcf8f75ef24a22ae1f31092ee6ae9330925e5b2"
       },
       {
         "command": "relate query --database ./team.rl --read-only --mode envelope -c \"MATCH (p:Person) RETURN count(p) AS people; MATCH (p:Project) RETURN count(p) AS projects\"",
@@ -4913,13 +4930,13 @@
       },
       {
         "command": "relate --database ./team.rl --read-only --mode json \"EXPLAIN MATCH (p:Person)-[:KNOWS]->(f:Person) RETURN f.name AS friend\"",
-        "expected_sha256": "7c31ba707484007ee9424d0464a34b37db7b50ab623b1963c811be6654a73f5f"
+        "expected_sha256": "d71576436b2e79b06c72654ef3ce660f22c4d8d875872b791764b90d5780e646"
       }
     ],
     "reference/cypher/functions.mdx": [
       {
         "command": "RELATE_PREVIEW=coll-zip,coll-has,gql-stddev-aliases relate --mode jsonl \"RETURN coll.zip([1, 2], ['a']) AS zipped, coll.hasAnyOf([1, 2], [2]) AS any_of, coll.hasAllOf([1, 2], [1, 3]) AS all_of, coll.hasNoneOf([1, 2], [5]) AS none_of\"",
-        "expected_sha256": "dde785d118b950df64d0cb9a89a50ccd593c1c98a351546270751252c28c2f1c"
+        "expected_sha256": "61eb10abf68b16ec01c4ef11a9c79a8fd3a43441f0c059204ad7e58034a19433"
       }
     ],
     "reference/cypher/notifications.mdx": [
@@ -4936,8 +4953,8 @@
         "expected_sha256": "63de9867aa02b467315089733e987e2825f2444c01366d1af416e18e0eaf4008"
       },
       {
-        "command": "relate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) RETURN id(p) AS id\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN CALL db.index.vector.queryNodes('person_focus', 2, [0.1, 0.9, 0.1]) YIELD node RETURN node.name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) CALL { WITH p RETURN p.name AS name } RETURN name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MERGE (p:Person {name: 'Ida', nick: p.name})\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) RETURN p.name AS p ORDER BY p.name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (n:Person) WITH n.name AS name, count(*) AS c ORDER BY n.name + 'x' RETURN name\"",
-        "expected_sha256": "c95cd7681e40ad832e8f5edb5f446ade0c54d6bfaae6084d7b098a436aa42501"
+        "command": "relate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) RETURN id(p) AS id\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN CALL db.index.vector.queryNodes('person_focus', 2, [0.1, 0.9, 0.1]) YIELD node RETURN node.name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) CALL { WITH p RETURN p.name AS name } RETURN name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (p:Person) RETURN p.name AS p ORDER BY p.name\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN MATCH (n:Person) WITH n.name AS name, count(*) AS c ORDER BY n.name + 'x' RETURN name\"",
+        "expected_sha256": "526fd1ad34227cac772a294067c2e256cf7ce389ebac37a96c85b5d21534b31b"
       },
       {
         "command": "relate --database ./team.rl --read-only --mode markdown \"EXPLAIN CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name)\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN DROP INDEX person_email IF EXISTS\"\nrelate --database ./team.rl --read-only --mode markdown \"EXPLAIN CREATE VECTOR INDEX person_focus FOR (p:Person) ON (p.focus)\"",
@@ -4967,7 +4984,7 @@
       },
       {
         "command": "RELATE_PREVIEW=ontology relate --database ./team.rl --read-only --mode jsonl \"CALL db.ontology.get() YIELD ontology RETURN ontology\"",
-        "expected_sha256": "86715c0bf3a06422dcea4fc5d54c2a17f80570795d53a26c6dceea3086ecc5dd"
+        "expected_sha256": "d2bcfeee0a2a81907227cdd11dc7f26b6c1cc0ae4f1217eb32f5332630cade24"
       },
       {
         "command": "RELATE_PREVIEW=ontology relate --database ./team.rl \"CALL db.ontology.apply()\"",
@@ -4975,7 +4992,7 @@
       },
       {
         "command": "relate --database ./team.rl --read-only --mode jsonl \"SHOW CURRENT GRAPH TYPE\"",
-        "expected_sha256": "b7456a8889706ce160efdcafcda2bb2085bba52493a63c94e61a97d74bec443a"
+        "expected_sha256": "daffb917d729c82080d303631b652775fb59685c6c8a30667936699619b5131e"
       }
     ],
     "reference/cypher/reading-clauses.mdx": [
@@ -5009,7 +5026,7 @@
       },
       {
         "command": "relate --mode jsonl \"RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt, time('10:15:30+01:00') AS t, localdatetime('2026-11-08T10:15:30') AS ldt, datetime('2026-11-08T10:15:30[Europe/Paris]') AS dt, duration('P1DT2H30M') AS dur\"",
-        "expected_sha256": "94d36b493f4da27fe40f8bbc95d829f9634b14a950cfff48c500365a933c8d1d"
+        "expected_sha256": "781b59798d786529172032fcd98c118f85155d3bcda95c7c453ce7b34e160dae"
       },
       {
         "command": "relate --mode csv \"RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt, time('10:15:30+01:00') AS t, localdatetime('2026-11-08T10:15:30') AS ldt, datetime('2026-11-08T10:15:30[Europe/Paris]') AS dt, duration('P1DT2H30M') AS dur\"",
@@ -5017,7 +5034,7 @@
       },
       {
         "command": "relate --mode jsonl \"RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, longitude: -0.1}) AS geo, vector([1, 2, 3], 3, INT8) AS v, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u\"",
-        "expected_sha256": "d0e1a6d076c193b6f36187bfac0c1ff066b008f528c87ebde7865cca85ff5c0d"
+        "expected_sha256": "8852a000bd32a34df63afbc3abfa9512798a0560871fa10f7f065313d90adcae"
       },
       {
         "command": "relate --mode csv \"RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, longitude: -0.1}) AS geo, vector([1, 2, 3], 3, INT8) AS v, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u\"",
@@ -5025,7 +5042,7 @@
       },
       {
         "command": "relate --mode jsonl \"CREATE p = (a:Person {name: 'Ada'})-[r:KNOWS {since: 2024}]->(b:Person {name: 'Grace'}) RETURN a, r, p\"",
-        "expected_sha256": "4745b99a042953bcb6d7166f99bb08620435631fe5564c1b94443a2d060a4832"
+        "expected_sha256": "ce9222ae48452a99ae2590184bd5ecfe1a3a41c0253c92d5c09882104095a078"
       },
       {
         "command": "relate --mode envelope \"RETURN 42 AS int, null AS nothing, localtime('10:15:30') AS lt, uuid('f066ecfc-5151-4121-8a36-b35e00d72918') AS u, [1, 2] AS list\"",
@@ -5061,7 +5078,7 @@
     "reference/project.mdx": [
       {
         "command": "relate --version",
-        "expected_sha256": "3953e60f18575587034b812c84a270a91859804e74ae040f8d4c5a86b638fe95"
+        "expected_sha256": "6d015ef2fa088d4aaa35d534edf2889e91f6a6bfa163ea9deb47a05e28391877"
       },
       {
         "command": "RELATE_PREVIEW=time-travel relate \"RETURN 1 AS ok\"",
@@ -5089,7 +5106,7 @@
     "reference/server/mcp.mdx": [
       {
         "command": "printf '%s\\n' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"shell\",\"version\":\"0\"}}}' \\\n  '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}' \\\n  '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\"}' \\\n  | relate serve --mcp stdio --database :memory: 2>/dev/null",
-        "expected_sha256": "4c2e3d191d0cd767c69d9bb34cd2c9a1c42f5b488a0564b48e85fbe95eddb74b"
+        "expected_sha256": "1c71a651079ec785931e912333f2054f3a98cf069cd3b8f5d90c9910d38169d3"
       },
       {
         "command": "relate --database ./team.rl \"CREATE (ada:Person {name: 'Ada', role: 'engineer'}),\n       (grace:Person {name: 'Grace', role: 'engineer'}),\n       (noor:Person {name: 'Noor', role: 'maintainer'}),\n       (relate:Project {name: 'relate', language: 'Rust'}),\n       (tck:Project {name: 'opencypher-tck', language: 'Gherkin'}),\n       (ada)-[:WORKS_ON {since: 2024}]->(relate),\n       (grace)-[:WORKS_ON {since: 2023}]->(relate),\n       (grace)-[:WORKS_ON {since: 2022}]->(tck),\n       (noor)-[:MAINTAINS]->(relate),\n       (ada)-[:KNOWS]->(grace)\"",
@@ -5167,7 +5184,7 @@
     "reference/storage/wal-and-checkpoints.mdx": [
       {
         "command": "cat > team.cypher <<'EOF'\nCREATE (:Person {name: 'Ada', role: 'engineer'});\nCREATE (:Person {name: 'Grace', role: 'engineer'});\nCREATE (:Person {name: 'Noor', role: 'maintainer'});\nEOF\nrelate query --database ./team < team.cypher\nrelate info --database ./team\nls -A team/wal\ncat team/wal/00000002.log; echo",
-        "expected_sha256": "2cf98d66ad6218dd807b4ac675b67dd6d44013714fe11c7dd5f29e6e7c6437b0"
+        "expected_sha256": "c2f6e67d55b9823bf9f12e5d647f90a9f681cbef60ba261a022388b686b9633b"
       },
       {
         "command": "cat > checkpoint.cypher <<'EOF'\nMATCH (a:Person {name: 'Ada'}), (g:Person {name: 'Grace'}) CREATE (a)-[:KNOWS]->(g);\n.info\n.checkpoint\n.info\nEOF\nrelate query --database ./team < checkpoint.cypher | grep -E '^(checkpoint LSN|total bytes|wal segments)'",

@@ -21,6 +21,7 @@ relate query --mode <mode> [STATEMENT] [--database PATH]
 | `--format MODE` | Alias of `--mode` |
 | `--json`, `--csv`, `--jsonl`, `--markdown`, `--toon` | Shortcuts for `--mode json`, `csv`, `jsonl`, `markdown` and `toon`; the single-dash forms `-json`, `-csv`, `-jsonl` and `-markdown` are accepted |
 | `--pretty` | Indents `json` output even when stdout is not a terminal; the other modes ignore it |
+| `--timings` | Adds each statement's timing line to `jsonl` output (default off); `json`, `envelope` and `toon` always carry the timings, and the other modes ignore it |
 | `--noheader` | Drops the header row of `table` and `csv`; the other modes keep their headers |
 | `--width N` | Wraps `table` output to `N` display columns, `20` or more |
 
@@ -55,14 +56,14 @@ Agent mode is on under a detected agent harness with stdout not a terminal, or w
 | `table` | none | A boxed text table; strings in double quotes | no | no |
 | `csv` | `--csv` | CSV with RFC 4180 quoting and LF line endings, with a header row | no | no |
 | `json` | `--json` | One JSON object per result set: the rows in `data`, with `planCache` and `timings`, and `rowCap` when the row cap cut them; indented on a terminal, one line when piped | yes | yes |
-| `jsonl` | `--jsonl` | One JSON object per row, then one `{"planCache":…,"timings":…}` line per result set | yes | yes |
+| `jsonl` | `--jsonl` | One JSON object per row; with `--timings`, then one `{"planCache":…,"timings":…}` line per result set | yes | yes |
 | `envelope` | none | One JSON object per result set: columns, types, rows, flags, `planCache` and `timings` | yes | yes |
 | `markdown` | `--markdown` | A GitHub-flavored table | no | yes |
 | `cypher` | none | One `CREATE` statement per row, values as Cypher literals | no | no |
 | `toon` | `--toon` | One `rows[N]{cols}:` header line, one line per row, then `timings:` and `planCache:` entries | no | yes |
 | `speedscope` | none | A `PROFILE` plan as one speedscope profile document | yes, for a failed statement; the `PROFILE` refusal is stderr only | no |
 
-A mode with no error object prints a failure only on stderr, with the exit code; the [error object](#errors) section covers the rest. `json`, `jsonl`, `envelope` and `toon` also report each statement's [timings and plan-cache outcome](#timings-and-the-plan-cache); `table`, `csv`, `markdown`, `cypher` and `speedscope` do not. The in-band row cap report for each mode is on the [agent mode page](/docs/reference/cli/agent-mode#the-row-cap). An `EXPLAIN` or `PROFILE` result prints a plan object in `json`, `jsonl`, `envelope` and `toon`, in place of the shapes this table lists; [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile#the-plan-in-each-output-mode) shows each.
+A mode with no error object prints a failure only on stderr, with the exit code; the [error object](#errors) section covers the rest. `json`, `envelope` and `toon` also report each statement's [timings and plan-cache outcome](#timings-and-the-plan-cache), and `jsonl` does with `--timings`; `table`, `csv`, `markdown`, `cypher` and `speedscope` do not. The in-band row cap report for each mode is on the [agent mode page](/docs/reference/cli/agent-mode#the-row-cap). An `EXPLAIN` or `PROFILE` result prints a plan object in `json`, `jsonl`, `envelope` and `toon`, in place of the shapes this table lists; [EXPLAIN and PROFILE](/docs/reference/cypher/explain-and-profile#the-plan-in-each-output-mode) shows each.
 
 ## One query in every mode
 
@@ -134,7 +135,6 @@ relate --database ./team.rl --read-only --jsonl "MATCH (p:Person)-[w:WORKS_ON]->
 ```text
 {"name":"Grace","since":2023}
 {"name":"Ada","since":2024}
-{"planCache":"miss","timings":{"elapsed_ms":0.45545800000000003,"execute_ms":0.257291,"lex_parse_ms":0.033833,"lower_ms":0.044042000000000005,"parse_ms":0.12995800000000002,"plan_ms":0.059625,"result_generation_ms":0.00025,"rewrite_ms":0.013625000000000002}}
 ```
 
 ### `envelope`
@@ -229,7 +229,6 @@ relate --database ./sp --read-only --mode jsonl "MATCH (r:Run) RETURN count(r) A
 speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)
 exit=1
 {"runs":1}
-{"planCache":"miss","timings":{"elapsed_ms":0.46045800000000003,"execute_ms":0.294958,"lex_parse_ms":0.031708,"lower_ms":0.0415,"parse_ms":0.105166,"plan_ms":0.052875,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.007458}}
 ```
 
 ## How values print
@@ -253,7 +252,6 @@ relate --database ./team.rl --read-only --mode jsonl "MATCH (p:Person {name: 'Ad
 
 ```text
 {"p":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada","role":"engineer"}}}
-{"planCache":"miss","timings":{"elapsed_ms":0.540834,"execute_ms":0.3735,"lex_parse_ms":0.029833000000000002,"lower_ms":0.041832999999999995,"parse_ms":0.108875,"plan_ms":0.05025,"result_generation_ms":0.00020800000000000001,"rewrite_ms":0.00775}}
 ```
 
 `id` is the node's internal id within this store. A relationship prints with `"kind":"relationship"`.
@@ -289,13 +287,13 @@ Each statement prints its own result set, in the order the statements run:
 | `table` | Two tables | The header only | Nothing |
 | `csv` | `a`, `1`, `b`, `2` on four lines | The header line | One empty line |
 | `json` | Two objects, one per line | An object with `"data":[]` | An object with `"data":[]` |
-| `jsonl` | Each statement's rows, each followed by its timing line | The timing line only | The timing line only |
+| `jsonl` | Each statement's rows; with `--timings`, each followed by its timing line | Nothing; with `--timings`, the timing line only | Nothing; with `--timings`, the timing line only |
 | `envelope` | Two envelopes, one per line | An envelope with `columns` and `"rows":[]` | An envelope with `"columns":[]` |
 | `markdown` | Two tables | The header and separator lines | Nothing |
 | `cypher` | One `CREATE` per row | Nothing | Nothing |
 | `toon` | Two `rows[1]{…}:` blocks, each with its `timings:` and `planCache:` entries | `rows[0]{name}:`, then the `timings:` and `planCache:` entries | The `timings:` and `planCache:` entries only |
 
-`jsonl` prints only the timing line for a read with no rows, the same as for a write. `envelope` tells the two apart:
+`jsonl` prints nothing for a read with no rows, the same as for a write, so a statement with N rows prints exactly N lines. `envelope` tells the two apart:
 
 ```bash verify
 relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person {name: 'Zed'}) RETURN p.name AS name"
@@ -325,12 +323,12 @@ The [agent mode page](/docs/reference/cli/agent-mode#the-envelope) lists every `
 
 ## Timings and the plan cache
 
-`json`, `jsonl`, `envelope` and `toon` report two facts for every statement that runs: where its time went, as a `timings` object, and whether a cached plan served it, as `planCache`. `table`, `csv`, `markdown`, `cypher` and `speedscope` print neither, and neither does the [error object](#errors) of a failed statement.
+`json`, `envelope` and `toon` report two facts for every statement that runs: where its time went, as a `timings` object, and whether a cached plan served it, as `planCache`. `jsonl` reports them only with `--timings` (default off, since 1.0.1), so that by default it prints rows alone. `table`, `csv`, `markdown`, `cypher` and `speedscope` print neither, with or without `--timings`, and neither does the [error object](#errors) of a failed statement.
 
 | Mode | Where they print |
 | --- | --- |
 | `json` | The `planCache` and `timings` keys of the statement's object, beside `data`, and beside `notifications` and `plan` for `EXPLAIN` and `PROFILE` |
-| `jsonl` | One `{"planCache":…,"timings":{…}}` line after the statement's other lines: its rows, then a `{"rowCap":…}` line when the row cap cut them, or its plan object. A statement with no rows prints only this line |
+| `jsonl` | With `--timings` only: one `{"planCache":…,"timings":{…}}` line after the statement's other lines: its rows, then a `{"rowCap":…}` line when the row cap cut them, or its plan object. A statement with no rows prints only this line |
 | `envelope` | The `planCache` and `timings` keys of the envelope |
 | `toon` | A `timings:` entry, the object as inline JSON, then a `planCache:` entry, as the last two entries of the statement's block, after `rowCap:` and `notifications:` |
 
@@ -357,10 +355,10 @@ On a plan-cache hit, `lex_parse_ms`, `rewrite_ms` and `lower_ms` are `0.0`: the 
 | `replan-generation-mismatch` | A cached plan matched, but the store had committed a write since it was compiled, so the statement planned again |
 | `bypassed` | The cache was not consulted, such as for a parameter whose name starts with the reserved `__AUTO_` prefix |
 
-The plan cache lives in the open store and starts empty on every CLI run, so a one-shot `relate "…"` reports `miss`. Several statements in one run share it. In this run, the second statement differs from the first only in a literal, and the third repeats the second:
+The plan cache lives in the open store and starts empty on every CLI run, so a one-shot `relate "…"` reports `miss`. Several statements in one run share it. In this run, the second statement differs from the first only in a literal, and the third repeats the second; `--timings` adds the line that carries `planCache` to the `jsonl` output:
 
 ```bash verify
-relate --jsonl "RETURN 1 AS a; RETURN 2 AS a; RETURN 2 AS a" | jq -r 'select(.planCache) | .planCache'
+relate --jsonl --timings "RETURN 1 AS a; RETURN 2 AS a; RETURN 2 AS a" | jq -r 'select(.planCache) | .planCache'
 ```
 
 ```text

@@ -73,7 +73,7 @@ An explicit mode always overrides the default. `--json`, `--csv`, `--jsonl`, `--
 | `toon` | One `rows[N]{cols}:` header, then one line per row; nested values as inline JSON |
 | `speedscope` | A `PROFILE` plan tree as one speedscope profile JSON document |
 
-`--pretty` indents `json` output when stdout is not a terminal; the other modes ignore it. `--noheader` drops the header row of `table` and `csv`; `markdown` and `toon` keep theirs. `--width N` wraps the `table` mode to `N` columns; a value under 20 exits 2, and without it the width is the terminal's, else `COLUMNS`, else the natural width.
+`--pretty` indents `json` output when stdout is not a terminal; the other modes ignore it. `--timings` adds each statement's `{"planCache":…,"timings":…}` line to `jsonl` output; it is off by default since 1.0.1, and the other modes ignore it ([timings and the plan cache](/docs/reference/cli/output-modes#timings-and-the-plan-cache)). `--noheader` drops the header row of `table` and `csv`; `markdown` and `toon` keep theirs. `--width N` wraps the `table` mode to `N` columns; a value under 20 exits 2, and without it the width is the terminal's, else `COLUMNS`, else the natural width.
 
 ## Store and storage
 

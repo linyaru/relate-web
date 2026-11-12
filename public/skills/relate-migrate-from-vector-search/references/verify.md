@@ -4,7 +4,7 @@ A migration can import the right number of records and still lose data: an
 embedding of the wrong length, a filter property under another name, a
 relationship that never got made. The probes below compare what arrived
 with what the source held, before the old store is retired. They run in
-order on one in-memory store, on relate 1.0.0.
+order on one in-memory store, on relate 1.0.1.
 
 Sources: <https://relatedb.ai/cookbook/migration-rehearsal/index.md> (count
 probes and per-node fingerprints that catch a bug node counts miss) and

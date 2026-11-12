@@ -287,7 +287,7 @@ printf '%s\n' \
 ```
 
 ```text
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"1.0.0"}}}
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"relate-mcp","version":"1.0.1"}}}
 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Read Cypher"},"description":"Execute one read-only Cypher statement. Returns the result's rows. Write and schema (DDL) statements are rejected.","inputSchema":{"properties":{"parameters":{"default":{},"description":"The statement's parameters; a `rows` array feeds `$rows`.","type":"object"},"statement":{"description":"The Cypher statement.","type":"string"}},"required":["statement"],"type":"object"},"name":"read_cypher"},{"annotations":{"destructiveHint":false,"idempotentHint":true,"openWorldHint":false,"readOnlyHint":true,"title":"Get Schema"},"description":"Get the schema of the graph store: node labels with their property keys and inferred types, and the relationship types between them. `sample_size` bounds how many nodes and relationships are examined per label (larger is slower but more accurate; -1 examines all).","inputSchema":{"properties":{"sample_size":{"description":"The sample size used to infer the graph schema. Larger samples are slower, but more accurate. Smaller samples are faster, but might miss information. -1 samples the whole graph.","type":"integer"}},"type":"object"},"name":"get_schema"}]}}
 {"jsonrpc":"2.0","id":3,"result":{"content":[{"text":"Only MATCH queries are allowed for read-query","type":"text"}],"isError":true}}
 ```

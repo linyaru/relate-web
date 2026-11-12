@@ -22,7 +22,7 @@ Pass `--mode` on every scripted command. Without it, relate picks the output fro
 | Where stdout goes | Default output |
 | --- | --- |
 | A terminal | `table` |
-| A pipe or a file | `jsonl`, one JSON object per row, then one timing line per statement |
+| A pipe or a file | `jsonl`, one JSON object per row (`--timings` adds one timing line per statement) |
 | A pipe or a file, with :term[agent mode]{id=agent-mode} on (a detected agent harness, `RELATE_AGENT_MODE=1` or `--agent-mode`) | `toon` |
 
 For a program, use `--mode envelope`: one JSON object per result set, the :term[envelope]{id=envelope}, with `columns`, `columnTypes`, `rows` and `truncated`, plus the statement's `timings` and `planCache` ([timings and the plan cache](/docs/reference/cli/output-modes#timings-and-the-plan-cache)). An empty result still lists its columns. The [output modes table](/docs/reference/cli/flags#output) lists the others.

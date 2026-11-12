@@ -92,7 +92,6 @@ CLAUDECODE=1 relate --no-agent-mode "UNWIND [1, 2] AS x RETURN x"
 ```text
 {"x":1}
 {"x":2}
-{"planCache":"miss","timings":{"elapsed_ms":0.354916,"execute_ms":0.202834,"lex_parse_ms":0.022667000000000003,"lower_ms":0.030125,"parse_ms":0.095875,"plan_ms":0.043792,"result_generation_ms":0.00025,"rewrite_ms":0.006792}}
 ```
 
 An explicit `--mode` beats agent mode's default without turning agent mode off:
@@ -104,7 +103,6 @@ CLAUDECODE=1 relate --mode jsonl "UNWIND [1, 2] AS x RETURN x"
 ```text
 {"x":1}
 {"x":2}
-{"planCache":"miss","timings":{"elapsed_ms":0.456708,"execute_ms":0.310916,"lex_parse_ms":0.022,"lower_ms":0.030458,"parse_ms":0.095333,"plan_ms":0.040917,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.006667}}
 ```
 
 `RELATE_AGENT_MODE=1` turns it on without a harness, and says so on stderr:
@@ -151,7 +149,7 @@ The machine modes also carry the cut in-band, after the rows or inside the envel
 | Mode | The in-band record |
 | --- | --- |
 | `envelope` | `"truncated":true` and `"rowCap":{"kept":100,"total":250}` |
-| `jsonl` | A `{"rowCap":{"kept":100,"total":250}}` line after the rows, before the statement's timing line |
+| `jsonl` | A `{"rowCap":{"kept":100,"total":250}}` line after the rows, before the statement's timing line when `--timings` is set |
 | `json` | A `rowCap` key beside `data`: `{"data":[…],"planCache":…,"rowCap":{"kept":100,"total":250},"timings":{…}}` |
 | `toon` | A `rowCap:` entry after the rows, the counts as inline JSON, before the `timings:` and `planCache:` entries |
 | `markdown` | A footer line `> truncated: 100 of 250 rows shown` |
@@ -252,7 +250,7 @@ notifications:
   [{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownLabelWarning","description":"The label `Persn` does not exist in this database.","gql_status":"01N50","remedy":"Check the spelling; the label exists after the first write that creates it, and no index or constraint uses the unknown name.","severity":"WARNING","title":"Unknown label"},{"category":"UNRECOGNIZED","code":"Neo.ClientNotification.Statement.UnknownPropertyKeyWarning","description":"The property key `name` does not exist in this database.","gql_status":"01N52","remedy":"Check the spelling; the key exists after the first write that sets it.","severity":"WARNING","title":"Unknown property key"}]
 ```
 
-Each entry has `category`, `code`, `description`, `gql_status`, `remedy`, `severity` and `title`, plus `operator_id` when it concerns one plan operator. The `envelope` mode carries the same list in `notifications`; `json` prints one `{"notifications":[…],"plan":{…},"planCache":…,"timings":{…}}` object; `jsonl` prints one `{"notifications":[…],"plan":{…}}` line, then the timing line; `table` and `markdown` print a `Notifications:` block; `csv` and `cypher` print none. The [errors reference](/docs/reference/errors#notifications) lists every notification.
+Each entry has `category`, `code`, `description`, `gql_status`, `remedy`, `severity` and `title`, plus `operator_id` when it concerns one plan operator. The `envelope` mode carries the same list in `notifications`; `json` prints one `{"notifications":[…],"plan":{…},"planCache":…,"timings":{…}}` object; `jsonl` prints one `{"notifications":[…],"plan":{…}}` line, then the timing line with `--timings`; `table` and `markdown` print a `Notifications:` block; `csv` and `cypher` print none. The [errors reference](/docs/reference/errors#notifications) lists every notification.
 
 ## The agent-context briefing
 

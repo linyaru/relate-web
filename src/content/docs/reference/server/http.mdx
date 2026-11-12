@@ -6,7 +6,7 @@ surfaces: [http]
 related: [guides/serve/http-query-api, reference/cli/serve, reference/errors#http-query-api-errors, reference/server/bolt, reference/server/mcp, reference/security#served-surfaces, reference/limitations#server]
 ---
 
-`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 1.0.0 or checked against it.
+`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 1.0.0 or checked against it, and the discovery document again from 1.0.1.
 
 ## Synopsis
 
@@ -48,7 +48,7 @@ curl -s http://127.0.0.1:8851/
 ```
 
 ```json
-{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"1.0.0","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
+{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"1.0.1","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
 ```
 
 | Key | Value |

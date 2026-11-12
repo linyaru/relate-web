@@ -73,7 +73,7 @@ relate --database ./team.rl --read-only --mode envelope "MATCH (p:Person)-[:WORK
 {"columns":["project","people"],"columnTypes":["STRING","INTEGER"],"truncated":false,"rows":2}
 ```
 
-A read with no rows still prints an envelope with its `columns`, where `jsonl` prints only its timing line. A failed statement prints an :term[error object]{id=error-object} on stdout in place of the envelope, so a program can tell no rows, no output, and a failure apart.
+A read with no rows still prints an envelope with its `columns`, where `jsonl` prints nothing. A failed statement prints an :term[error object]{id=error-object} on stdout in place of the envelope, so a program can tell no rows, no output, and a failure apart.
 
 ## Export CSV for a spreadsheet
 
@@ -168,7 +168,7 @@ nanoseconds
 | --- | --- | --- |
 | `jq` reports a parse error on piped output | Agent mode is on (a detected agent harness, `--agent-mode` or `RELATE_AGENT_MODE=1`), so the piped default is `toon` | Pass `--jsonl` or `--mode envelope` explicitly |
 | `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the statement carries no plan tree)`, exit code 1 | The statement has no `PROFILE` prefix. The statement still ran: its writes are committed | Start the statement with `PROFILE` |
-| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)`, exit code 1 | The plan's top operator recorded no metrics; as of 1.0.0, a `count()` over an `Expand`, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`, does this. The statement still ran: its writes are committed | Profile the statement without its aggregation, or read the plan with `--mode table` |
+| `speedscope mode requires a PROFILE statement: per-operator times are what it exports (the plan tree carries no PROFILE metrics)`, exit code 1 | The plan's top operator recorded no metrics; as of 1.0.1, a `count()` over an `Expand`, such as `MATCH (p:Person)-[:WORKS_ON]->(proj:Project) RETURN count(p)`, does this. The statement still ran: its writes are committed | Profile the statement without its aggregation, or read the plan with `--mode table` |
 | A spreadsheet column shows `'-5` | The CSV formula guard prefixes a field that starts with `-` | Strip the leading `'` on import, or export with `--jsonl` |
 | `Error: invalid mode '<name>' (expected one of: table, csv, json, jsonl, envelope, markdown, cypher, toon, speedscope)`, exit code 2 | A mode name relate doesn't have | Use one of the nine names the message lists |
 

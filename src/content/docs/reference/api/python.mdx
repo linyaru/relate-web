@@ -7,7 +7,7 @@ surfaces: [python]
 related: [guides/embed/python, get-started/python, reference/errors#python-exception-classes, reference/api/javascript, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The relate Python :term[client]{id=client} is the `relate-db` package, imported as `relate`: a native extension that opens a :term[store]{id=store} and runs the engine in the calling process. It offers two layers. `relate.connect()` returns a `Connection` in the style of Python's database API (PEP 249), with cursors whose rows are dicts. `relate.Database` is the engine handle underneath, with Arrow output and the raw `QueryResult`. The signatures on this page are read from the package source and checked against `relate-db` 1.0.0.
+The relate Python :term[client]{id=client} is the `relate-db` package, imported as `relate`: a native extension that opens a :term[store]{id=store} and runs the engine in the calling process. It offers two layers. `relate.connect()` returns a `Connection` in the style of Python's database API (PEP 249), with cursors whose rows are dicts. `relate.Database` is the engine handle underneath, with Arrow output and the raw `QueryResult`. The signatures on this page are read from the package source and checked against `relate-db` 1.0.1.
 
 ## Synopsis
 
@@ -38,7 +38,7 @@ ipc = db.execute_arrow(query, params=None)    # Arrow IPC stream bytes
 | `apilevel` | `str` | `"2.0"` |
 | `threadsafety` | `int` | `1`: threads may share the module, not a connection |
 | `paramstyle` | `str` | `"named"`: parameters are `$name` with a dict |
-| `__version__` | `str` | The client version string, `"1.0.0"` in this release (a literal in the package, not read from the installed metadata) |
+| `__version__` | `str` | The client version string, `"1.0.1"` in this release (a literal in the package, not read from the installed metadata) |
 | `STRING`, `BINARY`, `NUMBER`, `DATETIME`, `ROWID` | type objects | The `type_code` values of `Cursor.description` |
 | `Date`, `Time`, `Timestamp`, `Binary`, `DateFromTicks`, `TimeFromTicks`, `TimestampFromTicks` | constructors | PEP 249 constructors over `datetime` and `bytes` |
 | `relate.viz` | module | Optional graph visualization over the `neo4j-viz` package; imported on its own, see [`relate.viz`](#relateviz) |
@@ -106,7 +106,14 @@ A cursor holds the whole result from the moment the statement returns; fetching 
 
 ## `Record`
 
-A row is a `relate.Record`, a `dict` subclass. `row["name"]` and `row.name` read the same value; assigning `row.name` raises `AttributeError`. `row.keys()` returns the column names in `RETURN` order, and `row.data()` returns a plain `dict` copy.
+A row is a `relate.Record`, a `dict` subclass. `row["name"]` and `row.name` read the same value; assigning `row.name` raises `AttributeError`. `row.keys()` returns the column names in `RETURN` order. Two methods return a plain `dict` copy of the row:
+
+| Method | A node | A relationship | A path |
+| --- | --- | --- | --- |
+| `row.data()` | The `dict` of its properties | The `dict` of its properties | A list alternating node property dicts and relationship types |
+| `row.to_dict()` | `id`, `element_id`, `labels` and `properties` | `id`, `element_id`, `type`, `start_node`, `end_node`, `start_node_element_id`, `end_node_element_id` and `properties` | `nodes` and `relationships`, each a list in the shapes to its left |
+
+Both convert lists and maps recursively. `data()` converts like the Neo4j Python driver's `Record.data()` and drops ids, labels and endpoints; until 1.0.1 it returned the `Node`, `Relationship` and `Path` objects unchanged. `to_dict()` keeps them, and leaves points, durations, temporal values and vectors as they are, so `json.dumps` accepts its result when the row holds none of those. The last sample in [Example](#example) prints both.
 
 ## `ResultSummary`
 
@@ -341,6 +348,21 @@ with relate.connect(":memory:") as conn:
     knows = path.relationships[0]
     print(len(path), ada["name"], ada.element_id, ada.labels)
     print(knows.type, knows.element_id, knows.start_node_element_id, knows.end_node_element_id, grace["name"])
+```
+
+`data()` and `to_dict()` on a row holding a node, a relationship and a path:
+
+```python run name=records
+import json
+import relate
+
+with relate.connect(":memory:") as conn:
+    row = conn.execute(
+        "CREATE p = (a:Person {name: 'Ada'})-[r:KNOWS {since: 2024}]->(b:Person {name: 'Grace'}) RETURN a, r, p"
+    ).single()
+    print(row.data())
+    print(json.dumps(row.to_dict()["r"], sort_keys=True))
+    print(json.dumps(row.to_dict()["p"]["nodes"][1], sort_keys=True))
 ```
 
 ## See also

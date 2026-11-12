@@ -1,10 +1,89 @@
 {
   "$schema_note": "Release notes authored here (ADR-0002), one entry per release, newest first; rendered to /docs/reference/changelog/, its twin and /docs/changelog.json by src/lib/docs/generated/changelog.ts. Each item is one sentence of inline markdown ending with a period; `breaking: true` marks a change that can make working code or statements fail; `pages` lists the page ids (with an optional #anchor) that document it, linked once published. Facts come from upstream's release notes (public/releases.json) and are checked against the binary named in cli.json `recorded_with` where the CLI can show them. The verified engine version (_data/engine.json) must be an entry or an entry's `previous`: every twin links #since-<verified>.",
   "policy": [
-    "relate is pre-1.0. Its releases follow semantic versioning, under which anything can change in a 0.x release, a patch release included: 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C ABI with an incompatible typed one.",
+    "relate follows semantic versioning, and 1.0.0 is its first stable release. Before 1.0 anything could change in a release, a patch release included: 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C ABI with an incompatible typed one. The 1.0.1 patch release also carries changes marked **Breaking** below.",
     "A change that can make working code or statements fail is marked **Breaking** in the entry of the release that ships it, under Changed or Removed, with its replacement when there is one. A feature that still works but is to be removed is listed under Deprecated in the release that deprecates it."
   ],
   "releases": [
+    {
+      "version": "1.0.1",
+      "date": "2026-11-12",
+      "published_at": "2026-11-12T13:32:04Z",
+      "previous": "1.0.0",
+      "summary": "`--jsonl` prints rows only unless `--timings` asks for the timing line, Python's `Record.data()` converts graph values like the Neo4j driver and `to_dict()` keeps them whole, Cypher validation rejects more statements that Neo4j rejects, and the engine publishes a security policy.",
+      "added": [
+        {
+          "text": "`--timings` adds each statement's `{\"planCache\":…,\"timings\":…}` line to `--jsonl` output, after its rows and any `rowCap` or plan line.",
+          "pages": [
+            "reference/cli/output-modes#timings-and-the-plan-cache",
+            "reference/cli/flags#output"
+          ]
+        },
+        {
+          "text": "Python `Record.to_dict()` returns a copy of the row with every id, label, type and endpoint kept: a node as `id`, `element_id`, `labels` and `properties`, a relationship with its type and both ends, a path as its `nodes` and `relationships`.",
+          "pages": [
+            "reference/api/python#record"
+          ]
+        },
+        {
+          "text": "A security policy, `SECURITY.md`, in the engine repository: vulnerabilities are reported to `security@neo4j.com` under the Neo4j responsible-disclosure policy, and only the latest release line receives security fixes.",
+          "pages": [
+            "reference/security#reporting-a-vulnerability"
+          ]
+        }
+      ],
+      "changed": [
+        {
+          "text": "`--jsonl`, the piped default, no longer ends each statement with a `{\"planCache\":…,\"timings\":…}` line, so a statement with N rows prints exactly N lines and a write or a read with no rows prints nothing; `--timings` restores the line, and `json`, `envelope` and `toon` still carry the timings.",
+          "breaking": true,
+          "pages": [
+            "reference/cli/output-modes#timings-and-the-plan-cache",
+            "reference/cli/query"
+          ]
+        },
+        {
+          "text": "Python `Record.data()` converts like the Neo4j Python driver: a node or relationship becomes the `dict` of its properties and a path a list alternating node property dicts and relationship types, where 1.0.0 returned the `Node`, `Relationship` and `Path` objects; `to_dict()` keeps ids, labels and endpoints.",
+          "breaking": true,
+          "pages": [
+            "reference/api/python#record"
+          ]
+        },
+        {
+          "text": "`shortestPath(…)` outside a `MATCH` needs both end nodes bound, else `syntax error: InvalidPatternCharacter: A shortestPath(...) requires bound nodes when not part of a MATCH clause.`, and refuses a property map on its relationship.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/patterns#path-selectors-and-modes"
+          ]
+        },
+        {
+          "text": "A `MERGE` whose properties read the entity it merges, such as `MERGE (p:Person {name: 'Ida', nick: p.name})`, fails with `syntax error: SyntaxError: Entity, 'p', cannot be created and referenced in the same clause` (exit code 6), where 1.0.0 ran it with deprecation notification `01N00`.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/writing-clauses",
+            "reference/cypher/notifications"
+          ]
+        },
+        {
+          "text": "Reading a point component the point does not carry, such as `latitude` on a cartesian point or `z` on a 2D point, fails with `semantic error: Field: latitude is not available on a point value`, even behind a false `WHERE` condition on the point's `srid`; 1.0.0 returned `y` for `latitude`, `x` for `longitude` and `null` for a missing `z`, and a `CASE` on the SRID guards the read.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/types-and-values"
+          ]
+        },
+        {
+          "text": "A Bolt message over the 262,144 decoded-value limit fails its request with `Neo.ClientError.Request.Invalid` and a message naming the size, the limit and the remedy, and the connection serves the next request after `RESET`; 1.0.0 closed the connection.",
+          "pages": [
+            "reference/server/bolt#limits"
+          ]
+        },
+        {
+          "text": "The install script, `install.sh`, downloads every release asset from `https://github.com/relatedb/relate/releases/download/…`, with no GitHub API request and no token.",
+          "pages": [
+            "guides/agents/run-in-a-sandbox"
+          ]
+        }
+      ]
+    },
     {
       "version": "1.0.0",
       "date": "2026-11-11",

@@ -7,8 +7,10 @@
 // modes use, so src/lib/docs/terminal.test.ts can compare their bytes with
 // the binary's on the same statements and fail on any drift.
 //
-// Since relate 0.1.0 (upstream ADR-0540) every machine mode carries the
-// statement's per-phase timings and the plan cache's outcome. The wire
+// Since relate 0.1.0 (upstream ADR-0540) the machine modes carry the
+// statement's per-phase timings and the plan cache's outcome; since 1.0.1
+// (upstream ADR-0581) `jsonl` prints them only under `--timings`, which the
+// terminal never passes, so its `jsonl` is rows alone. The wire
 // envelope holds them flat (`elapsed_ms`, …, `plan_cache`); the CLI prints a
 // nested `timings` object and `planCache` beside it, and the renderers do the
 // same from the envelope's own values. A recording without its timings (a
@@ -451,10 +453,9 @@ export function renderEnvelope(env: Envelope, rows: Json[], total: number): stri
   return [`{${parts.join(',')}}`];
 }
 
-/** `--mode jsonl`: one row per line, a `{"rowCap": …}` line when the cap cut the rows, then the statement's timing line. */
+/** `--mode jsonl`: one row per line, then a `{"rowCap": …}` line when the cap cut the rows. No timing line: the CLI prints it only with `--timings` (1.0.1). */
 export function renderJsonl(env: Envelope, rows: Json[], total: number): string[] {
-  const body = env.columns.length ? [...rows.map((r) => r.raw), ...(rows.length < total ? [`{"rowCap":${rowCapJson(rows.length, total)}}`] : [])] : [];
-  return [...body, `{"planCache":${planCacheJson(env)},"timings":${timingsJson(env)}}`];
+  return env.columns.length ? [...rows.map((r) => r.raw), ...(rows.length < total ? [`{"rowCap":${rowCapJson(rows.length, total)}}`] : [])] : [];
 }
 
 /** Whether Rust's `str::parse::<f64>` accepts `s` (so TOON must quote it). */

@@ -147,7 +147,7 @@ A point is built from a map. The keys choose the coordinate reference system (CR
 | `longitude`, `latitude` | `wgs-84` | `4326` | Meters on the sphere |
 | `longitude`, `latitude`, `height` | `wgs-84-3d` | `4979` | Meters |
 
-Coordinates are floats: `point({x: 1, y: 2}).x` is `1.0`. The components are `x`, `y`, `z`, `longitude`, `latitude`, `height`, `crs` and `srid`. Two points have no order, so `<` between them gives `null`, and `point.distance()` between two different CRSs gives `null`. A `POINT INDEX` serves `point.distance()` and `point.withinBBox()` filters ([geospatial](/docs/guides/cypher/geospatial)).
+Coordinates are floats: `point({x: 1, y: 2}).x` is `1.0`. The components are `x`, `y`, `z`, `longitude`, `latitude`, `height`, `crs` and `srid`. Every point has `x`, `y`, `crs` and `srid`, and a WGS-84 point's `x` and `y` are its longitude and latitude. Since 1.0.1, reading a component the point does not carry, such as `latitude` on a cartesian point or `z` on a 2D point, fails with `semantic error: Field: latitude is not available on a point value`; 1.0.0 returned `y` for `latitude`, `x` for `longitude`, and `null` for a missing `z` or `height`. Two points have no order, so `<` between them gives `null`, and `point.distance()` between two different CRSs gives `null`. A `POINT INDEX` serves `point.distance()` and `point.withinBBox()` filters ([geospatial](/docs/guides/cypher/geospatial)).
 
 ```cypher run name=points
 RETURN point({x: 1, y: 2}) AS cartesian,
@@ -262,7 +262,6 @@ relate --mode jsonl "RETURN date('2026-11-08') AS d, localtime('10:15:30') AS lt
 
 ```text
 {"d":"2026-11-08","dt":"2026-11-08T10:15:30+01:00[Europe/Paris]","dur":"P1DT2H30M","ldt":"2026-11-08T10:15:30","lt":"10:15:30","t":"10:15:30+01:00"}
-{"planCache":"miss","timings":{"elapsed_ms":0.386625,"execute_ms":0.1875,"lex_parse_ms":0.023958,"lower_ms":0.090042,"parse_ms":0.15275,"plan_ms":0.038875,"result_generation_ms":0.0005,"rewrite_ms":0.009125}}
 ```
 
 ```bash verify
@@ -282,7 +281,6 @@ relate --mode jsonl "RETURN point({x: 1, y: 2}) AS xy, point({latitude: 51.5, lo
 
 ```text
 {"geo":{"crs":"wgs-84","latitude":51.5,"longitude":-0.1,"srid":4326},"u":"f066ecfc-5151-4121-8a36-b35e00d72918","v":{"dim":3,"type":"INTEGER8","values":[1,2,3]},"xy":{"crs":"cartesian","srid":7203,"x":1.0,"y":2.0}}
-{"planCache":"miss","timings":{"elapsed_ms":0.443833,"execute_ms":0.24812499999999998,"lex_parse_ms":0.028541999999999998,"lower_ms":0.047666,"parse_ms":0.132542,"plan_ms":0.050083,"result_generation_ms":0.000458,"rewrite_ms":0.007417}}
 ```
 
 ```bash verify
@@ -302,7 +300,6 @@ relate --mode jsonl "CREATE p = (a:Person {name: 'Ada'})-[r:KNOWS {since: 2024}]
 
 ```text
 {"a":{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},"p":[{"id":0,"kind":"node","labels":["Person"],"properties":{"name":"Ada"}},{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"},{"id":1,"kind":"node","labels":["Person"],"properties":{"name":"Grace"}}],"r":{"end_node":1,"id":0,"kind":"relationship","properties":{"since":2024},"start_node":0,"type":"KNOWS"}}
-{"planCache":"miss","timings":{"elapsed_ms":0.528292,"execute_ms":0.303916,"lex_parse_ms":0.009042000000000001,"lower_ms":0.010541,"parse_ms":0.208167,"plan_ms":0.009917,"result_generation_ms":0.00029099999999999997,"rewrite_ms":0.000583}}
 ```
 
 ## Column types in the envelope

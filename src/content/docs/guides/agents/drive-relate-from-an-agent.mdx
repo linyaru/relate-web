@@ -235,7 +235,7 @@ An explicit `--mode` always wins, so a pipeline that parses JSON pins it:
 | Mode | Prints | A row-cap cut shows as |
 | --- | --- | --- |
 | `envelope` | One JSON object per result set, with column types | `"truncated": true` and `rowCap` |
-| `jsonl` | One JSON object per row, then one timing line per statement | A `{"rowCap": …}` line before the timing line |
+| `jsonl` | One JSON object per row; `--timings` adds one timing line per statement | A `{"rowCap": …}` line after the rows |
 | `json` | One JSON object per result set, the rows in `data`; one compact line when piped | A `rowCap` key beside `data` |
 | `toon` | A header line, one line per row, then `timings:` and `planCache:` entries | A `rowCap:` entry before `timings:` |
 | `markdown` | A GitHub-flavored Markdown table | A closing `> truncated: N of M rows shown` line |

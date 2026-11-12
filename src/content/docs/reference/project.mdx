@@ -14,7 +14,7 @@ relate is open source under the Apache License 2.0. It is pre-1.0: under semanti
 | --- | --- |
 | License | Apache License 2.0 |
 | Source | [github.com/relatedb/relate](https://github.com/relatedb/relate), public |
-| Version these pages track | 1.0.0 |
+| Version these pages track | 1.0.1 |
 | Stability | 1.0.0 is the first stable release; a breaking change comes with a new major version and is marked |
 | Contributions | Issues; no pull requests from outside the maintainer team |
 | Release cadence | None published |
@@ -28,7 +28,7 @@ relate --version
 ```
 
 ```text
-Relate v1.0.0
+Relate v1.0.1
 License: Apache 2.0 (binary)
 ```
 
@@ -55,7 +55,7 @@ relate follows semantic versioning, as its changelog states, and 1.0.0 is its fi
 
 | Promise | What it means |
 | --- | --- |
-| Breaking changes take a major version | Under semantic versioning, a change that breaks working code or statements comes in a new major version; a 1.x minor release adds features, and a patch release fixes bugs. Before 1.0, any release could break, a patch release included: 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C application binary interface (ABI) with an incompatible typed one, 0.1.2 and 0.1.3 changed the strings `elementId()` returns, and 1.0.0 removed the change-data-capture methods from the Rust crate. |
+| Breaking changes take a major version | Under semantic versioning, a change that breaks working code or statements comes in a new major version; a 1.x minor release adds features, and a patch release fixes bugs. Before 1.0, any release could break, a patch release included: 0.16.1 removed the `apoc.coll.sort` spelling and replaced the C application binary interface (ABI) with an incompatible typed one, 0.1.2 and 0.1.3 changed the strings `elementId()` returns, and 1.0.0 removed the change-data-capture methods from the Rust crate. The first patch release after 1.0 did not hold to it either: 1.0.1 changed the default `--jsonl` output, what Python's `Record.data()` returns, and which Cypher statements validate, each marked **Breaking** in its [changelog entry](/docs/reference/changelog). |
 | Breaking changes are marked | A change that can make working code or statements fail is marked **Breaking** in the [changelog](/docs/reference/changelog) entry of the release that ships it, with its replacement when there is one. |
 | Deprecations are listed | A feature that still works but is to be removed is listed under Deprecated in the release that deprecates it. |
 | One version number | The binary and every client package carry the same version number. |
@@ -102,15 +102,15 @@ The project publishes no release cadence and no support period for older release
 
 Releases up to and including 0.16.1 were published under the project's earlier name, cypherlite, with `cypherlite-<os>-<arch>` binaries; the first release named relate restarted the version numbers at 0.1.0. The Swift package also builds for iOS devices (arm64) and the iOS simulator. The browser package, `@relate/relate-wasm`, is a WebAssembly build that runs in the browser on any of these systems; a durable browser :term[store]{id=store} needs a dedicated worker and the origin private file system. The Rust crate, `relate`, builds from source with Rust 1.88 or later. No artifact is built for another operating system or architecture.
 
-Each release publishes the packages below at its version, from the same commit as the release downloads. As of 1.0.0:
+Each release publishes the packages below at its version, from the same commit as the release downloads. As of 1.0.1:
 
 | Registry | Name | Install |
 | --- | --- | --- |
 | PyPI | `relate-db` (`import relate`): wheels for the five platforms above and a source distribution | `pip install relate-db` |
 | npm | `@relate/relate`, with its engine in a platform package, `@relate/relate-<platform>-<arch>`, which npm picks; `@relate/relate-wasm` for the browser | `npm install @relate/relate` |
 | crates.io | `relate`, with the crates it depends on at the same version | `cargo add relate` |
-| Go modules | `github.com/relatedb/relate/clients/go`, resolved from the repository; the module has no version tag of its own, so a release is pinned by its commit and Go records a pseudo-version | `go get github.com/relatedb/relate/clients/go@b02f283` (1.0.0) |
-| SwiftPM | `Relate`, from `github.com/relatedb/relate` at the release tag | `.package(url: "https://github.com/relatedb/relate", from: "1.0.0")` |
+| Go modules | `github.com/relatedb/relate/clients/go`, resolved from the repository; the module has no version tag of its own, so a release is pinned by its commit and Go records a pseudo-version | `go get github.com/relatedb/relate/clients/go@ef436ce` (1.0.1) |
+| SwiftPM | `Relate`, from `github.com/relatedb/relate` at the release tag | `.package(url: "https://github.com/relatedb/relate", from: "1.0.1")` |
 | Release downloads | `github.com/relatedb/relate/releases`: the CLI binaries, the C libraries, the Java jars and the Swift XCFramework | [Install relate](/docs/get-started/install) |
 
 `com.relate:relate` is not on Maven Central: the Java jars are release downloads only, and a Maven or Gradle build installs the jar into its local repository ([Java guide](/docs/guides/embed/java)).

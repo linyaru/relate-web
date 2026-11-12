@@ -5,7 +5,7 @@ are nearest to this vector" with an exact nearest-neighbor search (every
 indexed vector is scored; ties go to the lower element id); a full-text index
 answers "which entities contain these words". The `SEARCH` clause restricts
 a `MATCH` to an index's top results and names their score. The statements
-below run in order on one in-memory store, on relate 1.0.0.
+below run in order on one in-memory store, on relate 1.0.1.
 
 Sources: <https://relatedb.ai/docs/reference/cypher/search.md> (every rule,
 option, default and error message) and

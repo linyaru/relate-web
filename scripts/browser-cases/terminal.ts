@@ -190,10 +190,10 @@ export default {
         choose('250 rows');
         await run();
         setMode('jsonl');
-        expect(log, failures, 'without the harness, all 250 rows print, then the timing line', screen.dataset.printed === '250' && lines(1).length === 251 && /^\\{"planCache":/.test(lines(1).at(-1)), screen.dataset.printed + ' printed, ' + lines(1).length + ' lines');
+        expect(log, failures, 'without the harness, all 250 rows print and nothing else (no timing line without --timings, 1.0.1)', screen.dataset.printed === '250' && lines(1).length === 250 && lines(1).at(-1) === '{"x":250}', screen.dataset.printed + ' printed, ' + lines(1).length + ' lines');
         setHarness(true);
         const kept = lines(1).filter((t) => /^\\{"x":/.test(t)).length;
-        expect(log, failures, 'with it, 100 print, then the rowCap line, then the timing line', screen.dataset.printed === '100' && kept === 100 && lines(1).at(-2) === '{"rowCap":{"kept":100,"total":250}}' && /^\\{"planCache":/.test(lines(1).at(-1)), kept + ' rows; last two ' + lines(1).slice(-2).join(' | '));
+        expect(log, failures, 'with it, 100 print, then the rowCap line last', screen.dataset.printed === '100' && kept === 100 && lines(1).at(-1) === '{"rowCap":{"kept":100,"total":250}}' && lines(1).length === 101, kept + ' rows; last two ' + lines(1).slice(-2).join(' | '));
         expect(log, failures, 'the warning is on stderr', lines(2).some((t) => /^warning: result truncated to 100 rows \\(the statement returned 250\\)/.test(t)), lines(2)[0]);
         expect(log, failures, 'the command carries the harness variable', /^CLAUDECODE=1 relate --read-only --mode jsonl /.test(command()), command().slice(0, 60));
         expect(log, failures, 'the exit code stays 0', /^exit 0 /.test(exitLine()), exitLine().slice(0, 40));
@@ -213,10 +213,10 @@ export default {
         await run(120000);
         const ms = Math.round(performance.now() - t0);
         expect(log, failures, 'the run draws', /^From this tab's run/.test(status()) && screen.dataset.runs !== undefined, status().slice(0, 120));
-        expect(log, failures, 'jsonl: 500 lines drawn of 200,001 (the rows and the timing line), the count exact', screen.dataset.lines === '200001' && screen.dataset.drawn === '500' && lines(1).length === 500 && lines(1)[499] === '{"x":500}', screen.dataset.lines + ' / ' + screen.dataset.drawn);
-        expect(log, failures, 'the pane says what it left out, as its own line', notes().length === 1 && notes()[0] === 'the pane stops here; relate prints 199,501 more lines' && screen.querySelector('.term-note .term-fd').textContent === 'pane', notes().join(' | '));
+        expect(log, failures, 'jsonl: 500 lines drawn of 200,000 (the rows alone), the count exact', screen.dataset.lines === '200000' && screen.dataset.drawn === '500' && lines(1).length === 500 && lines(1)[499] === '{"x":500}', screen.dataset.lines + ' / ' + screen.dataset.drawn);
+        expect(log, failures, 'the pane says what it left out, as its own line', notes().length === 1 && notes()[0] === 'the pane stops here; relate prints 199,500 more lines' && screen.querySelector('.term-note .term-fd').textContent === 'pane', notes().join(' | '));
         expect(log, failures, 'the exit line keeps the true counts', /200,000 rows from the engine, 200,000 printed/.test(exitLine()), exitLine());
-        expect(log, failures, 'the status names the outcome in full', /Exit 0, success: 0 lines on stderr, 200,001 on stdout\\./.test(status()), status());
+        expect(log, failures, 'the status names the outcome in full', /Exit 0, success: 0 lines on stderr, 200,000 on stdout\\./.test(status()), status());
         const t1 = performance.now();
         setMode('table');
         const tableMs = Math.round(performance.now() - t1);

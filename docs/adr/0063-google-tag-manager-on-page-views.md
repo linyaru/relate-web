@@ -1,4 +1,4 @@
-# ADR-0062: Google Tag Manager measures page views on the indexable build
+# ADR-0063: Google Tag Manager measures page views on the indexable build
 
 Status: Proposed
 

@@ -202,8 +202,8 @@
         },
         {
           "id": "schema-unchanged",
-          "description": "No index or constraint was added (a constraint's backing index is listed by SHOW INDEXES)",
-          "cypher": "SHOW INDEXES YIELD name RETURN count(*) AS indexes",
+          "description": "No index or constraint was added (a constraint's backing index is listed by SHOW INDEXES; the two lookup indexes every store lists are not counted)",
+          "cypher": "SHOW INDEXES YIELD name WHERE NOT name IN ['index_1b9dcc97', 'index_460996c0'] RETURN count(*) AS indexes",
           "expect": { "rows": [{ "indexes": 0 }] }
         },
         {

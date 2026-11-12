@@ -366,10 +366,8 @@ test('sampleVerifiers: a compiled language counts once model.ts VERIFIERS names 
 test('setup.sh: --out inside this repository or the checkout is refused before anything is created', () => {
   // A stand-in checkout: the two files setup.sh looks for before the --out guard.
   const upstream = join(scratch, 'upstream');
-  mkdirSync(join(upstream, 'surfaces', 'relate-python'), { recursive: true });
-  mkdirSync(join(upstream, 'clients', 'javascript'), { recursive: true });
-  writeFileSync(join(upstream, 'surfaces', 'relate-python', 'Cargo.toml'), '');
-  writeFileSync(join(upstream, 'clients', 'javascript', 'package.json'), '{}');
+  mkdirSync(join(upstream, 'surfaces', 'relate-ffi'), { recursive: true });
+  writeFileSync(join(upstream, 'Cargo.toml'), '');
   const setup = join(ROOT, 'scripts', 'samples', 'setup.sh');
   const cases: [string, string, string][] = [
     // [working directory, --out, the path that must not appear]

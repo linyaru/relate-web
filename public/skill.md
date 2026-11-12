@@ -79,8 +79,8 @@ done
 ```
 
 A download by hand has no digest check of its own. The files' SHA-256
-values are in <https://relatedb.ai/docs/docs-artifacts.json>, which the
-release key signs at launch (`docs-artifacts.json.sig` beside it). This
+values are in <https://relatedb.ai/docs/docs-artifacts.json>, which is not
+signed yet (a `docs-artifacts.json.sig` by the release key is planned). This
 step compares every downloaded file with its entry there and exits 1 on any
 mismatch:
 

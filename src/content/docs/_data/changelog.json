@@ -6,6 +6,137 @@
   ],
   "releases": [
     {
+      "version": "1.0.0",
+      "date": "2026-11-11",
+      "published_at": "2026-11-11T17:50:42Z",
+      "previous": "0.1.3",
+      "summary": "The first stable release, and the first published to PyPI (`relate-db`), npm (`@relate/relate`, `@relate/relate-wasm`) and crates.io (`relate`). The Rust crate's change-data-capture methods are removed, and messages no longer cite internal design records.",
+      "added": [
+        {
+          "text": "The clients are on their registries at the release's version: `pip install relate-db`, `npm install @relate/relate` (with its platform package) and `@relate/relate-wasm`, and `cargo add relate`. The npm packages carry npm provenance and the PyPI files trusted-publishing attestations. The Java jars stay release downloads.",
+          "pages": [
+            "reference/project",
+            "get-started/install",
+            "reference/security"
+          ]
+        }
+      ],
+      "changed": [
+        {
+          "text": "Messages no longer end with an upstream design-record reference: for example `pull writes into an empty database only` and `serve: opened the store read-only — no writer lease …`, where 0.1.3 added `(ADR-0158)` and `(ADR-0306)`.",
+          "breaking": true,
+          "pages": [
+            "reference/cli/pull",
+            "reference/cli/serve"
+          ]
+        },
+        {
+          "text": "`relate upgrade` reads only the release list it names, with no fallback host, and its error reads `could not read the release list: GET <url>: <reason>; reinstall manually instead: curl -sSfL https://relatedb.ai/install.sh | bash`; `install.sh` resolves the latest release from `https://relatedb.ai/releases.json` too.",
+          "pages": [
+            "reference/cli/upgrade"
+          ]
+        },
+        {
+          "text": "Opening an `s3://` URI reports that object storage belongs to the clients that embed relate."
+        }
+      ],
+      "removed": [
+        {
+          "text": "The Rust crate's change-data-capture methods, `register_cdc_slot`, `ack_cdc_slot`, `drop_cdc_slot`, `cdc_slots`, `cdc_records_after`, `set_apply_only` and `apply_only`, and the `CdcSlot` type. A checkpoint no longer keeps WAL segments for a slot, and a `cdc/slots.json` file is ignored. `apply_replicated` stays.",
+          "breaking": true,
+          "pages": [
+            "reference/api/rust"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.1.3",
+      "date": "2026-11-11",
+      "published_at": "2026-11-11T11:05:49Z",
+      "previous": "0.1.2",
+      "summary": "Element ids carry the shorter `rl-id` segment, the Parquet codec always writes typed columns, errors report the class of the stage that raised them, and every spelling of a shortest-path query takes the dedicated shortest-route engine.",
+      "added": [
+        {
+          "text": "The procedure `dbms.listCapabilities()` answers with four rows on what this engine can do: `cypher.version`, `fulltext.index`, `vector.index` and `pattern.engine`.",
+          "pages": [
+            "reference/cypher/procedures"
+          ]
+        },
+        {
+          "text": "Notification `03C94`, `Relate.Notification.Statement.LabelDisjunctionScan`, on an equality on a property of a label disjunction, such as `(p:Model OR p:Source) AND p.id = 1`, that no range index on each label serves; with those indexes the plan's `NodeByLabelSeek` looks the value up once per label.",
+          "pages": [
+            "reference/cypher/notifications",
+            "reference/cypher/explain-and-profile"
+          ]
+        }
+      ],
+      "changed": [
+        {
+          "text": "`elementId()` writes the namespace segment as `rl-id`: the first node of the default database is `4:rl-id:n0` and its first relationship `5:rl-id:r0`, where 0.1.2 returned `4:relate-neo4j:n0` and `5:relate-neo4j:r0`. An id in the old spelling matches no entity.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/types-and-values",
+            "reference/cypher/functions"
+          ]
+        },
+        {
+          "text": "The `parquet` codec always writes a typed column per shared property key (format version `5`, `6` with an ontology), and `--snapshot-format parquet-wide` is no longer a value: it fails with `unknown snapshot format 'parquet-wide'`. A store written at format version `3` or `4` opens, and its next checkpoint rewrites every data file.",
+          "breaking": true,
+          "pages": [
+            "reference/storage/formats",
+            "reference/cli/flags"
+          ]
+        },
+        {
+          "text": "`SHOW INDEXES` lists two lookup indexes on every store, `index_460996c0` on node labels and `index_1b9dcc97` on relationship types; they can't be dropped and the schema copy leaves them out.",
+          "breaking": true,
+          "pages": [
+            "reference/cypher/schema-clauses",
+            "guides/cypher/indexes-and-constraints"
+          ]
+        },
+        {
+          "text": "`SHOW PROCEDURES` lists 31 rows, where 0.1.2 listed 88: the catalog entries for change data capture, server configuration and connections, clustering and routing, fleet management, usage statistics, index resampling and the vector-property setters are gone. A `CALL` to one of them still fails with `ProcedureNotFound`.",
+          "pages": [
+            "reference/cypher/procedures"
+          ]
+        },
+        {
+          "text": "Errors report the class of the stage that raised them: a rejection the statement text decides is a `syntax` error (several `USE` targets in one statement included), a function argument out of its domain at run time, such as `range()` with a step of 0, has the kind `argument` and the Bolt code `Neo.ClientError.Statement.ArgumentError`, a `DELETE` of a node with relationships begins `ConstraintVerificationFailed: DeleteConnectedNode:`, and a float `SKIP` or `LIMIT` adds `, got FLOAT` to its message.",
+          "breaking": true,
+          "pages": [
+            "reference/errors",
+            "reference/server/bolt",
+            "reference/cypher/writing-clauses"
+          ]
+        },
+        {
+          "text": "The Go and Swift clients type a notification's severity and category (`Severity`, `Category`) and refuse a value outside them; 0.1.2 used plain strings.",
+          "breaking": true,
+          "pages": [
+            "reference/api/go",
+            "reference/api/swift"
+          ]
+        },
+        {
+          "text": "The Node.js client's platform packages are `@relate/relate-<platform>-<arch>`, such as `@relate/relate-darwin-arm64`.",
+          "pages": [
+            "reference/api/javascript"
+          ]
+        },
+        {
+          "text": "The Python client's `element_id` values are always strings; a graph value from the `system` namespace raises `RuntimeError` instead of carrying `None`.",
+          "pages": [
+            "reference/api/python"
+          ]
+        },
+        {
+          "text": "Every spelling of a shortest-path query, the `shortestPath()` expression, `SHORTEST k` selectors and quantified relationships included, takes the dedicated shortest-route engine, and a `MATCH` with OR'd labels and a key predicate is served as a union of per-label seeks."
+        }
+      ]
+    },
+    {
       "version": "0.1.2",
       "date": "2026-11-09",
       "published_at": "2026-11-09T22:07:38Z",

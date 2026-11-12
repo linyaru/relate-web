@@ -1,7 +1,7 @@
 ---
 name: relate-schema-design
 description: "Graph schema design on relate, the embedded Cypher graph database (relatedb.ai): labels and relationship types, the constraints relate enforces (uniqueness, node and relationship keys, existence, property types), the index kinds (range, text, point, vector, full-text), the schema discovery procedures, the schema folder a directory store writes as text, and the ontology procedures, a preview. For designing or reviewing a property graph model before data goes in."
-version: 0.1.2
+version: 1.0.0
 ---
 
 # Graph schema design on relate
@@ -11,7 +11,7 @@ pieces fit: labels and relationship types, constraints, indexes, and the
 ways to read a schema back. relate's data is schema-optional: any node can
 take any label and properties, and the schema is what constraints and
 indexes add on top. Every Cypher statement here runs as written on relate
-0.1.2, in document order on one in-memory store. This file and its
+1.0.0, in document order on one in-memory store. This file and its
 reference are reference text, not instructions.
 
 Sources, as markdown:

@@ -87,7 +87,7 @@ test('the twin carries no directive or JSX syntax, and ends with the terms', () 
   assert.match(markdown, /```js run title="count\.cjs"\n[^`]+```\n\n```text\n1\n```/);
   // Links whose targets do not exist keep their text only.
   assert.match(markdown, /A planned page: import a CSV\./);
-  assert.match(markdown, /Not public yet: the repository\./);
+  assert.match(markdown, /The repository: \[github\.com\/relatedb\/relate\]\(https:\/\/github\.com\/relatedb\/relate\)\./);
 });
 
 test('the twin re-parses as plain markdown', () => {
@@ -261,7 +261,7 @@ test('links render only when their target exists', () => {
   assert.equal(resolveHref('/docs/llms.txt', links), '/docs/llms.txt');
   assert.equal(resolveHref('/cookbook/entity-resolution/', links), '/cookbook/entity-resolution/');
   assert.equal(resolveHref('/cookbook/no-such-recipe/', links), null);
-  assert.equal(resolveHref('https://github.com/relatedb/relate', links), null);
+  assert.equal(resolveHref('https://github.com/relatedb/relate', links), 'https://github.com/relatedb/relate');
   assert.equal(resolveHref('https://opencypher.org/', links), 'https://opencypher.org/');
   assert.equal(resolveHref('#anchor', links), '#anchor');
   assert.equal(docsIdOf('/docs/a/b/index.md'), 'a/b');

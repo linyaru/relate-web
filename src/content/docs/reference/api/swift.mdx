@@ -7,7 +7,7 @@ surfaces: [swift]
 related: [guides/embed/swift, get-started/swift, reference/api, reference/api/c, reference/errors, concepts/problems-relate-solves#embedded-graph-in-an-app]
 ---
 
-The Swift :term[client]{id=client} is the package `Relate`, from the repository `github.com/relatedb/relate`, for iOS 16 or later and macOS 13 or later in the Swift 6 language mode. It is a Swift layer over the relate C library, linked in as the static XCFramework `RelateFFI`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous and throws `RelateError`. This page describes the package of relate 0.1.2.
+The Swift :term[client]{id=client} is the package `Relate`, from the repository `github.com/relatedb/relate`, for iOS 16 or later and macOS 13 or later in the Swift 6 language mode. It is a Swift layer over the relate C library, linked in as the static XCFramework `RelateFFI`, whose C application binary interface (C ABI) is version 2: values cross through the library's typed value walker and parameter builder, with no JSON. Every call is synchronous and throws `RelateError`. This page describes the package of relate 1.0.0.
 
 ## Synopsis
 
@@ -50,6 +50,7 @@ public final class Connection {
 | `CypherValue` | enum, `Sendable`, `Hashable` | One Cypher value, at any depth |
 | `CypherValueKind` | enum, `UInt32` raw values | The kind of a `CypherValue` |
 | `Notification` | struct | One planner notification |
+| `Severity`, `Category` | enums, `String` raw values | A notification's severity (`.information`, `.warning`) and category (`.performance`, `.unrecognized`, `.deprecation`, `.schema`, `.hint`); typed since 0.1.3, where 0.1.2 used plain strings |
 | `PlanDocument`, `PlanNode`, `PlanActual`, `PlanStart` | structs | The structured plan |
 | `RelateError` | enum, `LocalizedError` | Every error the package throws |
 | `EngineError` | struct | The engine's classified error: `code`, `gqlStatus`, `stage`, `retryable`, `message` |
@@ -133,7 +134,7 @@ Every cell, and every element of a list or map, is a `CypherValue` that keeps it
 | `.duration` | `DURATION` | `Duration`: `months`, `days`, `seconds`, `nanoseconds` |
 | `.vector` | `VECTOR` | `Vector`: `.floats(dtype:values:)` or `.ints(dtype:values:)` |
 
-`Vector.DType` has the cases `.integer8`, `.integer16`, `.integer32`, `.integer`, `.float16`, `.bfloat16`, `.float32` and `.float`, whose raw values are the engine's names (`INTEGER8` … `FLOAT`). UUIDs arrive as `.string`, byte arrays as a `.list` of `.int`. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:relate-neo4j:n0`; the `Int64` ids are the deprecated numeric ids `id()` returns. A value kind the package does not know throws `.decoding`.
+`Vector.DType` has the cases `.integer8`, `.integer16`, `.integer32`, `.integer`, `.float16`, `.bfloat16`, `.float32` and `.float`, whose raw values are the engine's names (`INTEGER8` … `FLOAT`). UUIDs arrive as `.string`, byte arrays as a `.list` of `.int`. An :term[element id]{id=element-id} is the string `elementId()` returns, such as `4:rl-id:n0`; the `Int64` ids are the deprecated numeric ids `id()` returns. A value kind the package does not know throws `.decoding`.
 
 | Accessor | Returns |
 | --- | --- |
@@ -179,7 +180,7 @@ A statement failure throws from `query`; a conflict in an explicit transaction t
 
 ## Notifications and plans
 
-`Notification` has the properties `code`, `gqlStatus`, `severity` (`INFORMATION` or `WARNING`), `category` (`PERFORMANCE`, `UNRECOGNIZED`, `DEPRECATION`, `SCHEMA` or `HINT`), `title`, `description`, `remedy` and `operatorId`, an `Int64?` that is `nil` on a statement-scoped notification.
+`Notification` has the properties `code`, `gqlStatus`, `severity`, a `Severity` (`.information` or `.warning`, raw values `INFORMATION` and `WARNING`), `category`, a `Category` (`.performance`, `.unrecognized`, `.deprecation`, `.schema` or `.hint`, raw values the upper-case names), `title`, `description`, `remedy` and `operatorId`, an `Int64?` that is `nil` on a statement-scoped notification. A severity or category outside those cases, or a missing one, is a `.decoding` error that begins `ABI contract violated:` and names the key and the value.
 
 | Struct | Properties |
 | --- | --- |

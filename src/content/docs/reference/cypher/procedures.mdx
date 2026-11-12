@@ -6,7 +6,7 @@ surfaces: [cypher, cli]
 related: [reference/cypher/functions, reference/cypher/search, guides/cypher/ontology, reference/cypher/explain-and-profile, concepts/problems-relate-solves#text-to-cypher]
 ---
 
-A procedure is a built-in routine that `CALL` runs; it returns rows with named columns that `YIELD` picks. relate has 21 callable procedures that `SHOW PROCEDURES` lists, four ontology procedures behind a preview opt-in, and two callable procedures it does not list. `SHOW PROCEDURES` returns 88 rows by default; the other 67 are catalog entries kept for tools that read Neo4j's catalog, and a `CALL` to one fails with `syntax error: ProcedureNotFound: <name>`. The cells run on relate's WebAssembly (WASM) build, and the `bash verify` blocks on the CLI.
+A procedure is a built-in routine that `CALL` runs; it returns rows with named columns that `YIELD` picks. relate has 22 callable procedures that `SHOW PROCEDURES` lists, four ontology procedures behind a preview opt-in, and two callable procedures it does not list. `SHOW PROCEDURES` returns 31 rows by default; the other 9 are catalog entries kept for tools that read Neo4j's catalog, and a `CALL` to one fails with `syntax error: ProcedureNotFound: <name>`. The cells run on relate's WebAssembly (WASM) build, and the `bash verify` blocks on the CLI.
 
 ## Synopsis
 
@@ -23,7 +23,7 @@ SHOW PROCEDURES [YIELD <column>, …] [WHERE <predicate>] [RETURN …]
 | `YIELD *` | Standalone `CALL` only; in a longer statement it fails with `syntax error: UnexpectedSyntax: YIELD * is not allowed in in-query CALL`, and the columns are named instead |
 | Wrong arity | `syntax error: InvalidNumberOfArguments: <name> expected <n>, got <m>` |
 | Unknown or catalog-only name | `syntax error: ProcedureNotFound: <name>` |
-| Deprecated procedures | Of the callable procedures, the four index query procedures; under `EXPLAIN` a call raises notification `01N01` with ``Use the `SEARCH` clause instead.`` ([notifications](/docs/reference/cypher/notifications)). `SHOW PROCEDURES` also marks five catalog-only entries deprecated: `cdc.current`, `cdc.earliest`, `cdc.query`, `dbms.cluster.recreateDatabase` and `dbms.cluster.routing.getRoutingTable` |
+| Deprecated procedures | Of the callable procedures, the four index query procedures; under `EXPLAIN` a call raises notification `01N01` with ``Use the `SEARCH` clause instead.`` ([notifications](/docs/reference/cypher/notifications)) |
 | `SHOW PROCEDURES` columns | `name`, `description`, `mode`, `worksOnSystem`, `signature`, `argumentDescription`, `returnDescription`, `admin`, `option`, `isDeprecated`, `deprecatedBy` |
 | Extensions | An extension adds no procedure: it is a `relate run` command that reaches the store over MCP stdio ([write an extension](/docs/guides/extensions/write-an-extension)) |
 
@@ -125,6 +125,7 @@ RETURN p.name AS name, round(score, 4) AS score
 | `dbms.info() :: (id :: STRING, name :: STRING, creationDate :: STRING)` | `id`, `name`, `creationDate` | `relate`, `system`, `1970-01-01T00:00:00Z` |
 | `dbms.components() :: (name :: STRING, versions :: LIST<STRING>, edition :: STRING)` | `name`, `versions`, `edition` | Three rows: `Neo4j Kernel`, `Cypher` (`["5", "25"]`) and `Relate`, whose `versions` holds the relate version |
 | `db.ping() :: (success :: BOOLEAN)` | `success` | `true` |
+| `dbms.listCapabilities() :: (name :: STRING, description :: STRING, value :: ANY)` | `name`, `description`, `value` | Four rows on what this engine can do: `cypher.version` (`"25"`), `fulltext.index` (`true`), `vector.index` (`true`) and `pattern.engine`, the pattern-matching engine in force for the store (`"auto"`) |
 | `dbms.showCurrentUser() :: (username :: STRING, roles :: LIST<STRING>, flags :: LIST<STRING>)` | `username`, `roles`, `flags` | `relate`, `["admin"]`, `[]`; relate has no users |
 | `dbms.listConfig() :: (name :: STRING, description :: STRING, value :: STRING, dynamic :: BOOLEAN, defaultValue :: STRING, startupValue :: STRING, explicitlySet :: BOOLEAN, validValues :: STRING)` | Those eight | Nine fixed settings for Neo4j tools, such as `browser.post_connect_cmd` and `server.metrics.prefix` (`relate`) |
 | `dbms.clientConfig()` | The `dbms.listConfig` columns | Not listed by `SHOW PROCEDURES`; the browser settings, for Neo4j tools that call it |
@@ -207,16 +208,14 @@ relate --database ./team.rl --read-only --mode jsonl "SHOW CURRENT GRAPH TYPE"
 
 ## Catalog-only entries
 
-`SHOW PROCEDURES` lists these 67 names so that tools built for Neo4j find the rows they expect. None of them runs: each `CALL` fails with `syntax error: ProcedureNotFound: <name>`.
+`SHOW PROCEDURES` lists these 9 names so that tools built for Neo4j find the rows they expect. None of them runs: each `CALL` fails with `syntax error: ProcedureNotFound: <name>`.
 
 | Group | Names |
 | --- | --- |
-| Change data capture | `cdc.current`, `cdc.earliest`, `cdc.query`, `db.cdc.current`, `db.cdc.earliest`, `db.cdc.query`, `db.cdc.translateId` |
-| Indexes and tokens | `db.awaitIndex`, `db.index.fulltext.awaitEventuallyConsistentIndexRefresh`, `db.index.fulltext.listAvailableAnalyzers`, `db.prepareForReplanning`, `db.resampleIndex`, `db.resampleOutdatedIndexes`, `db.create.setNodeVectorProperty`, `db.create.setRelationshipVectorProperty`, `db.createProperty`, `db.createRelationshipType` |
-| Database operations | `db.checkpoint`, `db.clearQueryCaches`, `db.listLocks`, `db.stats.clear`, `db.stats.collect`, `db.stats.retrieveAllAnonymized`, `db.stats.status`, `db.stats.stop` |
-| Configuration and connections | `dbms.checkConfigValue`, `dbms.setConfigValue`, `dbms.killConnection`, `dbms.killConnections`, `dbms.listActiveLocks`, `dbms.listCapabilities`, `dbms.listConnections`, `dbms.listPools`, `dbms.queryJmx`, `dbms.reloadProcedures`, `dbms.scheduler.failedJobs`, `dbms.scheduler.groups`, `dbms.scheduler.jobs`, `dbms.security.clearAuthCache`, `dbms.security.reloadTLS` |
-| Clustering and routing | `dbms.cluster.checkConnectivity`, `dbms.cluster.cordonServer`, `dbms.cluster.deallocateDatabaseFromServer`, `dbms.cluster.deallocateDatabaseFromServers`, `dbms.cluster.deallocateNumberOfDatabases`, `dbms.cluster.protocols`, `dbms.cluster.reallocateDatabase`, `dbms.cluster.reallocateNumberOfDatabases`, `dbms.cluster.recreateDatabase`, `dbms.cluster.routing.getRoutingTable`, `dbms.cluster.secondaryReplicationDisable`, `dbms.cluster.setAutomaticallyEnableFreeServers`, `dbms.cluster.statusCheck`, `dbms.promoteReplicaDatabase`, `dbms.recreateDatabase`, `dbms.routing.getRoutingTable`, `dbms.setDefaultAllocationNumbers`, `dbms.setDefaultDatabase`, `dbms.showTopologyGraphConfig`, `dbms.unquarantineDatabase` |
-| Fleet management | `fleetManagement.debugLogging`, `fleetManagement.disable`, `fleetManagement.inspectToken`, `fleetManagement.registerToken`, `fleetManagement.reportedData`, `fleetManagement.restart`, `fleetManagement.status` |
+| Indexes and tokens | `db.awaitIndex`, `db.index.fulltext.awaitEventuallyConsistentIndexRefresh`, `db.index.fulltext.listAvailableAnalyzers`, `db.prepareForReplanning`, `db.createProperty`, `db.createRelationshipType` |
+| Database operations | `db.checkpoint`, `db.clearQueryCaches`, `db.listLocks` |
+
+Releases up to and including 0.1.2 listed 57 more catalog entries, for change data capture, server configuration and connections, clustering and routing, fleet management, usage statistics, index resampling and the vector-property setters. relate 1.0.0 lists only what an embedded engine can answer, and a `CALL` to one of those names fails the same way.
 
 ```cypher run name=catalog-only expect=error
 CALL db.checkpoint()

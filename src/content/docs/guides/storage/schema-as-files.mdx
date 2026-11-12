@@ -174,14 +174,14 @@ schema.cypher
 
 ## Verify
 
-The store's own catalog lists the same three entries the file holds. `SHOW INDEXES` includes the range index that backs the uniqueness constraint, under the constraint's name:
+The store's own catalog lists the same three entries the file holds, after the two lookup indexes that `SHOW INDEXES` lists on every store and the file leaves out. `SHOW INDEXES` includes the range index that backs the uniqueness constraint, under the constraint's name:
 
 ```bash verify
 relate --database ./team --read-only --mode envelope "SHOW INDEXES YIELD name, type RETURN name, type ORDER BY name"
 ```
 
 ```text
-{"columnTypes":["STRING","STRING"],"columns":["name","type"],"notifications":[],"planCache":"miss","rows":[{"name":"person_name","type":"RANGE"},{"name":"person_role","type":"RANGE"},{"name":"project_search","type":"FULLTEXT"}],"timings":{"elapsed_ms":0.574083,"execute_ms":0.419833,"lex_parse_ms":0.027875,"lower_ms":0.044042000000000005,"parse_ms":0.106791,"plan_ms":0.037167,"result_generation_ms":0.000375,"rewrite_ms":0.007625},"truncated":false}
+{"columnTypes":["STRING","STRING"],"columns":["name","type"],"notifications":[],"planCache":"miss","rows":[{"name":"index_1b9dcc97","type":"LOOKUP"},{"name":"index_460996c0","type":"LOOKUP"},{"name":"person_name","type":"RANGE"},{"name":"person_role","type":"RANGE"},{"name":"project_search","type":"FULLTEXT"}],"timings":{"elapsed_ms":0.923417,"execute_ms":0.64025,"lex_parse_ms":0.046375,"lower_ms":0.086917,"parse_ms":0.187417,"plan_ms":0.083625,"result_generation_ms":0.000584,"rewrite_ms":0.011875},"truncated":false}
 ```
 
 ## If it goes wrong

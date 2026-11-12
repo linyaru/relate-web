@@ -98,7 +98,7 @@ The value is an integer expression that does not depend on the row: a literal, a
 | --- | --- |
 | A non-negative integer | Skips or keeps that many rows |
 | `0` | `SKIP 0` keeps every row; `LIMIT 0` returns none |
-| A float literal | `syntax error: InvalidArgumentType: SKIP requires an integer value` (the `LIMIT` form names `LIMIT`) |
+| A float literal | `syntax error: InvalidArgumentType: SKIP requires an integer value, got FLOAT` (the `LIMIT` form names `LIMIT`) |
 | A negative integer | `syntax error: NegativeIntegerArgument: LIMIT must not be negative` (the `SKIP` form names `SKIP`) |
 | `null`, or a float at run time | `type error: InvalidArgumentType: SKIP/LIMIT must be an integer` |
 | An expression over a row variable | `syntax error: NonConstantExpression: LIMIT must be a non-negative integer constant` |

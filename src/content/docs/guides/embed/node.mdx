@@ -22,7 +22,7 @@ The package is `@relate/relate`:
 npm install @relate/relate
 ```
 
-npm installs the engine library as the platform package for your system, `@relate/<platform>-<arch>`, with no install script. On a platform without one, `RELATE_LIB` names a library built from source. The client checks the library's ABI version when it loads and refuses one it was not built for.
+npm installs the engine library as the platform package for your system, `@relate/relate-<platform>-<arch>`, with no install script. On a platform without one, `RELATE_LIB` names a library built from source. The client checks the library's ABI version when it loads and refuses one it was not built for.
 
 ## Open a store
 
@@ -365,7 +365,7 @@ Five nodes and five relationships from the read-only handle mean the store was w
 
 | Error | Cause | Remedy |
 | --- | --- | --- |
-| `Error`: `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/<platform>-<arch> (lib/ directory), …` | npm did not install the platform package, or the platform has none | Reinstall without `--omit=optional`, or set `RELATE_LIB` to a library built from source |
+| `Error`: `librelate_ffi not found; looked in (1) the RELATE_LIB environment variable, (2) the platform package @relate/relate-<platform>-<arch> (lib/ directory), …` | npm did not install the platform package, or the platform has none | Reinstall without `--omit=optional`, or set `RELATE_LIB` to a library built from source |
 | `RelateError` from `Database.open()` with message `internal error` and `stage` `internal` | Another process holds the store for writing, or `readOnly: true` names a path with no store | Close the other writer, open a directory store read-only beside it, or fix the path |
 | `RelateError`: `semantic error: WriteOnReadOnlyAccessDatabase: …` (`gqlStatus` `42N18`) | A write through a read-only handle | Open without `readOnly` for writes |
 | `TypeError`: `query params: "<name>" must be a plain object` | A `Date`, `Map`, `Set` or class instance as a parameter | Pass a `CypherDateTime`, an array, or a plain object |

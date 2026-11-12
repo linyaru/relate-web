@@ -1,6 +1,6 @@
 {
-  "version": "0.1.2",
-  "recordedWith": "relate 0.1.2 (f0c09d2), release build",
+  "version": "1.0.0",
+  "recordedWith": "relate 1.0.0 (b02f283), release build",
   "agentCap": 100,
   "harnessVariable": "CLAUDECODE",
   "harnessVariables": [
@@ -249,24 +249,8 @@
       "retryable": false
     },
     {
-      "id": "engine-multiple-use-targets",
-      "pattern": "^semantic error: SemanticError: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph system$",
-      "kind": "semantic",
-      "code": "validation_error",
-      "exit": 6,
-      "retryable": false
-    },
-    {
       "id": "engine-composite-only-function",
       "pattern": "^semantic error: SemanticError: Dynamic graph lookup not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph graph\\.names\\(\\)$",
-      "kind": "semantic",
-      "code": "validation_error",
-      "exit": 6,
-      "retryable": false
-    },
-    {
-      "id": "engine-multiple-use-targets",
-      "pattern": "^semantic error: SemanticError: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph [\\s\\S]+?$",
       "kind": "semantic",
       "code": "validation_error",
       "exit": 6,
@@ -281,9 +265,25 @@
       "retryable": false
     },
     {
+      "id": "engine-multiple-use-targets",
+      "pattern": "^syntax error: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph system$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
       "id": "engine-composite-only-function",
       "pattern": "^semantic error: SemanticError: Dynamic graph lookup not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph [\\s\\S]+?$",
       "kind": "semantic",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-multiple-use-targets",
+      "pattern": "^syntax error: Multiple graphs in the same query not allowed here\\. This feature is only available on composite databases\\. Attempted to access graph [\\s\\S]+?$",
+      "kind": "syntax",
       "code": "validation_error",
       "exit": 6,
       "retryable": false
@@ -347,6 +347,14 @@
     {
       "id": "engine-value-depth-exceeded",
       "pattern": "^ValueDepthExceeded: value nesting exceeds 500 levels; container nesting compounds per level \\(security limit\\)\\.$",
+      "kind": "execution",
+      "code": "fatal_error",
+      "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-delete-connected-node",
+      "pattern": "^ConstraintVerificationFailed: DeleteConnectedNode: Cannot delete node with relationships unless DETACH$",
       "kind": "execution",
       "code": "fatal_error",
       "exit": 1,
@@ -478,6 +486,22 @@
       "kind": "execution",
       "code": "fatal_error",
       "exit": 1,
+      "retryable": false
+    },
+    {
+      "id": "engine-invalid-index-option",
+      "pattern": "^syntax error: Invalid input 'foo' for 'OPTIONS'\\. Expected 'indexConfig'\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
+      "retryable": false
+    },
+    {
+      "id": "engine-invalid-index-option",
+      "pattern": "^syntax error: Invalid input '[\\s\\S]+?' for 'OPTIONS'\\. Expected 'indexConfig'\\.$",
+      "kind": "syntax",
+      "code": "validation_error",
+      "exit": 6,
       "retryable": false
     },
     {
@@ -771,14 +795,6 @@
     {
       "id": "engine-procedure-not-found",
       "pattern": "^syntax error: ProcedureNotFound: [\\s\\S]+?$",
-      "kind": "syntax",
-      "code": "validation_error",
-      "exit": 6,
-      "retryable": false
-    },
-    {
-      "id": "engine-invalid-index-option",
-      "pattern": "^syntax error: InvalidIndexOption$",
       "kind": "syntax",
       "code": "validation_error",
       "exit": 6,

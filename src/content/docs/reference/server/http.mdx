@@ -6,7 +6,7 @@ surfaces: [http]
 related: [guides/serve/http-query-api, reference/cli/serve, reference/errors#http-query-api-errors, reference/server/bolt, reference/server/mcp, reference/security#served-surfaces, reference/limitations#server]
 ---
 
-`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 0.1.2.
+`relate serve --http PORT` hosts the :term[HTTP Query API]{id=http-query-api}: one JSON :term[statement]{id=statement} per `POST` to `/db/<name>/query/v2`, one JSON envelope back, in the request and response shape of Neo4j's Query API v2. It also serves managed transactions under `/query/v2/tx` and a public discovery document at `GET /`. No OpenAPI document is published for it; the tables on this page are the contract, and every response shown was captured from relate 1.0.0 or checked against it.
 
 ## Synopsis
 
@@ -48,7 +48,7 @@ curl -s http://127.0.0.1:8851/
 ```
 
 ```json
-{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"0.1.2","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
+{"query":"http://127.0.0.1:8851/db/{databaseName}/query/v2","transaction":"http://127.0.0.1:8851/db/{databaseName}/query/v2/tx","neo4j_version":"1.0.0","neo4j_edition":"community","auth_config":{"oidc_providers":[]},"bolt_direct":"bolt://127.0.0.1:8852"}
 ```
 
 | Key | Value |
@@ -156,7 +156,7 @@ curl -s -u <user>:<password> -X POST http://127.0.0.1:8851/db/neo4j/query/v2 \
 | Point | `{"type": "Point", "coordinates": [13.0, 55.6], "crs": {…}}`, `crs` naming the SRID, such as `4326` (`wgs-84`) | `Point` with `coordinates` and `crs` |
 | Byte array | A list of integers from 0 to 255 | A `List` of `Integer` |
 
-The `elementId` in this API is the node's or relationship's number as a string (`"0"`); Bolt 5.4 carries the `elementId()` form, such as `4:relate-neo4j:n0`. A byte array reaches the engine only as a Bolt or Rust parameter, never through this API's JSON.
+The `elementId` in this API is the node's or relationship's number as a string (`"0"`); Bolt 5.4 carries the `elementId()` form, such as `4:rl-id:n0`. A byte array reaches the engine only as a Bolt or Rust parameter, never through this API's JSON.
 
 ### Plans and notifications
 

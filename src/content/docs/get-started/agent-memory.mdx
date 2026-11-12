@@ -12,7 +12,7 @@ In about ten minutes, we give an agent a memory that outlives its session: one f
 
 ## Prerequisites
 
-- `relate` on your `PATH`: `relate --version` prints `Relate v0.1.2` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
+- `relate` on your `PATH`: `relate --version` prints `Relate v1.0.0` on its first line. The [install page](/docs/get-started/install) takes about two minutes.
 - A terminal on macOS or Linux, in an empty directory.
 
 ## Create the memory store
@@ -148,7 +148,7 @@ serve: MCP (stdio) serving on stdin/stdout (auth: none)
 serve: stdin closed, shutting down
 ```
 
-The server answered each request and stopped when its input ended, as it does when a host closes it. `replies.jsonl` holds two lines, since a notification gets no reply. The first names the server, `relate-mcp` 0.1.2. The second is the write's result as JSON text inside the reply: `write_cypher` returns counters, not rows, so it shows `"nodes_created":2` and `"relationships_created":6`, an empty `rows`, and timings that change on every run. Let's read the store to see what the write did:
+The server answered each request and stopped when its input ended, as it does when a host closes it. `replies.jsonl` holds two lines, since a notification gets no reply. The first names the server, `relate-mcp` 1.0.0. The second is the write's result as JSON text inside the reply: `write_cypher` returns counters, not rows, so it shows `"nodes_created":2` and `"relationships_created":6`, an empty `rows`, and timings that change on every run. Let's read the store to see what the write did:
 
 ```bash verify
 relate --database ./memory.rl --read-only --mode table "MATCH (f:Fact)-[:FROM]->(ep:Episode) RETURN ep.id AS episode, ep.kind AS kind, f.text AS fact, f.closedAt IS NULL AS current ORDER BY episode"

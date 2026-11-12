@@ -101,10 +101,10 @@ relate info --database ./team
 ```text
 layout: native directory
 codec: parquet
-format version: 3
+format version: 5
 checkpoint LSN: 1
 commit timestamp: 1
-total bytes: 3556
+total bytes: 4032
 wal segments past checkpoint: 1
 nodes (at checkpoint LSN 1): 5
 relationships (at checkpoint LSN 1): 5
@@ -129,7 +129,7 @@ relate info --database ./catalog.rl
 layout: .rl bundle
 superblock version: 1
 codec: parquet
-format version: 3
+format version: 5
 checkpoint LSN: 4
 commit timestamp: 4
 total bytes: 45056
@@ -150,7 +150,7 @@ relate info --database ./catalog.rl --json
 ```
 
 ```text
-{"checkpoint_lsn":4,"codec":"parquet","commit_ts":4,"constraints":[{"enforced_label":null,"kind":"exists","label":"Project","name":"project_name","properties":["name"],"property_type":null,"relationship":false},{"enforced_label":null,"kind":"propertyType","label":"WORKS_ON","name":"works_since","properties":["since"],"property_type":"INTEGER","relationship":true}],"format_version":3,"indexes":[{"label":"Person","name":"person_name","property":"name"}],"layout":"bundle","node_count":2,"rel_count":1,"superblock_version":1,"total_bytes":45056,"wal_segments":1}
+{"checkpoint_lsn":4,"codec":"parquet","commit_ts":4,"constraints":[{"enforced_label":null,"kind":"exists","label":"Project","name":"project_name","properties":["name"],"property_type":null,"relationship":false},{"enforced_label":null,"kind":"propertyType","label":"WORKS_ON","name":"works_since","properties":["since"],"property_type":"INTEGER","relationship":true}],"format_version":5,"indexes":[{"label":"Person","name":"person_name","property":"name"}],"layout":"bundle","node_count":2,"rel_count":1,"superblock_version":1,"total_bytes":45056,"wal_segments":1}
 ```
 
 A `json`-codec copy of `./team`, made with `relate clone`, reports what its manifest holds:
@@ -168,7 +168,7 @@ checkpoint LSN: 1
 commit timestamp: 1
 total bytes: 1385
 wal segments past checkpoint: 1
-note: a JSON-codec store keeps the format version, counts and the index/constraint catalog in graph.json, which a cold info read never parses (ADR-0165)
+note: a JSON-codec store keeps the format version, counts and the index/constraint catalog in graph.json, which a cold info read never parses
 nodes: unavailable
 relationships: unavailable
 indexes: unavailable

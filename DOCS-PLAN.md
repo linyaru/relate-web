@@ -1526,9 +1526,9 @@ from the same collection, so they cannot go stale independently.
   after the v0.16.1 release; ADR-0016): `--format` ships as an alias of
   `--mode`, and `--timeout` (exit 7), `--pretty` and `toon` as the default
   under agent mode all ship.
-- **Package availability.** PyPI, npm and Maven publishes are launch-day
-  events; the install page needs the same `NOT_PUBLIC_YET` treatment the
-  cookbook uses so pre-launch builds do not link 404s.
+- **Package availability.** Since relate 1.0.0 each release publishes to
+  PyPI, npm and crates.io; the Java jars stay release downloads (no Maven
+  Central publish). `NOT_PUBLIC_YET` is empty.
 - **Numeric claims.** TCK wording differs between `MAINTAINING.md` and
   the root `public/llms.txt` ("100%, 3,892 / 3,892, strict run enforced in
   CI") and upstream today ("measured by the spec harness, reported

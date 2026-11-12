@@ -1,9 +1,9 @@
 // Links on the cookbook pages: how a link a recipe writes (for GitHub, relative
 // to the recipe file) becomes the site's, and which URLs are not public yet.
 //
-// A URL that is not public yet renders as its text only. Pre-launch, that is
-// the relate repository and relatedb.ai itself (LAUNCH.md); delete the
-// entries here at launch.
+// A URL that is not public yet renders as its text only. The list is empty
+// since the repositories and relatedb.ai went public with relate 1.0.0; a URL
+// that 404s until a release ships goes here.
 
 import { posix } from 'node:path';
 
@@ -13,8 +13,8 @@ import { posix } from 'node:path';
  */
 export const CANONICAL_ORIGIN = 'https://relatedb.ai';
 
-/** URLs that 404 until launch. */
-export const NOT_PUBLIC_YET: RegExp[] = [/^https:\/\/github\.com\/relatedb\//, /^https:\/\/relatedb\.ai/];
+/** URLs that 404 until a release ships them. */
+export const NOT_PUBLIC_YET: RegExp[] = [];
 
 export const isNotYetPublic = (url: string) => NOT_PUBLIC_YET.some((re) => re.test(url));
 

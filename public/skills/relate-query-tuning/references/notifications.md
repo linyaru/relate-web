@@ -3,7 +3,7 @@
 `EXPLAIN` and `PROFILE` attach notifications to a plan; a plain run derives
 none. Each has a GQLSTATUS code, a severity, a category, a title, a
 description that names the labels, properties and counts involved, and a
-remedy. The descriptions below are quoted from runs on relate 0.1.2; the
+remedy. The descriptions below are quoted from runs on relate 1.0.0; the
 parts that name labels, properties and counts vary. The Cypher statements
 run in order on one in-memory store.
 
@@ -21,6 +21,7 @@ from <https://relatedb.ai/cookbook/dependency-blast-radius/index.md>.
 | `03N91` | Unbounded variable-length pattern | A variable-length pattern with no upper bound | `the variable-length pattern (p:Person)-[:KNOWS*1..]->(q) has no upper bound` | ``Bound the expansion (`[:R*1..5]`) where arbitrary length is not required, or add a selective endpoint/label predicate and a `LIMIT`.`` |
 | `03C92` | Eager aggregation | An aggregation whose input is estimated at 100,000 rows or more | `the aggregation buffers an estimated 100000 input rows, at or above the 100000-row eager threshold` | ``Reduce the rows reaching the aggregation with a selective label/property predicate or a `LIMIT` before it; profile again to confirm the buffered input shrank.`` |
 | `03C93` | Estimation miss | `PROFILE` only: an operator whose estimate is 10 times its actual rows or more | `estimated rows 10x or more above the actual rows` | `Rework the operator's input so the estimate can see the filter (add the selective predicate at the scan, or reorder the join); the estimate is a planner assumption, not a runtime fact.` |
+| `03C94` | Label disjunction scan | An equality on a property of a label disjunction, such as `(p:Model OR p:Source) AND p.id = 1`, that no range index on each label serves | `the disjunction scan answers per label; consider the property index (:Model(id), :Source(id))` | `Create a range index on each disjunct label's filtered property: the disjunction then serves as per-label keyed lookups instead of per-label scans.` |
 
 ## Names, scope and deprecation
 
@@ -73,4 +74,4 @@ EXPLAIN MATCH (n {name: 'Ada'}) RETURN n
 
 `03C92` needs an aggregation over an estimated 100,000 rows or more, and
 `03C93` a `PROFILE` whose estimate misses by 10 times or more; both were
-reproduced on relate 0.1.2 over 100,000 nodes, too large for this file.
+reproduced on relate 1.0.0 over 100,000 nodes, too large for this file.

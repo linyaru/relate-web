@@ -11,7 +11,7 @@ A relate :term[store]{id=store} has one of three layouts, picked by the path giv
 ## Synopsis
 
 ```text
-relate --database <path> [--read-only[=live]] [--snapshot-format parquet|json|markdown|parquet-wide] [--wal-dir <dir>] [<statement>]
+relate --database <path> [--read-only[=live]] [--snapshot-format parquet|json|markdown] [--wal-dir <dir>] [<statement>]
 relate clone [--wal-dir <dir>] [--to-snapshot-format parquet|json|markdown] <source> <dest>
 relate info --database <path> [--json]
 ```
@@ -46,7 +46,7 @@ The codec is chosen when a store is created, with `--snapshot-format` or the `RE
 
 | Codec | Snapshot files | A checkpoint writes | Readable as text | `relate info` reports |
 | --- | --- | --- | --- | --- |
-| `parquet` (default) | `manifest.json`, `nodes/<lo>-<hi>-<hash>.parquet`, `relationships/<lo>-<hi>-<hash>.parquet` | The node and relationship id ranges that changed | No (columnar binary) | Format version, node and relationship counts at the checkpoint, and index and constraint counts |
+| `parquet` (default) | `manifest.json`, `nodes/<lo>-<hi>-<hash>.parquet`, `relationships/<lo>-<hi>-<hash>.parquet`, with a typed column per shared property key ([data files](#parquet-data-files)) | The node and relationship id ranges that changed | No (columnar binary) | Format version, node and relationship counts at the checkpoint, and index and constraint counts |
 | `json` | `manifest.json`, `graph.json` | The whole `graph.json` | Yes | Layout, codec, checkpoint, size; the rest as `unavailable` |
 | `markdown` | One note per node at `<Label>/<name>.md`, an `index.md` per label, a root `index.md` and `log.md`; engine state under `.cypherlite/` | The notes that changed; the index and log notes again | Yes | Layout, codec, checkpoint, size; the rest as `unavailable` |
 
@@ -71,14 +71,14 @@ WORKS_ON:
 ---
 ```
 
-`relate clone --to-snapshot-format <codec>` copies a store into a new store in another codec; the source is not written. In relate 0.1.2 a `markdown` store clones into a `.rl` file only with `--to-snapshot-format parquet` or `json` ([`relate clone`](/docs/reference/cli/clone#markdown-into-a-rl-file)).
+`relate clone --to-snapshot-format <codec>` copies a store into a new store in another codec; the source is not written. In relate 1.0.0 a `markdown` store clones into a `.rl` file only with `--to-snapshot-format parquet` or `json` ([`relate clone`](/docs/reference/cli/clone#markdown-into-a-rl-file)).
 
-### Wide-column parquet
+### Parquet data files
 
-`--snapshot-format parquet-wide` keeps the `parquet` codec and changes how its data files hold properties: a property key that the rows of a file share with one type (boolean, integer, float or string) gets a typed column of its own, named `p_<key>`, and the remaining properties stay in the tagged-JSON `properties` column. `relate info` reports the codec as `parquet` and the format version as `5` (`6` while the store holds an ontology). These commands create a wide directory store:
+A `parquet` data file gives each property key that its rows share with one type (boolean, integer, float or string) a typed column of its own, named `p_<key>`; the remaining properties stay in a tagged-JSON `properties` column. `relate info` reports the format version as `5` (`6` while the store holds an ontology). These commands create a directory store and read its format version:
 
 ```bash verify
-relate --database ./wide --snapshot-format parquet-wide "CREATE (:Person {name: 'Ada', role: 'engineer'}), (:Person {name: 'Grace', role: 'engineer'})"
+relate --database ./wide "CREATE (:Person {name: 'Ada', role: 'engineer'}), (:Person {name: 'Grace', role: 'engineer'})"
 ```
 
 ```bash verify
@@ -91,7 +91,7 @@ codec: parquet
 format version: 5
 ```
 
-The flag also applies to an existing `parquet` store, unlike the other values: the store's next checkpoint rewrites every data file in the wide form. From then on the manifest keeps the store wide, and later opens need no flag. It works on a directory store and a `.rl` file, and on `relate serve`. On a `json` or `markdown` store it fails the open with `storage error: snapshot codec mismatch: directory is <codec>, requested parquet`. `RELATE_SNAPSHOT_FORMAT` and `relate clone --to-snapshot-format` don't take `parquet-wide`, and a clone of a wide store is written at format version `3`; open the copy once with `--snapshot-format parquet-wide` to make it wide again.
+Releases up to and including 0.1.2 wrote every property in the tagged-JSON column (format version `3`, or `4` with an ontology) unless the store was opened with `--snapshot-format parquet-wide`. relate 1.0.0 reads those files, and the first checkpoint after a writable open, at the latest the one the open writes when it closes, rewrites every data file with typed columns; a `--read-only` open leaves them as they are. relate 0.1.2 reads format version `5` too, so it still opens the store afterwards. `parquet-wide` is no longer a `--snapshot-format` value: it fails with `invalid --snapshot-format: storage error: unknown snapshot format 'parquet-wide' (expected parquet or json or markdown)`.
 
 ## Directory store files
 
@@ -146,7 +146,7 @@ Each durable part of a store carries a version marker. A store is checked agains
 
 | Part | Marker | This release writes | This release reads |
 | --- | --- | --- | --- |
-| `parquet` snapshot | `format_version` in `manifest.json` | `3`; `4` while the store holds an ontology; `5` and `6` for a `parquet-wide` store | `1` to `6` |
+| `parquet` snapshot | `format_version` in `manifest.json` | `5`; `6` while the store holds an ontology | `1` to `6`; `3` and `4` are rewritten as `5` and `6` at the next checkpoint |
 | `json` snapshot | `value_encoding` in `graph.json` | `2`; `3` while the store holds an ontology | absent, `2`, `3` |
 | `markdown` snapshot | `value_encoding` in `.cypherlite/manifest.json` | `2`; `3` while the store holds an ontology | `1` to `3`; an absent marker counts as current |
 | WAL segment | The first 8 bytes | `MDBWAL01`; `MDBWAL02` for segments written while the store holds an ontology | `MDBWAL01`, `MDBWAL02` |
@@ -176,16 +176,16 @@ for store in items items-json items.rl items-clone.rl; do printf '%s: ' "$store"
 ```
 
 ```text
-items: total bytes: 2696219
+items: total bytes: 2270050
 items-json: total bytes: 9245067
-items.rl: total bytes: 19070976
-items-clone.rl: total bytes: 2723840
+items.rl: total bytes: 18640896
+items-clone.rl: total bytes: 2293760
 ```
 
 | Layout | Size characteristic |
 | --- | --- |
 | `parquet` directory store | The smallest of the durable forms: columnar, compressed data files |
-| `json` directory store | Larger than `parquet` for the same graph (about 3.4 times in the measurement, rounded) |
+| `json` directory store | Larger than `parquet` for the same graph (about 4 times in the measurement, rounded) |
 | `.rl` file | Grows to the most space its snapshot and WAL have needed at once, then reuses that space; it does not shrink. A large commit leaves the file larger than its content |
 | `.rl` file after `relate clone` | About the size of the `parquet` directory store: the clone holds only the current state |
 
@@ -206,7 +206,7 @@ items-clone.rl: total bytes: 2723840
 | Message | Exit code | When |
 | --- | --- | --- |
 | `storage error: snapshot codec mismatch: directory is <codec>, requested <codec>` | 1 | `--snapshot-format` names a codec other than the store's |
-| `Error: invalid --snapshot-format: storage error: unknown snapshot format '<value>' (expected parquet or json or markdown or parquet-wide)` | 2 | `--snapshot-format` is not a codec name |
+| `Error: invalid --snapshot-format: storage error: unknown snapshot format '<value>' (expected parquet or json or markdown)` | 2 | `--snapshot-format` is not a codec name |
 | `storage locked: <path>` | 5 | A second writable open, or a `--read-only` open of a `.rl` file a writer holds ([details](/docs/reference/errors#cli-conflict-locked)) |
 | `storage error: database not found: <path>` | 1 | A `--read-only` open of a missing `.rl` path |
 | `storage error: read-only open requires an existing database at <path>` | 1 | A `--read-only` open of a missing or empty directory |

@@ -5,7 +5,7 @@ node in the same graph, written by the same statement as the call itself
 and linked to every node the call wrote or returned. The write and its
 audit row then commit together or not at all: a `ToolCall` with
 `status: 'committed'` exists only if the write it describes committed. The
-statements below run in order on one in-memory store, on relate 0.1.2.
+statements below run in order on one in-memory store, on relate 1.0.0.
 
 Source: <https://relatedb.ai/cookbook/tool-call-provenance/index.md>, which
 replays twelve calls of one session, including two that fail, and audits
